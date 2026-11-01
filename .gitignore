@@ -1,0 +1,39 @@
+# Abhängigkeiten
+node_modules/
+.pnpm-store/
+
+# Build-Ausgaben
+dist/
+out/
+build/
+release/
+*.tsbuildinfo
+coverage/
+playwright-report/
+test-results/
+
+# Umgebung & Geheimnisse – niemals committen
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Laufzeitdaten / echte Projektdaten
+data/
+*.steckplan
+*.steckplan.lock
+!docs/**/*.steckplan
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp

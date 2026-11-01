@@ -1,0 +1,47 @@
+name: Fehler melden
+description: Etwas funktioniert nicht wie erwartet
+labels: ["bug"]
+body:
+  - type: textarea
+    id: beschreibung
+    attributes:
+      label: Was ist passiert?
+      description: Kurze Beschreibung des Fehlers
+    validations:
+      required: true
+  - type: textarea
+    id: schritte
+    attributes:
+      label: Schritte zum Nachstellen
+      placeholder: |
+        1. …
+        2. …
+        3. …
+    validations:
+      required: true
+  - type: textarea
+    id: erwartet
+    attributes:
+      label: Was hast du erwartet?
+  - type: dropdown
+    id: umgebung
+    attributes:
+      label: Wo tritt der Fehler auf?
+      multiple: true
+      options:
+        - Desktop macOS
+        - Desktop Windows
+        - Docker / Browser
+        - Weboberfläche am Handy/Tablet
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Zu finden unter „Über Steckplan“
+  - type: textarea
+    id: zusatz
+    attributes:
+      label: Weitere Infos
+      description: Screenshots, Logs (ohne Passwörter!)
