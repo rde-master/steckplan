@@ -28,7 +28,15 @@ export interface PresenceUser {
 }
 
 export type ServerInfo =
-  | { type: 'welcome'; connectionId: string; access: Access; readOnly: boolean; readOnlyReason?: string }
+  | {
+      type: 'welcome';
+      connectionId: string;
+      access: Access;
+      readOnly: boolean;
+      readOnlyReason?: string;
+      /** Vorlagen-Abgleich wartet auf eine Entscheidung */
+      reconcilePending?: boolean;
+    }
   | { type: 'presence'; users: PresenceUser[] }
   | { type: 'notice'; message: string };
 

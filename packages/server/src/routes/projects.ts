@@ -5,12 +5,15 @@ import {
   createEmptyProject,
   newId,
   parseProject,
+  projectUsage,
   ProjectFormatError,
   serializeProject,
   withoutSecrets,
   type Project,
+  type Resolution,
 } from '@steckplan/core';
 import { requireSession } from '../auth/plugin';
+import type { UsageTracker } from '../library/usage-tracker';
 import { isManagedStore, ProjectNotFoundError } from '../storage/types';
 import type { RoomManager } from '../sync/rooms';
 
@@ -32,7 +35,7 @@ function contentDisposition(fileName: string): string {
   return `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(fileName)}`;
 }
 
-export function registerProjectRoutes(app: FastifyInstance, rooms: RoomManager): void {
+export function registerProjectRoutes(app: FastifyInstance, rooms: RoomManager, usage: UsageTracker): void {
   const store = rooms.store;
 
   async function currentProject(id: string): Promise<Project> {
@@ -89,7 +92,9 @@ export function registerProjectRoutes(app: FastifyInstance, rooms: RoomManager):
       throw error;
     }
     // Hochgeladene Projekte bekommen immer eine neue id (kein Überschreiben vorhandener Projekte).
+    // Der Vorlagen-Abgleich (ggf. mit Nachfrage) passiert beim ersten Öffnen.
     const id = await store.create({ ...project, id: newId() });
+    usage.record(store.persistentKey(id), project.meta.name, projectUsage(project));
     return reply.code(201).send({ id });
   });
 
@@ -104,6 +109,7 @@ export function registerProjectRoutes(app: FastifyInstance, rooms: RoomManager):
       if (error instanceof ProjectNotFoundError) return notFound(reply);
       throw error;
     }
+    usage.remove(store.persistentKey(request.params.id));
     return { ok: true };
   });
 
@@ -123,6 +129,44 @@ export function registerProjectRoutes(app: FastifyInstance, rooms: RoomManager):
       throw error;
     }
   });
+
+  // ---------- Vorlagen-Abgleich ----------
+
+  app.get<{ Params: { id: string } }>('/api/projects/:id/conflicts', async (request, reply) => {
+    if (!requireSession(request, reply)) return reply;
+    try {
+      const room = await rooms.get(request.params.id);
+      return { pending: room.reconcilePending, conflicts: room.conflicts() };
+    } catch (error) {
+      if (error instanceof ProjectNotFoundError) return notFound(reply);
+      throw error;
+    }
+  });
+
+  app.post<{ Params: { id: string }; Body: { resolutions?: Record<string, Resolution> } }>(
+    '/api/projects/:id/conflicts',
+    async (request, reply) => {
+      const session = requireSession(request, reply, 'editProject');
+      if (!session) return reply;
+      let room;
+      try {
+        room = await rooms.get(request.params.id);
+      } catch (error) {
+        if (error instanceof ProjectNotFoundError) return notFound(reply);
+        throw error;
+      }
+      if (!room.reconcilePending) return { ok: true };
+      const resolutions = request.body?.resolutions ?? {};
+      const valid = Object.values(resolutions).every((r) => r === 'keep' || r === 'theirs' || r === 'copy');
+      if (!valid) return reply.code(400).send({ error: 'Ungültige Entscheidung.' });
+      try {
+        await room.resolveConflicts(resolutions, session.name);
+      } catch (error) {
+        return reply.code(400).send({ error: (error as Error).message });
+      }
+      return { ok: true };
+    },
+  );
 
   // ---------- Versionen ----------
 

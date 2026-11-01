@@ -27,6 +27,8 @@ export interface ProjectStore {
   load(id: string): Promise<Project>;
   save(id: string, project: Project): Promise<void>;
   readOnlyReason(id: string): string | undefined;
+  /** Dauerhafte Kennung für die Nutzungsübersicht (Docker: id, lokal: Dateipfad) */
+  persistentKey(id: string): string;
 }
 
 /** Zusätzliche Funktionen des Docker-Datenordners. */
