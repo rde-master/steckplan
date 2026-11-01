@@ -6,6 +6,7 @@ node_modules/
 dist/
 out/
 build/
+!apps/desktop/build/
 release/
 *.tsbuildinfo
 coverage/
