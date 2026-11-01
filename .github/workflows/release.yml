@@ -77,6 +77,8 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - uses: docker/build-push-action@v7
+        env:
+          DOCKER_BUILD_RECORD_UPLOAD: 'false'
         with:
           context: .
           file: apps/docker/Dockerfile
@@ -100,6 +102,7 @@ jobs:
       - uses: actions/download-artifact@v8
         with:
           path: installer
+          pattern: installer-*
           merge-multiple: true
       - name: Release-Notizen aus CHANGELOG
         run: |
