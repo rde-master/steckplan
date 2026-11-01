@@ -15,6 +15,7 @@ import {
   lengthContext,
   updateCables,
   dockedPosition,
+  standLayout,
   duplicateDevices,
   findDockTarget,
   isCarrierKind,
@@ -46,7 +47,7 @@ import { ChecksPanel } from '../signalflow/ChecksPanel';
 import { LibrarySidebar } from '../signalflow/LibrarySidebar';
 import { PropertiesPanel } from '../signalflow/PropertiesPanel';
 import { FilterBar } from '../FilterBar';
-import { buildMulticoreRoutes, buildStageCables, buildStageItems } from './model';
+import { buildMulticoreRoutes, buildStageCables, buildStageGroupFrames, buildStageItems } from './model';
 import { BackgroundPanel, LayersPanel, UnplacedPanel } from './SidePanels';
 import { StagePlanCanvas, type StagePt } from './StagePlanCanvas';
 import { ShapeProperties, StageDeviceSection } from './StageProperties';
@@ -77,7 +78,10 @@ export function StagePlanView({ doc, data, library, editable, undo }: { doc: Y.D
 
   const templates = useMemo(() => new Map((library?.templates ?? []).map((t) => [t.id, t])), [library]);
   const issues = useIssues(data, library);
-  const items = useMemo(() => buildStageItems(data.devices, library, data.layers, { colorMode, filter }), [data.devices, library, data.layers, colorMode, filter]);
+  const items = useMemo(() => buildStageItems(data.devices, library, data.layers, { colorMode, filter, people: data.people }), [data.devices, library, data.layers, colorMode, filter, data.people]);
+  const showStageGroups = useEditor((st) => st.showStageGroups);
+  const setShowStageGroups = useEditor((st) => st.setShowStageGroups);
+  const groupFrames = useMemo(() => (showStageGroups ? buildStageGroupFrames(data.groups, items) : []), [showStageGroups, data.groups, items]);
   const stageCables = useMemo(() => buildStageCables(data.cables, data.devices, library, data.layers, filter, issues), [data.cables, data.devices, library, data.layers, filter, issues]);
   const multicores = useMemo(() => buildMulticoreRoutes(data.devices, library, data.layers, filter), [data.devices, library, data.layers, filter]);
   const lengthCtx = useMemo(() => lengthContext(data.devices, library?.templates ?? [], data.settings), [data.devices, library, data.settings]);
@@ -108,13 +112,38 @@ export function StagePlanView({ doc, data, library, editable, undo }: { doc: Y.D
       const exclude = new Set([device.id, ...dependents([device.id], data.devices).map((d) => d.id)]);
       const target = findDockTarget(center, data.devices, templates, exclude);
       if (target) {
-        const pos = dockedPosition(target, templates, center);
+        // Stativ: zunächst an der Ablagestelle (bestimmt die Reihenfolge), danach verteilt standLayout nebeneinander
+        const pos = templates.get(target.carrier.templateId)?.kind === 'stand' ? center : dockedPosition(target, templates, center);
         return target.kind === 'mount'
           ? { mountedOnId: target.carrier.id, ...placementPatch(device, pos, { standsOnId: undefined }) }
           : { mountedOnId: undefined, ...placementPatch(device, pos, { standsOnId: target.carrier.id }) };
       }
     }
     return { mountedOnId: undefined, ...placementPatch(device, snapPt(center), { standsOnId: undefined }) };
+  }
+
+  /** Ergänzt Änderungen um die Neuverteilung auf allen betroffenen Stativen (alter und neuer Träger). */
+  function withStandLayout(patches: { id: string; patch: Partial<DeviceInstance> }[], added: DeviceInstance[] = []): { id: string; patch: Partial<DeviceInstance> }[] {
+    const patched = new Map(patches.map((x) => [x.id, x.patch]));
+    const after = [...data.devices, ...added].map((d) => (patched.has(d.id) ? { ...d, ...patched.get(d.id) } : d));
+    const standIds = new Set<string>();
+    for (const { id, patch } of patches) {
+      for (const carrierId of [byId.get(id)?.mountedOnId, 'mountedOnId' in patch ? patch.mountedOnId : byId.get(id)?.mountedOnId]) {
+        if (carrierId && templates.get(byId.get(carrierId)?.templateId ?? '')?.kind === 'stand') standIds.add(carrierId);
+      }
+    }
+    const result = new Map(patches.map((x) => [x.id, { ...x.patch }]));
+    for (const standId of standIds) {
+      const stand = after.find((d) => d.id === standId);
+      if (!stand) continue;
+      for (const placement of standLayout(stand, after, templates)) {
+        const current = after.find((d) => d.id === placement.id)!;
+        const patch = result.get(placement.id) ?? {};
+        patch.stagePlan = { ...current.stagePlan!, ...patch.stagePlan, position: placement.position, rotationDeg: placement.rotationDeg ?? 0 };
+        result.set(placement.id, patch);
+      }
+    }
+    return [...result.entries()].map(([id, patch]) => ({ id, patch }));
   }
 
   function moveDevices(moves: { id: string; x: number; y: number }[]) {
@@ -131,7 +160,7 @@ export function StagePlanView({ doc, data, library, editable, undo }: { doc: Y.D
   function deviceDrop(id: string, center: StagePt, noDock: boolean) {
     const device = byId.get(id);
     if (!device) return;
-    updateDevices(doc, [{ id, patch: dropPatch(device, templates.get(device.templateId), center, noDock) }], undo.origin);
+    updateDevices(doc, withStandLayout([{ id, patch: dropPatch(device, templates.get(device.templateId), center, noDock) }]), undo.origin);
     undo.stop();
   }
 
@@ -151,7 +180,7 @@ export function StagePlanView({ doc, data, library, editable, undo }: { doc: Y.D
     const device = addDevice(doc, template, pos, undo.origin, { view: 'stagePlan', layerId });
     const created = { ...device };
     const patch = dropPatch(created, template, pos, false);
-    updateDevices(doc, [{ id: device.id, patch }], undo.origin);
+    updateDevices(doc, withStandLayout([{ id: device.id, patch }], [created]), undo.origin);
     undo.stop();
     select({ devices: [device.id] });
     if (narrow) setMobilePanel('none');
@@ -168,7 +197,7 @@ export function StagePlanView({ doc, data, library, editable, undo }: { doc: Y.D
       return;
     }
     const placed = { ...device, stagePlan: { position: pos, rotationDeg: 0 } };
-    updateDevices(doc, [{ id, patch: { layerId: device.layerId || layerId || device.layerId, ...dropPatch(placed, templates.get(device.templateId), pos, false) } }], undo.origin);
+    updateDevices(doc, withStandLayout([{ id, patch: { layerId: device.layerId || layerId || device.layerId, ...dropPatch(placed, templates.get(device.templateId), pos, false) } }]), undo.origin);
     undo.stop();
     select({ devices: [id] });
   }
@@ -459,6 +488,12 @@ export function StagePlanView({ doc, data, library, editable, undo }: { doc: Y.D
           <input type="checkbox" checked={showCables} onChange={(e) => setShowCables(e.target.checked)} />
           {s.showCables}
         </label>
+        {data.groups.length > 0 && (
+          <label className="ml-2 flex items-center gap-1 text-xs" title={texts.groups.showTitle}>
+            <input type="checkbox" checked={showStageGroups} onChange={(e) => setShowStageGroups(e.target.checked)} />
+            {texts.groups.show}
+          </label>
+        )}
         <div className="flex-1" />
         <Button variant="ghost" className="min-h-9 px-2" aria-label={texts.signalflow.zoomOut} onClick={() => zoomBy(1 / 1.25)}>
           −
@@ -495,6 +530,7 @@ export function StagePlanView({ doc, data, library, editable, undo }: { doc: Y.D
             cables={stageCables}
             multicores={multicores}
             showCables={showCables}
+            groupFrames={groupFrames}
             lengthLabel={lengthLabel}
             onCableWaypoints={(id, waypoints) => {
               updateCables(doc, [{ id, patch: { waypoints } }], undo.origin);

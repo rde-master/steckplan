@@ -111,6 +111,8 @@ export const TemplateSchema = z.object({
   defaultColor: z.string().optional(),
   defaultOwnerId: id.optional(),
   defaultTrailerId: id.optional(),
+  /** Standard-Case (seit Format 4) */
+  defaultCaseId: id.optional(),
   shape: z
     .object({
       form: z.enum(['rect', 'circle', 'rounded']),

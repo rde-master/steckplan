@@ -1,5 +1,5 @@
 // Packliste zum Abhaken (Desktop, Browser, Handy): Hin/Zurück, fehlt/defekt, Zähler bei zusammengefassten Zeilen.
-import { useMemo, useState } from 'react';
+import { createContext, useContext, useMemo, useState } from 'react';
 import {
   buildPackingList,
   formatCableLength,
@@ -13,6 +13,7 @@ import {
   type PackGroup,
   type PackItem,
   type PackRow,
+  masterLabel,
 } from '@steckplan/core';
 import { api, errorMessage } from '../../lib/api';
 import { useEditor } from '../../lib/editor';
@@ -24,6 +25,21 @@ import { selectClass } from '../library/fields';
 
 const p = texts.packing;
 type Direction = 'out' | 'in';
+
+/** Zusatzangaben je Exemplar: Kategorie · Besitzer · Anhänger · Case (und Person) */
+const InfoContext = createContext<(item: PackItem) => { meta: string; person?: string }>(() => ({ meta: '' }));
+
+function ItemInfo({ item }: { item: PackItem }) {
+  const info = useContext(InfoContext)(item);
+  if (!info.meta && !info.person) return null;
+  return (
+    <div className="text-xs text-slate-500 dark:text-slate-400" data-testid="pack-info">
+      {info.person && <span className="font-medium text-sky-700 dark:text-sky-300">{info.person}</span>}
+      {info.person && info.meta ? ' · ' : ''}
+      {info.meta}
+    </div>
+  );
+}
 
 interface Props {
   projectId: string;
@@ -46,13 +62,38 @@ export function PackingListView({ projectId, data, library, canCheck, canReset }
     if (!library) return [];
     const devices = new Map(data.devices.map((d) => [d.id, d]));
     const cables = new Map(data.cables.map((c) => [c.id, c]));
-    return packItems({ devices: data.devices, cables: data.cables, settings: { gridMm: 500, snap: true, defaultReservePercent: 10, defaultReservePerEndMm: 500, ...data.settings } }, library).filter((item) => {
+    const project = {
+      devices: data.devices,
+      cables: data.cables,
+      settings: { gridMm: 500, snap: true, defaultReservePercent: 10, defaultReservePerEndMm: 500, ...data.settings },
+      people: data.people,
+      caseTrailers: data.caseTrailers,
+    };
+    return packItems(project, library).filter((item) => {
       const d = devices.get(item.id);
-      if (d) return deviceMatches(filter, d, templates.get(d.templateId));
+      const ctx = { caseTrailers: data.caseTrailers, cases: library.masterData.cases };
+      if (d) return deviceMatches(filter, d, templates.get(d.templateId), ctx);
       const c = cables.get(item.id);
-      return c ? cableMatches(filter, c, templates.get(c.templateId ?? '')) : true;
+      return c ? cableMatches(filter, c, templates.get(c.templateId ?? ''), ctx) : true;
     });
   }, [data, library, filter, templates]);
+
+  const info = useMemo(
+    () => (item: PackItem) => ({
+      meta: library
+        ? [
+            masterLabel(library, 'categories', item.categoryId),
+            masterLabel(library, 'owners', item.ownerId),
+            masterLabel(library, 'trailers', item.trailerId),
+            item.caseId ? `${p.inCase} ${masterLabel(library, 'cases', item.caseId)}` : '',
+          ]
+            .filter(Boolean)
+            .join(' · ')
+        : '',
+      ...(item.person ? { person: item.person } : {}),
+    }),
+    [library],
+  );
 
   const list = useMemo(() => (library ? buildPackingList(items, library, { groupBy: thenBy ? [groupBy, thenBy] : [groupBy], mode }) : null), [items, library, groupBy, thenBy, mode]);
 
@@ -69,12 +110,13 @@ export function PackingListView({ projectId, data, library, canCheck, canReset }
   const done = { out: items.filter((i) => i.check?.out).length, in: items.filter((i) => i.check?.in).length };
 
   return (
+    <InfoContext.Provider value={info}>
     <div className="mx-auto w-full max-w-4xl space-y-3 p-3">
       <div className="flex flex-wrap items-end gap-2">
         <label className="text-sm">
           <span className="block text-xs text-slate-500">{p.groupBy}</span>
           <select className={`${selectClass} w-auto`} value={groupBy} onChange={(e) => setGroupBy(e.target.value as GroupBy)} aria-label={p.groupBy}>
-            {(['category', 'trailer', 'owner'] as const).map((g) => (
+            {(['category', 'trailer', 'case', 'owner'] as const).map((g) => (
               <option key={g} value={g}>
                 {p.groups[g]}
               </option>
@@ -85,7 +127,7 @@ export function PackingListView({ projectId, data, library, canCheck, canReset }
           <span className="block text-xs text-slate-500">{p.thenBy}</span>
           <select className={`${selectClass} w-auto`} value={thenBy} onChange={(e) => setThenBy(e.target.value as GroupBy | '')} aria-label={p.thenBy}>
             <option value="">–</option>
-            {(['category', 'trailer', 'owner'] as const)
+            {(['category', 'trailer', 'case', 'owner'] as const)
               .filter((g) => g !== groupBy)
               .map((g) => (
                 <option key={g} value={g}>
@@ -156,6 +198,7 @@ export function PackingListView({ projectId, data, library, canCheck, canReset }
         </Modal>
       )}
     </div>
+    </InfoContext.Provider>
   );
 }
 
@@ -214,7 +257,10 @@ function AggregatedRow({ row, canCheck, onCheck }: { row: PackRow; canCheck: boo
         <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} className="flex min-w-0 flex-1 items-center gap-2 text-left">
           <span className="text-slate-400">{open ? '▾' : '▸'}</span>
           <span className="font-semibold tabular-nums">{n} ×</span>
-          <span className="truncate">{rowTitle(row)}</span>
+          <span className="min-w-0">
+            <span className="block truncate">{rowTitle(row)}</span>
+            <ItemInfo item={{ ...row.items[0]!, person: [...new Set(row.items.map((i) => i.person).filter(Boolean))].join(', ') || undefined }} />
+          </span>
         </button>
         {counter('out')}
         {counter('in')}
@@ -240,6 +286,8 @@ function ItemRow({ item, title = false, canCheck, onCheck }: { item: PackItem; t
           {item.label || (title ? '' : item.name)}
         </div>
         <div className="text-xs text-slate-500">{[item.route, item.inventoryNo, item.carrier && `${p.at} ${item.carrier}`, item.notes].filter(Boolean).join(' · ')}</div>
+        {title && <ItemInfo item={item} />}
+        {!title && item.person && <div className="text-xs font-medium text-sky-700 dark:text-sky-300">{item.person}</div>}
       </div>
       <CheckControl item={item} direction="out" canCheck={canCheck} onCheck={onCheck} />
       <CheckControl item={item} direction="in" canCheck={canCheck} onCheck={onCheck} />

@@ -37,11 +37,12 @@ function setup(): { data: ProjectData; library: Library } {
   const library: Library = {
     ...createEmptyLibrary('l'),
     templates: [
+      t({ id: 'mic', kind: 'device', name: 'Funkmikro', usedByPerson: true, ports: [{ id: 'o', label: 'Out', connector: 'XLR', direction: 'out', signal: 'Audio' }] }),
       t({ id: 'spot', kind: 'device', name: 'Spot Ü', categoryId: 'licht', defaultColor: '#f59e0b', shape: { form: 'rect', widthMm: 400, depthMm: 400 }, ports: [{ id: 'o', label: 'Out', connector: 'XLR', direction: 'out', signal: 'DMX' }, { id: 'i', label: 'In', connector: 'XLR', direction: 'in', signal: 'DMX' }], dmxModes: [{ name: '16ch', channels: 16 }] }),
       t({ id: 'stand', kind: 'stand', name: 'Stativ', shape: { form: 'circle', widthMm: 1200, depthMm: 1200, heightMm: 3000 } }),
       t({ id: 'xlr', kind: 'cableType', name: 'XLR', connectorA: 'XLR', connectorB: 'XLR', availableLengthsMm: [5000, 10000, 20000, 50000] }),
     ],
-    masterData: { categories: [{ id: 'licht', name: 'Licht', color: '#f59e0b' }], owners: [{ id: 'r', name: 'Ralf' }], trailers: [{ id: 'h', name: 'Hänger 1' }] },
+    masterData: { categories: [{ id: 'licht', name: 'Licht', color: '#f59e0b' }], owners: [{ id: 'r', name: 'Ralf' }], trailers: [{ id: 'h', name: 'Hänger 1' }], cases: [{ id: 'k', name: 'Kabelcase 1', defaultTrailerId: 'h' }] },
   };
   const project = createEmptyProject({ name: 'Stadtfest', meta: { venue: 'Marktplatz', date: '2026-07-04', planner: 'Ralf', version: '3' } });
   const devices = Array.from({ length: 60 }, (_, i) => ({
@@ -55,14 +56,24 @@ function setup(): { data: ProjectData; library: Library } {
     signalFlow: { position: { x: (i % 10) * 220, y: Math.floor(i / 10) * 120 } },
     dmx: { modeName: '16ch', universe: 1, address: 1 + i * 16 },
   }));
+  const mics = [
+    { id: 'm1', templateId: 'mic', layerId: project.layers[0]!.id, label: 'Mikro 1', personId: 'anna' },
+    { id: 'm2', templateId: 'mic', layerId: project.layers[0]!.id, label: 'Mikro 2' },
+  ];
   const data: ProjectData = {
-    devices: [...devices, { id: 's', templateId: 'stand', layerId: project.layers[0]!.id, label: 'Stativ 1', stagePlan: { position: { x: 0, y: 14000 }, rotationDeg: 0 } }],
-    cables: devices.slice(0, 20).map((d, i) => ({ id: `c${i}`, templateId: 'xlr', from: { deviceId: d.id, portId: 'o' }, to: { deviceId: devices[i + 1]!.id, portId: 'i' }, waypoints: [], ...(i === 0 ? { check: { in: { at: T0, by: 'Anna', status: 'damaged' as const, note: 'Knick' } } } : {}) })),
+    devices: [...devices, ...mics, { id: 's', templateId: 'stand', layerId: project.layers[0]!.id, label: 'Stativ 1', stagePlan: { position: { x: 0, y: 14000 }, rotationDeg: 0 } }],
+    cables: [
+      ...devices.slice(0, 20).map((d, i) => ({ id: `c${i}`, templateId: 'xlr', from: { deviceId: d.id, portId: 'o' }, to: { deviceId: devices[i + 1]!.id, portId: 'i' }, waypoints: [], ...(i === 0 ? { check: { in: { at: T0, by: 'Anna', status: 'damaged' as const, note: 'Knick' } } } : {}), ...(i === 1 ? { caseId: 'k' } : {}) })),
+      { id: 'cm', templateId: 'xlr', from: { deviceId: 'm1', portId: 'o' }, to: { deviceId: 'd5', portId: 'i' }, waypoints: [], manualLengthMm: 10000, label: 'A5' },
+    ],
     layers: project.layers,
     shapes: [{ id: 'w', kind: 'wall', layerId: project.layers[0]!.id, points: [{ x: -1000, y: -1000 }, { x: 20000, y: -1000 }], rotationDeg: 0, strokeWidthMm: 200 }],
     background: undefined,
     settings: project.settings,
     network: { subnets: [], wifi: [{ id: 'w1', ssid: 'Crew-Netz', security: 'WPA2', hidden: false }] },
+    people: [{ id: 'anna', lastName: 'Muster', firstName: 'Anna', kind: 'Sängerin' }],
+    groups: [],
+    caseTrailers: [],
   };
   return { data, library };
 }
@@ -137,6 +148,27 @@ describe('PDF-Export', () => {
     expect((await render(await exportDoc({ kind: 'network' }))).text).toContain('Keine Einträge');
   });
 
+  it('Personenliste und Geräte-Etiketten', async () => {
+    const people = (await render(await exportDoc({ kind: 'people' }))).text;
+    expect(people).toContain('Muster, Anna');
+    expect(people).toContain('Sängerin');
+    expect(people).toContain('Spot 6 · In');
+    expect(people).toContain('(nicht zugeordnet)');
+    const labels = await render(await exportDoc({ kind: 'labels', labelFormat: '105x48', cutLines: true }));
+    expect(labels.pages).toBe(1);
+    expect(labels.text).toContain('Mikro 1');
+    expect(labels.text).toContain('Anna Muster');
+    expect(labels.text).toContain('Out –> Spot 6 · In (XLR 10 m, A5)');
+    expect(labels.text).toContain('Person nicht zugeordnet');
+  });
+
+  it('Packliste mit Case-Spalte und Gruppierung nach Case', async () => {
+    const { text } = await render(await exportDoc({ kind: 'packing', groupBy: 'trailer', thenBy: 'case' }));
+    expect(text).toContain('Kabelcase 1');
+    expect(text).toContain('nicht im Case');
+    expect(text).toContain('Anna Muster');
+  });
+
   it('WLAN-Aushang: Passwort nur, wenn vorhanden und gewünscht', async () => {
     const withPw = await render(await exportDoc({ kind: 'wifi', format: 'A4', orientation: 'portrait' }, { w1: 'ge;heim' }));
     expect(withPw.text).toContain('Crew-Netz');
@@ -152,7 +184,7 @@ describe('CSV und Dateinamen', () => {
   it('CSV gefiltert wie auf dem Bildschirm', () => {
     const { data, library } = setup();
     const csv = buildCsv('packing', data, library, { ...EMPTY_FILTER, trailers: ['h'] });
-    expect(csv.split('\r\n').filter(Boolean)).toHaveLength(1 + 30); // Kopf + 30 Spots mit Anhänger
+    expect(csv.split('\r\n').filter(Boolean)).toHaveLength(1 + 31); // Kopf + 30 Spots mit Anhänger + 1 Kabel im Case dieses Anhängers
     expect(buildCsv('dmx', data, library, EMPTY_FILTER)).toContain('1;17;32;Spot 2');
   });
 

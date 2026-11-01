@@ -4,7 +4,7 @@ import type { Library } from '../library/library';
 import { formatCableLength } from '../logistics/format';
 import { computeCableLength, lengthContext } from '../logistics/length';
 import { newId } from '../model/project';
-import type { Cable, DeviceInstance, Person, Project, Template } from '../model/schema';
+import type { Cable, CaseTrailer, DeviceInstance, Person, Project, Template } from '../model/schema';
 import { findPort } from '../signalflow/ports';
 
 type Json = Record<string, unknown>;
@@ -40,6 +40,29 @@ export function personKinds(people: Person[], extra: string[] = ['Musiker', 'Mod
 }
 
 // ---------- Änderungen am Live-Dokument ----------
+
+export function readCaseTrailers(doc: Y.Doc): CaseTrailer[] {
+  return Object.values(doc.getMap('caseTrailers').toJSON() as Record<string, CaseTrailer>);
+}
+
+/** Case in diesem Projekt einem anderen Anhänger zuordnen (undefined = Standard-Anhänger des Cases). */
+export function setCaseTrailer(doc: Y.Doc, caseId: string, trailerId: string | undefined, isDefault: boolean, origin: unknown): void {
+  doc.transact(() => {
+    const map = doc.getMap<Y.Map<unknown>>('caseTrailers');
+    if (isDefault) {
+      map.delete(caseId);
+      return;
+    }
+    let entry = map.get(caseId);
+    if (!entry) {
+      entry = new Y.Map<unknown>();
+      map.set(caseId, entry);
+      entry.set('id', caseId);
+    }
+    if (trailerId) entry.set('trailerId', trailerId);
+    else entry.delete('trailerId');
+  }, origin);
+}
 
 export function readPeople(doc: Y.Doc): Person[] {
   return Object.values(doc.getMap('people').toJSON() as Record<string, Person>).sort(comparePeople);

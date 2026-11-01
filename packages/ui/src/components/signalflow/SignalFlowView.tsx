@@ -4,7 +4,9 @@ import type * as Y from 'yjs';
 import {
   addCable,
   addDevice,
+  assignGroup,
   autoCableType,
+  createGroup,
   duplicateDevices,
   isMulticore,
   removeCables,
@@ -26,7 +28,7 @@ import { FilterBar } from '../FilterBar';
 import { ChecksPanel } from './ChecksPanel';
 import { LibrarySidebar } from './LibrarySidebar';
 import { Minimap } from './Minimap';
-import { bounds, buildBoxes, buildCableLines } from './model';
+import { bounds, buildBoxes, buildCableLines, buildGroupFrames } from './model';
 import { PropertiesPanel } from './PropertiesPanel';
 import { SignalFlowCanvas, type PortRef } from './SignalFlowCanvas';
 import { Toolbar, type AlignMode } from './Toolbar';
@@ -51,7 +53,8 @@ export function SignalFlowView({ doc, data, library, editable, undo }: { doc: Y.
   const [viewport, setViewport] = useState({ width: 800, height: 600 });
 
   const issues = useIssues(data, library);
-  const boxes = useMemo(() => buildBoxes(data.devices, library, showStageObjects, { colorMode, filter }), [data.devices, library, showStageObjects, colorMode, filter]);
+  const boxes = useMemo(() => buildBoxes(data.devices, library, showStageObjects, { colorMode, filter, people: data.people }), [data.devices, library, showStageObjects, colorMode, filter, data.people]);
+  const groupFrames = useMemo(() => buildGroupFrames(data.groups, boxes), [data.groups, boxes]);
   const lines = useMemo(() => buildCableLines(data.cables, boxes, library, issues, filter), [data.cables, boxes, library, issues, filter]);
   const occupied = useMemo(() => new Set(data.cables.flatMap((c) => [`${c.from.deviceId}/${c.from.portId}`, `${c.to.deviceId}/${c.to.portId}`])), [data.cables]);
   const templates = useMemo(() => new Map((library?.templates ?? []).map((t) => [t.id, t])), [library]);
@@ -103,6 +106,7 @@ export function SignalFlowView({ doc, data, library, editable, undo }: { doc: Y.
               templateId: choice.template.id,
               ...(choice.template.defaultOwnerId ? { ownerId: choice.template.defaultOwnerId } : {}),
               ...(choice.template.defaultTrailerId ? { trailerId: choice.template.defaultTrailerId } : {}),
+              ...(choice.template.defaultCaseId ? { caseId: choice.template.defaultCaseId } : {}),
             }
           : choice.kind === 'direct'
             ? { direct: true }
@@ -129,6 +133,18 @@ export function SignalFlowView({ doc, data, library, editable, undo }: { doc: Y.
     removeCables(doc, selection.cables, undo.origin);
     undo.stop();
     clearSelection();
+  }
+
+  // Gruppen: Auswahl gruppieren bzw. aus der Gruppe lösen
+  function group() {
+    if (!editable || selection.devices.length === 0) return;
+    createGroup(doc, selection.devices, undo.origin);
+    undo.stop();
+  }
+  function ungroup() {
+    if (!editable || selection.devices.length === 0) return;
+    assignGroup(doc, selection.devices, undefined, undo.origin);
+    undo.stop();
   }
 
   function duplicate() {
@@ -231,6 +247,10 @@ export function SignalFlowView({ doc, data, library, editable, undo }: { doc: Y.
       } else if (editable && mod && e.key.toLowerCase() === 'd') {
         e.preventDefault();
         duplicate();
+      } else if (editable && mod && e.key.toLowerCase() === 'g') {
+        e.preventDefault();
+        if (e.shiftKey) ungroup();
+        else group();
       } else if (mod && e.key.toLowerCase() === 'a') {
         e.preventDefault();
         select({ devices: boxes.map((b) => b.device.id), cables: data.cables.map((c) => c.id) });
@@ -265,6 +285,9 @@ export function SignalFlowView({ doc, data, library, editable, undo }: { doc: Y.
         deviceCount={selection.devices.length}
         onDelete={deleteSelection}
         onDuplicate={duplicate}
+        onGroup={group}
+        onUngroup={ungroup}
+        canUngroup={data.devices.some((d) => selection.devices.includes(d.id) && d.groupId)}
         onAlign={align}
         onZoom={zoomBy}
         onFit={fit}
@@ -303,6 +326,7 @@ export function SignalFlowView({ doc, data, library, editable, undo }: { doc: Y.
             }}
             onInvalidConnection={setMessage}
             showDmx={showDmx}
+            groups={groupFrames}
           />
           <Minimap boxes={boxes} viewport={viewport} />
           {message && (

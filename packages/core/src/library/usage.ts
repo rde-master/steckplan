@@ -18,6 +18,7 @@ function addTemplateMasterUsage(usage: Usage, template: Template): void {
   if (template.categoryId) usage.categories.add(template.categoryId);
   if (template.defaultOwnerId) usage.owners.add(template.defaultOwnerId);
   if (template.defaultTrailerId) usage.trailers.add(template.defaultTrailerId);
+  if (template.defaultCaseId) usage.cases.add(template.defaultCaseId);
 }
 
 /** Direkt im Projekt verwendete Vorlagen und Stammdaten (Instanzen von Geräten und Kabeln, Case-Zuordnungen). */

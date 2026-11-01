@@ -28,12 +28,23 @@ export function LibrarySidebar({
     .filter((t) => !query || `${t.name} ${t.manufacturer ?? ''}`.toLowerCase().includes(query.toLowerCase()))
     .sort((a, b) => a.name.localeCompare(b.name, 'de'));
 
-  const groups: { label: string; items: Template[] }[] = [
-    { label: TEMPLATE_KIND_LABELS.device.plural, items: templates.filter((t) => t.kind === 'device') },
-    { label: s.multicores, items: templates.filter(isMulticore) },
-    { label: TEMPLATE_KIND_LABELS.stageElement.plural, items: templates.filter((t) => t.kind === 'stageElement') },
-    { label: TEMPLATE_KIND_LABELS.truss.plural, items: templates.filter((t) => t.kind === 'truss') },
-    { label: TEMPLATE_KIND_LABELS.stand.plural, items: templates.filter((t) => t.kind === 'stand') },
+  // Geräte nach Kategorie unterteilt („ohne Kategorie“ am Ende)
+  const devices = templates.filter((t) => t.kind === 'device');
+  const categories = [...(library?.masterData.categories ?? [])].sort((a, b) => a.name.localeCompare(b.name, 'de'));
+  const deviceGroups: { key: string; label: string; color?: string; items: Template[] }[] = [
+    ...categories.map((c) => ({ key: `cat:${c.id}`, label: c.name, ...(c.color ? { color: c.color } : {}), items: devices.filter((t) => t.categoryId === c.id) })),
+    {
+      key: 'cat:none',
+      label: categories.length ? s.noCategory : TEMPLATE_KIND_LABELS.device.plural,
+      items: devices.filter((t) => !t.categoryId || !categories.some((c) => c.id === t.categoryId)),
+    },
+  ];
+  const groups: { key: string; label: string; color?: string; items: Template[] }[] = [
+    ...deviceGroups,
+    { key: 'multicore', label: s.multicores, items: templates.filter(isMulticore) },
+    { key: 'stageElement', label: TEMPLATE_KIND_LABELS.stageElement.plural, items: templates.filter((t) => t.kind === 'stageElement') },
+    { key: 'truss', label: TEMPLATE_KIND_LABELS.truss.plural, items: templates.filter((t) => t.kind === 'truss') },
+    { key: 'stand', label: TEMPLATE_KIND_LABELS.stand.plural, items: templates.filter((t) => t.kind === 'stand') },
   ].filter((g) => g.items.length > 0);
 
   return (
@@ -48,8 +59,13 @@ export function LibrarySidebar({
       <div className="flex-1 overflow-y-auto">
         {groups.length === 0 && <p className="p-2 text-xs text-slate-500">{s.libraryEmpty}</p>}
         {groups.map((group) => (
-          <div key={group.label} className="mb-3">
-            <div className="px-1 pb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">{group.label}</div>
+          <details key={group.key} open className="group mb-3" data-testid={`library-group-${group.key}`}>
+            <summary className="flex cursor-pointer list-none items-center gap-1.5 px-1 pb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <span className="text-slate-400 group-open:rotate-90">▸</span>
+              {group.color && <span className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: group.color }} />}
+              {group.label}
+              <span className="font-normal">({group.items.length})</span>
+            </summary>
             <ul className="space-y-1">
               {group.items.map((template) => (
                 <li
@@ -77,7 +93,7 @@ export function LibrarySidebar({
                 </li>
               ))}
             </ul>
-          </div>
+          </details>
         ))}
       </div>
     </aside>

@@ -28,6 +28,9 @@ interface EditorState {
   showCables: boolean;
   showDmx: boolean;
   setShowDmx(show: boolean): void;
+  /** Gruppenrahmen im Bühnenplan */
+  showStageGroups: boolean;
+  setShowStageGroups(show: boolean): void;
   setFilter(filter: Filter): void;
   setColorMode(mode: ColorMode): void;
   setShowCables(show: boolean): void;
@@ -70,6 +73,7 @@ const initial = {
   colorMode: 'device' as ColorMode,
   showCables: true,
   showDmx: false,
+  showStageGroups: true,
 };
 
 export const useEditor = create<EditorState>((set) => ({
@@ -120,6 +124,9 @@ export const useEditor = create<EditorState>((set) => ({
   },
   setShowDmx(showDmx) {
     set({ showDmx });
+  },
+  setShowStageGroups(showStageGroups) {
+    set({ showStageGroups });
   },
   setStageView(stageView) {
     set({ stageView });

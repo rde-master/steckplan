@@ -163,6 +163,7 @@ export function applyAnalysis(
     categoryId: template.categoryId && (idMap.categories.get(template.categoryId) ?? template.categoryId),
     defaultOwnerId: template.defaultOwnerId && (idMap.owners.get(template.defaultOwnerId) ?? template.defaultOwnerId),
     defaultTrailerId: template.defaultTrailerId && (idMap.trailers.get(template.defaultTrailerId) ?? template.defaultTrailerId),
+    defaultCaseId: template.defaultCaseId && (idMap.cases.get(template.defaultCaseId) ?? template.defaultCaseId),
   });
 
   for (const conflict of analysis.conflicts) {

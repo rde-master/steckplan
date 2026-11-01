@@ -14,6 +14,9 @@ export function Toolbar({
   deviceCount,
   onDelete,
   onDuplicate,
+  onGroup,
+  onUngroup,
+  canUngroup = false,
   onAlign,
   onZoom,
   onFit,
@@ -25,6 +28,9 @@ export function Toolbar({
   deviceCount: number;
   onDelete: () => void;
   onDuplicate: () => void;
+  onGroup?: () => void;
+  onUngroup?: () => void;
+  canUngroup?: boolean;
   onAlign: (mode: AlignMode) => void;
   onZoom: (factor: number) => void;
   onFit: () => void;
@@ -44,6 +50,16 @@ export function Toolbar({
           <span className="mx-1 h-5 w-px bg-slate-200 dark:bg-slate-700" />
           {icon(s.duplicate, '⧉', onDuplicate, selectionCount === 0)}
           {icon(s.delete, '🗑', onDelete, selectionCount === 0)}
+          {onGroup && (
+            <Button variant="ghost" className="min-h-9 px-2 text-xs" title={texts.groups.createTitle} onClick={onGroup} disabled={deviceCount === 0}>
+              ▣ {texts.groups.create}
+            </Button>
+          )}
+          {onUngroup && canUngroup && (
+            <Button variant="ghost" className="min-h-9 px-2 text-xs" onClick={onUngroup}>
+              {texts.groups.ungroup}
+            </Button>
+          )}
           <span className="mx-1 hidden h-5 w-px bg-slate-200 md:inline dark:bg-slate-700" />
           <span className="hidden md:contents">
             {icon(s.align.left, '⫷', () => onAlign('left'), deviceCount < 2)}

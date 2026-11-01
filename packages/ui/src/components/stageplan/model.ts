@@ -1,5 +1,5 @@
 // Aufbereitung für den Bühnenplan.
-import { EMPTY_FILTER, cableIssueMap, endpointPosition, isMulticore, type Cable, type Filter, type Issue } from '@steckplan/core';
+import { EMPTY_FILTER, boundsOf, cableIssueMap, devicePerson, endpointPosition, GROUP_COLORS, isMulticore, personName, rotate, tBarLength, type Cable, type Filter, type Group, type Issue, type Person } from '@steckplan/core';
 import type { ColorMode } from '../../lib/editor';
 import { cableVisible, deviceVisible, displayColor } from '../../lib/display';
 import {
@@ -27,11 +27,18 @@ export interface StageItem {
   kind: Template['kind'] | 'unknown';
   locked: boolean;
   dimmed: boolean;
+  /** Person, die das Gerät benutzt */
+  person?: string;
+  /** Stativ: Länge der T-Bar (mm) */
+  tBarMm?: number;
+  /** Gerät am Stativ: oben stehend oder unten hängend */
+  mountSide?: 'top' | 'bottom';
 }
 
 export interface StageDisplay {
   colorMode: ColorMode;
   filter: Filter;
+  people?: Person[];
 }
 
 const DEFAULT_DISPLAY: StageDisplay = { colorMode: 'device', filter: EMPTY_FILTER };
@@ -64,6 +71,9 @@ export function buildStageItems(devices: DeviceInstance[], library: Library | nu
       kind,
       locked: layer?.locked ?? false,
       dimmed: !deviceVisible(display.filter, device, template),
+      ...(personName(devicePerson(device, template, display.people ?? [])) ? { person: personName(devicePerson(device, template, display.people ?? [])) } : {}),
+      ...(kind === 'stand' ? { tBarMm: tBarLength(device, template) } : {}),
+      ...(device.mountedOnId && templates.get(byId.get(device.mountedOnId)?.templateId ?? '')?.kind === 'stand' ? { mountSide: device.mountSide ?? 'bottom' } : {}),
     });
   }
   return items.sort((a, b) => (ORDER[a.kind] ?? 3) - (ORDER[b.kind] ?? 3));
@@ -150,4 +160,35 @@ export function buildMulticoreRoutes(devices: DeviceInstance[], library: Library
     });
   }
   return routes;
+}
+
+export interface StageGroupFrame {
+  id: string;
+  name: string;
+  color: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/** Gruppenrahmen im Bühnenplan: umschließt die (gedrehten) Grundflächen der Mitglieder. */
+export function buildStageGroupFrames(groups: Group[], items: StageItem[], paddingMm = 300): StageGroupFrame[] {
+  return groups.flatMap((group, index) => {
+    const rects = items
+      .filter((i) => i.device.groupId === group.id)
+      .map((i) => {
+        const corners = [
+          { x: i.x - i.footprint.widthMm / 2, y: i.y - i.footprint.depthMm / 2 },
+          { x: i.x + i.footprint.widthMm / 2, y: i.y - i.footprint.depthMm / 2 },
+          { x: i.x + i.footprint.widthMm / 2, y: i.y + i.footprint.depthMm / 2 },
+          { x: i.x - i.footprint.widthMm / 2, y: i.y + i.footprint.depthMm / 2 },
+        ].map((c) => rotate(c, { x: i.x, y: i.y }, i.rotation));
+        const xs = corners.map((c) => c.x);
+        const ys = corners.map((c) => c.y);
+        return { x: Math.min(...xs), y: Math.min(...ys), width: Math.max(...xs) - Math.min(...xs), height: Math.max(...ys) - Math.min(...ys) };
+      });
+    const rect = boundsOf(rects, paddingMm);
+    return rect ? [{ id: group.id, name: group.name, color: group.color ?? GROUP_COLORS[index % GROUP_COLORS.length]!, ...rect }] : [];
+  });
 }

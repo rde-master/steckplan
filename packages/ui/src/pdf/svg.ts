@@ -29,6 +29,8 @@ export interface StageDrawing {
   multicores: MulticoreRoute[];
   background?: Background;
   showCables: boolean;
+  /** Gruppenrahmen (optional) */
+  groupFrames?: { id: string; name: string; color: string; x: number; y: number; width: number; height: number }[];
 }
 
 /** Umrandung aller Inhalte in Millimetern (mit Rand). */
@@ -76,6 +78,13 @@ export function stagePlanSvg(d: StageDrawing, view: Rect, widthPt: number, heigh
       out.push(`<image href="${bg.image}" x="${n(o.x)}" y="${n(o.y)}" width="${n(bg.widthPx * sc)}" height="${n(bg.heightPx * sc)}" opacity="${n(bg.opacity ?? 0.5)}" preserveAspectRatio="none"/>`);
     }
   }
+  // Gruppenrahmen
+  for (const f of d.groupFrames ?? []) {
+    out.push(
+      `<rect x="${n(f.x)}" y="${n(f.y)}" width="${n(f.width)}" height="${n(f.height)}" rx="${n(fontMm)}" fill="${f.color}" fill-opacity="0.08" stroke="${f.color}" stroke-width="${n(stroke * 1.5)}" stroke-dasharray="${n(fontMm)} ${n(fontMm / 2)}"/>` +
+        `<text x="${n(f.x + fontMm * 0.6)}" y="${n(f.y + fontMm * 1.3)}" font-size="${n(fontMm)}" font-weight="bold" fill="${f.color}">${esc(f.name)}</text>`,
+    );
+  }
   // Wände
   for (const s of d.shapes.filter((x) => x.kind === 'wall')) {
     out.push(`<polyline points="${s.points.map((p) => `${n(p.x)},${n(p.y)}`).join(' ')}" fill="none" stroke="#334155" stroke-width="${n(s.strokeWidthMm ?? 200)}" stroke-linecap="square"/>`);
@@ -100,7 +109,7 @@ export function stagePlanSvg(d: StageDrawing, view: Rect, widthPt: number, heigh
       }
     }
     out.push(`<g transform="translate(${n(i.x)} ${n(i.y)}) rotate(${n(i.rotation)})" opacity="${opacity}">${g.join('')}</g>`);
-    const lines = [i.device.label, ...(i.height.heightMm > 0 ? [formatLength(i.height.heightMm)] : [])];
+    const lines = [i.device.label, ...(i.person ? [i.person] : []), ...(i.height.heightMm > 0 ? [formatLength(i.height.heightMm)] : [])];
     const ty = i.kind === 'truss' ? i.y - h / 2 - fontMm * (lines.length + 0.2) : i.y + Math.max(w, h) / 2 + fontMm * 1.1;
     lines.forEach((line, k) => {
       out.push(`<text x="${n(i.x)}" y="${n(ty + k * fontMm * 1.15)}" font-size="${n(fontMm)}" text-anchor="middle" fill="#0f172a" opacity="${opacity}">${esc(line)}</text>`);
@@ -163,8 +172,21 @@ export function signalFlowBounds(boxes: DeviceBox[]): Rect | null {
   return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
 }
 
-export function signalFlowSvg(boxes: DeviceBox[], lines: CableLine[], view: Rect, widthPt: number, heightPt: number): string {
+export function signalFlowSvg(
+  boxes: DeviceBox[],
+  lines: CableLine[],
+  view: Rect,
+  widthPt: number,
+  heightPt: number,
+  groupFrames: { id: string; name: string; color: string; x: number; y: number; width: number; height: number }[] = [],
+): string {
   const out: string[] = [];
+  for (const f of groupFrames) {
+    out.push(
+      `<rect x="${n(f.x)}" y="${n(f.y)}" width="${n(f.width)}" height="${n(f.height)}" rx="10" fill="${f.color}" fill-opacity="0.1" stroke="${f.color}" stroke-width="1.2" stroke-dasharray="8 4"/>` +
+        `<text x="${n(f.x + 10)}" y="${n(f.y + 15)}" font-size="11" font-weight="bold" fill="${f.color}">${esc(f.name)}</text>`,
+    );
+  }
   for (const l of lines) {
     const pts: string[] = [];
     for (let k = 0; k < l.points.length; k += 2) pts.push(`${n(l.points[k]!)},${n(l.points[k + 1]!)}`);
@@ -177,6 +199,7 @@ export function signalFlowSvg(boxes: DeviceBox[], lines: CableLine[], view: Rect
     const radius = b.template?.shape?.form === 'rounded' || b.template?.shape?.form === 'circle' ? 10 : 3;
     g.push(`<rect x="0" y="0" width="${n(b.layout.width)}" height="${n(b.layout.height)}" rx="${radius}" fill="${b.fill}" stroke="#334155" stroke-width="0.8"${b.multicore ? ' stroke-dasharray="6 3"' : ''}/>`);
     g.push(`<text x="7" y="18" font-size="11" font-weight="bold" fill="${b.text}">${esc(b.device.label)}</text>`);
+    if (b.person) g.push(`<text x="7" y="35" font-size="10" fill="${b.text}">${esc(b.person)}</text>`);
     if (b.dmxLabel) g.push(`<text x="${n(b.layout.width - 7)}" y="18" font-size="9" text-anchor="end" fill="${b.text}">${esc(b.dmxLabel)}</text>`);
     for (const a of b.layout.anchors) {
       const label = b.labels.get(a.port.id) ?? a.port.label;

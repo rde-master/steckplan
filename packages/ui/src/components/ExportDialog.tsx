@@ -5,6 +5,7 @@ import { api, errorMessage } from '../lib/api';
 import { useEditor } from '../lib/editor';
 import { useSession } from '../lib/session';
 import type { ProjectData } from '../lib/useProjectData';
+import { LABEL_FORMATS } from '../pdf/documents';
 import { buildCsv, buildExportDoc, CSV_KINDS, DEFAULT_OPTIONS, EXPORT_TITLES, exportFileName, type ExportKind, type ExportOptions } from '../pdf/export';
 import { texts } from '../texts';
 import { Banner, Button, Modal } from './ui';
@@ -32,6 +33,8 @@ const DEFAULT_ORIENTATION: Record<ExportKind, 'portrait' | 'landscape'> = {
   dmx: 'portrait',
   devices: 'landscape',
   network: 'portrait',
+  people: 'landscape',
+  labels: 'portrait',
   wifi: 'portrait',
 };
 
@@ -160,6 +163,12 @@ export function ExportDialog({
               <input type="checkbox" checked={opts.showCables} onChange={(ev) => set({ showCables: ev.target.checked })} />
               {e.cables}
             </label>
+            {data.groups.length > 0 && (
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={opts.showGroups} onChange={(ev) => set({ showGroups: ev.target.checked })} />
+                {e.groups}
+              </label>
+            )}
           </div>
         )}
 
@@ -169,7 +178,7 @@ export function ExportDialog({
               {field(
                 e.groupBy,
                 <select className={selectClass} aria-label={e.groupBy} value={opts.groupBy} onChange={(ev) => set({ groupBy: ev.target.value as GroupBy, thenBy: opts.thenBy === ev.target.value ? '' : opts.thenBy })}>
-                  {(['category', 'trailer', 'owner'] as const).map((g) => (
+                  {(['category', 'trailer', 'case', 'owner'] as const).map((g) => (
                     <option key={g} value={g}>
                       {texts.packing.groups[g]}
                     </option>
@@ -180,7 +189,7 @@ export function ExportDialog({
                 e.thenBy,
                 <select className={selectClass} aria-label={e.thenBy} value={opts.thenBy} onChange={(ev) => set({ thenBy: ev.target.value as GroupBy | '' })}>
                   <option value="">–</option>
-                  {(['category', 'trailer', 'owner'] as const)
+                  {(['category', 'trailer', 'case', 'owner'] as const)
                     .filter((g) => g !== opts.groupBy)
                     .map((g) => (
                       <option key={g} value={g}>
@@ -202,6 +211,26 @@ export function ExportDialog({
               <input type="checkbox" checked={opts.showChecks} onChange={(ev) => set({ showChecks: ev.target.checked })} />
               {e.showChecks}
             </label>
+          </div>
+        )}
+
+        {opts.kind === 'labels' && (
+          <div className="space-y-2">
+            {field(
+              e.labelFormat,
+              <select className={selectClass} aria-label={e.labelFormat} value={opts.labelFormat} onChange={(ev) => set({ labelFormat: ev.target.value })}>
+                {LABEL_FORMATS.map((f) => (
+                  <option key={f.id} value={f.id}>
+                    {f.name}
+                  </option>
+                ))}
+              </select>,
+            )}
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={opts.cutLines} onChange={(ev) => set({ cutLines: ev.target.checked })} />
+              {e.cutLines}
+            </label>
+            <p className="text-xs text-slate-500">{e.labelsHint}</p>
           </div>
         )}
 

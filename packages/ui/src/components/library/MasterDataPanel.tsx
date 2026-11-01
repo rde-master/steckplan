@@ -1,16 +1,16 @@
-// Stammdaten: Kategorien, Besitzer, Anhänger – anlegen, umbenennen, Farbe, archivieren, löschen (nur wenn unbenutzt).
+// Stammdaten: Kategorien, Besitzer, Anhänger, Cases – anlegen, umbenennen, Farbe, archivieren, löschen (nur wenn unbenutzt).
 import { useState } from 'react';
 import { MASTER_KIND_LABELS, MASTER_KINDS, type Library, type MasterEntry, type MasterKind } from '@steckplan/core';
 import { api, ApiError, errorMessage } from '../../lib/api';
 import { texts } from '../../texts';
 import { Banner, Button, Field, TextInput } from '../ui';
-import { ColorField } from './fields';
+import { ColorField, MasterSelect } from './fields';
 
 const m = texts.library.master;
 
 function extraField(kind: MasterKind): { key: 'contact' | 'notes'; label: string } | null {
   if (kind === 'owners') return { key: 'contact', label: m.contact };
-  if (kind === 'trailers') return { key: 'notes', label: m.notes };
+  if (kind === 'trailers' || kind === 'cases') return { key: 'notes', label: m.notes };
   return null;
 }
 
@@ -43,7 +43,7 @@ export function MasterDataPanel({ library, canEdit }: { library: Library; canEdi
       ) : (
         <ul className="divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white dark:divide-slate-700 dark:border-slate-700 dark:bg-slate-900">
           {entries.map((entry) => (
-            <EntryRow key={entry.id} kind={kind} entry={entry} canEdit={canEdit} />
+            <EntryRow key={entry.id} kind={kind} entry={entry} canEdit={canEdit} library={library} />
           ))}
         </ul>
       )}
@@ -86,13 +86,15 @@ function AddEntry({ kind }: { kind: MasterKind }) {
   );
 }
 
-function EntryRow({ kind, entry, canEdit }: { kind: MasterKind; entry: MasterEntry; canEdit: boolean }) {
+function EntryRow({ kind, entry, canEdit, library }: { kind: MasterKind; entry: MasterEntry; canEdit: boolean; library: Library }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<MasterEntry>(entry);
   const [error, setError] = useState<string | null>(null);
   const [usedBy, setUsedBy] = useState<string[] | null>(null);
   const extra = extraField(kind);
   const extraValue = extra ? ((entry as Record<string, unknown>)[extra.key] as string | undefined) : undefined;
+  const trailerId = kind === 'cases' ? (entry as { defaultTrailerId?: string }).defaultTrailerId : undefined;
+  const trailerName = trailerId ? library.masterData.trailers.find((x) => x.id === trailerId)?.name : undefined;
 
   async function run(action: () => Promise<unknown>) {
     setError(null);
@@ -128,6 +130,16 @@ function EntryRow({ kind, entry, canEdit }: { kind: MasterKind; entry: MasterEnt
                 />
               </Field>
             )}
+            {kind === 'cases' && (
+              <MasterSelect
+                label={m.defaultTrailer}
+                emptyLabel={texts.library.fields.none}
+                entries={library.masterData.trailers}
+                value={(draft as { defaultTrailerId?: string }).defaultTrailerId || undefined}
+                onChange={(defaultTrailerId) => setDraft({ ...draft, defaultTrailerId: defaultTrailerId ?? '' } as MasterEntry)}
+                createKind="trailers"
+              />
+            )}
           </div>
           <ColorField label={texts.library.fields.color} value={draft.color} onChange={(color) => setDraft({ ...draft, color: color ?? '' })} />
           <div className="flex gap-2">
@@ -141,6 +153,7 @@ function EntryRow({ kind, entry, canEdit }: { kind: MasterKind; entry: MasterEnt
         <div className="flex flex-wrap items-center gap-2">
           <span className="h-4 w-4 shrink-0 rounded border border-slate-300 dark:border-slate-600" style={{ backgroundColor: entry.color ?? 'transparent' }} />
           <span className={`font-medium ${entry.archived ? 'text-slate-400 line-through' : ''}`}>{entry.name}</span>
+          {trailerName && <span className="text-sm text-slate-500">→ {trailerName}</span>}
           {extraValue && <span className="text-sm text-slate-500">{extraValue}</span>}
           {entry.archived && <span className="rounded-full bg-slate-200 px-2 py-0.5 text-xs dark:bg-slate-700">{m.archived}</span>}
           <div className="flex-1" />

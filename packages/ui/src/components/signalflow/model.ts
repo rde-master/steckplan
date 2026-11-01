@@ -1,5 +1,5 @@
 // Aufbereitung für die Zeichenfläche: Kästen mit Größe/Anschlüssen, Kabel mit Punkten.
-import { EMPTY_FILTER, formatDmx, type Filter } from '@steckplan/core';
+import { boundsOf, devicePerson, EMPTY_FILTER, formatDmx, GROUP_COLORS, personName, type Filter, type Group, type Person } from '@steckplan/core';
 import type { ColorMode } from '../../lib/editor';
 import { cableVisible, deviceVisible, displayColor } from '../../lib/display';
 import {
@@ -20,6 +20,10 @@ import {
 } from '@steckplan/core';
 
 export const MULTICORE_END_ROW = 16;
+/** Zeile mit dem Namen der Person unter der Kennung */
+export const PERSON_ROW = 16;
+export const GROUP_PADDING = 14;
+export const GROUP_LABEL = 20;
 
 export interface DeviceBox {
   device: DeviceInstance;
@@ -39,6 +43,8 @@ export interface DeviceBox {
   dimmed: boolean;
   /** „1.001“ (wenn DMX-Adresse gesetzt) */
   dmxLabel?: string;
+  /** Person, die das Gerät benutzt */
+  person?: string;
   /** Anschluss → angezeigter Text */
   labels: Map<string, string>;
 }
@@ -62,6 +68,8 @@ function fallbackPosition(index: number): { x: number; y: number } {
 export interface DisplayOptions {
   colorMode: ColorMode;
   filter: Filter;
+  /** Personen des Projekts (für „benutzt von Mensch“) */
+  people?: Person[];
 }
 
 const DEFAULT_DISPLAY: DisplayOptions = { colorMode: 'device', filter: EMPTY_FILTER };
@@ -78,8 +86,9 @@ export function buildBoxes(devices: DeviceInstance[], library: Library | null, s
     const labels = new Map<string, string>();
     for (const port of ports) labels.set(port.id, multicore ? port.label.replace(/ \([^)]*\)$/, '') : port.label);
     const displayPorts: EffectivePort[] = ports.map((p) => ({ ...p, label: labels.get(p.id) ?? p.label }));
-    const base = boxLayout(device.label, displayPorts);
-    const extraHeader = multicore ? MULTICORE_END_ROW : 0;
+    const person = personName(devicePerson(device, template, display.people ?? []));
+    const base = boxLayout(person && person.length > device.label.length ? person : device.label, displayPorts);
+    const extraHeader = multicore ? MULTICORE_END_ROW : person ? PERSON_ROW : 0;
     const layout: BoxLayout = {
       width: base.width,
       height: base.height + extraHeader,
@@ -90,7 +99,7 @@ export function buildBoxes(devices: DeviceInstance[], library: Library | null, s
     const unplaced = template?.kind === 'device' && !device.stagePlan;
     const dimmed = !deviceVisible(display.filter, device, template);
     const dmxLabel = device.dmx ? formatDmx(device.dmx.universe, device.dmx.address) : undefined;
-    boxes.push({ device, template, x: pos.x, y: pos.y, layout, extraHeader, fill, text: contrastText(fill), multicore, stageObject, unplaced, dimmed, labels, ...(dmxLabel ? { dmxLabel } : {}) });
+    boxes.push({ device, template, x: pos.x, y: pos.y, layout, extraHeader, fill, text: contrastText(fill), multicore, stageObject, unplaced, dimmed, labels, ...(dmxLabel ? { dmxLabel } : {}), ...(person ? { person } : {}) });
   });
   return boxes;
 }
@@ -134,3 +143,22 @@ export function bounds(boxes: DeviceBox[]): { x: number; y: number; width: numbe
 }
 
 export const ROLE_COLORS = { in: '#0284c7', out: '#ea580c', bi: '#7c3aed' } as const;
+
+/** Gruppenrahmen aus den Kästen der Mitglieder (Platz für den Namen oben). */
+export function buildGroupFrames(groups: Group[], boxes: DeviceBox[]): { id: string; name: string; color: string; x: number; y: number; width: number; height: number; deviceIds: string[] }[] {
+  return groups.flatMap((group, index) => {
+    const members = boxes.filter((b) => b.device.groupId === group.id);
+    const rect = boundsOf(members.map((b) => ({ x: b.x, y: b.y, width: b.layout.width, height: b.layout.height })), GROUP_PADDING);
+    if (!rect) return [];
+    return [{
+      id: group.id,
+      name: group.name,
+      color: group.color ?? GROUP_COLORS[index % GROUP_COLORS.length]!,
+      x: rect.x,
+      y: rect.y - GROUP_LABEL,
+      width: rect.width,
+      height: rect.height + GROUP_LABEL,
+      deviceIds: members.map((b) => b.device.id),
+    }];
+  });
+}

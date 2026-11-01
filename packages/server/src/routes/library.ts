@@ -54,6 +54,7 @@ function checkReferences(library: Library, template: Template, previous?: Templa
     ['categories', template.categoryId, previous?.categoryId],
     ['owners', template.defaultOwnerId, previous?.defaultOwnerId],
     ['trailers', template.defaultTrailerId, previous?.defaultTrailerId],
+    ['cases', template.defaultCaseId, previous?.defaultCaseId],
   ];
   for (const [kind, id, before] of refs) {
     if (!id) continue;
@@ -191,7 +192,7 @@ export function registerLibraryRoutes(app: FastifyInstance, deps: { library: Lib
   }
 
   function masterUsage(lib: Library, kind: MasterKind, id: string): string[] {
-    const field = kind === 'categories' ? 'categoryId' : kind === 'owners' ? 'defaultOwnerId' : kind === 'trailers' ? 'defaultTrailerId' : null;
+    const field = kind === 'categories' ? 'categoryId' : kind === 'owners' ? 'defaultOwnerId' : kind === 'trailers' ? 'defaultTrailerId' : 'defaultCaseId';
     const templates = field ? lib.templates.filter((t) => t[field] === id).map((t) => `Vorlage „${t.name}“`) : [];
     const cases = kind === 'trailers' ? lib.masterData.cases.filter((c) => c.defaultTrailerId === id).map((c) => `Case „${c.name}“`) : [];
     return [...templates, ...cases, ...usage.find(kind, id).map((name) => `Projekt „${name}“`)];

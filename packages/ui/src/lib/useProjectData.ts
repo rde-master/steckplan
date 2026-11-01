@@ -4,15 +4,21 @@ import type * as Y from 'yjs';
 import {
   readBackground,
   readCables,
+  readCaseTrailers,
   readDevices,
+  readGroups,
   readLayers,
+  readPeople,
   readSettings,
   readShapes,
   readSubnets,
   readWifi,
   type Background,
   type Cable,
+  type CaseTrailer,
   type DeviceInstance,
+  type Group,
+  type Person,
   type Project,
   type ProjectSettings,
   type Shape,
@@ -26,9 +32,23 @@ export interface ProjectData {
   background: Background | undefined;
   settings: Partial<ProjectSettings>;
   network: Project['network'];
+  people: Person[];
+  groups: Group[];
+  caseTrailers: CaseTrailer[];
 }
 
-const EMPTY: ProjectData = { devices: [], cables: [], layers: [], shapes: [], background: undefined, settings: {}, network: { subnets: [], wifi: [] } };
+const EMPTY: ProjectData = {
+  devices: [],
+  cables: [],
+  layers: [],
+  shapes: [],
+  background: undefined,
+  settings: {},
+  network: { subnets: [], wifi: [] },
+  people: [],
+  groups: [],
+  caseTrailers: [],
+};
 
 function read(doc: Y.Doc): ProjectData {
   return {
@@ -39,6 +59,9 @@ function read(doc: Y.Doc): ProjectData {
     background: readBackground(doc),
     settings: readSettings(doc),
     network: { subnets: readSubnets(doc), wifi: readWifi(doc) },
+    people: readPeople(doc),
+    groups: readGroups(doc),
+    caseTrailers: readCaseTrailers(doc),
   };
 }
 
