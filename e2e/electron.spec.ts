@@ -32,6 +32,8 @@ test('Desktop: Name beim ersten Start, Datei öffnen, Autosave, Sperrdatei', asy
 
     // Die per Kommandozeile übergebene Datei öffnet sich in einem eigenen Fenster
     const project = await projectWindowPromise;
+    await expect(project.getByRole('tab', { name: 'Signalfluss' })).toHaveAttribute('aria-selected', 'true');
+    await project.getByRole('tab', { name: 'Projektdaten' }).click();
     await expect(project.getByLabel('Projektname')).toHaveValue('Hallenfest');
     await expect(project.getByTestId('presence')).toContainText('Ralf Desktop');
     await expect(project.getByLabel('Projektname')).toBeEnabled();
