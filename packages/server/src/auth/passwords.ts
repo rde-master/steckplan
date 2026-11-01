@@ -1,0 +1,46 @@
+// Passwortprüfung: Passwörter werden beim Start mit scrypt gehasht und nur als Hash im Speicher gehalten.
+import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
+import type { Access } from '@steckplan/core';
+
+const KEY_LENGTH = 32;
+
+interface Hashed {
+  salt: Buffer;
+  hash: Buffer;
+}
+
+function hash(password: string, salt: Buffer = randomBytes(16)): Hashed {
+  return { salt, hash: scryptSync(password.normalize('NFC'), salt, KEY_LENGTH) };
+}
+
+function matches(password: string, stored: Hashed): boolean {
+  const candidate = scryptSync(password.normalize('NFC'), stored.salt, KEY_LENGTH);
+  return timingSafeEqual(candidate, stored.hash);
+}
+
+/** Prüft Bearbeiten- und Lese-Passwort; beide werden immer geprüft (gleichbleibende Laufzeit). */
+export class PasswordChecker {
+  private readonly edit: Hashed;
+  private readonly read: Hashed;
+
+  constructor(passwords: { edit: string; read: string }) {
+    this.edit = hash(passwords.edit);
+    this.read = hash(passwords.read);
+  }
+
+  check(password: string): Exclude<Access, 'local'> | null {
+    const isEdit = matches(password, this.edit);
+    const isRead = matches(password, this.read);
+    if (isEdit) return 'edit';
+    if (isRead) return 'read';
+    return null;
+  }
+}
+
+/**
+ * Fingerabdruck der Passwörter (scrypt mit fester Salt pro Installation).
+ * Ändern sich die Passwörter, ändert sich der Fingerabdruck → alle Sitzungen werden beendet.
+ */
+export function passwordFingerprint(passwords: { edit: string; read: string }, installSalt: string): string {
+  return scryptSync(`${passwords.edit}\u0000${passwords.read}`.normalize('NFC'), installSalt, KEY_LENGTH).toString('hex');
+}

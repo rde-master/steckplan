@@ -12,7 +12,13 @@ describe('readStandaloneConfig', () => {
       uiDir: undefined,
       editPassword: 'bearbeiten',
       readPassword: 'lesen',
+      trustProxy: false,
     });
+  });
+
+  it('wertet STECKPLAN_TRUST_PROXY aus', () => {
+    expect(readStandaloneConfig({ ...valid, STECKPLAN_TRUST_PROXY: 'true' }).trustProxy).toBe(true);
+    expect(readStandaloneConfig({ ...valid, STECKPLAN_TRUST_PROXY: '0' }).trustProxy).toBe(false);
   });
 
   it('übernimmt PORT, Datenordner und UI-Ordner', () => {

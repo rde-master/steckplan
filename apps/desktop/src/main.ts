@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { app, BrowserWindow, shell } from 'electron';
 import type { FastifyInstance } from 'fastify';
 import { formatAppTitle } from '@steckplan/core';
-import { createServer } from '@steckplan/server';
+import { createServer, LocalFileStore, SessionStore, VersionStore } from '@steckplan/server';
 
 const isSmokeTest = process.env.STECKPLAN_SMOKE_TEST === '1';
 
@@ -12,7 +12,15 @@ let baseUrl = '';
 
 /** Startet den eingebetteten Server – nur auf 127.0.0.1, zufälliger freier Port. */
 async function startEmbeddedServer(): Promise<string> {
-  server = await createServer({ mode: 'desktop', uiDir: join(__dirname, 'ui') });
+  const result = await createServer({
+    mode: 'desktop',
+    uiDir: join(__dirname, 'ui'),
+    store: new LocalFileStore(''),
+    versions: new VersionStore(join(app.getPath('userData'), 'versions')),
+    sessions: new SessionStore(),
+    passwords: null,
+  });
+  server = result.app;
   await server.listen({ host: '127.0.0.1', port: 0 });
   const address = server.server.address();
   if (address === null || typeof address === 'string') throw new Error('Serveradresse unbekannt');
