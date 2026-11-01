@@ -7,6 +7,24 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-11-01
+
+Meilenstein M7 – PDF & CSV.
+
+### Hinzugefügt
+
+- Export als PDF (A4 oder A3, Hoch- oder Querformat), erzeugt direkt in der App – gleich in Desktop, Browser und auf dem Handy
+- Planzeichnung des Bühnenplans als Vektorgrafik im Maßstab 1:50 oder 1:100 (zu große Pläne werden auf mehrere Blätter mit Überlappung verteilt) oder „Seite füllen“; Signalfluss auf einer Seite; Planköpfchen (Projekt, Ort, Datum, Planer, Version, Maßstab, Blatt) und Legende; aktive Filter werden übernommen
+- Packliste zum Abhaken (☐ Hin · ☐ Zurück), gruppiert nach Kategorie, Anhänger oder Besitzer (auch verschachtelt), zusammengefasst oder einzeln mit Kennung; Unterschrift und Datum je Gruppe; Abschnitt „Fehlt / defekt“; optional mit aktuellem Stand der Häkchen
+- Kabelliste (mit Zusammenfassung je Typ und Länge), Stückliste, DMX-Patch, Geräteliste und Netzwerkliste als PDF
+- WLAN-Aushang mit großem QR-Code; Passwort als Text wählbar (nur mit Bearbeiten-Zugang, Lese-Zugang druckt SSID und QR-Code)
+- CSV-Export der Listen für Excel (UTF-8, Semikolon)
+- Desktop: Datei → „Exportieren (PDF/CSV) …“ (⌘/Strg+E)
+
+### Geändert
+
+- Kabelliste sortiert natürlich („Spot 2“ vor „Spot 10“)
+
 ## [0.7.0] - 2026-11-01
 
 Meilenstein M6 – DMX & Netzwerk.
@@ -134,7 +152,8 @@ Meilenstein M0 – Projektgerüst.
 - Docker-Image mit Datenvolume `/data` und Beispiel-`docker-compose.yml`
 - GitHub Actions: Tests und Smoke-Test bei jedem Push, Installer als Artefakte, Docker-Image `:develop`, Release-Workflow für Tags `vX.Y.Z`
 
-[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.7.0...develop
+[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.8.0...develop
+[0.8.0]: https://github.com/rde-master/steckplan/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/rde-master/steckplan/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/rde-master/steckplan/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/rde-master/steckplan/compare/v0.4.0...v0.5.0
