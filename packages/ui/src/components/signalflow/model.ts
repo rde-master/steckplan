@@ -1,5 +1,5 @@
 // Aufbereitung für die Zeichenfläche: Kästen mit Größe/Anschlüssen, Kabel mit Punkten.
-import { EMPTY_FILTER, type Filter } from '@steckplan/core';
+import { EMPTY_FILTER, formatDmx, type Filter } from '@steckplan/core';
 import type { ColorMode } from '../../lib/editor';
 import { cableVisible, deviceVisible, displayColor } from '../../lib/display';
 import {
@@ -37,6 +37,8 @@ export interface DeviceBox {
   unplaced: boolean;
   /** passt nicht zum Filter → ausgegraut */
   dimmed: boolean;
+  /** „1.001“ (wenn DMX-Adresse gesetzt) */
+  dmxLabel?: string;
   /** Anschluss → angezeigter Text */
   labels: Map<string, string>;
 }
@@ -87,7 +89,8 @@ export function buildBoxes(devices: DeviceInstance[], library: Library | null, s
     const pos = device.signalFlow?.position ?? fallbackPosition(index);
     const unplaced = template?.kind === 'device' && !device.stagePlan;
     const dimmed = !deviceVisible(display.filter, device, template);
-    boxes.push({ device, template, x: pos.x, y: pos.y, layout, extraHeader, fill, text: contrastText(fill), multicore, stageObject, unplaced, dimmed, labels });
+    const dmxLabel = device.dmx ? formatDmx(device.dmx.universe, device.dmx.address) : undefined;
+    boxes.push({ device, template, x: pos.x, y: pos.y, layout, extraHeader, fill, text: contrastText(fill), multicore, stageObject, unplaced, dimmed, labels, ...(dmxLabel ? { dmxLabel } : {}) });
   });
   return boxes;
 }

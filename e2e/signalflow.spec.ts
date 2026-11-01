@@ -184,7 +184,7 @@ test('Signalfluss: Vorlage aus der Bibliothek auf die Zeichenfläche ziehen', as
   await loginAs(page, 'edit', 'Ralf');
   const { id } = await (await page.request.post('/api/projects', { data: { name: 'Drag & Drop' } })).json();
   await page.goto(`/projekt/${id}`);
-  const item = page.getByRole('complementary', { name: 'Bibliothek' }).getByRole('listitem').filter({ hasText: 'Pult' }).first();
+  const item = page.getByRole('complementary', { name: 'Bibliothek' }).getByRole('listitem').filter({ has: page.getByText('Pult', { exact: true }) });
   await item.dragTo(page.getByTestId('signalflow-canvas'), { targetPosition: { x: 400, y: 300 } });
   await expect.poll(async () => (await project(page.request, id)).devices.length).toBe(1);
   const device = (await project(page.request, id)).devices[0];

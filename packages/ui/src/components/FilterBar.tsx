@@ -59,6 +59,8 @@ export function FilterBar({ library, data, showColorMode = true }: { library: Li
   const setFilter = useEditor((s) => s.setFilter);
   const colorMode = useEditor((s) => s.colorMode);
   const setColorMode = useEditor((s) => s.setColorMode);
+  const showDmx = useEditor((s) => s.showDmx);
+  const setShowDmx = useEditor((s) => s.setShowDmx);
   const templates = new Map((library?.templates ?? []).map((t) => [t.id, t]));
   const master = (list: { id: string; name: string; color?: string; archived?: boolean }[] | undefined, none: string): Option[] => [
     ...(list ?? []).map((e) => ({ id: e.id, label: e.name + (e.archived ? ' (archiviert)' : ''), color: e.color })),
@@ -83,6 +85,12 @@ export function FilterBar({ library, data, showColorMode = true }: { library: Li
       )}
       {showColorMode && (
         <label className="ml-auto flex items-center gap-1 text-xs text-slate-600 dark:text-slate-300">
+          <input type="checkbox" checked={showDmx} onChange={(e) => setShowDmx(e.target.checked)} />
+          {texts.techLists.showDmx}
+        </label>
+      )}
+      {showColorMode && (
+        <label className="flex items-center gap-1 text-xs text-slate-600 dark:text-slate-300">
           {f.colorBy}
           <select className="rounded-md border border-slate-300 bg-white px-1 py-0.5 text-xs dark:border-slate-600 dark:bg-slate-800" value={colorMode} onChange={(e) => setColorMode(e.target.value as ColorMode)} aria-label={f.colorBy}>
             {(['device', 'category', 'owner', 'trailer'] as const).map((m) => (

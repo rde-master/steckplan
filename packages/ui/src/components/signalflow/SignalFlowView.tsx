@@ -43,6 +43,7 @@ export function SignalFlowView({ doc, data, library, editable, undo }: { doc: Y.
   const showStageObjects = useEditor((st) => st.showStageObjects);
   const filter = useEditor((st) => st.filter);
   const colorMode = useEditor((st) => st.colorMode);
+  const showDmx = useEditor((st) => st.showDmx);
   const narrow = useIsNarrow(900);
   const [panel, setPanel] = useState<'none' | 'library' | 'properties'>('none');
   const [pending, setPending] = useState<{ from: PortRef; to: PortRef } | null>(null);
@@ -291,6 +292,7 @@ export function SignalFlowView({ doc, data, library, editable, undo }: { doc: Y.
               if (template) add(template, at);
             }}
             onInvalidConnection={setMessage}
+            showDmx={showDmx}
           />
           <Minimap boxes={boxes} viewport={viewport} />
           {message && (

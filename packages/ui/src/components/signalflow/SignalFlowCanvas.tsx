@@ -22,6 +22,7 @@ export interface CanvasProps {
   onConnect: (from: PortRef, to: PortRef) => void;
   onDropTemplate: (templateId: string, at: { x: number; y: number }) => void;
   onInvalidConnection: (message: string) => void;
+  showDmx?: boolean;
 }
 
 const GRID = 10;
@@ -35,7 +36,7 @@ declare global {
   }
 }
 
-export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onConnect, onDropTemplate, onInvalidConnection }: CanvasProps) {
+export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onConnect, onDropTemplate, onInvalidConnection, showDmx = false }: CanvasProps) {
   const container = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
   const [size, setSize] = useState({ width: 800, height: 600 });
@@ -369,7 +370,8 @@ export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onC
                   shadowBlur={selected ? 10 : 4}
                   shadowOffsetY={2}
                 />
-                <Text text={box.device.label} x={8} y={8} width={width - 16} fontStyle="bold" fontSize={13} fill={box.text} ellipsis wrap="none" />
+                <Text text={box.device.label} x={8} y={8} width={width - 16 - (showDmx && box.dmxLabel ? 44 : 0)} fontStyle="bold" fontSize={13} fill={box.text} ellipsis wrap="none" />
+                {showDmx && box.dmxLabel && <Text name="dmx-label" text={box.dmxLabel} x={width - 52} y={9} width={44} align="right" fontSize={11} fontFamily="monospace" fill={box.text} />}
                 {!box.template && <Text text="Vorlage fehlt" x={8} y={30} fontSize={11} fill="#dc2626" />}
                 {box.unplaced && <Text name="unplaced-marker" text="⌖ nicht im Bühnenplan" x={0} y={height + 4} fontSize={10} fill="#b45309" fontStyle="italic" listening={false} />}
                 {ends && (

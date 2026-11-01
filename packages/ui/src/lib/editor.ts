@@ -26,6 +26,8 @@ interface EditorState {
   filter: Filter;
   colorMode: ColorMode;
   showCables: boolean;
+  showDmx: boolean;
+  setShowDmx(show: boolean): void;
   setFilter(filter: Filter): void;
   setColorMode(mode: ColorMode): void;
   setShowCables(show: boolean): void;
@@ -63,6 +65,7 @@ const initial = {
   filter: EMPTY_FILTER,
   colorMode: 'device' as ColorMode,
   showCables: true,
+  showDmx: false,
 };
 
 export const useEditor = create<EditorState>((set) => ({
@@ -110,6 +113,9 @@ export const useEditor = create<EditorState>((set) => ({
   },
   setShowCables(showCables) {
     set({ showCables });
+  },
+  setShowDmx(showDmx) {
+    set({ showDmx });
   },
   setStageView(stageView) {
     set({ stageView });
