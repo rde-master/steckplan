@@ -41,10 +41,12 @@ Voraussetzungen: Node.js ≥ 22.12 (empfohlen 24) und pnpm (`corepack enable`).
 
 ```bash
 pnpm install          # Abhängigkeiten installieren
-pnpm dev              # Server (Port 8080) + UI mit Hot-Reload (http://localhost:5173)
+pnpm dev              # Server (Port 8080) + UI mit Hot-Reload (http://localhost:5173),
+                      # Anmeldung mit „dev-bearbeiten“ bzw. „dev-lesen“
 pnpm --filter @steckplan/desktop dev   # Desktop-App lokal starten
-pnpm check            # Lint, Typecheck, Tests
+pnpm check            # Lint, Typecheck, Unit-Tests
 pnpm build            # alles bauen
+pnpm test:e2e         # E2E-Tests (Browser + Desktop; vorher bauen, unter Linux mit xvfb-run)
 pnpm docker:build     # Docker-Image lokal bauen
 ```
 
