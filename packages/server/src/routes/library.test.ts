@@ -155,6 +155,21 @@ describe('Stammdaten', () => {
     expect((await server.app.inject({ method: 'DELETE', url: `/api/library/master/owners/${owner.id}`, headers: { cookie: edit } })).statusCode).toBe(200);
     expect((await server.app.inject({ method: 'POST', url: '/api/library/master/gibtsnicht', headers: { cookie: edit }, payload: { name: 'x' } })).statusCode).toBe(404);
   });
+
+  it('Cases mit Standard-Anhänger; Anhänger eines Cases kann nicht gelöscht werden', async () => {
+    const { server, edit } = await setup();
+    const post = (kind: string, payload: object) => server.app.inject({ method: 'POST', url: `/api/library/master/${kind}`, headers: { cookie: edit }, payload });
+    const trailer = (await post('trailers', { name: 'Anhänger 1' })).json();
+    expect((await post('cases', { name: 'Kabelcase 1', defaultTrailerId: 'gibtsnicht' })).statusCode).toBe(400);
+    const box = (await post('cases', { name: 'Kabelcase 1', defaultTrailerId: trailer.id, notes: 'rot' })).json();
+    expect(box).toMatchObject({ name: 'Kabelcase 1', defaultTrailerId: trailer.id, notes: 'rot' });
+    const del = await server.app.inject({ method: 'DELETE', url: `/api/library/master/trailers/${trailer.id}`, headers: { cookie: edit } });
+    expect(del.statusCode).toBe(409);
+    expect(del.json().usedBy).toEqual(['Case „Kabelcase 1“']);
+    const cleared = await server.app.inject({ method: 'PUT', url: `/api/library/master/cases/${box.id}`, headers: { cookie: edit }, payload: { defaultTrailerId: '' } });
+    expect(cleared.json().defaultTrailerId).toBeUndefined();
+    expect((await server.app.inject({ method: 'DELETE', url: `/api/library/master/trailers/${trailer.id}`, headers: { cookie: edit } })).statusCode).toBe(200);
+  });
 });
 
 describe('Import/Export', () => {

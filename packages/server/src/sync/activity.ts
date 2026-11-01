@@ -20,6 +20,9 @@ const AREA_WORDS: Record<string, string> = {
   layers: 'Ebenen geändert',
   subnets: 'Netzwerk geändert',
   wifi: 'WLAN geändert',
+  people: 'Personen geändert',
+  groups: 'Gruppen geändert',
+  caseTrailers: 'Cases umgeladen',
 };
 const POSITION_FIELDS = new Set(['signalFlow', 'stagePlan']);
 const IGNORED_FIELDS = new Set(['check', 'lastModified']);

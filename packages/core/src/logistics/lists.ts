@@ -1,6 +1,7 @@
 // Listen als Datenstruktur – dieselbe Quelle für Bildschirm, PDF und CSV.
 import type { Library, MasterKind } from '../library/library';
-import type { Cable, CheckMark, DeviceInstance, Project, Template } from '../model/schema';
+import type { Cable, CaseTrailer, CheckMark, DeviceInstance, MasterData, Project, Template } from '../model/schema';
+import { devicePerson, personName } from '../people/people';
 import { findPort, isMulticore } from '../signalflow/ports';
 import { computeCableLength, computeMulticoreLength, lengthContext, type CableLength } from './length';
 
@@ -18,6 +19,7 @@ export interface CableListRow {
   length: CableLength;
   ownerId?: string;
   trailerId?: string;
+  caseId?: string;
   categoryId?: string;
   inventoryNo?: string;
 }
@@ -28,8 +30,12 @@ function endLabel(project: ProjectLike, templates: Map<string, Template>, end: C
   return `${device?.label ?? '?'} · ${port?.label ?? end.portId}`;
 }
 
-export function buildCableList(project: ProjectLike, library: Pick<Library, 'templates'>): CableListRow[] {
+export function buildCableList(
+  project: ProjectLike & Partial<Pick<Project, 'caseTrailers'>>,
+  library: Pick<Library, 'templates'> & { masterData?: Pick<MasterData, 'cases'> },
+): CableListRow[] {
   const templates = new Map(library.templates.map((t) => [t.id, t]));
+  const trailerOf = (item: { caseId?: string; trailerId?: string }) => effectiveTrailerId(item, project.caseTrailers, library.masterData?.cases);
   const ctx = lengthContext(project.devices, library.templates, project.settings);
   const rows: CableListRow[] = [];
   for (const cable of project.cables) {
@@ -44,7 +50,8 @@ export function buildCableList(project: ProjectLike, library: Pick<Library, 'tem
       to: endLabel(project, templates, cable.to),
       length: computeCableLength(cable, ctx),
       ownerId: cable.ownerId,
-      trailerId: cable.trailerId,
+      trailerId: trailerOf(cable),
+      ...(cable.caseId ? { caseId: cable.caseId } : {}),
       categoryId: cable.categoryOverride ?? t?.categoryId,
       inventoryNo: cable.inventoryNo,
     });
@@ -61,12 +68,31 @@ export function buildCableList(project: ProjectLike, library: Pick<Library, 'tem
       to: t!.endBLabel || 'Ende B',
       length: computeMulticoreLength(device, t, project.settings),
       ownerId: device.ownerId,
-      trailerId: device.trailerId,
+      trailerId: trailerOf(device),
+      ...(device.caseId ? { caseId: device.caseId } : {}),
       categoryId: device.categoryOverride ?? t!.categoryId,
       inventoryNo: device.inventoryNo,
     });
   }
   return rows.sort((a, b) => a.typeName.localeCompare(b.typeName, 'de') || a.from.localeCompare(b.from, 'de', { numeric: true }));
+}
+
+// ---------- Cases ----------
+
+/** Anhänger eines Cases: Zuordnung im Projekt, sonst Standard-Anhänger des Cases. */
+export function caseTrailerId(caseId: string, caseTrailers: CaseTrailer[] | undefined, cases: MasterData['cases'] | undefined): string | undefined {
+  const override = caseTrailers?.find((c) => c.id === caseId);
+  if (override) return override.trailerId;
+  return cases?.find((c) => c.id === caseId)?.defaultTrailerId;
+}
+
+/** Anhänger, in den ein Gerät/Kabel kommt: im Case → Anhänger des Cases, sonst der eigene. */
+export function effectiveTrailerId(
+  item: { caseId?: string; trailerId?: string },
+  caseTrailers: CaseTrailer[] | undefined,
+  cases: MasterData['cases'] | undefined,
+): string | undefined {
+  return item.caseId ? caseTrailerId(item.caseId, caseTrailers, cases) : item.trailerId;
 }
 
 // ---------- Packliste ----------
@@ -80,7 +106,11 @@ export interface PackItem {
   lengthMm: number | null;
   categoryId?: string;
   ownerId?: string;
+  /** Anhänger (bei Inhalt eines Cases: Anhänger des Cases) */
   trailerId?: string;
+  caseId?: string;
+  /** Person, die das Gerät benutzt */
+  person?: string;
   inventoryNo?: string;
   /** Stativ/Traverse bzw. Bühnenelement */
   carrier?: string;
@@ -91,8 +121,13 @@ export interface PackItem {
 }
 
 /** Alle Objekte, die mitgenommen werden (keine direkt gesteckten Verbindungen). */
-export function packItems(project: ProjectLike, library: Pick<Library, 'templates'>): PackItem[] {
+export function packItems(
+  project: ProjectLike & Partial<Pick<Project, 'caseTrailers' | 'people'>>,
+  library: Pick<Library, 'templates'> & { masterData?: Pick<MasterData, 'cases'> },
+): PackItem[] {
   const templates = new Map(library.templates.map((t) => [t.id, t]));
+  const cases = library.masterData?.cases;
+  const trailerOf = (item: { caseId?: string; trailerId?: string }) => effectiveTrailerId(item, project.caseTrailers, cases);
   const devices = new Map(project.devices.map((d) => [d.id, d]));
   const ctx = lengthContext(project.devices, library.templates, project.settings);
   const items: PackItem[] = [];
@@ -109,7 +144,9 @@ export function packItems(project: ProjectLike, library: Pick<Library, 'template
       lengthMm: multicore ? (computeMulticoreLength(d, t, project.settings).chosenMm ?? null) : null,
       categoryId: d.categoryOverride ?? t?.categoryId,
       ownerId: d.ownerId,
-      trailerId: d.trailerId,
+      trailerId: trailerOf(d),
+      ...(d.caseId ? { caseId: d.caseId } : {}),
+      ...(devicePerson(d, t, project.people ?? []) ? { person: personName(devicePerson(d, t, project.people ?? [])) } : {}),
       inventoryNo: d.inventoryNo,
       carrier: carrier?.label,
       notes: d.notes,
@@ -128,7 +165,8 @@ export function packItems(project: ProjectLike, library: Pick<Library, 'template
       lengthMm: computeCableLength(c, ctx).chosenMm ?? null,
       categoryId: c.categoryOverride ?? t?.categoryId,
       ownerId: c.ownerId,
-      trailerId: c.trailerId,
+      trailerId: trailerOf(c),
+      ...(c.caseId ? { caseId: c.caseId } : {}),
       inventoryNo: c.inventoryNo,
       route: `${devices.get(c.from.deviceId)?.label ?? '?'} → ${devices.get(c.to.deviceId)?.label ?? '?'}`,
       notes: c.notes,
@@ -138,10 +176,10 @@ export function packItems(project: ProjectLike, library: Pick<Library, 'template
   return items;
 }
 
-export type GroupBy = 'category' | 'trailer' | 'owner';
-const GROUP_FIELD: Record<GroupBy, 'categoryId' | 'trailerId' | 'ownerId'> = { category: 'categoryId', trailer: 'trailerId', owner: 'ownerId' };
-const GROUP_MASTER: Record<GroupBy, MasterKind> = { category: 'categories', trailer: 'trailers', owner: 'owners' };
-export const UNASSIGNED_LABEL: Record<GroupBy, string> = { category: 'ohne Kategorie', trailer: 'ohne Anhänger', owner: 'ohne Besitzer' };
+export type GroupBy = 'category' | 'trailer' | 'owner' | 'case';
+const GROUP_FIELD: Record<GroupBy, 'categoryId' | 'trailerId' | 'ownerId' | 'caseId'> = { category: 'categoryId', trailer: 'trailerId', owner: 'ownerId', case: 'caseId' };
+const GROUP_MASTER: Record<GroupBy, MasterKind> = { category: 'categories', trailer: 'trailers', owner: 'owners', case: 'cases' };
+export const UNASSIGNED_LABEL: Record<GroupBy, string> = { category: 'ohne Kategorie', trailer: 'ohne Anhänger', owner: 'ohne Besitzer', case: 'nicht im Case' };
 
 export interface PackRow {
   key: string;
@@ -177,9 +215,9 @@ function isChecked(mark: CheckMark | undefined): boolean {
   return mark !== undefined;
 }
 
-/** Zusammengefasst wird nur, was in Vorlage, Länge, Besitzer und Anhänger übereinstimmt. */
+/** Zusammengefasst wird nur, was in Vorlage, Länge, Besitzer, Kategorie, Anhänger und Case übereinstimmt. */
 export function aggregationKey(item: PackItem): string {
-  return [item.kind, item.templateId, item.lengthMm ?? '', item.ownerId ?? '', item.trailerId ?? ''].join('|');
+  return [item.kind, item.templateId, item.lengthMm ?? '', item.ownerId ?? '', item.categoryId ?? '', item.trailerId ?? '', item.caseId ?? ''].join('|');
 }
 
 function buildRows(items: PackItem[], mode: PackingOptions['mode']): PackRow[] {
