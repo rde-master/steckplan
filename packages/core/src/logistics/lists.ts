@@ -66,7 +66,7 @@ export function buildCableList(project: ProjectLike, library: Pick<Library, 'tem
       inventoryNo: device.inventoryNo,
     });
   }
-  return rows.sort((a, b) => a.typeName.localeCompare(b.typeName, 'de') || a.from.localeCompare(b.from, 'de'));
+  return rows.sort((a, b) => a.typeName.localeCompare(b.typeName, 'de') || a.from.localeCompare(b.from, 'de', { numeric: true }));
 }
 
 // ---------- Packliste ----------
