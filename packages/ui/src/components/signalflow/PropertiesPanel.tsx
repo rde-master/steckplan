@@ -18,6 +18,7 @@ import { Banner, Button, Field, TextArea, TextInput } from '../ui';
 import { ColorField, MasterSelect, selectClass } from '../library/fields';
 import { isMulticore } from '@steckplan/core';
 import { CableLengthSection, MulticoreLengthSection } from './LengthSection';
+import { DmxSection, NetworkSection } from './DeviceTechSections';
 import { deviceColor } from './model';
 
 const s = texts.signalflow;
@@ -127,6 +128,8 @@ function DeviceProperties({ doc, origin, library, data, device, editable, issues
       </Field>
       {deviceExtra?.(device)}
       {isMulticore(template) && <MulticoreLengthSection doc={doc} origin={origin} library={library} data={data} device={device} editable={editable} />}
+      <DmxSection doc={doc} origin={origin} library={library} data={data} device={device} editable={editable} />
+      <NetworkSection doc={doc} origin={origin} library={library} data={data} device={device} editable={editable} />
       <ColorField label={s.color} value={deviceColor(device, template)} onChange={(color) => update({ colorOverride: color && color !== template?.defaultColor ? color : undefined })} disabled={!editable} />
       {device.colorOverride && editable && (
         <Button variant="ghost" onClick={() => update({ colorOverride: undefined })}>

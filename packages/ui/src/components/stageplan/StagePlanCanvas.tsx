@@ -5,6 +5,7 @@ import type Konva from 'konva';
 import {
   backgroundScale,
   canDock,
+  formatDmx,
   dependents,
   findDockTarget,
   polylineLength,
@@ -93,6 +94,7 @@ export function StagePlanCanvas(props: StageCanvasProps) {
   const setTool = useEditor((s) => s.setTool);
   const moveBackground = useEditor((s) => s.moveBackground);
   const focusRequest = useEditor((s) => s.focusRequest);
+  const showDmx = useEditor((s) => s.showDmx);
   const [draft, setDraft] = useState<StagePt[]>([]);
   const [pointer, setPointer] = useState<StagePt | null>(null);
   const [dockTargetId, setDockTargetId] = useState<string | null>(null);
@@ -360,7 +362,9 @@ export function StagePlanCanvas(props: StageCanvasProps) {
             const stroke = target ? '#16a34a' : selected ? '#0284c7' : item.kind === 'device' ? 'rgba(15,23,42,0.6)' : '#475569';
             const strokeWidth = px(target ? 4 : selected ? 3 : 1);
             const label = item.device.label;
-            const heightText = item.height.heightMm > 0 ? formatLength(item.height.heightMm) : '';
+            const heightText = [item.height.heightMm > 0 ? formatLength(item.height.heightMm) : '', showDmx && item.device.dmx ? `DMX ${formatDmx(item.device.dmx.universe, item.device.dmx.address)}` : '']
+              .filter(Boolean)
+              .join(' · ');
             return (
               <Group
                 key={item.device.id}

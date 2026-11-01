@@ -7,6 +7,21 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-01
+
+Meilenstein M6 – DMX & Netzwerk.
+
+### Hinzugefügt
+
+- DMX pro Lichtgerät: Modus (aus der Vorlage), Universum (ab 1) und Startadresse; Anzeige des belegten Bereichs
+- DMX-Prüfungen: Überlappung, Ende über 512, fehlende Adresse, unbekannter Modus
+- Auto-Adressierung entlang der DMX-Kette (folgt den DMX-Kabeln im Signalfluss, auch durch Multicore-Adern); passt ein Gerät nicht mehr, geht es im nächsten Universum weiter
+- DMX-Patchliste; Universum.Adresse an den Geräten einblendbar
+- Netzwerk: Subnetze (Netz, Gateway, VLAN-Notiz), IP-Adressen pro Netzwerk-Anschluss (statisch oder DHCP, Hostname), Vorschlag der nächsten freien IP, Netzwerkliste
+- Netzwerk-Prüfungen: doppelte IP, IP außerhalb des Subnetzes, Netz- oder Broadcast-Adresse, fehlende oder ungültige IP, ungültiges Netz, Gateway außerhalb
+- WLAN-Netze (SSID, WPA2/WPA3/offen, versteckt, Access Point) mit QR-Code zum Verbinden (Standardformat, Sonderzeichen korrekt maskiert)
+- WLAN-Passwörter liegen im geschützten Bereich des Projekts: nur mit Bearbeiten-Zugang sichtbar; der Lese-Zugang sieht SSID und QR-Code (vom Server erzeugt)
+
 ## [0.6.0] - 2026-11-01
 
 Meilenstein M5 – Kabellängen & Logistik.
@@ -119,7 +134,8 @@ Meilenstein M0 – Projektgerüst.
 - Docker-Image mit Datenvolume `/data` und Beispiel-`docker-compose.yml`
 - GitHub Actions: Tests und Smoke-Test bei jedem Push, Installer als Artefakte, Docker-Image `:develop`, Release-Workflow für Tags `vX.Y.Z`
 
-[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.6.0...develop
+[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.7.0...develop
+[0.7.0]: https://github.com/rde-master/steckplan/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/rde-master/steckplan/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/rde-master/steckplan/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/rde-master/steckplan/compare/v0.3.0...v0.4.0

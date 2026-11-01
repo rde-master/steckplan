@@ -198,6 +198,22 @@ export class Room {
     return setCheck(this.doc, kind, id, direction, mark, new ServerOrigin(by));
   }
 
+  /** Geschützter Bereich: WLAN-Passwörter (nur für Bearbeiten-Zugang, nie im Yjs-Dokument). */
+  getSecrets(): Secrets {
+    return this.secrets;
+  }
+
+  wifiPassword(wifiId: string): string | undefined {
+    return this.secrets.wifiPasswords.find((w) => w.wifiId === wifiId)?.password;
+  }
+
+  setWifiPassword(wifiId: string, password: string | null): void {
+    if (this.readOnlyReason) throw new Error(this.readOnlyReason);
+    const others = this.secrets.wifiPasswords.filter((w) => w.wifiId !== wifiId);
+    this.secrets = { ...this.secrets, wifiPasswords: password ? [...others, { wifiId, password }] : others };
+    this.markDirty();
+  }
+
   /** Häkchen zurücksetzen (nur Bearbeiten-Zugang – wird in der Route geprüft). */
   resetChecks(direction: CheckDirection | 'both', by: string): number {
     if (this.readOnlyReason) throw new Error(this.readOnlyReason);
@@ -234,7 +250,9 @@ export class Room {
   }
 
   private readCurrent(): ReturnType<typeof readProjectFromYDoc> {
-    const result = readProjectFromYDoc(this.doc, { secrets: this.secrets, changeLog: this.changeLog, ...this.snapshots });
+    const wifiIds = new Set([...this.doc.getMap('wifi').keys()]);
+    const secrets = { ...this.secrets, wifiPasswords: this.secrets.wifiPasswords.filter((w) => wifiIds.has(w.wifiId)) };
+    const result = readProjectFromYDoc(this.doc, { secrets, changeLog: this.changeLog, ...this.snapshots });
     if (!result.ok || this.pending) return result;
     const project = { ...result.project, libraryId: this.libraryIdInFile || this.deps.library.libraryId };
     return { ok: true, project: { ...project, ...buildSnapshots(project, this.deps.library.get()) } };

@@ -17,11 +17,13 @@ import { VersionsDialog } from '../components/VersionsDialog';
 import { SignalFlowView } from '../components/signalflow/SignalFlowView';
 import { StagePlanView } from '../components/stageplan/StagePlanView';
 import { ListsView } from '../components/lists/ListsView';
+import { NetworkView } from '../components/network/NetworkView';
+import { useIssues } from '../lib/useIssues';
 import { MeterField } from '../components/library/fields';
 import { AccessBadge, Banner, Button, Field, Spinner, TextArea, TextInput } from '../components/ui';
 
-type Tab = 'signalflow' | 'stageplan' | 'lists' | 'meta';
-const TAB_PARAM: Record<Tab, string> = { signalflow: 'signalfluss', stageplan: 'buehnenplan', lists: 'listen', meta: 'projektdaten' };
+type Tab = 'signalflow' | 'stageplan' | 'network' | 'lists' | 'meta';
+const TAB_PARAM: Record<Tab, string> = { signalflow: 'signalfluss', stageplan: 'buehnenplan', network: 'netzwerk', lists: 'listen', meta: 'projektdaten' };
 
 function initialTab(): Tab {
   const value = new URLSearchParams(window.location.search).get('ansicht');
@@ -32,6 +34,7 @@ export function ProjectPage({ id }: { id: string }) {
   const project = useProjectDoc(id);
   const data = useProjectData(project?.doc);
   const undo = useUndo(project?.doc);
+  const issues = useIssues(data, useLibrary((st) => st.library));
   const resetEditor = useEditor((s) => s.reset);
   const [tab, setTabState] = useState<Tab>(initialTab);
   const setTab = (next: Tab) => {
@@ -111,7 +114,7 @@ export function ProjectPage({ id }: { id: string }) {
         }
       />
       <div className="flex flex-wrap items-center gap-1 border-b border-slate-200 bg-white px-2 py-1 dark:border-slate-700 dark:bg-slate-900" role="tablist">
-        {(['signalflow', 'stageplan', 'lists', 'meta'] as const).map((t) => (
+        {(['signalflow', 'stageplan', 'network', 'lists', 'meta'] as const).map((t) => (
           <Button key={t} role="tab" aria-selected={tab === t} variant={tab === t ? 'primary' : 'ghost'} onClick={() => setTab(t)}>
             {texts.signalflow.tabs[t]}
           </Button>
@@ -157,6 +160,17 @@ export function ProjectPage({ id }: { id: string }) {
         <SignalFlowView doc={project.doc} data={data} library={library} editable={editable} undo={undo} />
       ) : tab === 'stageplan' ? (
         <StagePlanView doc={project.doc} data={data} library={library} editable={editable} undo={undo} />
+      ) : tab === 'network' ? (
+        <NetworkView
+          projectId={id}
+          doc={project.doc}
+          origin={undo.origin}
+          data={data}
+          library={library}
+          issues={issues}
+          editable={editable}
+          canSeeSecrets={!!session && can(session.access, 'viewSecrets')}
+        />
       ) : tab === 'lists' ? (
         <ListsView
           projectId={id}

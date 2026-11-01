@@ -8,6 +8,8 @@ import {
   readLayers,
   readSettings,
   readShapes,
+  readSubnets,
+  readWifi,
   type Background,
   type Cable,
   type DeviceInstance,
@@ -23,9 +25,10 @@ export interface ProjectData {
   shapes: Shape[];
   background: Background | undefined;
   settings: Partial<ProjectSettings>;
+  network: Project['network'];
 }
 
-const EMPTY: ProjectData = { devices: [], cables: [], layers: [], shapes: [], background: undefined, settings: {} };
+const EMPTY: ProjectData = { devices: [], cables: [], layers: [], shapes: [], background: undefined, settings: {}, network: { subnets: [], wifi: [] } };
 
 function read(doc: Y.Doc): ProjectData {
   return {
@@ -35,6 +38,7 @@ function read(doc: Y.Doc): ProjectData {
     shapes: readShapes(doc),
     background: readBackground(doc),
     settings: readSettings(doc),
+    network: { subnets: readSubnets(doc), wifi: readWifi(doc) },
   };
 }
 

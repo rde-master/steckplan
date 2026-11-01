@@ -5,4 +5,6 @@ export * from './library';
 export * from './signalflow';
 export * from './stageplan';
 export * from './logistics';
+export * from './dmx';
+export * from './network';
 export * from './sync';

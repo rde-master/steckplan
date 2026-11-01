@@ -94,6 +94,11 @@ export const api = {
     request<{ ok: true }>('POST', `/api/projects/${encodeURIComponent(id)}/check`, body),
   resetChecks: (id: string, direction: 'out' | 'in' | 'both') =>
     request<{ removed: number }>('POST', `/api/projects/${encodeURIComponent(id)}/checks/reset`, { direction }),
+  getSecrets: (id: string) => request<{ wifiPasswords: { wifiId: string; password: string }[] }>('GET', `/api/projects/${encodeURIComponent(id)}/secrets`),
+  setWifiPassword: (id: string, wifiId: string, password: string | null) =>
+    request<{ ok: true }>('PUT', `/api/projects/${encodeURIComponent(id)}/secrets/wifi/${encodeURIComponent(wifiId)}`, { password }),
+  wifiQrUrl: (id: string, wifiId: string, version: string) =>
+    `/api/projects/${encodeURIComponent(id)}/wifi/${encodeURIComponent(wifiId)}/qr.svg?v=${encodeURIComponent(version)}`,
   copyProject: (id: string, name?: string) => request<{ id: string }>('POST', `/api/projects/${encodeURIComponent(id)}/copy`, { name }),
   getConflicts: (id: string) => request<{ pending: boolean; conflicts: Conflict[] }>('GET', `/api/projects/${encodeURIComponent(id)}/conflicts`),
   resolveConflicts: (id: string, resolutions: Record<string, Resolution>) =>
