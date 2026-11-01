@@ -16,6 +16,7 @@
     "@steckplan/core": "workspace:*",
     "konva": "^10.9.1",
     "pdfjs-dist": "^6.4.299",
+    "pdfmake": "^0.3.13",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "react-konva": "^19.3.2",
