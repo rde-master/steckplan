@@ -278,11 +278,21 @@ export const ProjectViewsSchema = z.object({
 export type ProjectViews = z.infer<typeof ProjectViewsSchema>;
 
 export const BackgroundSchema = z.object({
+  /** Bild als data-URL (PDF wird beim Import in ein Bild umgewandelt) */
   image: z.string(),
+  /** Bildgröße in Pixeln (seit Format 3) */
+  widthPx: z.number().positive().optional(),
+  heightPx: z.number().positive().optional(),
+  /** Referenzstrecke: zwei Punkte im Bild (Pixel) und ihr echter Abstand */
   calibration: z
     .object({ p1: PointSchema, p2: PointSchema, realDistanceMm: mm.positive() })
     .optional(),
+  /** Lage der linken oberen Bildecke im Plan (mm) (seit Format 3) */
+  offset: PointSchema.optional(),
+  /** Deckkraft 0–1 (seit Format 3) */
+  opacity: z.number().min(0).max(1).optional(),
 });
+export type Background = z.infer<typeof BackgroundSchema>;
 
 export const ProjectSchema = z.object({
   schemaVersion: z.literal(CURRENT_SCHEMA_VERSION),
