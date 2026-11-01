@@ -616,6 +616,9 @@ Jeder Meilenstein endet mit grünen Tests, lauffähigem Build (Desktop **und** D
 - Sperrdatei ohne führenden Punkt (Nextcloud-tauglich), „Sperre übernehmen“ bei veralteter Sperre
 - Claude Code committet regelmäßig und führt die Versionierung selbständig (Abschnitt 11 und 14)
 - Desktop-Installer und Docker-Image werden auf GitHub Actions gebaut; Test-Builds bei jedem Push auf `develop`, Releases bei Tag auf `main`
+- Desktop lokal: „Neues Projekt“ fragt sofort nach dem Speicherort, danach Autosave in diese Datei (01.11.2026)
+- Docker: Projekte löschen nur mit Bearbeiten-Zugang, mit Rückfrage; gelöschte Projekte 30 Tage im Papierkorb wiederherstellbar (01.11.2026)
+- Anmeldung im Browser/Handy bleibt 30 Tage gültig (verlängert sich bei Benutzung); Abmelden jederzeit, Passwortänderung beendet alle Sitzungen (01.11.2026)
 
 ---
 
