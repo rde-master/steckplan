@@ -7,6 +7,24 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-01
+
+Meilenstein M4 – Bühnenplan-Ansicht.
+
+### Hinzugefügt
+
+- Maßstäblicher 2D-Bühnenplan (intern Millimeter) mit Raster (0,1–1 m), Fangen, Maßstabsbalken und Koordinatenanzeige; Zoom und Verschieben wie im Signalfluss
+- Bühnenelemente, Traversen und Stative maßstäblich nach Vorlagenmaß, mit eigener Höhe pro Objekt (z. B. Stativ auf 3,20 m ausgefahren)
+- Geräte docken automatisch an, wenn sie über einem Stativ, einer Traverse oder einem Bühnenelement abgelegt werden (Alt-Taste: nicht andocken); an Traversen sitzen sie auf der Achse; Lösen durch Wegziehen oder im Eigenschaften-Panel
+- Angedockte Geräte bewegen und drehen sich mit ihrem Träger
+- Höhe wird vom Stativ, von der Traverse oder vom Podest übernommen und mit Herkunft angezeigt; eigene Höhe pro Gerät möglich
+- „Nicht platziert“: Geräte aus dem Signalfluss auf den Bühnenplan ziehen; im Signalfluss sind sie markiert
+- Zeichnungsformen: Wand (mit Stärke), Text, Maßlinie mit Längenangabe; Punkte nachträglich verschiebbar
+- Ebenen: aktive Ebene für neue Objekte, ein-/ausblenden, sperren, umbenennen, hinzufügen, leere löschen
+- Hintergrund-Grundriss aus Bild (PNG/JPG) oder PDF-Seite, mit Referenzstrecke kalibrieren, verschieben, Deckkraft
+- Drehen (Griff oder R), Duplizieren, Löschen, Pfeiltasten, Rückgängig/Wiederholen auch im Bühnenplan
+- Prüfungen: nicht platzierte Geräte (Hinweis), zu viele Geräte an einem Stativ/einer Traverse, fehlender Träger
+
 ## [0.4.0] - 2026-11-01
 
 Meilenstein M3 – Signalfluss-Ansicht.
@@ -30,7 +48,7 @@ Meilenstein M3 – Signalfluss-Ansicht.
 
 ### Geändert
 
-- Dateiformat Version 3 (Multicore-Kabeltypen, direkt gesteckte Verbindungen); ältere Dateien werden beim Öffnen automatisch umgewandelt
+- Dateiformat Version 3 (Multicore-Kabeltypen, direkt gesteckte Verbindungen, Hintergrund mit Lage und Deckkraft); ältere Dateien werden beim Öffnen automatisch umgewandelt
 
 ## [0.3.0] - 2026-11-01
 
@@ -85,7 +103,8 @@ Meilenstein M0 – Projektgerüst.
 - Docker-Image mit Datenvolume `/data` und Beispiel-`docker-compose.yml`
 - GitHub Actions: Tests und Smoke-Test bei jedem Push, Installer als Artefakte, Docker-Image `:develop`, Release-Workflow für Tags `vX.Y.Z`
 
-[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.4.0...develop
+[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.5.0...develop
+[0.5.0]: https://github.com/rde-master/steckplan/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/rde-master/steckplan/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/rde-master/steckplan/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/rde-master/steckplan/compare/v0.1.0...v0.2.0
