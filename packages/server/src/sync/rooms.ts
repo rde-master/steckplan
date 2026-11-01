@@ -24,6 +24,9 @@ export class RoomManager {
     options.sessions.onChange((session) => {
       for (const room of this.rooms.values()) room.updateSession(session);
     });
+    options.library.onChange((change) => {
+      for (const room of this.rooms.values()) room.libraryChanged(change);
+    });
   }
 
   get store(): ProjectStore {

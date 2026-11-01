@@ -8,6 +8,10 @@ import { registerAuth } from './auth/plugin';
 import type { PasswordChecker } from './auth/passwords';
 import type { LoginRateLimiter } from './auth/rate-limit';
 import type { SessionStore } from './auth/sessions';
+import { EventHub } from './events/event-hub';
+import type { LibraryStore } from './library/library-store';
+import type { UsageTracker } from './library/usage-tracker';
+import { registerLibraryRoutes } from './routes/library';
 import { registerProjectRoutes } from './routes/projects';
 import type { ProjectStore } from './storage/types';
 import type { VersionStore } from './storage/version-store';
@@ -19,6 +23,10 @@ export interface ServerOptions {
   store: ProjectStore;
   versions: VersionStore;
   sessions: SessionStore;
+  /** Bibliothek (Vorlagen + Stammdaten) */
+  library: LibraryStore;
+  /** Welche Projekte welche Vorlagen/Stammdaten verwenden */
+  usage: UsageTracker;
   /** Bearbeiten-/Lese-Passwort; null = keine Anmeldung per Browser */
   passwords: PasswordChecker | null;
   /** Ordner mit der gebauten UI (index.html). Fehlt er, wird nur die API ausgeliefert. */
@@ -37,6 +45,7 @@ export interface ServerOptions {
 export interface SteckplanServer {
   app: FastifyInstance;
   rooms: RoomManager;
+  events: EventHub;
 }
 
 export async function createServer(options: ServerOptions): Promise<SteckplanServer> {
@@ -51,6 +60,8 @@ export async function createServer(options: ServerOptions): Promise<SteckplanSer
     store: options.store,
     versions: options.versions,
     sessions: options.sessions,
+    library: options.library,
+    usage: options.usage,
     unloadWhenIdle: options.store.kind === 'dataDir',
     idleMs: options.idleMs,
     saveDelayMs: options.saveDelayMs,
@@ -62,9 +73,14 @@ export async function createServer(options: ServerOptions): Promise<SteckplanSer
     },
   });
 
+  const events = new EventHub();
+  options.library.onChange((change) => events.broadcast({ type: 'library', ...change }));
+
   app.addHook('onClose', async () => {
+    events.closeAll();
     await rooms.closeAll('Server wird beendet');
     await options.sessions.flush();
+    await options.usage.flush();
   });
 
   app.get('/api/health', async () => createHealthInfo(options.mode));
@@ -73,7 +89,10 @@ export async function createServer(options: ServerOptions): Promise<SteckplanSer
     sessions: options.sessions,
     passwords: options.passwords,
     rateLimiter: options.rateLimiter,
-    onLogout: (session) => rooms.disconnectSession(session.id),
+    onLogout: (session) => {
+      rooms.disconnectSession(session.id);
+      events.disconnectSession(session.id);
+    },
   });
 
   await app.register(fastifyWebsocket);
@@ -81,7 +100,10 @@ export async function createServer(options: ServerOptions): Promise<SteckplanSer
     rooms.handleConnection(socket, request, request.params.id);
   });
 
-  registerProjectRoutes(app, rooms);
+  app.get('/api/events', { websocket: true }, (socket, request) => events.handleConnection(socket, request));
+
+  registerProjectRoutes(app, rooms, options.usage);
+  registerLibraryRoutes(app, { library: options.library, usage: options.usage });
 
   const uiDir = options.uiDir;
   const hasUi = uiDir !== undefined && existsSync(join(uiDir, 'index.html'));
@@ -97,5 +119,5 @@ export async function createServer(options: ServerOptions): Promise<SteckplanSer
     return reply.code(404).send({ error: 'Nicht gefunden' });
   });
 
-  return { app, rooms };
+  return { app, rooms, events };
 }

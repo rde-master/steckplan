@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react';
 import type * as Y from 'yjs';
-import { can, type PresenceUser, type ProjectMeta } from '@steckplan/core';
-import { api } from '../lib/api';
+import { can, type Conflict, type PresenceUser, type ProjectMeta } from '@steckplan/core';
+import { api, errorMessage } from '../lib/api';
+import { useLibrary } from '../lib/library';
 import { getDesktop } from '../lib/desktop';
 import { navigate } from '../lib/router';
 import { useSession } from '../lib/session';
 import { useProjectDoc, useYMap } from '../lib/useProjectDoc';
 import { texts } from '../texts';
 import { AppHeader } from '../components/AppHeader';
+import { ConflictDialog } from '../components/ConflictDialog';
 import { VersionsDialog } from '../components/VersionsDialog';
 import { AccessBadge, Banner, Button, Field, Spinner, TextArea, TextInput } from '../components/ui';
 
@@ -16,6 +18,9 @@ export function ProjectPage({ id }: { id: string }) {
   const session = useSession((s) => s.session);
   const refreshSession = useSession((s) => s.refresh);
   const [showVersions, setShowVersions] = useState(false);
+  const [conflicts, setConflicts] = useState<Conflict[] | null>(null);
+  const [conflictError, setConflictError] = useState<string | null>(null);
+  const library = useLibrary((s) => s.library);
   const meta = useYMap<ProjectMeta>(project?.doc, 'meta');
   const isDesktop = getDesktop() !== null;
 
@@ -80,7 +85,33 @@ export function ProjectPage({ id }: { id: string }) {
       />
       <main className="mx-auto w-full max-w-3xl flex-1 space-y-4 p-4">
         {status === 'disconnected' && <Banner tone="warn">{texts.project.disconnected}</Banner>}
-        {state?.readOnlyReason && <Banner tone="warn">{state.readOnlyReason}</Banner>}
+        {state?.reconcilePending ? (
+          <Banner tone="warn">
+            <div className="space-y-2">
+              <div>{texts.library.conflicts.pending}</div>
+              {session && can(session.access, 'editProject') ? (
+                <Button
+                  variant="primary"
+                  onClick={async () => {
+                    setConflictError(null);
+                    try {
+                      setConflicts((await api.getConflicts(id)).conflicts);
+                    } catch (err) {
+                      setConflictError(errorMessage(err));
+                    }
+                  }}
+                >
+                  {texts.library.conflicts.resolve}
+                </Button>
+              ) : (
+                <div>{texts.library.conflicts.pendingRead}</div>
+              )}
+              {conflictError && <div className="text-red-700">{conflictError}</div>}
+            </div>
+          </Banner>
+        ) : (
+          state?.readOnlyReason && <Banner tone="warn">{state.readOnlyReason}</Banner>
+        )}
         {state?.notice && <Banner tone="info">{state.notice}</Banner>}
         {state && state.users.length > 0 && <Presence users={state.users} me={state.connectionId} />}
 
@@ -91,6 +122,17 @@ export function ProjectPage({ id }: { id: string }) {
         )}
         <p className="text-center text-sm text-slate-500 dark:text-slate-400">{texts.project.comingSoon}</p>
       </main>
+      {conflicts && (
+        <ConflictDialog
+          conflicts={conflicts}
+          library={library}
+          onClose={() => setConflicts(null)}
+          onSubmit={async (resolutions) => {
+            await api.resolveConflicts(id, resolutions);
+            setConflicts(null);
+          }}
+        />
+      )}
       {showVersions && session && (
         <VersionsDialog
           projectId={id}

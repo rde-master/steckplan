@@ -28,15 +28,19 @@ function sortById<T extends { id: string }>(items: T[]): T[] {
 describe('Projekt ↔ Yjs-Dokument', () => {
   it('überträgt ein Projekt verlustfrei (ohne secrets)', () => {
     const project = sampleProject();
-    const result = readProjectFromYDoc(createYDocFromProject(project), { secrets: project.secrets });
+    const result = readProjectFromYDoc(createYDocFromProject(project), {
+      secrets: project.secrets,
+      masterDataSnapshot: project.masterDataSnapshot,
+    });
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.project).toEqual({ ...project, devices: sortById(project.devices) });
   });
 
-  it('legt secrets nicht im Dokument ab', () => {
+  it('legt secrets und Snapshots nicht im Dokument ab', () => {
     const doc = createYDocFromProject(sampleProject());
     expect(JSON.stringify(doc.toJSON())).not.toContain('geheim');
+    expect(JSON.stringify(doc.toJSON())).not.toContain('Anhänger 1');
     const result = readProjectFromYDoc(doc);
     expect(result.ok && result.project.secrets.wifiPasswords).toEqual([]);
   });

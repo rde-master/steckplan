@@ -1,6 +1,14 @@
 // Eingebetteter Server im Main-Prozess: nur auf 127.0.0.1, zufälliger Port.
 import { join } from 'node:path';
-import { createServer, LocalFileStore, SessionStore, VersionStore, type SteckplanServer } from '@steckplan/server';
+import {
+  createServer,
+  LibraryStore,
+  LocalFileStore,
+  SessionStore,
+  UsageTracker,
+  VersionStore,
+  type SteckplanServer,
+} from '@steckplan/server';
 
 export interface EmbeddedServer extends SteckplanServer {
   baseUrl: string;
@@ -13,12 +21,18 @@ export interface EmbeddedServer extends SteckplanServer {
 export async function startEmbeddedServer(options: { userDataDir: string; uiDir: string; userName: string }): Promise<EmbeddedServer> {
   const store = new LocalFileStore(options.userName);
   const sessions = new SessionStore();
+  const library = new LibraryStore(join(options.userDataDir, 'library.json'));
+  await library.load();
+  const usage = new UsageTracker(join(options.userDataDir, 'usage.json'));
+  await usage.load();
   const server = await createServer({
     mode: 'desktop',
     uiDir: options.uiDir,
     store,
     versions: new VersionStore(join(options.userDataDir, 'versions')),
     sessions,
+    library,
+    usage,
     passwords: null, // Weboberfläche per QR folgt in M8
   });
   const { token } = sessions.create(options.userName || 'Desktop', 'local', 'desktop', { persistent: false, expires: false });

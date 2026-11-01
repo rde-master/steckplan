@@ -7,7 +7,8 @@ export type Migration = (project: RawProject) => RawProject;
 export type MigrationRegistry = Record<number, Migration>;
 
 export const migrations: MigrationRegistry = {
-  // 1: (p) => ({ ...p, schemaVersion: 2, neuesFeld: … }),
+  // 1 → 2: Vorlagen haben optional `updatedBy` und `notes` – vorhandene Daten bleiben unverändert.
+  1: (p) => ({ ...p, schemaVersion: 2 }),
 };
 
 export class ProjectFormatError extends Error {

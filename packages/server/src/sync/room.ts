@@ -6,18 +6,28 @@ import * as encoding from 'lib0/encoding';
 import * as decoding from 'lib0/decoding';
 import * as syncProtocol from 'y-protocols/sync';
 import {
+  analyzeProject,
+  applyAnalysis,
+  buildSnapshots,
   can,
+  finishProject,
+  missingResolutions,
+  projectUsage,
   createYDocFromProject,
   encodeInfo,
   MESSAGE_SYNC,
   readProjectFromYDoc,
   writeProjectToYDoc,
+  type Conflict,
   type PresenceUser,
   type Project,
+  type Resolution,
   type Secrets,
   type ServerInfo,
 } from '@steckplan/core';
 import type { Session } from '../auth/sessions';
+import type { LibraryChange, LibraryStore } from '../library/library-store';
+import type { UsageTracker } from '../library/usage-tracker';
 import type { ProjectStore } from '../storage/types';
 import { VERSION_INTERVAL_MS, type VersionInfo, type VersionStore } from '../storage/version-store';
 
@@ -36,6 +46,8 @@ export interface RoomLogger {
 export interface RoomDeps {
   store: ProjectStore;
   versions: VersionStore;
+  library: LibraryStore;
+  usage: UsageTracker;
   log: RoomLogger;
   saveDelayMs?: number;
   maxSaveDelayMs?: number;
@@ -49,6 +61,14 @@ class ServerOrigin {
 
 const OPEN = 1;
 
+export const RECONCILE_PENDING_REASON =
+  'Vorlagen-Abgleich ausstehend: Das Projekt stammt aus einer anderen Bibliothek und enthält abweichende Vorlagen oder Stammdaten. Jemand mit Bearbeiten-Zugang muss entscheiden, welche gelten.';
+
+/** Projekt, dessen Vorlagen-Abgleich noch eine Entscheidung braucht. */
+interface PendingReconcile {
+  project: Project;
+}
+
 function formatDateTime(iso: string): string {
   return new Date(iso).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' });
 }
@@ -58,6 +78,10 @@ export class Room {
   readonly connections = new Set<Connection>();
   private secrets: Secrets;
   private changeLog: Project['changeLog'];
+  /** Letzte Snapshots – Rückfall, falls eine Vorlage in der Bibliothek fehlt */
+  private snapshots: Pick<Project, 'templateSnapshot' | 'masterDataSnapshot'>;
+  private pending: PendingReconcile | undefined;
+  private libraryIdInFile: string;
   private readonly projectId: string;
   private dirty = false;
   private firstDirtyAt = 0;
@@ -78,6 +102,8 @@ export class Room {
     this.doc = createYDocFromProject(project);
     this.secrets = project.secrets;
     this.changeLog = project.changeLog;
+    this.snapshots = { templateSnapshot: project.templateSnapshot, masterDataSnapshot: project.masterDataSnapshot };
+    this.libraryIdInFile = project.libraryId;
     this.projectId = project.id;
     this.saveDelayMs = deps.saveDelayMs ?? 1500;
     this.maxSaveDelayMs = deps.maxSaveDelayMs ?? 10_000;
@@ -86,15 +112,86 @@ export class Room {
   }
 
   static async load(id: string, deps: RoomDeps): Promise<Room> {
-    const project = await deps.store.load(id);
+    const loaded = await deps.store.load(id);
+    const { project, pending } = await Room.reconcileOnLoad(loaded, deps);
     const room = new Room(id, project, deps);
+    room.pending = pending;
+    deps.usage.record(deps.store.persistentKey(id), project.meta.name, projectUsage(project));
     const latest = await deps.versions.latest(project.id).catch(() => undefined);
     room.lastVersionAt = latest ? Date.parse(latest.at) : 0;
     return room;
   }
 
+  /**
+   * Abgleich beim Öffnen: fehlende Vorlagen/Stammdaten werden ohne Nachfrage in die Bibliothek übernommen,
+   * bei eigener Bibliothek gilt automatisch die Bibliothek. Konflikte mit einer fremden Bibliothek
+   * warten auf eine Entscheidung (Projekt bis dahin nur lesbar).
+   */
+  private static async reconcileOnLoad(project: Project, deps: RoomDeps): Promise<{ project: Project; pending?: PendingReconcile }> {
+    const name = project.meta.name || 'Projekt';
+    const { analysis, idMap, library } = await deps.library.mutate((lib) => {
+      const found = analyzeProject(project, lib);
+      const applied = applyAnalysis(lib, { ...found, conflicts: [] }, {}, { by: `Abgleich „${name}“` });
+      return {
+        library: applied.library,
+        result: { analysis: found, idMap: applied.idMap, library: applied.library },
+        templateIds: found.additions.templates.map((t) => t.id),
+      };
+    });
+    if (analysis.conflicts.length > 0) return { project, pending: { project } };
+    return { project: finishProject(project, library, idMap) };
+  }
+
   get readOnlyReason(): string | undefined {
-    return this.deps.store.readOnlyReason(this.id);
+    return this.deps.store.readOnlyReason(this.id) ?? (this.pending ? RECONCILE_PENDING_REASON : undefined);
+  }
+
+  get reconcilePending(): boolean {
+    return this.pending !== undefined;
+  }
+
+  /** Offene Konflikte (gegen den aktuellen Stand der Bibliothek). */
+  conflicts(): Conflict[] {
+    return this.pending ? analyzeProject(this.pending.project, this.deps.library.get()).conflicts : [];
+  }
+
+  /** Entscheidungen für den Vorlagen-Abgleich anwenden; danach ist das Projekt normal bearbeitbar. */
+  async resolveConflicts(resolutions: Record<string, Resolution>, by: string): Promise<void> {
+    const pending = this.pending;
+    if (!pending) return;
+    const result = await this.deps.library.mutate((lib) => {
+      const analysis = analyzeProject(pending.project, lib);
+      const missing = missingResolutions(analysis, resolutions);
+      if (missing.length) throw new Error(`Für ${missing.length} Einträge fehlt eine Entscheidung.`);
+      const applied = applyAnalysis(lib, analysis, resolutions, { by });
+      return {
+        library: applied.library,
+        result: applied,
+        templateIds: analysis.conflicts.filter((c) => c.kind === 'template').map((c) => c.id),
+        masterKeys: analysis.conflicts.filter((c) => c.kind !== 'template').map((c) => c.key),
+      };
+    });
+    const current = readProjectFromYDoc(this.doc, { secrets: this.secrets, changeLog: this.changeLog, ...this.snapshots });
+    if (!current.ok) throw new Error(`Projekt ungültig: ${current.error}`);
+    const finished = finishProject(current.project, result.library, result.idMap);
+    this.pending = undefined;
+    this.snapshots = { templateSnapshot: finished.templateSnapshot, masterDataSnapshot: finished.masterDataSnapshot };
+    this.libraryIdInFile = finished.libraryId;
+    writeProjectToYDoc(finished, this.doc, new ServerOrigin(by));
+    this.markDirty();
+    for (const connection of this.connections) this.sendWelcome(connection);
+    this.notify(`${by} hat den Vorlagen-Abgleich durchgeführt.`);
+  }
+
+  /** Die Bibliothek hat sich geändert: betrifft es dieses Projekt, Snapshot in der Datei erneuern. */
+  libraryChanged(change: LibraryChange): void {
+    if (this.readOnlyReason || this.closed) return;
+    const usage = projectUsage(readRawUsage(this.doc));
+    const affected =
+      change.templateIds.some((id) => usage.templates.has(id)) ||
+      change.masterKeys.length > 0 ||
+      change.templateIds.some((id) => this.snapshots.templateSnapshot.some((t) => t.id === id));
+    if (affected) this.markDirty();
   }
 
   get versionKey(): string {
@@ -105,11 +202,18 @@ export class Room {
     return !this.readOnlyReason && can(session.access, 'editProject');
   }
 
-  /** Aktueller Stand inkl. geschütztem Bereich. */
+  /** Aktueller Stand inkl. geschütztem Bereich und Snapshots. */
   currentProject(): Project {
-    const result = readProjectFromYDoc(this.doc, { secrets: this.secrets, changeLog: this.changeLog });
+    const result = this.readCurrent();
     if (!result.ok) throw new Error(`Projekt ungültig: ${result.error}`);
     return result.project;
+  }
+
+  private readCurrent(): ReturnType<typeof readProjectFromYDoc> {
+    const result = readProjectFromYDoc(this.doc, { secrets: this.secrets, changeLog: this.changeLog, ...this.snapshots });
+    if (!result.ok || this.pending) return result;
+    const project = { ...result.project, libraryId: this.libraryIdInFile || this.deps.library.libraryId };
+    return { ok: true, project: { ...project, ...buildSnapshots(project, this.deps.library.get()) } };
   }
 
   // ---------- Verbindungen ----------
@@ -118,14 +222,7 @@ export class Room {
     const connection: Connection = { id: randomBytes(6).toString('hex'), socket, session };
     this.connections.add(connection);
 
-    const readOnly = !this.canWrite(session);
-    this.send(connection, encodeInfo({
-      type: 'welcome',
-      connectionId: connection.id,
-      access: session.access,
-      readOnly,
-      ...(this.readOnlyReason ? { readOnlyReason: this.readOnlyReason } : {}),
-    }));
+    this.sendWelcome(connection);
 
     // Server-Stand anbieten; der Client antwortet mit seinen fehlenden Änderungen (Sync-Step 2)
     const encoder = encoding.createEncoder();
@@ -135,6 +232,20 @@ export class Room {
 
     this.broadcastPresence();
     return connection;
+  }
+
+  private sendWelcome(connection: Connection): void {
+    this.send(
+      connection,
+      encodeInfo({
+        type: 'welcome',
+        connectionId: connection.id,
+        access: connection.session.access,
+        readOnly: !this.canWrite(connection.session),
+        ...(this.readOnlyReason ? { readOnlyReason: this.readOnlyReason } : {}),
+        reconcilePending: this.reconcilePending,
+      }),
+    );
   }
 
   removeConnection(connection: Connection): void {
@@ -242,12 +353,16 @@ export class Room {
   private async doSave(): Promise<void> {
     if (!this.dirty) return;
     this.dirty = false;
-    const result = readProjectFromYDoc(this.doc, { secrets: this.secrets, changeLog: this.changeLog });
+    if (this.pending) return; // erst nach dem Abgleich speichern
+    const result = this.readCurrent();
     if (!result.ok) {
       // Ungültiger Stand (z. B. fehlerhafter Client): letzten gültigen Stand auf der Platte behalten.
       this.deps.log.error(`Projekt ${this.id} nicht gespeichert – ungültiger Inhalt (${result.error})`);
       return;
     }
+    this.snapshots = { templateSnapshot: result.project.templateSnapshot, masterDataSnapshot: result.project.masterDataSnapshot };
+    this.libraryIdInFile = result.project.libraryId;
+    this.deps.usage.record(this.deps.store.persistentKey(this.id), result.project.meta.name, projectUsage(result.project));
     try {
       await this.deps.store.save(this.id, result.project);
     } catch (error) {
@@ -282,6 +397,13 @@ export class Room {
     await this.addVersion(current, 'Stand vor dem Wiederherstellen', [by]);
 
     this.secrets = old.secrets;
+    // Vorlagen aus der alten Version, die inzwischen in der Bibliothek fehlen, wieder übernehmen
+    await this.deps.library.mutate((lib) => {
+      const found = analyzeProject({ ...old, libraryId: lib.libraryId }, lib);
+      const applied = applyAnalysis(lib, { ...found, conflicts: [] }, {}, { by });
+      return { library: applied.library, result: undefined, templateIds: found.additions.templates.map((t) => t.id) };
+    });
+    this.snapshots = { templateSnapshot: old.templateSnapshot, masterDataSnapshot: old.masterDataSnapshot };
     writeProjectToYDoc({ ...old, id: current.id, libraryId: current.libraryId }, this.doc, new ServerOrigin(by));
     await this.flush();
     const info = (await this.deps.versions.list(this.projectId)).find((v) => v.id === versionId);
@@ -297,4 +419,10 @@ export class Room {
     this.doc.off('update', this.handleUpdate);
     this.doc.destroy();
   }
+}
+
+/** Nur Geräte und Kabel aus dem Dokument lesen (für die Nutzungsprüfung). */
+function readRawUsage(doc: Y.Doc): Pick<Project, 'devices' | 'cables'> {
+  const values = (name: string) => Object.values(doc.getMap(name).toJSON() as Record<string, unknown>);
+  return { devices: values('devices'), cables: values('cables') } as Pick<Project, 'devices' | 'cables'>;
 }

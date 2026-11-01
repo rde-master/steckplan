@@ -6,7 +6,7 @@ import { formatDate, formatDateTime } from '../lib/format';
 import { navigate } from '../lib/router';
 import { useSession } from '../lib/session';
 import { texts } from '../texts';
-import { AppHeader } from '../components/AppHeader';
+import { AppHeader, MainNav } from '../components/AppHeader';
 import { Banner, Button, Field, Modal, Spinner, TextInput } from '../components/ui';
 
 export function ProjectListPage() {
@@ -38,7 +38,7 @@ export function ProjectListPage() {
 
   return (
     <div className="flex min-h-full flex-col bg-slate-50 dark:bg-slate-950">
-      <AppHeader title={texts.projects.title} />
+      <AppHeader title={texts.projects.title} nav={<MainNav active="projects" />} />
       <main className="mx-auto w-full max-w-5xl flex-1 space-y-4 p-4">
         {canManage && (
           <div className="flex flex-wrap gap-2">

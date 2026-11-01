@@ -49,6 +49,9 @@ export function DesktopStartPage({ desktop }: { desktop: DesktopBridge }) {
             {texts.desktop.newProject}
           </Button>
           <Button onClick={() => void run(() => desktop.openProject())}>{texts.desktop.openProject}</Button>
+          <Button variant="ghost" onClick={() => void run(() => desktop.openLibrary())}>
+            {texts.desktop.library}
+          </Button>
         </div>
         {error && <Banner tone="error">{error}</Banner>}
         <section>

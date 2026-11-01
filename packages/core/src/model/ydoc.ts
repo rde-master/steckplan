@@ -2,7 +2,8 @@
 // - Einfache Objekte (meta, settings, views) → Y.Map mit JSON-Werten je Feld
 // - Listen mit id (devices, cables, …) → Y.Map<id, Y.Map<Feld, JSON>>: gleichzeitige Änderungen
 //   an verschiedenen Feldern desselben Objekts werden zusammengeführt
-// - secrets und changeLog sind NICHT Teil des Dokuments
+// - secrets, changeLog und die Snapshots (templateSnapshot, masterDataSnapshot) sind NICHT Teil des
+//   Dokuments: Vorlagen kommen live aus der Bibliothek, die Snapshots erzeugt der Server beim Speichern.
 import * as Y from 'yjs';
 import { ProjectSchema, type Project, type Secrets } from './schema';
 
@@ -17,10 +18,6 @@ export const Y_COLLECTIONS = {
   cables: ['cables'],
   subnets: ['network', 'subnets'],
   wifi: ['network', 'wifi'],
-  templateSnapshot: ['templateSnapshot'],
-  categories: ['masterDataSnapshot', 'categories'],
-  owners: ['masterDataSnapshot', 'owners'],
-  trailers: ['masterDataSnapshot', 'trailers'],
 } as const satisfies Record<string, CollectionPath>;
 export type YCollectionName = keyof typeof Y_COLLECTIONS;
 
@@ -107,11 +104,18 @@ export type ReadProjectResult = { ok: true; project: Project } | { ok: false; er
 /** Liest und validiert das Projekt aus dem Dokument; secrets und changeLog werden ergänzt. */
 export function readProjectFromYDoc(
   doc: Y.Doc,
-  extra: { secrets?: Secrets; changeLog?: Project['changeLog'] } = {},
+  extra: {
+    secrets?: Secrets;
+    changeLog?: Project['changeLog'];
+    templateSnapshot?: Project['templateSnapshot'];
+    masterDataSnapshot?: Project['masterDataSnapshot'];
+  } = {},
 ): ReadProjectResult {
   const raw = readRawProjectFromYDoc(doc);
   raw.secrets = extra.secrets ?? { wifiPasswords: [] };
   raw.changeLog = extra.changeLog ?? [];
+  raw.templateSnapshot = extra.templateSnapshot ?? [];
+  raw.masterDataSnapshot = extra.masterDataSnapshot ?? { categories: [], owners: [], trailers: [] };
   const parsed = ProjectSchema.safeParse(raw);
   if (!parsed.success) {
     const issue = parsed.error.issues[0];

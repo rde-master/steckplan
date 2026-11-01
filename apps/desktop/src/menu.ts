@@ -10,6 +10,7 @@ export interface MenuActions {
   saveAs(): void;
   showVersions(): void;
   showStart(): void;
+  showLibrary(): void;
   isProjectWindow(win: BrowserWindow | null): boolean;
   recent(): RecentFile[];
   isDev: boolean;
@@ -36,6 +37,7 @@ export function buildMenu(actions: MenuActions): void {
       { label: 'Speichern unter …', accelerator: 'Shift+CmdOrCtrl+S', enabled: projectFocused, click: () => actions.saveAs() },
       { label: 'Versionen …', enabled: projectFocused, click: () => actions.showVersions() },
       { type: 'separator' },
+      { label: 'Bibliothek …', accelerator: 'Shift+CmdOrCtrl+B', click: () => actions.showLibrary() },
       { label: 'Startfenster', click: () => actions.showStart() },
       ...(isMac ? [] : ([{ type: 'separator' }, { label: 'Einstellungen …', click: () => actions.showStart() }] as MenuItemConstructorOptions[])),
       { type: 'separator' },

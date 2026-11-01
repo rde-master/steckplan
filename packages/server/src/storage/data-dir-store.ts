@@ -79,6 +79,10 @@ export class DataDirProjectStore implements ManagedProjectStore {
     return undefined;
   }
 
+  persistentKey(id: string): string {
+    return id;
+  }
+
   /** Legt ein Projekt an; die Projekt-id wird als Speicher-id verwendet (bei Kollision neu vergeben). */
   async create(project: Project): Promise<string> {
     let id = SAFE_ID.test(project.id) ? project.id : newId();

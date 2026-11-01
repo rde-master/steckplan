@@ -32,6 +32,7 @@ export interface SyncClientState {
   access: Access | null;
   readOnly: boolean;
   readOnlyReason?: string;
+  reconcilePending: boolean;
   connectionId: string | null;
   users: PresenceUser[];
   notice?: string;
@@ -60,7 +61,14 @@ export class SyncClient {
   private destroyed = false;
   private readonly baseDelay: number;
   private readonly maxDelay: number;
-  private _state: SyncClientState = { status: 'connecting', access: null, readOnly: false, connectionId: null, users: [] };
+  private _state: SyncClientState = {
+    status: 'connecting',
+    access: null,
+    readOnly: false,
+    reconcilePending: false,
+    connectionId: null,
+    users: [],
+  };
 
   constructor(options: SyncClientOptions) {
     this.doc = options.doc;
@@ -180,6 +188,7 @@ export class SyncClient {
           access: info.access,
           readOnly: info.readOnly,
           readOnlyReason: info.readOnlyReason,
+          reconcilePending: info.reconcilePending ?? false,
           connectionId: info.connectionId,
         });
         break;

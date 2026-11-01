@@ -3,3 +3,5 @@ export { readStandaloneConfig, ConfigError, type StandaloneConfig } from './conf
 export * from './auth';
 export * from './storage';
 export * from './sync';
+export * from './library';
+export * from './events/event-hub';

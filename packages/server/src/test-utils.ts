@@ -9,6 +9,8 @@ import { PasswordChecker } from './auth/passwords';
 import { LoginRateLimiter } from './auth/rate-limit';
 import { SessionStore } from './auth/sessions';
 import { createServer, type ServerOptions, type SteckplanServer } from './server';
+import { LibraryStore } from './library/library-store';
+import { UsageTracker } from './library/usage-tracker';
 import { DataDirProjectStore } from './storage/data-dir-store';
 import { VersionStore } from './storage/version-store';
 import type { ProjectStore } from './storage/types';
@@ -22,6 +24,8 @@ export interface TestServer extends SteckplanServer {
   sessions: SessionStore;
   store: ProjectStore;
   versions: VersionStore;
+  library: LibraryStore;
+  usage: UsageTracker;
   close(): Promise<void>;
 }
 
@@ -35,11 +39,16 @@ export async function startTestServer(overrides: Partial<ServerOptions> = {}): P
   }
   const versions = overrides.versions ?? new VersionStore(join(dataDir, 'versions'));
   const sessions = overrides.sessions ?? new SessionStore();
+  const library = overrides.library ?? new LibraryStore(join(dataDir, 'library.json'));
+  if (!overrides.library) await library.load();
+  const usage = overrides.usage ?? new UsageTracker();
   const server = await createServer({
     mode: 'standalone',
     store,
     versions,
     sessions,
+    library,
+    usage,
     passwords: new PasswordChecker({ edit: EDIT_PASSWORD, read: READ_PASSWORD }),
     rateLimiter: new LoginRateLimiter({ maxFailures: 3 }),
     saveDelayMs: 20,
@@ -56,6 +65,8 @@ export async function startTestServer(overrides: Partial<ServerOptions> = {}): P
     sessions,
     store,
     versions,
+    library,
+    usage,
     close: () => server.app.close(),
   };
 }

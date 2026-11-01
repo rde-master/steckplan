@@ -150,4 +150,8 @@ export class LocalFileStore implements ProjectStore {
   readOnlyReason(id: string): string | undefined {
     return this.files.get(id)?.readOnlyReason;
   }
+
+  persistentKey(id: string): string {
+    return this.files.get(id)?.path ?? id;
+  }
 }
