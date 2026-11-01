@@ -176,3 +176,18 @@ test('Signalfluss: Geräte platzieren, Kabel ziehen, Multicore, Prüfungen, Rüc
     .poll(async () => (await anna.evaluate(() => window.__steckplanStage!.find('.device').map((g) => (g as unknown as { findOne: (s: string) => { fill(): string } }).findOne('Rect').fill()))).filter((f) => f === '#ef4444').length)
     .toBe(2);
 });
+
+test('Signalfluss: Vorlage aus der Bibliothek auf die Zeichenfläche ziehen', async ({ page }) => {
+  await page.setViewportSize({ width: 1400, height: 900 });
+  await loginAs(page, 'edit', 'Ralf');
+  const { id } = await (await page.request.post('/api/projects', { data: { name: 'Drag & Drop' } })).json();
+  await page.goto(`/projekt/${id}`);
+  const item = page.getByRole('complementary', { name: 'Bibliothek' }).getByRole('listitem').filter({ hasText: 'Pult' }).first();
+  await item.dragTo(page.getByTestId('signalflow-canvas'), { targetPosition: { x: 400, y: 300 } });
+  await expect.poll(async () => (await project(page.request, id)).devices.length).toBe(1);
+  const device = (await project(page.request, id)).devices[0];
+  expect(device.label).toBe('Pult 1');
+  // abgelegt in der Nähe der Zielposition (Weltkoordinaten, Raster 10)
+  expect(device.signalFlow.position.x % 10).toBe(0);
+  expect(device.signalFlow.position.x).toBeGreaterThan(200);
+});
