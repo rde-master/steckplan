@@ -1,10 +1,11 @@
 // Zugriff auf die REST-Schnittstelle des Servers.
-import type { Access, Project } from '@steckplan/core';
+import type { Access, Conflict, Library, MasterEntry, MasterKind, Project, Resolution, Template } from '@steckplan/core';
 
 export class ApiError extends Error {
   constructor(
     readonly status: number,
     message: string,
+    readonly details: Record<string, unknown> = {},
   ) {
     super(message);
     this.name = 'ApiError';
@@ -22,7 +23,7 @@ async function request<T>(method: string, url: string, body?: unknown, raw = fal
   const data = text ? (JSON.parse(text) as unknown) : undefined;
   if (!res.ok) {
     const message = (data as { error?: string } | undefined)?.error ?? `Fehler ${res.status}`;
-    throw new ApiError(res.status, message);
+    throw new ApiError(res.status, message, (data ?? {}) as Record<string, unknown>);
   }
   return data as T;
 }
@@ -88,6 +89,36 @@ export const api = {
     request<Project>('GET', `/api/projects/${encodeURIComponent(id)}/versions/${encodeURIComponent(versionId)}`),
   restoreVersion: (id: string, versionId: string) =>
     request<{ ok: true }>('POST', `/api/projects/${encodeURIComponent(id)}/versions/${encodeURIComponent(versionId)}/restore`),
+
+  getConflicts: (id: string) => request<{ pending: boolean; conflicts: Conflict[] }>('GET', `/api/projects/${encodeURIComponent(id)}/conflicts`),
+  resolveConflicts: (id: string, resolutions: Record<string, Resolution>) =>
+    request<{ ok: true }>('POST', `/api/projects/${encodeURIComponent(id)}/conflicts`, { resolutions }),
+
+  // ---------- Bibliothek ----------
+  library: () => request<Library>('GET', '/api/library'),
+  createTemplate: (template: Partial<Template>) => request<Template>('POST', '/api/library/templates', { template }),
+  updateTemplate: (template: Template, options: { force?: boolean } = {}) =>
+    request<Template>('PUT', `/api/library/templates/${encodeURIComponent(template.id)}`, {
+      template,
+      baseVersion: template.version,
+      force: options.force,
+    }),
+  deleteTemplate: (id: string) => request<{ ok: true }>('DELETE', `/api/library/templates/${encodeURIComponent(id)}`),
+  createMaster: (kind: MasterKind, entry: Partial<MasterEntry>) => request<MasterEntry>('POST', `/api/library/master/${kind}`, entry),
+  updateMaster: (kind: MasterKind, id: string, patch: Partial<MasterEntry>) =>
+    request<MasterEntry>('PUT', `/api/library/master/${kind}/${encodeURIComponent(id)}`, patch),
+  deleteMaster: (kind: MasterKind, id: string) => request<{ ok: true }>('DELETE', `/api/library/master/${kind}/${encodeURIComponent(id)}`),
+  exportLibraryUrl: '/api/library/export',
+  importLibrary: (data: unknown, resolutions?: Record<string, Resolution>) =>
+    request<
+      | { status: 'conflicts'; conflicts: Conflict[]; additions: number }
+      | { status: 'imported'; summary: { added: number; replaced: number; copied: number; kept: number } }
+    >('POST', '/api/library/import', { data, resolutions }),
+
+  eventsUrl(): string {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    return `${protocol}//${window.location.host}/api/events`;
+  },
 
   syncUrl(id: string): string {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';

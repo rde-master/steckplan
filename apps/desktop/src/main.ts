@@ -42,6 +42,7 @@ function refreshMenu(): void {
     },
     showVersions: () => BrowserWindow.getFocusedWindow()?.webContents.send('menu:command', 'versions'),
     showStart: () => windows.showStart(),
+    showLibrary: () => windows.showLibrary(),
     isProjectWindow: (win) => windows.projectOf(win) !== undefined,
     recent: () => settings.recent(),
   });
@@ -83,6 +84,9 @@ function registerIpc(): void {
     return openFile(path);
   });
   ipcMain.handle('recent:list', () => settings.recent());
+  ipcMain.handle('library:open', () => {
+    windows.showLibrary();
+  });
 }
 
 async function runSmokeTest(win: BrowserWindow): Promise<void> {

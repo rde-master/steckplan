@@ -13,6 +13,7 @@ export interface WindowManagerOptions {
 
 export class WindowManager {
   private startWindow: BrowserWindow | null = null;
+  private libraryWindow: BrowserWindow | null = null;
   private readonly projectWindows = new Map<string, BrowserWindow>();
   private readonly windowProjects = new Map<number, string>();
 
@@ -58,6 +59,21 @@ export class WindowManager {
       this.startWindow = null;
     });
     this.startWindow = win;
+    return win;
+  }
+
+  /** Bibliothek in eigenem Fenster (nur eines). */
+  showLibrary(): BrowserWindow {
+    if (this.libraryWindow && !this.libraryWindow.isDestroyed()) {
+      if (this.libraryWindow.isMinimized()) this.libraryWindow.restore();
+      this.libraryWindow.focus();
+      return this.libraryWindow;
+    }
+    const win = this.create(`${this.options.baseUrl}/bibliothek`, { width: 1180, height: 820 });
+    win.on('closed', () => {
+      this.libraryWindow = null;
+    });
+    this.libraryWindow = win;
     return win;
   }
 

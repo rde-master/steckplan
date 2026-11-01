@@ -1,10 +1,12 @@
 import { useEffect } from 'react';
 import { getDesktop } from './lib/desktop';
 import { matchRoute, navigate, usePath } from './lib/router';
+import { useLibraryEvents } from './lib/library';
 import { useSession } from './lib/session';
 import { texts } from './texts';
 import { Banner, Button, Spinner } from './components/ui';
 import { DesktopStartPage } from './pages/DesktopStartPage';
+import { LibraryPage } from './pages/LibraryPage';
 import { LoginPage } from './pages/LoginPage';
 import { ProjectListPage } from './pages/ProjectListPage';
 import { ProjectPage } from './pages/ProjectPage';
@@ -18,6 +20,9 @@ export function App() {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  // Bibliothek laden und bei Änderungen (auch von anderen) live aktualisieren
+  useLibraryEvents(status === 'authenticated');
 
   // Nicht angemeldet → zur Anmeldeseite (mit Rücksprung)
   useEffect(() => {
@@ -45,6 +50,8 @@ export function App() {
       return desktop ? <DesktopStartPage desktop={desktop} /> : <ProjectListPage />;
     case 'project':
       return <ProjectPage key={route.id} id={route.id} />;
+    case 'library':
+      return <LibraryPage section={route.section} />;
     default:
       return (
         <div className="p-6">

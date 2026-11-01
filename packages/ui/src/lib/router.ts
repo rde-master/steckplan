@@ -22,7 +22,12 @@ export function usePath(): string {
   return useSyncExternalStore(subscribe, () => window.location.pathname + window.location.search);
 }
 
-export type Route = { page: 'home' } | { page: 'login'; next: string } | { page: 'project'; id: string } | { page: 'notFound' };
+export type Route =
+  | { page: 'home' }
+  | { page: 'login'; next: string }
+  | { page: 'project'; id: string }
+  | { page: 'library'; section: string }
+  | { page: 'notFound' };
 
 export function matchRoute(pathWithQuery: string): Route {
   const [path = '/', query = ''] = pathWithQuery.split('?');
@@ -30,6 +35,9 @@ export function matchRoute(pathWithQuery: string): Route {
   if (path === '/anmelden') {
     const next = new URLSearchParams(query).get('weiter');
     return { page: 'login', next: next && next.startsWith('/') && !next.startsWith('//') ? next : '/' };
+  }
+  if (path === '/bibliothek' || path === '/bibliothek/') {
+    return { page: 'library', section: new URLSearchParams(query).get('bereich') ?? 'device' };
   }
   const project = /^\/projekt\/([^/]+)\/?$/.exec(path);
   if (project) return { page: 'project', id: decodeURIComponent(project[1]!) };

@@ -44,6 +44,17 @@ test('Desktop: Name beim ersten Start, Datei öffnen, Autosave, Sperrdatei', asy
     await project.getByLabel('Ort / Veranstaltungsstätte').fill('Stadthalle');
     await expect.poll(() => JSON.parse(readFileSync(file, 'utf8')).meta.venue, { timeout: 10_000 }).toBe('Stadthalle');
 
+    // Datei im alten Format 1 wurde beim Speichern auf Format 2 angehoben
+    expect(JSON.parse(readFileSync(file, 'utf8')).schemaVersion).toBe(2);
+
+    // Bibliothek in eigenem Fenster (Menü/Startfenster)
+    const libraryWindowPromise = app.waitForEvent('window');
+    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.webContents.executeJavaScript('window.steckplanDesktop.openLibrary()'));
+    const libraryWindow = await libraryWindowPromise;
+    await expect(libraryWindow.getByRole('heading', { name: 'Bibliothek' })).toBeVisible();
+    await expect(libraryWindow.getByRole('button', { name: /Neu: Gerät/ })).toBeVisible();
+    await libraryWindow.close();
+
     // Zuletzt geöffnet merkt sich die Datei
     const settings = JSON.parse(readFileSync(join(userData, 'settings.json'), 'utf8'));
     expect(settings).toMatchObject({ name: 'Ralf Desktop', recentFiles: [file] });
