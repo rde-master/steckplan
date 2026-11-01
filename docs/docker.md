@@ -34,7 +34,7 @@ Ohne die beiden Passwörter startet der Container nicht und meldet, was fehlt.
 
 Im Browser gibt man **Name** und **Passwort** ein:
 
-- **Bearbeiten-Passwort:** alles bearbeiten, Projekte anlegen, hochladen, löschen, Versionen wiederherstellen
+- **Bearbeiten-Passwort:** alles bearbeiten, Projekte anlegen, hochladen, löschen, Versionen wiederherstellen, Bibliothek und Stammdaten pflegen
 - **Lese-Passwort:** alles ansehen und herunterladen (ohne WLAN-Passwörter), Packliste abhaken – sonst keine Änderungen
 
 Die Anmeldung bleibt 30 Tage gültig und verlängert sich bei Benutzung. Werden die Passwörter geändert (Container mit neuen Werten neu starten), sind alle bestehenden Anmeldungen beendet. Nach 10 Fehlversuchen innerhalb von 15 Minuten wird die IP-Adresse vorübergehend gesperrt.
@@ -48,6 +48,8 @@ Alles liegt im Volume `/data`:
 | `projects/` | Projekte als `.steckplan`-Dateien (JSON) |
 | `versions/` | automatische Versionen (die letzten 30 pro Projekt) |
 | `trash/` | gelöschte Projekte (30 Tage wiederherstellbar) |
+| `library.json` | Bibliothek: Vorlagen (Geräte, Kabeltypen, Bühnenelemente, Traversen, Stative) und Stammdaten (Kategorien, Besitzer, Anhänger) |
+| `usage.json` | welche Projekte welche Vorlagen verwenden (für „Löschen nur, wenn unbenutzt“; wird beim Start neu aufgebaut) |
 | `sessions.json` | Anmeldungen (nur Prüfsummen, keine Passwörter) |
 
 ## Image-Tags
