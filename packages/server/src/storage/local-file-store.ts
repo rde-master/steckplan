@@ -24,6 +24,8 @@ export interface OpenOptions {
 export class LocalFileStore implements ProjectStore {
   readonly kind = 'localFiles' as const;
   private readonly files = new Map<string, OpenFile>();
+  /** Laufende Schließvorgänge (Sperre wird freigegeben) – closeAll wartet darauf. */
+  private readonly closing = new Map<string, Promise<void>>();
 
   /** userName: Name aus den Desktop-Einstellungen (steht in der Sperrdatei) */
   constructor(private userName: string) {}
@@ -93,15 +95,20 @@ export class LocalFileStore implements ProjectStore {
     delete file.readOnlyReason;
   }
 
-  async close(id: string): Promise<void> {
+  close(id: string): Promise<void> {
+    const pending = this.closing.get(id);
+    if (pending) return pending;
     const file = this.files.get(id);
-    if (!file) return;
+    if (!file) return Promise.resolve();
     this.files.delete(id);
-    await file.lock?.release();
+    const done = (file.lock?.release() ?? Promise.resolve()).finally(() => this.closing.delete(id));
+    this.closing.set(id, done);
+    return done;
   }
 
+  /** Schließt alle Dateien und wartet auch auf bereits laufende Schließvorgänge. */
   async closeAll(): Promise<void> {
-    await Promise.all([...this.files.keys()].map((id) => this.close(id)));
+    await Promise.all([...[...this.files.keys()].map((id) => this.close(id)), ...this.closing.values()]);
   }
 
   async list(): Promise<ProjectSummary[]> {

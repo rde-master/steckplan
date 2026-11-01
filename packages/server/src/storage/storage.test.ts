@@ -193,6 +193,17 @@ describe('LocalFileStore', () => {
     await store.closeAll();
   });
 
+  it('closeAll wartet auf bereits laufende Schließvorgänge (Beenden der App)', async () => {
+    const dir = tmp();
+    const store = new LocalFileStore('Ralf');
+    const id = await store.create(join(dir, 'A.steckplan'), createEmptyProject({ name: 'A' }));
+    const first = store.close(id); // z. B. Fenster geschlossen
+    expect(store.close(id)).toBe(first);
+    await store.closeAll(); // gleichzeitig: App wird beendet
+    expect(existsSync(join(dir, 'A.steckplan.lock'))).toBe(false);
+    await first;
+  });
+
   it('meldet ungültige Dateien verständlich', async () => {
     const file = join(tmp(), 'kaputt.steckplan');
     writeFileSync(file, 'nicht json');

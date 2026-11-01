@@ -48,7 +48,7 @@ test('Desktop: Name beim ersten Start, Datei öffnen, Autosave, Sperrdatei', asy
     const settings = JSON.parse(readFileSync(join(userData, 'settings.json'), 'utf8'));
     expect(settings).toMatchObject({ name: 'Ralf Desktop', recentFiles: [file] });
 
-    // Fenster schließen → Sperre wird entfernt
+    // Fenster schließen → Sperre wird entfernt (unter Windows/Linux beendet sich die App dabei)
     await project.close();
     await expect.poll(() => existsSync(`${file}.lock`), { timeout: 10_000 }).toBe(false);
   } finally {
