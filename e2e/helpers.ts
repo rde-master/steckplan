@@ -20,6 +20,7 @@ export async function createProject(page: Page, name: string): Promise<string> {
   await page.getByLabel('Projektname').fill(name);
   await page.getByRole('dialog').getByRole('button', { name: 'Neues Projekt' }).click();
   await expect(page).toHaveURL(/\/projekt\//);
+  await page.getByRole('tab', { name: 'Projektdaten' }).click();
   await expect(page.getByLabel('Projektname')).toHaveValue(name);
   return page.url();
 }

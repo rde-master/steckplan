@@ -6,15 +6,37 @@ import { useLibrary } from '../lib/library';
 import { getDesktop } from '../lib/desktop';
 import { navigate } from '../lib/router';
 import { useSession } from '../lib/session';
+import { useEditor } from '../lib/editor';
+import { useUndo } from '../lib/undo';
+import { useProjectData } from '../lib/useProjectData';
 import { useProjectDoc, useYMap } from '../lib/useProjectDoc';
 import { texts } from '../texts';
 import { AppHeader } from '../components/AppHeader';
 import { ConflictDialog } from '../components/ConflictDialog';
 import { VersionsDialog } from '../components/VersionsDialog';
+import { SignalFlowView } from '../components/signalflow/SignalFlowView';
 import { AccessBadge, Banner, Button, Field, Spinner, TextArea, TextInput } from '../components/ui';
+
+type Tab = 'signalflow' | 'stageplan' | 'meta';
+const TAB_PARAM: Record<Tab, string> = { signalflow: 'signalfluss', stageplan: 'buehnenplan', meta: 'projektdaten' };
+
+function initialTab(): Tab {
+  const value = new URLSearchParams(window.location.search).get('ansicht');
+  return (Object.entries(TAB_PARAM).find(([, v]) => v === value)?.[0] as Tab | undefined) ?? 'signalflow';
+}
 
 export function ProjectPage({ id }: { id: string }) {
   const project = useProjectDoc(id);
+  const data = useProjectData(project?.doc);
+  const undo = useUndo(project?.doc);
+  const resetEditor = useEditor((s) => s.reset);
+  const [tab, setTabState] = useState<Tab>(initialTab);
+  const setTab = (next: Tab) => {
+    setTabState(next);
+    const url = new URL(window.location.href);
+    url.searchParams.set('ansicht', TAB_PARAM[next]);
+    window.history.replaceState(null, '', url.pathname + url.search);
+  };
   const session = useSession((s) => s.session);
   const refreshSession = useSession((s) => s.refresh);
   const [showVersions, setShowVersions] = useState(false);
@@ -34,6 +56,8 @@ export function ProjectPage({ id }: { id: string }) {
   useEffect(() => {
     if (status === 'unauthorized') void refreshSession();
   }, [status, refreshSession]);
+
+  useEffect(() => resetEditor(), [id, resetEditor]);
 
   // Desktop: „Datei → Versionen …“ im Menü
   useEffect(() => getDesktop()?.onMenuCommand((command) => command === 'versions' && setShowVersions(true)), []);
@@ -60,7 +84,7 @@ export function ProjectPage({ id }: { id: string }) {
   }
 
   return (
-    <div className="flex min-h-full flex-col bg-slate-50 dark:bg-slate-950">
+    <div className="flex h-full flex-col bg-slate-50 dark:bg-slate-950">
       <AppHeader
         left={backButton}
         title={meta.name || ' '}
@@ -83,7 +107,16 @@ export function ProjectPage({ id }: { id: string }) {
           </div>
         }
       />
-      <main className="mx-auto w-full max-w-3xl flex-1 space-y-4 p-4">
+      <div className="flex flex-wrap items-center gap-1 border-b border-slate-200 bg-white px-2 py-1 dark:border-slate-700 dark:bg-slate-900" role="tablist">
+        {(['signalflow', 'stageplan', 'meta'] as const).map((t) => (
+          <Button key={t} role="tab" aria-selected={tab === t} variant={tab === t ? 'primary' : 'ghost'} onClick={() => setTab(t)}>
+            {texts.signalflow.tabs[t]}
+          </Button>
+        ))}
+        <div className="flex-1" />
+        {state && state.users.length > 0 && <Presence users={state.users} me={state.connectionId} />}
+      </div>
+      <div className="space-y-2 empty:hidden px-2 pt-2">
         {status === 'disconnected' && <Banner tone="warn">{texts.project.disconnected}</Banner>}
         {state?.reconcilePending ? (
           <Banner tone="warn">
@@ -113,15 +146,19 @@ export function ProjectPage({ id }: { id: string }) {
           state?.readOnlyReason && <Banner tone="warn">{state.readOnlyReason}</Banner>
         )}
         {state?.notice && <Banner tone="info">{state.notice}</Banner>}
-        {state && state.users.length > 0 && <Presence users={state.users} me={state.connectionId} />}
+      </div>
 
-        {!project || status === 'connecting' || (status === 'connected' && !meta.name) ? (
-          <Spinner />
-        ) : (
+      {!project || status === 'connecting' || (status === 'connected' && !meta.name) ? (
+        <Spinner />
+      ) : tab === 'signalflow' ? (
+        <SignalFlowView doc={project.doc} data={data} library={library} editable={editable} undo={undo} />
+      ) : tab === 'stageplan' ? (
+        <main className="flex flex-1 items-center justify-center p-6 text-center text-sm text-slate-500">{texts.signalflow.stageplanSoon}</main>
+      ) : (
+        <main className="mx-auto w-full max-w-3xl flex-1 overflow-y-auto p-4">
           <MetaForm doc={project.doc} meta={meta} editable={editable} />
-        )}
-        <p className="text-center text-sm text-slate-500 dark:text-slate-400">{texts.project.comingSoon}</p>
-      </main>
+        </main>
+      )}
       {conflicts && (
         <ConflictDialog
           conflicts={conflicts}
@@ -157,7 +194,7 @@ function ConnectionDot({ status }: { status: string }) {
 
 function Presence({ users, me }: { users: PresenceUser[]; me: string | null }) {
   return (
-    <div className="flex flex-wrap items-center gap-2 text-sm" data-testid="presence">
+    <div className="flex flex-wrap items-center gap-1.5 text-xs" data-testid="presence">
       <span className="text-slate-500 dark:text-slate-400">{texts.project.present}</span>
       {users.map((user) => (
         <span

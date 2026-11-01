@@ -186,7 +186,10 @@ const cableEnd = z.object({ deviceId: id, portId: id });
 
 export const CableSchema = z.object({
   id,
-  templateId: id,
+  /** Kabeltyp; fehlt bei direkt gesteckten Verbindungen (direct) */
+  templateId: id.optional(),
+  /** Direkt gesteckt (z. B. Multicore-Fan-out ins Pult): kein eigenes Kabel, erscheint nicht in Pack-/Kabellisten (seit Format 3) */
+  direct: z.boolean().optional(),
   label: z.string().optional(),
   ownerId: id.optional(),
   trailerId: id.optional(),

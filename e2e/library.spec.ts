@@ -177,11 +177,11 @@ test('Projekt aus fremder Bibliothek: Abgleich beim Öffnen', async ({ page, bro
 
   const anna = await newContextPage(browser);
   await loginAs(anna, 'read', 'Anna');
-  await anna.goto(`/projekt/${id}`);
+  await anna.goto(`/projekt/${id}?ansicht=projektdaten`);
   await expect(anna.getByText('stammt aus einer anderen Bibliothek')).toBeVisible();
   await expect(anna.getByText('Jemand mit Bearbeiten-Zugang muss entscheiden')).toBeVisible();
 
-  await page.goto(`/projekt/${id}`);
+  await page.goto(`/projekt/${id}?ansicht=projektdaten`);
   await expect(page.getByLabel('Projektname')).toBeDisabled();
   await page.getByRole('button', { name: 'Abgleich durchführen' }).click();
   const dialog = page.getByRole('dialog');
