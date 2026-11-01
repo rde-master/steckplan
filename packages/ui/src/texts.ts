@@ -303,7 +303,15 @@ export const texts = {
     zoomOut: 'Verkleinern',
     fit: 'Einpassen',
   },
-  lists: { title: 'Listen', packing: 'Packliste', cables: 'Kabelliste', dmx: 'DMX-Patch', network: 'Netzwerk' },
+  lists: { title: 'Listen', packing: 'Packliste', cables: 'Kabelliste', dmx: 'DMX-Patch', network: 'Netzwerk', changes: 'Änderungen' },
+  changeLog: {
+    empty: 'Noch keine Änderungen protokolliert.',
+    columns: ['Wann', 'Wer', 'Was'],
+    via: { desktop: 'Desktop', browser: 'Browser', desktopKey: 'Desktop (Server)' } as Record<string, string>,
+    refresh: 'Aktualisieren',
+    hint: 'Änderungen werden je Person und Minute zusammengefasst.',
+  },
+  lastModified: (by: string, at: string) => `Zuletzt geändert von ${by} am ${at}`,
   techLists: {
     noDmx: 'Keine Geräte mit DMX-Modi im Projekt.',
     noNetwork: 'Keine Geräte mit Netzwerk-Anschluss im Projekt.',

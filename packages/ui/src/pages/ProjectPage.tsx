@@ -27,9 +27,11 @@ import { AccessBadge, Banner, Button, Field, Spinner, TextArea, TextInput } from
 type Tab = 'signalflow' | 'stageplan' | 'network' | 'lists' | 'meta';
 const TAB_PARAM: Record<Tab, string> = { signalflow: 'signalfluss', stageplan: 'buehnenplan', network: 'netzwerk', lists: 'listen', meta: 'projektdaten' };
 
+/** Ohne Angabe in der Adresse: auf schmalen Bildschirmen (Handy) die Packliste, sonst der Signalfluss. */
 function initialTab(): Tab {
   const value = new URLSearchParams(window.location.search).get('ansicht');
-  return (Object.entries(TAB_PARAM).find(([, v]) => v === value)?.[0] as Tab | undefined) ?? 'signalflow';
+  const fromUrl = Object.entries(TAB_PARAM).find(([, v]) => v === value)?.[0] as Tab | undefined;
+  return fromUrl ?? (window.innerWidth <= 640 ? 'lists' : 'signalflow');
 }
 
 export function ProjectPage({ id }: { id: string }) {
@@ -133,7 +135,7 @@ export function ProjectPage({ id }: { id: string }) {
           </div>
         }
       />
-      <div className="flex flex-wrap items-center gap-1 border-b border-slate-200 bg-white px-2 py-1 dark:border-slate-700 dark:bg-slate-900" role="tablist">
+      <div className="flex items-center gap-1 overflow-x-auto border-b *:shrink-0 border-slate-200 bg-white px-2 py-1 dark:border-slate-700 dark:bg-slate-900" role="tablist">
         {(['signalflow', 'stageplan', 'network', 'lists', 'meta'] as const).map((t) => (
           <Button key={t} role="tab" aria-selected={tab === t} variant={tab === t ? 'primary' : 'ghost'} onClick={() => setTab(t)}>
             {texts.signalflow.tabs[t]}

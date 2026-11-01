@@ -135,6 +135,16 @@ export function StagePlanView({ doc, data, library, editable, undo }: { doc: Y.D
     undo.stop();
   }
 
+  // Langes Drücken auf ein Objekt: auf schmalen Bildschirmen die Eigenschaften (mit allen Aktionen) öffnen
+  useEffect(
+    () =>
+      useEditor.subscribe((st, prev) => {
+        const count = st.selection.devices.length + st.selection.cables.length + st.selection.shapes.length;
+        if (narrow && st.propertiesRequest !== prev.propertiesRequest && count > 0) setMobilePanel('properties');
+      }),
+    [narrow],
+  );
+
   function addFromTemplate(template: Template, at?: StagePt) {
     if (!editable) return;
     const pos = at ?? viewCenter();

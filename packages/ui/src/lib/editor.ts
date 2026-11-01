@@ -43,6 +43,9 @@ interface EditorState {
   toggleShape(id: string): void;
   /** Anfrage an die Zeichenfläche, eine Stelle (Weltkoordinaten) in die Mitte zu holen */
   focusRequest: { x: number; y: number; at: number } | null;
+  /** Langes Drücken (Touch): Eigenschaften der Auswahl zeigen – zählt bei jeder Anfrage hoch */
+  propertiesRequest: number;
+  requestProperties(): void;
   select(selection: Partial<Selection>, additive?: boolean): void;
   toggleDevice(id: string): void;
   toggleCable(id: string): void;
@@ -62,6 +65,7 @@ const initial = {
   moveBackground: false,
   showStageObjects: false,
   focusRequest: null,
+  propertiesRequest: 0,
   filter: EMPTY_FILTER,
   colorMode: 'device' as ColorMode,
   showCables: true,
@@ -137,6 +141,9 @@ export const useEditor = create<EditorState>((set) => ({
   },
   focus(point) {
     set({ focusRequest: { ...point, at: Date.now() } });
+  },
+  requestProperties() {
+    set((s) => ({ propertiesRequest: s.propertiesRequest + 1 }));
   },
   reset() {
     set(initial);
