@@ -52,18 +52,18 @@ async function project(request: APIRequestContext, id: string) {
 
 async function setupLibrary(request: APIRequestContext) {
   const post = async (template: object) => (await request.post('/api/library/templates', { data: { template } })).json();
-  const mic = await post({ kind: 'device', name: 'SM58', defaultColor: '#22c55e', shape: { form: 'rect', widthMm: 200, depthMm: 50 }, ports: [{ id: 'out', label: 'Out', connector: 'XLR 3', direction: 'out', signal: 'Audio' }] });
+  const mic = await post({ kind: 'device', name: 'SM58', defaultColor: '#22c55e', shape: { form: 'rect', widthMm: 200, depthMm: 50 }, ports: [{ id: 'out', label: 'Out', connector: 'XLR 3 SF', direction: 'out', signal: 'Audio' }] });
   const desk = await post({
     kind: 'device',
     name: 'Pult',
     defaultColor: '#1e293b',
     shape: { form: 'rect', widthMm: 800, depthMm: 500 },
     ports: [
-      { id: 'in1', label: 'In 1', connector: 'XLR 3', direction: 'in', signal: 'Audio' },
-      { id: 'in2', label: 'In 2', connector: 'XLR 3', direction: 'in', signal: 'Audio' },
+      { id: 'in1', label: 'In 1', connector: 'XLR 3 SF', direction: 'in', signal: 'Audio' },
+      { id: 'in2', label: 'In 2', connector: 'XLR 3 SF', direction: 'in', signal: 'Audio' },
     ],
   });
-  const xlr = await post({ kind: 'cableType', name: 'XLR 10 m', connectorA: 'XLR 3', connectorB: 'XLR 3', signal: 'Audio' });
+  const xlr = await post({ kind: 'cableType', name: 'XLR 10 m', connectorA: 'XLR 3 SF', connectorB: 'XLR 3 SF', signal: 'Audio' });
   const speakon = await post({ kind: 'cableType', name: 'Speakon', connectorA: 'Speakon', connectorB: 'Speakon', signal: 'Lautsprecher' });
   const snake = await post({
     kind: 'cableType',
@@ -71,8 +71,8 @@ async function setupLibrary(request: APIRequestContext) {
     endALabel: 'Bühne',
     endBLabel: 'FOH',
     channels: [
-      { id: 's1', label: 'Send 1', connectorA: 'XLR 3', connectorB: 'XLR 3', direction: 'aToB', signal: 'Audio' },
-      { id: 'r1', label: 'Return 1', connectorA: 'XLR 3', connectorB: 'XLR 3', direction: 'bToA', signal: 'Audio' },
+      { id: 's1', label: 'Send 1', connectorA: 'XLR 3 SF', connectorB: 'XLR 3 SF', direction: 'aToB', signal: 'Audio' },
+      { id: 'r1', label: 'Return 1', connectorA: 'XLR 3 SF', connectorB: 'XLR 3 SF', direction: 'bToA', signal: 'Audio' },
     ],
   });
   return { mic, desk, xlr, speakon, snake };

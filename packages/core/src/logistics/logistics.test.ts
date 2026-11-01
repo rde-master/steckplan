@@ -106,6 +106,7 @@ describe('Listen', () => {
   it('Packliste zusammengefasst: gleiche Vorlage, Länge, Besitzer, Anhänger → eine Zeile mit Zähler', () => {
     const items = packItems(project, library);
     expect(items).toHaveLength(5);
+    expect(items.find((i) => i.id === 'c1')?.route).toBe('d1 → d2');
     const list = buildPackingList(items, library, { groupBy: ['category'], mode: 'aggregated' });
     expect(list.groups.map((g) => g.label)).toEqual(['Licht', 'ohne Kategorie']);
     const licht = list.groups[0]!;

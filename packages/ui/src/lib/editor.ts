@@ -1,5 +1,8 @@
 // Zustand des Editors (pro geöffnetem Projekt): Auswahl, Ansicht, Optionen.
 import { create } from 'zustand';
+import { EMPTY_FILTER, type Filter } from '@steckplan/core';
+
+export type ColorMode = 'device' | 'category' | 'owner' | 'trailer';
 
 export interface ViewState {
   x: number;
@@ -19,6 +22,13 @@ interface EditorState {
   selection: Selection;
   view: ViewState;
   showStageObjects: boolean;
+  /** Filter (nicht passende Objekte werden ausgegraut) und Einfärben nach … (nur Anzeige) */
+  filter: Filter;
+  colorMode: ColorMode;
+  showCables: boolean;
+  setFilter(filter: Filter): void;
+  setColorMode(mode: ColorMode): void;
+  setShowCables(show: boolean): void;
   /** Bühnenplan: Ansicht (Pixel pro Millimeter), Werkzeug, aktive Ebene, Hintergrund verschieben */
   stageView: ViewState;
   tool: StageTool;
@@ -50,6 +60,9 @@ const initial = {
   moveBackground: false,
   showStageObjects: false,
   focusRequest: null,
+  filter: EMPTY_FILTER,
+  colorMode: 'device' as ColorMode,
+  showCables: true,
 };
 
 export const useEditor = create<EditorState>((set) => ({
@@ -88,6 +101,15 @@ export const useEditor = create<EditorState>((set) => ({
     set((s) => ({
       selection: { ...s.selection, shapes: s.selection.shapes.includes(id) ? s.selection.shapes.filter((x) => x !== id) : [...s.selection.shapes, id] },
     }));
+  },
+  setFilter(filter) {
+    set({ filter });
+  },
+  setColorMode(colorMode) {
+    set({ colorMode });
+  },
+  setShowCables(showCables) {
+    set({ showCables });
   },
   setStageView(stageView) {
     set({ stageView });

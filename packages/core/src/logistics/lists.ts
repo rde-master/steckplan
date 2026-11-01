@@ -84,6 +84,8 @@ export interface PackItem {
   inventoryNo?: string;
   /** Stativ/Traverse bzw. Bühnenelement */
   carrier?: string;
+  /** Kabel: „von → nach“ */
+  route?: string;
   notes?: string;
   check?: { out?: CheckMark; in?: CheckMark };
 }
@@ -128,6 +130,7 @@ export function packItems(project: ProjectLike, library: Pick<Library, 'template
       ownerId: c.ownerId,
       trailerId: c.trailerId,
       inventoryNo: c.inventoryNo,
+      route: `${devices.get(c.from.deviceId)?.label ?? '?'} → ${devices.get(c.to.deviceId)?.label ?? '?'}`,
       notes: c.notes,
       check: c.check,
     });

@@ -19,6 +19,7 @@ export interface DesktopBridge {
   openRecent(path: string): Promise<void>;
   listRecent(): Promise<RecentFile[]>;
   openLibrary(): Promise<void>;
+  copyAsNew(projectId: string): Promise<void>;
   onRecentChanged(callback: () => void): () => void;
   /** Befehle aus dem Anwendungsmenü, z. B. „versions“ */
   onMenuCommand(callback: (command: string) => void): () => void;

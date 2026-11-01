@@ -1,7 +1,7 @@
 // Seitenleisten des Bühnenplans: Nicht platziert, Ebenen, Hintergrund.
 import { useRef, useState } from 'react';
 import type * as Y from 'yjs';
-import { addLayer, backgroundScale, removeLayer, setBackground, updateLayer, type Background, type DeviceInstance, type Library } from '@steckplan/core';
+import { addLayer, backgroundScale, isMulticore, removeLayer, setBackground, updateLayer, type Background, type DeviceInstance, type Library } from '@steckplan/core';
 import { imageToBackground, isPdf, loadPdf, type LoadedPdf } from '../../lib/background';
 import { useEditor } from '../../lib/editor';
 import type { ProjectData } from '../../lib/useProjectData';
@@ -12,7 +12,9 @@ const s = texts.stageplan;
 
 export function UnplacedPanel({ devices, library, editable, onPlace }: { devices: DeviceInstance[]; library: Library | null; editable: boolean; onPlace: (id: string) => void }) {
   const templates = new Map((library?.templates ?? []).map((t) => [t.id, t]));
-  const unplaced = devices.filter((d) => !d.stagePlan && templates.get(d.templateId)?.kind !== 'cableType').sort((a, b) => a.label.localeCompare(b.label, 'de'));
+  const unplaced = devices
+    .filter((d) => !d.stagePlan && (templates.get(d.templateId)?.kind !== 'cableType' || isMulticore(templates.get(d.templateId))))
+    .sort((a, b) => a.label.localeCompare(b.label, 'de'));
   return (
     <div className="h-full overflow-y-auto p-2">
       <p className="px-1 pb-2 text-xs text-slate-500">{s.unplacedHint}</p>

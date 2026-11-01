@@ -15,7 +15,8 @@ import {
   type Template,
 } from '@steckplan/core';
 import { useEditor } from '../../lib/editor';
-import { formatLength, scaleBar, type StageItem } from './model';
+import { DIMMED_OPACITY } from '../../lib/display';
+import { formatLength, scaleBar, type MulticoreRoute, type StageCable, type StageItem } from './model';
 
 export interface StagePt {
   x: number;
@@ -24,6 +25,13 @@ export interface StagePt {
 
 export interface StageCanvasProps {
   items: StageItem[];
+  cables: StageCable[];
+  multicores: MulticoreRoute[];
+  showCables: boolean;
+  /** Beschriftung (Länge) für ein ausgewähltes Kabel bzw. Multicore */
+  lengthLabel: (id: string) => string | undefined;
+  onCableWaypoints: (id: string, waypoints: StagePt[]) => void;
+  onMulticoreChange: (id: string, patch: { position?: StagePt; endB?: StagePt; waypoints?: StagePt[] }) => void;
   shapes: Shape[];
   lockedLayers: Set<string>;
   background: Background | undefined;
@@ -69,7 +77,7 @@ function useImage(src: string | undefined): HTMLImageElement | null {
 }
 
 export function StagePlanCanvas(props: StageCanvasProps) {
-  const { items, shapes, lockedLayers, background, devices, templates, gridMm, snap, editable } = props;
+  const { items, shapes, lockedLayers, background, devices, templates, gridMm, snap, editable, cables, multicores, showCables } = props;
   const container = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
   const transformerRef = useRef<Konva.Transformer>(null);
@@ -92,6 +100,8 @@ export function StagePlanCanvas(props: StageCanvasProps) {
   const bgImage = useImage(background?.image);
   const selectedDevices = useMemo(() => new Set(selection.devices), [selection.devices]);
   const selectedShapes = useMemo(() => new Set(selection.shapes), [selection.shapes]);
+  const selectedCables = useMemo(() => new Set(selection.cables), [selection.cables]);
+  const toggleCable = useEditor((s) => s.toggleCable);
   const px = (screen: number) => screen / view.zoom; // Bildschirmpixel → Millimeter
 
   useEffect(() => {
@@ -359,6 +369,7 @@ export function StagePlanCanvas(props: StageCanvasProps) {
                 x={item.x}
                 y={item.y}
                 rotation={item.rotation}
+                opacity={item.dimmed && !selected ? DIMMED_OPACITY : 1}
                 draggable={editable && !item.locked && tool === 'select'}
                 listening={!item.locked && tool === 'select'}
                 onDragStart={(e) => {
@@ -427,6 +438,106 @@ export function StagePlanCanvas(props: StageCanvasProps) {
               </Group>
             );
           })}
+
+          {/* Multicores: Verlauf von Ende A nach Ende B */}
+          {multicores.map((route) => {
+            const selected = selectedDevices.has(route.device.id);
+            const pts = [route.a, ...route.waypoints, ...(route.b ? [route.b] : [])];
+            const canEdit = editable && !route.locked && tool === 'select';
+            const ends = { a: route.template.endALabel || 'A', b: route.template.endBLabel || 'B' };
+            const marker = (key: 'a' | 'b', p: StagePt) => (
+              <Group
+                key={key}
+                name="multicore-end"
+                id={`multicore-${key}-${route.device.id}`}
+                x={p.x}
+                y={p.y}
+                draggable={canEdit}
+                onClick={(e) => {
+                  e.cancelBubble = true;
+                  select({ devices: [route.device.id] });
+                }}
+                onTap={(e) => {
+                  e.cancelBubble = true;
+                  select({ devices: [route.device.id] });
+                }}
+                onDragStart={(e) => (e.cancelBubble = true)}
+                onDragMove={(e) => (e.cancelBubble = true)}
+                onDragEnd={(e) => {
+                  e.cancelBubble = true;
+                  const q = snapped({ x: e.target.x(), y: e.target.y() });
+                  props.onMulticoreChange(route.device.id, key === 'a' ? { position: q } : { endB: q });
+                }}
+              >
+                <Rect x={-px(9)} y={-px(9)} width={px(18)} height={px(18)} fill={route.color} stroke={selected ? '#0284c7' : '#0f172a'} strokeWidth={px(selected ? 3 : 1)} cornerRadius={px(3)} />
+                <Text text={key === 'a' ? 'A' : 'B'} x={-px(9)} y={-px(6)} width={px(18)} align="center" fontSize={px(11)} fontStyle="bold" fill="#ffffff" listening={false} />
+                <Text text={`${route.device.label} · ${key === 'a' ? ends.a : ends.b}`} x={px(12)} y={-px(6)} fontSize={fontPx} fill="#0f172a" listening={false} />
+              </Group>
+            );
+            return (
+              <Group key={route.device.id} opacity={route.dimmed && !selected ? DIMMED_OPACITY : 1}>
+                {pts.length > 1 && (
+                  <Line
+                    name="multicore-route"
+                    points={pts.flatMap((p) => [p.x, p.y])}
+                    stroke={route.color}
+                    strokeWidth={px(selected ? 7 : 5)}
+                    dash={[px(14), px(6)]}
+                    lineJoin="round"
+                    hitStrokeWidth={px(14)}
+                    onClick={(e) => {
+                      e.cancelBubble = true;
+                      select({ devices: [route.device.id] });
+                    }}
+                  />
+                )}
+                {marker('a', route.a)}
+                {route.b && marker('b', route.b)}
+                {selected && canEdit && route.b && (
+                  <RouteHandles
+                    points={pts}
+                    px={px}
+                    snap={snapped}
+                    onChange={(waypoints) => props.onMulticoreChange(route.device.id, { waypoints })}
+                  />
+                )}
+                {selected && props.lengthLabel(route.device.id) && pts.length > 1 && <LengthTag points={pts} text={props.lengthLabel(route.device.id)!} px={px} fontPx={fontPx} />}
+              </Group>
+            );
+          })}
+
+          {/* Kabel */}
+          {showCables &&
+            cables.map((line) => {
+              const selected = selectedCables.has(line.cable.id);
+              const pts: StagePt[] = [];
+              for (let i = 0; i < line.points.length; i += 2) pts.push({ x: line.points[i]!, y: line.points[i + 1]! });
+              return (
+                <Group key={line.cable.id} opacity={line.dimmed && !selected ? DIMMED_OPACITY : 1}>
+                  <Line
+                    name="stage-cable"
+                    id={`stage-cable-${line.cable.id}`}
+                    points={line.points}
+                    stroke={line.issue ? '#dc2626' : line.color}
+                    strokeWidth={px(selected ? 4 : 2)}
+                    lineJoin="round"
+                    hitStrokeWidth={px(12)}
+                    listening={tool === 'select'}
+                    onClick={(e) => {
+                      e.cancelBubble = true;
+                      if (e.evt.shiftKey || e.evt.metaKey || e.evt.ctrlKey) toggleCable(line.cable.id);
+                      else select({ cables: [line.cable.id] });
+                    }}
+                    onTap={(e) => {
+                      e.cancelBubble = true;
+                      select({ cables: [line.cable.id] });
+                    }}
+                  />
+                  {selected && editable && tool === 'select' && <RouteHandles points={pts} px={px} snap={snapped} onChange={(waypoints) => props.onCableWaypoints(line.cable.id, waypoints)} />}
+                  {selected && props.lengthLabel(line.cable.id) && <LengthTag points={pts} text={props.lengthLabel(line.cable.id)!} px={px} fontPx={fontPx} />}
+                </Group>
+              );
+            })}
 
           {/* Text und Maßlinien über den Objekten */}
           {shapes
@@ -503,6 +614,82 @@ function trussZigzag(w: number, d: number): number[] {
   const points: number[] = [];
   for (let i = 0; i <= segments; i++) points.push(-w / 2 + i * step, i % 2 === 0 ? -d / 2 : d / 2);
   return points;
+}
+
+/**
+ * Griffe für einen Verlauf: Knickpunkte (ziehen, Doppelklick entfernt) und Mitten der Abschnitte
+ * (ziehen fügt einen Knickpunkt ein). Anfang und Ende sind fest (gehören zu den Geräten).
+ */
+function RouteHandles({ points, px, snap, onChange }: { points: StagePt[]; px: (n: number) => number; snap: (p: StagePt) => StagePt; onChange: (waypoints: StagePt[]) => void }) {
+  const waypoints = points.slice(1, -1);
+  return (
+    <>
+      {points.slice(0, -1).map((p, i) => {
+        const q = points[i + 1]!;
+        return (
+          <Circle
+            key={`mid-${i}`}
+            name="route-mid"
+            x={(p.x + q.x) / 2}
+            y={(p.y + q.y) / 2}
+            radius={px(5)}
+            fill="#ffffff"
+            stroke="#0284c7"
+            strokeWidth={px(1.5)}
+            opacity={0.85}
+            draggable
+            onDragStart={(e) => (e.cancelBubble = true)}
+            onDragMove={(e) => (e.cancelBubble = true)}
+            onDragEnd={(e) => {
+              e.cancelBubble = true;
+              const np = snap({ x: e.target.x(), y: e.target.y() });
+              onChange([...waypoints.slice(0, i), np, ...waypoints.slice(i)]);
+            }}
+          />
+        );
+      })}
+      {waypoints.map((p, i) => (
+        <Circle
+          key={`wp-${i}`}
+          name="route-waypoint"
+          x={p.x}
+          y={p.y}
+          radius={px(7)}
+          fill="#0284c7"
+          stroke="#ffffff"
+          strokeWidth={px(2)}
+          draggable
+          onDragStart={(e) => (e.cancelBubble = true)}
+          onDragMove={(e) => (e.cancelBubble = true)}
+          onDragEnd={(e) => {
+            e.cancelBubble = true;
+            const np = snap({ x: e.target.x(), y: e.target.y() });
+            onChange(waypoints.map((w, j) => (j === i ? np : w)));
+          }}
+          onDblClick={(e) => {
+            e.cancelBubble = true;
+            onChange(waypoints.filter((_, j) => j !== i));
+          }}
+          onDblTap={(e) => {
+            e.cancelBubble = true;
+            onChange(waypoints.filter((_, j) => j !== i));
+          }}
+        />
+      ))}
+    </>
+  );
+}
+
+function LengthTag({ points, text, px, fontPx }: { points: StagePt[]; text: string; px: (n: number) => number; fontPx: number }) {
+  const mid = Math.floor((points.length - 1) / 2);
+  const p = points[mid]!;
+  const q = points[mid + 1] ?? p;
+  return (
+    <Group x={(p.x + q.x) / 2} y={(p.y + q.y) / 2} listening={false}>
+      <Rect x={px(8)} y={-px(10)} width={text.length * fontPx * 0.58 + px(10)} height={px(20)} fill="#0f172a" opacity={0.85} cornerRadius={px(4)} />
+      <Text name="length-tag" text={text} x={px(13)} y={-px(6)} fontSize={fontPx} fill="#ffffff" />
+    </Group>
+  );
 }
 
 interface ShapeNodeProps {

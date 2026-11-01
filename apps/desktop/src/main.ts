@@ -43,6 +43,11 @@ function refreshMenu(): void {
     showVersions: () => BrowserWindow.getFocusedWindow()?.webContents.send('menu:command', 'versions'),
     showStart: () => windows.showStart(),
     showLibrary: () => windows.showLibrary(),
+    copyAsNew: () => {
+      const win = BrowserWindow.getFocusedWindow();
+      const id = windows.projectOf(win);
+      if (id && win) void projects.copyAsNew(id, win);
+    },
     isProjectWindow: (win) => windows.projectOf(win) !== undefined,
     recent: () => settings.recent(),
   });
@@ -84,6 +89,10 @@ function registerIpc(): void {
     return openFile(path);
   });
   ipcMain.handle('recent:list', () => settings.recent());
+  ipcMain.handle('project:copyAsNew', (event, projectId: unknown) => {
+    if (typeof projectId !== 'string') return;
+    return projects.copyAsNew(projectId, BrowserWindow.fromWebContents(event.sender) ?? undefined);
+  });
   ipcMain.handle('library:open', () => {
     windows.showLibrary();
   });

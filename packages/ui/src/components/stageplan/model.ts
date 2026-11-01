@@ -1,4 +1,7 @@
 // Aufbereitung für den Bühnenplan.
+import { EMPTY_FILTER, cableIssueMap, endpointPosition, isMulticore, type Cable, type Filter, type Issue } from '@steckplan/core';
+import type { ColorMode } from '../../lib/editor';
+import { cableVisible, deviceVisible, displayColor } from '../../lib/display';
 import {
   DEFAULT_DEVICE_COLOR,
   effectiveHeight,
@@ -23,12 +26,20 @@ export interface StageItem {
   height: EffectiveHeight;
   kind: Template['kind'] | 'unknown';
   locked: boolean;
+  dimmed: boolean;
 }
+
+export interface StageDisplay {
+  colorMode: ColorMode;
+  filter: Filter;
+}
+
+const DEFAULT_DISPLAY: StageDisplay = { colorMode: 'device', filter: EMPTY_FILTER };
 
 /** Zeichenreihenfolge: Bühnenelemente, Traversen, Stative, Geräte */
 const ORDER: Record<string, number> = { stageElement: 0, truss: 1, stand: 2, device: 3, cableType: 3, unknown: 3 };
 
-export function buildStageItems(devices: DeviceInstance[], library: Library | null, layers: Layer[]): StageItem[] {
+export function buildStageItems(devices: DeviceInstance[], library: Library | null, layers: Layer[], display: StageDisplay = DEFAULT_DISPLAY): StageItem[] {
   const templates = new Map((library?.templates ?? []).map((t) => [t.id, t]));
   const byId = new Map(devices.map((d) => [d.id, d]));
   const layerById = new Map(layers.map((l) => [l.id, l]));
@@ -38,8 +49,9 @@ export function buildStageItems(devices: DeviceInstance[], library: Library | nu
     const layer = layerById.get(device.layerId);
     if (layer && !layer.visible) continue;
     const template = templates.get(device.templateId);
-    if (template?.kind === 'cableType') continue; // Multicore-Verlauf folgt mit den Kabelwegen (M5)
+    if (template?.kind === 'cableType') continue; // Multicores werden als Verlauf gezeichnet (buildMulticoreRoutes)
     const kind = template?.kind ?? 'unknown';
+    const baseFill = kind === 'stageElement' ? (device.colorOverride ?? template?.defaultColor ?? '#e2e8f0') : kind === 'device' ? deviceColor(device, template) : (device.colorOverride ?? template?.defaultColor ?? DEFAULT_DEVICE_COLOR);
     items.push({
       device,
       template,
@@ -47,10 +59,11 @@ export function buildStageItems(devices: DeviceInstance[], library: Library | nu
       y: device.stagePlan.position.y,
       rotation: device.stagePlan.rotationDeg ?? 0,
       footprint: footprint(template),
-      fill: kind === 'stageElement' ? (device.colorOverride ?? template?.defaultColor ?? '#e2e8f0') : kind === 'device' ? deviceColor(device, template) : (device.colorOverride ?? template?.defaultColor ?? DEFAULT_DEVICE_COLOR),
+      fill: kind === 'device' ? displayColor(display.colorMode, device, template, library, baseFill) : baseFill,
       height: effectiveHeight(device, byId, templates),
       kind,
       locked: layer?.locked ?? false,
+      dimmed: !deviceVisible(display.filter, device, template),
     });
   }
   return items.sort((a, b) => (ORDER[a.kind] ?? 3) - (ORDER[b.kind] ?? 3));
@@ -66,4 +79,75 @@ export function scaleBar(zoom: number): { mm: number; px: number } {
 
 export function formatLength(mm: number): string {
   return `${(mm / 1000).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} m`;
+}
+
+// ---------- Kabel und Multicores im Bühnenplan ----------
+
+export interface StageCable {
+  cable: Cable;
+  points: number[];
+  color: string;
+  dimmed: boolean;
+  issue: boolean;
+}
+
+export function buildStageCables(cables: Cable[], devices: DeviceInstance[], library: Library | null, layers: Layer[], filter: Filter, issues: Issue[]): StageCable[] {
+  const templates = new Map((library?.templates ?? []).map((t) => [t.id, t]));
+  const byId = new Map(devices.map((d) => [d.id, d]));
+  const hidden = new Set(layers.filter((l) => !l.visible).map((l) => l.id));
+  const issueMap = cableIssueMap(issues);
+  const result: StageCable[] = [];
+  for (const cable of cables) {
+    if (cable.direct) continue;
+    const from = byId.get(cable.from.deviceId);
+    const to = byId.get(cable.to.deviceId);
+    if (!from || !to || hidden.has(from.layerId) || hidden.has(to.layerId)) continue;
+    const a = endpointPosition(from, cable.from.portId, templates);
+    const b = endpointPosition(to, cable.to.portId, templates);
+    if (!a || !b) continue;
+    const type = cable.templateId ? templates.get(cable.templateId) : undefined;
+    const severity = issueMap.get(cable.id);
+    result.push({
+      cable,
+      points: [a, ...cable.waypoints, b].flatMap((p) => [p.x, p.y]),
+      color: type?.defaultColor ?? '#475569',
+      dimmed: !cableVisible(filter, cable, type),
+      issue: severity === 'error' || severity === 'warning',
+    });
+  }
+  return result;
+}
+
+export interface MulticoreRoute {
+  device: DeviceInstance;
+  template: Template;
+  a: { x: number; y: number };
+  b: { x: number; y: number } | undefined;
+  waypoints: { x: number; y: number }[];
+  color: string;
+  dimmed: boolean;
+  locked: boolean;
+}
+
+export function buildMulticoreRoutes(devices: DeviceInstance[], library: Library | null, layers: Layer[], filter: Filter): MulticoreRoute[] {
+  const templates = new Map((library?.templates ?? []).map((t) => [t.id, t]));
+  const layerById = new Map(layers.map((l) => [l.id, l]));
+  const routes: MulticoreRoute[] = [];
+  for (const device of devices) {
+    const template = templates.get(device.templateId);
+    if (!isMulticore(template) || !device.stagePlan) continue;
+    const layer = layerById.get(device.layerId);
+    if (layer && !layer.visible) continue;
+    routes.push({
+      device,
+      template: template!,
+      a: device.stagePlan.position,
+      b: device.stagePlan.endB,
+      waypoints: device.stagePlan.waypoints ?? [],
+      color: device.colorOverride ?? template!.defaultColor ?? '#64748b',
+      dimmed: !deviceVisible(filter, device, template),
+      locked: layer?.locked ?? false,
+    });
+  }
+  return routes;
 }

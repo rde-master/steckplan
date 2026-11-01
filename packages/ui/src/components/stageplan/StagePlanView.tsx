@@ -6,7 +6,14 @@ import {
   addShape,
   backgroundScale,
   canDock,
+  computeCableLength,
+  computeMulticoreLength,
   dependents,
+  formatCableLength,
+  formatMeters,
+  isMulticore,
+  lengthContext,
+  updateCables,
   dockedPosition,
   duplicateDevices,
   findDockTarget,
@@ -38,7 +45,8 @@ import { selectClass } from '../library/fields';
 import { ChecksPanel } from '../signalflow/ChecksPanel';
 import { LibrarySidebar } from '../signalflow/LibrarySidebar';
 import { PropertiesPanel } from '../signalflow/PropertiesPanel';
-import { buildStageItems } from './model';
+import { FilterBar } from '../FilterBar';
+import { buildMulticoreRoutes, buildStageCables, buildStageItems } from './model';
 import { BackgroundPanel, LayersPanel, UnplacedPanel } from './SidePanels';
 import { StagePlanCanvas, type StagePt } from './StagePlanCanvas';
 import { ShapeProperties, StageDeviceSection } from './StageProperties';
@@ -57,6 +65,10 @@ export function StagePlanView({ doc, data, library, editable, undo }: { doc: Y.D
   const tool = useEditor((st) => st.tool);
   const setTool = useEditor((st) => st.setTool);
   const activeLayer = useEditor((st) => st.activeLayerId);
+  const filter = useEditor((st) => st.filter);
+  const colorMode = useEditor((st) => st.colorMode);
+  const showCables = useEditor((st) => st.showCables);
+  const setShowCables = useEditor((st) => st.setShowCables);
   const narrow = useIsNarrow(900);
   const [panel, setPanel] = useState<Panel>('library');
   const [mobilePanel, setMobilePanel] = useState<'none' | 'side' | 'properties'>('none');
@@ -65,14 +77,17 @@ export function StagePlanView({ doc, data, library, editable, undo }: { doc: Y.D
 
   const templates = useMemo(() => new Map((library?.templates ?? []).map((t) => [t.id, t])), [library]);
   const issues = useIssues(data, library);
-  const items = useMemo(() => buildStageItems(data.devices, library, data.layers), [data.devices, library, data.layers]);
+  const items = useMemo(() => buildStageItems(data.devices, library, data.layers, { colorMode, filter }), [data.devices, library, data.layers, colorMode, filter]);
+  const stageCables = useMemo(() => buildStageCables(data.cables, data.devices, library, data.layers, filter, issues), [data.cables, data.devices, library, data.layers, filter, issues]);
+  const multicores = useMemo(() => buildMulticoreRoutes(data.devices, library, data.layers, filter), [data.devices, library, data.layers, filter]);
+  const lengthCtx = useMemo(() => lengthContext(data.devices, library?.templates ?? [], data.settings), [data.devices, library, data.settings]);
   const visibleLayers = useMemo(() => new Set(data.layers.filter((l) => l.visible).map((l) => l.id)), [data.layers]);
   const lockedLayers = useMemo(() => new Set(data.layers.filter((l) => l.locked).map((l) => l.id)), [data.layers]);
   const shapes = useMemo(() => data.shapes.filter((x) => visibleLayers.has(x.layerId) || !data.layers.some((l) => l.id === x.layerId)), [data.shapes, visibleLayers, data.layers]);
   const gridMm = data.settings.gridMm ?? 500;
   const snap = data.settings.snap ?? true;
   const layerId = activeLayer && data.layers.some((l) => l.id === activeLayer) ? activeLayer : data.layers[0]?.id;
-  const unplacedCount = data.devices.filter((d) => !d.stagePlan && templates.get(d.templateId)?.kind !== 'cableType').length;
+  const unplacedCount = data.devices.filter((d) => !d.stagePlan && (templates.get(d.templateId)?.kind !== 'cableType' || isMulticore(templates.get(d.templateId)))).length;
   const byId = useMemo(() => new Map(data.devices.map((d) => [d.id, d])), [data.devices]);
 
   useEffect(() => () => setTool('select'), [setTool]);
@@ -136,10 +151,25 @@ export function StagePlanView({ doc, data, library, editable, undo }: { doc: Y.D
     const device = byId.get(id);
     if (!device) return;
     const pos = at ?? viewCenter();
+    if (isMulticore(templates.get(device.templateId))) {
+      updateDevices(doc, [{ id, patch: { stagePlan: { position: pos, rotationDeg: 0, endB: { x: pos.x + 5000, y: pos.y }, waypoints: [] } } }], undo.origin);
+      undo.stop();
+      select({ devices: [id] });
+      return;
+    }
     const placed = { ...device, stagePlan: { position: pos, rotationDeg: 0 } };
     updateDevices(doc, [{ id, patch: { layerId: device.layerId || layerId || device.layerId, ...dropPatch(placed, templates.get(device.templateId), pos, false) } }], undo.origin);
     undo.stop();
     select({ devices: [id] });
+  }
+
+  function lengthLabel(id: string): string | undefined {
+    const cable = data.cables.find((c) => c.id === id);
+    const device = cable ? undefined : byId.get(id);
+    const length = cable ? computeCableLength(cable, lengthCtx) : device ? computeMulticoreLength(device, templates.get(device.templateId), data.settings) : undefined;
+    if (!length || length.totalMm === undefined) return undefined;
+    if (length.status === 'manual') return `${formatCableLength(length.chosenMm)} (von Hand)`;
+    return `${formatMeters(length.totalMm)} → ${length.chosenMm === null ? 'Verlängerung nötig' : formatCableLength(length.chosenMm)}`;
   }
 
   function rotate(id: string, deg: number) {
@@ -415,6 +445,10 @@ export function StagePlanView({ doc, data, library, editable, undo }: { doc: Y.D
             </label>
           </>
         )}
+        <label className="ml-2 flex items-center gap-1 text-xs">
+          <input type="checkbox" checked={showCables} onChange={(e) => setShowCables(e.target.checked)} />
+          {s.showCables}
+        </label>
         <div className="flex-1" />
         <Button variant="ghost" className="min-h-9 px-2" aria-label={texts.signalflow.zoomOut} onClick={() => zoomBy(1 / 1.25)}>
           −
@@ -426,6 +460,7 @@ export function StagePlanView({ doc, data, library, editable, undo }: { doc: Y.D
           {texts.signalflow.fit}
         </Button>
       </div>
+      <FilterBar library={library} data={data} />
       {narrow && (
         <div className="flex gap-1 border-b border-slate-200 bg-white px-2 py-1 dark:border-slate-700 dark:bg-slate-900">
           <Button variant={mobilePanel === 'side' ? 'primary' : 'ghost'} onClick={() => setMobilePanel(mobilePanel === 'side' ? 'none' : 'side')}>
@@ -447,6 +482,20 @@ export function StagePlanView({ doc, data, library, editable, undo }: { doc: Y.D
         >
           <StagePlanCanvas
             items={items}
+            cables={stageCables}
+            multicores={multicores}
+            showCables={showCables}
+            lengthLabel={lengthLabel}
+            onCableWaypoints={(id, waypoints) => {
+              updateCables(doc, [{ id, patch: { waypoints } }], undo.origin);
+              undo.stop();
+            }}
+            onMulticoreChange={(id, patch) => {
+              const d = byId.get(id);
+              if (!d?.stagePlan) return;
+              updateDevices(doc, [{ id, patch: { stagePlan: { ...d.stagePlan, ...patch } } }], undo.origin);
+              undo.stop();
+            }}
             shapes={shapes}
             lockedLayers={lockedLayers}
             background={data.background}

@@ -16,6 +16,8 @@ import type { ProjectData } from '../../lib/useProjectData';
 import { texts } from '../../texts';
 import { Banner, Button, Field, TextArea, TextInput } from '../ui';
 import { ColorField, MasterSelect, selectClass } from '../library/fields';
+import { isMulticore } from '@steckplan/core';
+import { CableLengthSection, MulticoreLengthSection } from './LengthSection';
 import { deviceColor } from './model';
 
 const s = texts.signalflow;
@@ -124,6 +126,7 @@ function DeviceProperties({ doc, origin, library, data, device, editable, issues
         <TextInput value={device.label} onChange={(e) => update({ label: e.target.value })} disabled={!editable} />
       </Field>
       {deviceExtra?.(device)}
+      {isMulticore(template) && <MulticoreLengthSection doc={doc} origin={origin} library={library} data={data} device={device} editable={editable} />}
       <ColorField label={s.color} value={deviceColor(device, template)} onChange={(color) => update({ colorOverride: color && color !== template?.defaultColor ? color : undefined })} disabled={!editable} />
       {device.colorOverride && editable && (
         <Button variant="ghost" onClick={() => update({ colorOverride: undefined })}>
@@ -196,9 +199,18 @@ function CableProperties({ doc, origin, library, data, cable, editable, issues }
       </Field>
       {!cable.direct && (
         <>
+          <CableLengthSection doc={doc} origin={origin} library={library} data={data} cable={cable} editable={editable} />
           <Field label={s.label}>
             <TextInput value={cable.label ?? ''} placeholder={s.cableLabelPlaceholder} onChange={(e) => update({ label: e.target.value || undefined })} disabled={!editable} />
           </Field>
+          <MasterSelect
+            label={s.category}
+            emptyLabel={f.noCategory}
+            entries={library?.masterData.categories ?? []}
+            value={cable.categoryOverride ?? library?.templates.find((t) => t.id === cable.templateId)?.categoryId}
+            onChange={(id) => update({ categoryOverride: id === library?.templates.find((t) => t.id === cable.templateId)?.categoryId ? undefined : id })}
+            disabled={!editable}
+          />
           <Logistics library={library} value={cable} editable={editable} onChange={update} />
         </>
       )}
