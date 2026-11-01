@@ -634,6 +634,8 @@ Jeder Meilenstein endet mit grünen Tests, lauffähigem Build (Desktop **und** D
 - Auto-Adressierung entlang der DMX-Kette: passt ein Gerät nicht mehr ins Universum, geht es im nächsten Universum ab Adresse 1 weiter (mit Hinweis) (01.11.2026)
 - WLAN-Aushang: Passwort als Text aufdrucken ist wählbar (Standard: an, nur mit Bearbeiten-Zugang); Lese-Zugang druckt SSID und QR-Code (01.11.2026)
 - Planzeichnung im festen Maßstab, die nicht auf eine Seite passt: Aufteilung auf mehrere Seiten (Kacheln mit Überlappung und Seitenangabe) (01.11.2026)
+- Weboberfläche am Desktop: fester Port 8080 (in den Einstellungen änderbar); ist er belegt, wird der nächste freie genommen und angezeigt (01.11.2026)
+- Änderungsprotokoll: ein Eintrag je Person und Minute (zusammengefasst), dazu eigene Einträge für wichtige Aktionen (Häkchen zurücksetzen, Version wiederhergestellt, Vorlagen-Abgleich) (01.11.2026)
 
 ---
 
