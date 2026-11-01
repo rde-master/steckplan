@@ -155,8 +155,13 @@ export const DeviceInstanceSchema = z.object({
       rotationDeg: z.number().default(0),
       heightMm: mm.optional(),
       standsOnId: id.optional(),
+      /** Multicore: Lage von Ende B (Ende A = position) und Knickpunkte dazwischen (seit Format 3) */
+      endB: PointSchema.optional(),
+      waypoints: z.array(PointSchema).optional(),
     })
     .optional(),
+  /** Multicore: Länge von Hand statt berechnet (seit Format 3) */
+  manualLengthMm: mm.optional(),
   signalFlow: z.object({ position: PointSchema }).optional(),
   mountedOnId: id.optional(),
   dmx: z
