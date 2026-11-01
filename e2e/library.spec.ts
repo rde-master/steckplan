@@ -62,6 +62,59 @@ test('Bibliothek: Stammdaten und Gerätevorlage anlegen, live bei anderen, Lese-
   await expect(page.getByText('archiviert', { exact: true })).toBeVisible();
 });
 
+test('Mehrere Anschlüsse auf einmal anlegen (Stagebox mit 32 Eingängen)', async ({ page }) => {
+  await loginAs(page, 'edit', 'Ralf');
+  await openLibrary(page);
+  await page.getByRole('button', { name: /Neu: Gerät/ }).click();
+  await page.getByLabel('Name', { exact: true }).fill('Stagebox 32/8');
+  await page.getByRole('button', { name: /Mehrere Anschlüsse anlegen/ }).click();
+
+  const bulk = page.getByRole('group', { name: 'Mehrere Anschlüsse anlegen' });
+  await bulk.getByLabel('Anzahl').fill('32');
+  await bulk.getByLabel('Bezeichnung', { exact: true }).fill('In #');
+  await bulk.getByLabel('Stecker').fill('XLR 3');
+  await bulk.getByLabel('Signal').fill('Audio');
+  await bulk.getByLabel('Führende Nullen').check();
+  await expect(bulk.getByTestId('bulk-preview')).toHaveText('Vorschau: In 01, In 02, … In 32');
+  await bulk.getByRole('button', { name: '32 Anschlüsse hinzufügen' }).click();
+  await expect(bulk).toHaveCount(0);
+
+  // zweiter Block: 8 Ausgänge
+  await page.getByRole('button', { name: /Mehrere Anschlüsse anlegen/ }).click();
+  await bulk.getByLabel('Anzahl').fill('8');
+  await bulk.getByLabel('Bezeichnung', { exact: true }).fill('Out #');
+  await bulk.getByRole('combobox', { name: 'Richtung' }).selectOption('out');
+  await bulk.getByRole('button', { name: '8 Anschlüsse hinzufügen' }).click();
+
+  await expect(page.getByLabel('Bezeichnung 32', { exact: true })).toHaveValue('In 32');
+  await expect(page.getByLabel('Stecker 32', { exact: true })).toHaveValue('XLR 3');
+  await expect(page.getByLabel('Bezeichnung 33', { exact: true })).toHaveValue('Out 1');
+  await expect(page.getByLabel('Richtung 40', { exact: true })).toHaveValue('out');
+
+  // optische Trennung: Eingänge und Ausgänge in eigenen Gruppen
+  await expect(page.getByTestId('ports-in').getByRole('rowheader')).toHaveText('Eingänge (32)');
+  await expect(page.getByTestId('ports-out').getByRole('rowheader')).toHaveText('Ausgänge (8)');
+  await expect(page.getByTestId('ports-bi')).toHaveCount(0);
+  await expect(page.getByTestId('ports-out').getByLabel('Bezeichnung 33', { exact: true })).toHaveValue('Out 1');
+  // Richtung ändern → Anschluss wechselt die Gruppe
+  await page.getByLabel('Richtung 40', { exact: true }).selectOption('bi');
+  await expect(page.getByTestId('ports-bi').getByRole('rowheader')).toHaveText('Ein-/Ausgänge (1)');
+  await expect(page.getByTestId('ports-out').getByRole('rowheader')).toHaveText('Ausgänge (7)');
+
+  await page.getByRole('button', { name: 'Speichern' }).click();
+  await expect(page.getByText('Gespeichert.')).toBeVisible();
+
+  const library = await (await page.request.get('/api/library')).json();
+  const stagebox = library.templates.find((t: { name: string }) => t.name === 'Stagebox 32/8');
+  expect(stagebox.ports).toHaveLength(40);
+  expect(new Set(stagebox.ports.map((p: { id: string }) => p.id)).size).toBe(40);
+
+  // alle Anschlüsse auf einmal entfernen (mit Rückfrage)
+  await page.getByRole('button', { name: 'Alle Anschlüsse entfernen' }).click();
+  await page.getByRole('button', { name: 'Entfernen', exact: true }).click();
+  await expect(page.getByLabel('Bezeichnung 1', { exact: true })).toHaveCount(0);
+});
+
 test('Gleichzeitiges Ändern: „inzwischen geändert“, trotzdem überschreiben', async ({ page, browser }) => {
   await loginAs(page, 'edit', 'Ralf');
   const tom = await newContextPage(browser);
