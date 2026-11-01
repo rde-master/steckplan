@@ -1,48 +1,55 @@
-import { useEffect, useState } from 'react';
-import { formatAppTitle, type HealthInfo } from '@steckplan/core';
-import { fetchHealth } from './api';
+import { useEffect } from 'react';
+import { getDesktop } from './lib/desktop';
+import { matchRoute, navigate, usePath } from './lib/router';
+import { useSession } from './lib/session';
 import { texts } from './texts';
-
-type ServerState = { status: 'loading' } | { status: 'ok'; health: HealthInfo } | { status: 'error' };
+import { Banner, Button, Spinner } from './components/ui';
+import { DesktopStartPage } from './pages/DesktopStartPage';
+import { LoginPage } from './pages/LoginPage';
+import { ProjectListPage } from './pages/ProjectListPage';
+import { ProjectPage } from './pages/ProjectPage';
 
 export function App() {
-  const [server, setServer] = useState<ServerState>({ status: 'loading' });
+  const path = usePath();
+  const route = matchRoute(path);
+  const { status, loginAvailable, error, refresh } = useSession();
+  const desktop = getDesktop();
 
   useEffect(() => {
-    const controller = new AbortController();
-    fetchHealth(controller.signal)
-      .then((health) => setServer({ status: 'ok', health }))
-      .catch(() => {
-        if (!controller.signal.aborted) setServer({ status: 'error' });
-      });
-    return () => controller.abort();
-  }, []);
+    void refresh();
+  }, [refresh]);
 
-  return (
-    <div className="flex min-h-screen flex-col bg-slate-50 text-slate-900 dark:bg-slate-900 dark:text-slate-100">
-      <header className="flex items-center gap-3 border-b border-slate-200 px-4 py-3 dark:border-slate-700">
-        <img src="/icon.svg" alt="" className="h-8 w-8" />
-        <div>
-          <h1 className="text-lg font-semibold leading-tight">Steckplan</h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400">{texts.app.tagline}</p>
+  // Nicht angemeldet → zur Anmeldeseite (mit Rücksprung)
+  useEffect(() => {
+    if (status === 'anonymous' && loginAvailable && route.page !== 'login') {
+      navigate(`/anmelden?weiter=${encodeURIComponent(path)}`, { replace: true });
+    }
+  }, [status, loginAvailable, route.page, path]);
+
+  if (route.page === 'login') return <LoginPage next={route.next} />;
+  if (status === 'loading') return <Spinner />;
+  if (status === 'error') {
+    return (
+      <div className="mx-auto max-w-md space-y-3 p-6">
+        <Banner tone="error">{error ?? texts.common.unknownError}</Banner>
+        <Button onClick={() => void refresh()}>{texts.common.retry}</Button>
+      </div>
+    );
+  }
+  if (status === 'anonymous') {
+    return loginAvailable ? <Spinner /> : <div className="p-6"><Banner tone="warn">{texts.login.notAvailable}</Banner></div>;
+  }
+
+  switch (route.page) {
+    case 'home':
+      return desktop ? <DesktopStartPage desktop={desktop} /> : <ProjectListPage />;
+    case 'project':
+      return <ProjectPage key={route.id} id={route.id} />;
+    default:
+      return (
+        <div className="p-6">
+          <Button onClick={() => navigate('/')}>{texts.common.back}</Button>
         </div>
-      </header>
-
-      <main className="flex flex-1 items-center justify-center p-4">
-        <p className="max-w-md text-center text-slate-500 dark:text-slate-400">{texts.start.emptyState}</p>
-      </main>
-
-      <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 px-4 py-2 text-xs text-slate-500 dark:border-slate-700 dark:text-slate-400">
-        <span>
-          {server.status === 'loading' && texts.start.serverConnecting}
-          {server.status === 'error' && <span className="text-red-600">{texts.start.serverError}</span>}
-          {server.status === 'ok' &&
-            `${texts.start.serverConnected} · ${
-              server.health.mode === 'desktop' ? texts.start.modeDesktop : texts.start.modeStandalone
-            }`}
-        </span>
-        <span>{formatAppTitle(server.status === 'ok' ? server.health.version : undefined)}</span>
-      </footer>
-    </div>
-  );
+      );
+  }
 }
