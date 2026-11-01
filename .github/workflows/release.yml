@@ -51,7 +51,7 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm test
+      # Keine Tests hier: der Stand wurde auf develop bereits vollständig geprüft
       - run: pnpm build
       - run: pnpm --filter @steckplan/desktop exec electron-builder ${{ matrix.builder }}
       - uses: actions/upload-artifact@v7

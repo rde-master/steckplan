@@ -1,8 +1,9 @@
 name: CI
 
 on:
+  # main wird nicht extra geprüft: dorthin kommt nur der bereits auf develop getestete Stand (Release)
   push:
-    branches: [main, develop, 'feature/**']
+    branches: [develop, 'feature/**']
   pull_request:
   workflow_dispatch:
 
