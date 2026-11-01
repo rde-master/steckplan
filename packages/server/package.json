@@ -16,13 +16,20 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@fastify/cookie": "^11.1.5",
     "@fastify/static": "^10.1.8",
+    "@fastify/websocket": "^11.3.6",
     "@steckplan/core": "workspace:*",
-    "fastify": "^5.12.7"
+    "fastify": "^5.12.7",
+    "lib0": "^0.2.119",
+    "y-protocols": "^1.0.7",
+    "yjs": "^13.6.33"
   },
   "devDependencies": {
+    "@types/ws": "^8.18.2",
     "cross-env": "^10.1.0",
     "tsup": "^9.0.0",
-    "tsx": "^4.23.15"
+    "tsx": "^4.23.15",
+    "ws": "^8.22.1"
   }
 }
