@@ -136,7 +136,9 @@ test('Signalfluss: Geräte platzieren, Kabel ziehen, Multicore, Prüfungen, Rüc
   expect(cables.find((c: { direct?: boolean }) => c.direct)).toMatchObject({ to: { portId: 'in2' } });
 
   // Prüfungen: Kabeltyp auf Speakon ändern → Stecker passen nicht
-  await expect(page.getByRole('region', { name: 'Prüfungen' })).toContainText('keine Auffälligkeiten');
+  // keine Fehler/Warnungen – nur der Hinweis, dass die Geräte im Bühnenplan noch nicht platziert sind
+  await expect(page.getByRole('region', { name: 'Prüfungen' })).toContainText('1 Hinweis');
+  await expect(page.getByRole('region', { name: 'Prüfungen' })).not.toContainText('Warnung');
   const firstCable = (await nodes(page, '.cable')).find((c) => c.id === `cable-${cables.find((x: { templateId?: string; from: { portId: string }; to: { portId: string } }) => x.to.portId === 'in1').id}`)!;
   await page.mouse.click(firstCable.x, firstCable.y);
   await page.getByRole('complementary', { name: 'Eigenschaften' }).getByRole('combobox', { name: 'Kabeltyp' }).selectOption({ label: 'Speakon' });

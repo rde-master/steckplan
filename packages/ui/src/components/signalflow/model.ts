@@ -30,6 +30,8 @@ export interface DeviceBox {
   text: string;
   multicore: boolean;
   stageObject: boolean;
+  /** Gerät ist im Bühnenplan noch nicht platziert */
+  unplaced: boolean;
   /** Anschluss → angezeigter Text */
   labels: Map<string, string>;
 }
@@ -70,7 +72,8 @@ export function buildBoxes(devices: DeviceInstance[], library: Library | null, s
     };
     const fill = deviceColor(device, template);
     const pos = device.signalFlow?.position ?? fallbackPosition(index);
-    boxes.push({ device, template, x: pos.x, y: pos.y, layout, extraHeader, fill, text: contrastText(fill), multicore, stageObject, labels });
+    const unplaced = template?.kind === 'device' && !device.stagePlan;
+    boxes.push({ device, template, x: pos.x, y: pos.y, layout, extraHeader, fill, text: contrastText(fill), multicore, stageObject, unplaced, labels });
   });
   return boxes;
 }

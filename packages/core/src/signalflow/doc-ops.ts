@@ -45,14 +45,17 @@ export function addDevice(
   template: Template,
   position: { x: number; y: number },
   origin: unknown,
+  options: { view?: 'signalFlow' | 'stagePlan'; layerId?: string; dock?: Partial<DeviceInstance> } = {},
 ): DeviceInstance {
   const layers = readLayers(doc);
+  const pos = { x: Math.round(position.x), y: Math.round(position.y) };
   const device: DeviceInstance = {
     id: newId(),
     templateId: template.id,
-    layerId: layers[0]?.id ?? 'layer',
+    layerId: options.layerId ?? layers[0]?.id ?? 'layer',
     label: nextLabel(template.name, readDevices(doc)),
-    signalFlow: { position: { x: Math.round(position.x), y: Math.round(position.y) } },
+    ...(options.view === 'stagePlan' ? { stagePlan: { position: pos, rotationDeg: 0, ...(options.dock?.stagePlan ?? {}) } } : { signalFlow: { position: pos } }),
+    ...(options.dock?.mountedOnId ? { mountedOnId: options.dock.mountedOnId } : {}),
     ...(template.defaultOwnerId ? { ownerId: template.defaultOwnerId } : {}),
     ...(template.defaultTrailerId ? { trailerId: template.defaultTrailerId } : {}),
   };
@@ -86,7 +89,13 @@ export function removeDevices(doc: Y.Doc, ids: string[], origin: unknown): void 
 }
 
 /** Dupliziert Geräte (versetzt) samt Kabeln zwischen den duplizierten Geräten. Gibt die neuen ids zurück. */
-export function duplicateDevices(doc: Y.Doc, ids: string[], offset: { x: number; y: number }, origin: unknown): string[] {
+export function duplicateDevices(
+  doc: Y.Doc,
+  ids: string[],
+  offset: { x: number; y: number },
+  origin: unknown,
+  stageOffset: { x: number; y: number } = { x: 500, y: 500 },
+): string[] {
   const all = readDevices(doc);
   const source = all.filter((d) => ids.includes(d.id));
   const idMap = new Map<string, string>();
@@ -98,12 +107,21 @@ export function duplicateDevices(doc: Y.Doc, ids: string[], offset: { x: number;
       id: newId(),
       label: nextLabel(base, [...all, ...created]),
       signalFlow: device.signalFlow && { position: { x: device.signalFlow.position.x + offset.x, y: device.signalFlow.position.y + offset.y } },
+      stagePlan: device.stagePlan && {
+        ...device.stagePlan,
+        position: { x: device.stagePlan.position.x + stageOffset.x, y: device.stagePlan.position.y + stageOffset.y },
+      },
       check: undefined,
       lastModified: undefined,
       inventoryNo: undefined,
     };
     idMap.set(device.id, copy.id);
     created.push(copy);
+  }
+  // Andocken: an mitkopierte Träger umhängen, sonst lösen (Kopie liegt versetzt)
+  for (const copy of created) {
+    if (copy.mountedOnId) copy.mountedOnId = idMap.get(copy.mountedOnId);
+    if (copy.stagePlan?.standsOnId) copy.stagePlan = { ...copy.stagePlan, standsOnId: idMap.get(copy.stagePlan.standsOnId) };
   }
   doc.transact(() => {
     for (const device of created) {

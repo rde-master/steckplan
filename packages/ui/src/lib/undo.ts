@@ -16,7 +16,7 @@ export interface UndoApi {
 export function useUndo(doc: Y.Doc | undefined): UndoApi {
   const origin = useMemo(() => ({ name: 'lokal' }), []);
   const manager = useMemo(
-    () => (doc ? new Y.UndoManager([doc.getMap('devices'), doc.getMap('cables'), doc.getMap('meta')], { trackedOrigins: new Set([origin]), captureTimeout: 400 }) : null),
+    () => (doc ? new Y.UndoManager([doc.getMap('devices'), doc.getMap('cables'), doc.getMap('shapes'), doc.getMap('layers'), doc.getMap('root'), doc.getMap('settings')], { trackedOrigins: new Set([origin]), captureTimeout: 400 }) : null),
     [doc, origin],
   );
   const [state, setState] = useState({ canUndo: false, canRedo: false });

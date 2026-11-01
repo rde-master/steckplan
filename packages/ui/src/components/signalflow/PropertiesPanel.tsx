@@ -1,4 +1,5 @@
 // Eigenschaften der Auswahl: Gerät, Kabel oder Mehrfachauswahl.
+import type { ReactNode } from 'react';
 import type * as Y from 'yjs';
 import {
   findPort,
@@ -28,6 +29,10 @@ interface Props {
   selection: { devices: string[]; cables: string[] };
   issues: Issue[];
   editable: boolean;
+  /** zusätzlicher Abschnitt je Gerät (z. B. Bühnenplan: Höhe, Andocken) */
+  deviceExtra?: (device: DeviceInstance) => ReactNode;
+  /** Inhalt, wenn nichts ausgewählt ist */
+  empty?: ReactNode;
 }
 
 export function PropertiesPanel(props: Props) {
@@ -42,6 +47,8 @@ export function PropertiesPanel(props: Props) {
         <CableProperties {...props} cable={cables[0]!} />
       ) : devices.length + cables.length > 1 ? (
         <MultiProperties {...props} devices={devices} cables={cables} />
+      ) : props.empty ? (
+        props.empty
       ) : (
         <div className="space-y-2 text-sm text-slate-500">
           <p>{s.nothingSelected}</p>
@@ -98,7 +105,7 @@ function IssueList({ issues, id }: { issues: Issue[]; id: string }) {
   );
 }
 
-function DeviceProperties({ doc, origin, library, data, device, editable, issues }: Props & { device: DeviceInstance }) {
+function DeviceProperties({ doc, origin, library, data, device, editable, issues, deviceExtra }: Props & { device: DeviceInstance }) {
   const template = library?.templates.find((t) => t.id === device.templateId);
   const update = (patch: Partial<DeviceInstance>) => updateDevices(doc, [{ id: device.id, patch }], origin);
   const category = device.categoryOverride ?? template?.categoryId;
@@ -116,6 +123,7 @@ function DeviceProperties({ doc, origin, library, data, device, editable, issues
       <Field label={s.label}>
         <TextInput value={device.label} onChange={(e) => update({ label: e.target.value })} disabled={!editable} />
       </Field>
+      {deviceExtra?.(device)}
       <ColorField label={s.color} value={deviceColor(device, template)} onChange={(color) => update({ colorOverride: color && color !== template?.defaultColor ? color : undefined })} disabled={!editable} />
       {device.colorOverride && editable && (
         <Button variant="ghost" onClick={() => update({ colorOverride: undefined })}>
