@@ -3,7 +3,7 @@
 // Jede Änderung hier, die bestehende Dateien betrifft, braucht: schemaVersion erhöhen + Migration + Test.
 import { z } from 'zod';
 
-export const CURRENT_SCHEMA_VERSION = 2;
+export const CURRENT_SCHEMA_VERSION = 3;
 
 const id = z.string().min(1);
 const isoDate = z.string();
@@ -79,6 +79,18 @@ export const PortDefSchema = z.object({
 });
 export type PortDef = z.infer<typeof PortDefSchema>;
 
+/** Ader/Kanal eines Multicore-Kabels: Stecker an beiden Enden und Signalrichtung (seit Format 3) */
+export const CableChannelSchema = z.object({
+  id,
+  label: z.string(),
+  connectorA: z.string(),
+  connectorB: z.string(),
+  /** aToB: Signal geht an Ende A hinein und kommt an Ende B heraus */
+  direction: z.enum(['aToB', 'bToA', 'bi']),
+  signal: z.string(),
+});
+export type CableChannel = z.infer<typeof CableChannelSchema>;
+
 export const TemplateKindSchema = z.enum(['device', 'cableType', 'stageElement', 'truss', 'stand']);
 export type TemplateKind = z.infer<typeof TemplateKindSchema>;
 
@@ -116,6 +128,11 @@ export const TemplateSchema = z.object({
   signal: z.string().optional(),
   maxLengthMm: mm.optional(),
   availableLengthsMm: z.array(mm).optional(),
+  /** Multicore: einzelne Adern/Kanäle (seit Format 3); vorhanden = Multicore */
+  channels: z.array(CableChannelSchema).optional(),
+  /** Multicore: Namen der Enden, z. B. „Bühne“ und „FOH“ (seit Format 3) */
+  endALabel: z.string().optional(),
+  endBLabel: z.string().optional(),
 });
 export type Template = z.infer<typeof TemplateSchema>;
 

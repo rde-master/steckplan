@@ -622,6 +622,7 @@ Jeder Meilenstein endet mit grünen Tests, lauffähigem Build (Desktop **und** D
 - Maße in den Vorlagen-Editoren überall in Metern (mit Komma, z. B. 0,45 m); intern Millimeter (01.11.2026)
 - Stecker und Signalarten: Freitext mit Vorschlägen aus der eigenen Bibliothek, nichts mitgeliefert (01.11.2026)
 - Vorlagen löschen nur, wenn sie in keinem bekannten Projekt verwendet werden (wie Stammdaten) (01.11.2026)
+- Multicore zusätzlich als Kabeltyp mit mehreren Adern: je Ader Stecker an Ende A und B, Richtung (A → B / B → A / beides), Signal; Enden benennbar (z. B. Bühne/FOH). Anschluss an Geräte wird in M3 festgelegt (01.11.2026)
 
 ---
 

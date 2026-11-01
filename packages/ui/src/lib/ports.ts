@@ -1,5 +1,5 @@
 // Mehrere Anschlüsse auf einmal anlegen (z. B. 16 Eingänge einer Stagebox).
-import type { PortDef } from '@steckplan/core';
+import type { CableChannel, PortDef } from '@steckplan/core';
 
 export const MAX_BULK_PORTS = 512;
 
@@ -47,5 +47,38 @@ export function createBulkPorts(options: BulkPortOptions, existing: PortDef[]): 
     direction: options.direction,
     signal: options.signal.trim(),
     ...(options.isNetwork ? { isNetwork: true } : {}),
+  }));
+}
+
+// ---------- Multicore: Adern ----------
+
+export interface BulkChannelOptions {
+  pattern: string;
+  count: number;
+  start: number;
+  pad: boolean;
+  connectorA: string;
+  connectorB: string;
+  direction: CableChannel['direction'];
+  signal: string;
+}
+
+/** Erzeugt neue Adern mit eindeutigen Kennungen (auch gegenüber vorhandenen). */
+export function createBulkChannels(options: BulkChannelOptions, existing: CableChannel[]): CableChannel[] {
+  const used = new Set(existing.map((c) => c.id));
+  const nextId = (): string => {
+    let id: string;
+    do id = `c-${Math.random().toString(36).slice(2, 8)}`;
+    while (used.has(id));
+    used.add(id);
+    return id;
+  };
+  return bulkLabels(options).map((label) => ({
+    id: nextId(),
+    label,
+    connectorA: options.connectorA.trim(),
+    connectorB: options.connectorB.trim(),
+    direction: options.direction,
+    signal: options.signal.trim(),
   }));
 }

@@ -9,6 +9,8 @@ export type MigrationRegistry = Record<number, Migration>;
 export const migrations: MigrationRegistry = {
   // 1 → 2: Vorlagen haben optional `updatedBy` und `notes` – vorhandene Daten bleiben unverändert.
   1: (p) => ({ ...p, schemaVersion: 2 }),
+  // 2 → 3: Kabeltypen können Multicore sein (channels, endALabel, endBLabel) – vorhandene Daten bleiben unverändert.
+  2: (p) => ({ ...p, schemaVersion: 3 }),
 };
 
 export class ProjectFormatError extends Error {

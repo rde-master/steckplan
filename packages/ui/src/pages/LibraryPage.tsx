@@ -132,7 +132,13 @@ export function LibraryPage({ section: rawSection }: { section: string }) {
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-sm font-medium">{template.name}</span>
                           <span className="block truncate text-xs text-slate-500">
-                            {[template.manufacturer, masterName(library, 'categories', template.categoryId)].filter(Boolean).join(' · ') || ' '}
+                            {[
+                              template.channels ? texts.library.multicore.summary(template.channels.length) : undefined,
+                              template.manufacturer,
+                              masterName(library, 'categories', template.categoryId),
+                            ]
+                              .filter(Boolean)
+                              .join(' · ') || ' '}
                           </span>
                         </span>
                       </button>

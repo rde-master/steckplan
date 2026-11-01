@@ -81,6 +81,9 @@ function buildTemplate(input: Record<string, unknown>, base: Pick<Template, 'id'
   }
   const ports = parsed.data.ports ?? [];
   if (new Set(ports.map((p) => p.id)).size !== ports.length) throw new LibraryError(400, 'Anschlüsse brauchen eindeutige Kennungen.');
+  const channels = parsed.data.channels ?? [];
+  if (new Set(channels.map((c) => c.id)).size !== channels.length) throw new LibraryError(400, 'Adern brauchen eindeutige Kennungen.');
+  if (parsed.data.kind !== 'cableType' && channels.length) throw new LibraryError(400, 'Adern gibt es nur bei Kabeltypen.');
   return parsed.data;
 }
 
