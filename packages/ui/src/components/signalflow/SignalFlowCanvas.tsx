@@ -4,6 +4,7 @@ import { Circle, Group, Layer, Line, Rect, Stage, Text } from 'react-konva';
 import type Konva from 'konva';
 import { orientConnection, type EffectivePort } from '@steckplan/core';
 import { useEditor } from '../../lib/editor';
+import { DIMMED_OPACITY } from '../../lib/display';
 import { anchorOf, bounds, ROLE_COLORS, type CableLine, type DeviceBox } from './model';
 
 export interface PortRef {
@@ -299,6 +300,7 @@ export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onC
                 points={line.points}
                 stroke={stroke}
                 strokeWidth={selected ? 4 : 2}
+                opacity={line.dimmed && !selected ? DIMMED_OPACITY : 1}
                 dash={line.cable.direct ? [6, 4] : undefined}
                 hitStrokeWidth={12}
                 lineJoin="round"
@@ -330,6 +332,7 @@ export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onC
                 name="device"
                 x={box.x}
                 y={box.y}
+                opacity={box.dimmed && !selected ? DIMMED_OPACITY : 1}
                 draggable={editable && !connecting}
                 onDragStart={(e) => {
                   e.cancelBubble = true;

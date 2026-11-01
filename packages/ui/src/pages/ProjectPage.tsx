@@ -16,10 +16,12 @@ import { ConflictDialog } from '../components/ConflictDialog';
 import { VersionsDialog } from '../components/VersionsDialog';
 import { SignalFlowView } from '../components/signalflow/SignalFlowView';
 import { StagePlanView } from '../components/stageplan/StagePlanView';
+import { ListsView } from '../components/lists/ListsView';
+import { MeterField } from '../components/library/fields';
 import { AccessBadge, Banner, Button, Field, Spinner, TextArea, TextInput } from '../components/ui';
 
-type Tab = 'signalflow' | 'stageplan' | 'meta';
-const TAB_PARAM: Record<Tab, string> = { signalflow: 'signalfluss', stageplan: 'buehnenplan', meta: 'projektdaten' };
+type Tab = 'signalflow' | 'stageplan' | 'lists' | 'meta';
+const TAB_PARAM: Record<Tab, string> = { signalflow: 'signalfluss', stageplan: 'buehnenplan', lists: 'listen', meta: 'projektdaten' };
 
 function initialTab(): Tab {
   const value = new URLSearchParams(window.location.search).get('ansicht');
@@ -109,7 +111,7 @@ export function ProjectPage({ id }: { id: string }) {
         }
       />
       <div className="flex flex-wrap items-center gap-1 border-b border-slate-200 bg-white px-2 py-1 dark:border-slate-700 dark:bg-slate-900" role="tablist">
-        {(['signalflow', 'stageplan', 'meta'] as const).map((t) => (
+        {(['signalflow', 'stageplan', 'lists', 'meta'] as const).map((t) => (
           <Button key={t} role="tab" aria-selected={tab === t} variant={tab === t ? 'primary' : 'ghost'} onClick={() => setTab(t)}>
             {texts.signalflow.tabs[t]}
           </Button>
@@ -155,9 +157,19 @@ export function ProjectPage({ id }: { id: string }) {
         <SignalFlowView doc={project.doc} data={data} library={library} editable={editable} undo={undo} />
       ) : tab === 'stageplan' ? (
         <StagePlanView doc={project.doc} data={data} library={library} editable={editable} undo={undo} />
+      ) : tab === 'lists' ? (
+        <ListsView
+          projectId={id}
+          data={data}
+          library={library}
+          canCheck={online && !state?.readOnlyReason && !!session && can(session.access, 'checkItems')}
+          canReset={editable && !!session && can(session.access, 'resetChecks')}
+        />
       ) : (
-        <main className="mx-auto w-full max-w-3xl flex-1 overflow-y-auto p-4">
+        <main className="mx-auto w-full max-w-3xl flex-1 space-y-4 overflow-y-auto p-4">
           <MetaForm doc={project.doc} meta={meta} editable={editable} />
+          <SettingsForm doc={project.doc} settings={data.settings} editable={editable} />
+          {session && can(session.access, 'manageProjects') && <CopyProject projectId={id} name={meta.name ?? ''} />}
         </main>
       )}
       {conflicts && (
@@ -242,6 +254,53 @@ function MetaForm({ doc, meta, editable }: { doc: Y.Doc; meta: Partial<ProjectMe
           );
         })}
       </div>
+    </section>
+  );
+}
+
+function SettingsForm({ doc, settings, editable }: { doc: Y.Doc; settings: { defaultReservePercent?: number; defaultReservePerEndMm?: number }; editable: boolean }) {
+  const map = doc.getMap('settings');
+  return (
+    <section className="space-y-3 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+      <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">{texts.project.settings}</h2>
+      <p className="text-xs text-slate-500">{texts.project.reserveHint}</p>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field label={texts.project.reservePercent}>
+          <TextInput
+            type="number"
+            min={0}
+            value={settings.defaultReservePercent ?? 10}
+            disabled={!editable}
+            onChange={(e) => map.set('defaultReservePercent', Math.max(0, Number(e.target.value) || 0))}
+          />
+        </Field>
+        <MeterField label={texts.project.reservePerEnd} value={settings.defaultReservePerEndMm ?? 500} disabled={!editable} onChange={(v) => map.set('defaultReservePerEndMm', v ?? 0)} />
+      </div>
+    </section>
+  );
+}
+
+function CopyProject({ projectId, name }: { projectId: string; name: string }) {
+  const [error, setError] = useState<string | null>(null);
+  const desktop = getDesktop();
+  return (
+    <section className="space-y-2 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+      <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">{texts.project.copyTitle}</h2>
+      <p className="text-xs text-slate-500">{texts.project.copyHint}</p>
+      <Button
+        onClick={async () => {
+          setError(null);
+          try {
+            if (desktop) await desktop.copyAsNew(projectId);
+            else navigate(`/projekt/${(await api.copyProject(projectId, `${name} (Kopie)`)).id}?ansicht=projektdaten`);
+          } catch (err) {
+            setError(errorMessage(err));
+          }
+        }}
+      >
+        ⧉ {texts.project.copy}
+      </Button>
+      {error && <Banner tone="error">{error}</Banner>}
     </section>
   );
 }

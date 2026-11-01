@@ -629,6 +629,7 @@ Jeder Meilenstein endet mit grünen Tests, lauffähigem Build (Desktop **und** D
 - Bühnenplan: Geräte docken automatisch an, wenn sie über einem Stativ, einer Traverse oder einem Bühnenelement abgelegt werden (Alt-Taste: nicht andocken); Lösen durch Wegziehen oder im Eigenschaften-Panel (01.11.2026)
 - Hintergrund-Grundriss: Bilder (PNG/JPG) und PDF (eine Seite wählbar, beim Import in ein Bild umgewandelt und im Projekt gespeichert) (01.11.2026)
 - Neue Objekte im Bühnenplan landen auf der aktiven Ebene (01.11.2026)
+- Multicore im Bühnenplan: zwei Enden (A/B) mit Kabelweg und Knickpunkten; Länge wird wie bei Kabeln berechnet (01.11.2026)
 
 ---
 

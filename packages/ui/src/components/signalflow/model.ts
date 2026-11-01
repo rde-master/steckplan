@@ -1,4 +1,7 @@
 // Aufbereitung für die Zeichenfläche: Kästen mit Größe/Anschlüssen, Kabel mit Punkten.
+import { EMPTY_FILTER, type Filter } from '@steckplan/core';
+import type { ColorMode } from '../../lib/editor';
+import { cableVisible, deviceVisible, displayColor } from '../../lib/display';
 import {
   boxLayout,
   cableIssueMap,
@@ -32,6 +35,8 @@ export interface DeviceBox {
   stageObject: boolean;
   /** Gerät ist im Bühnenplan noch nicht platziert */
   unplaced: boolean;
+  /** passt nicht zum Filter → ausgegraut */
+  dimmed: boolean;
   /** Anschluss → angezeigter Text */
   labels: Map<string, string>;
 }
@@ -41,6 +46,7 @@ export interface CableLine {
   points: number[];
   color: string;
   issue: 'error' | 'warning' | 'info' | undefined;
+  dimmed: boolean;
 }
 
 export function deviceColor(device: DeviceInstance, template: Template | undefined): string {
@@ -51,7 +57,14 @@ function fallbackPosition(index: number): { x: number; y: number } {
   return { x: 40 + (index % 5) * 260, y: 40 + Math.floor(index / 5) * 180 };
 }
 
-export function buildBoxes(devices: DeviceInstance[], library: Library | null, showStageObjects: boolean): DeviceBox[] {
+export interface DisplayOptions {
+  colorMode: ColorMode;
+  filter: Filter;
+}
+
+const DEFAULT_DISPLAY: DisplayOptions = { colorMode: 'device', filter: EMPTY_FILTER };
+
+export function buildBoxes(devices: DeviceInstance[], library: Library | null, showStageObjects: boolean, display: DisplayOptions = DEFAULT_DISPLAY): DeviceBox[] {
   const templates = new Map((library?.templates ?? []).map((t) => [t.id, t]));
   const boxes: DeviceBox[] = [];
   devices.forEach((device, index) => {
@@ -70,10 +83,11 @@ export function buildBoxes(devices: DeviceInstance[], library: Library | null, s
       height: base.height + extraHeader,
       anchors: base.anchors.map((a) => ({ ...a, y: a.y + extraHeader })),
     };
-    const fill = deviceColor(device, template);
+    const fill = displayColor(display.colorMode, device, template, library, deviceColor(device, template));
     const pos = device.signalFlow?.position ?? fallbackPosition(index);
     const unplaced = template?.kind === 'device' && !device.stagePlan;
-    boxes.push({ device, template, x: pos.x, y: pos.y, layout, extraHeader, fill, text: contrastText(fill), multicore, stageObject, unplaced, labels });
+    const dimmed = !deviceVisible(display.filter, device, template);
+    boxes.push({ device, template, x: pos.x, y: pos.y, layout, extraHeader, fill, text: contrastText(fill), multicore, stageObject, unplaced, dimmed, labels });
   });
   return boxes;
 }
@@ -83,7 +97,7 @@ export function anchorOf(box: DeviceBox, portId: string): { x: number; y: number
   return anchor ? { x: box.x + anchor.x, y: box.y + anchor.y, side: anchor.port.side } : undefined;
 }
 
-export function buildCableLines(cables: Cable[], boxes: DeviceBox[], library: Library | null, issues: Issue[]): CableLine[] {
+export function buildCableLines(cables: Cable[], boxes: DeviceBox[], library: Library | null, issues: Issue[], filter: Filter = EMPTY_FILTER): CableLine[] {
   const byId = new Map(boxes.map((b) => [b.device.id, b]));
   const templates = new Map((library?.templates ?? []).map((t) => [t.id, t]));
   const issueMap = cableIssueMap(issues);
@@ -101,6 +115,7 @@ export function buildCableLines(cables: Cable[], boxes: DeviceBox[], library: Li
       points: routeCable(a, a.side, b, b.side),
       color: cable.direct ? '#64748b' : (type?.defaultColor ?? '#475569'),
       issue: issueMap.get(cable.id),
+      dimmed: !cableVisible(filter, cable, type),
     });
   }
   return lines;

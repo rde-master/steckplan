@@ -90,6 +90,11 @@ export const api = {
   restoreVersion: (id: string, versionId: string) =>
     request<{ ok: true }>('POST', `/api/projects/${encodeURIComponent(id)}/versions/${encodeURIComponent(versionId)}/restore`),
 
+  check: (id: string, body: { kind: 'device' | 'cable'; id: string; direction: 'out' | 'in'; status: 'ok' | 'missing' | 'damaged' | null; note?: string }) =>
+    request<{ ok: true }>('POST', `/api/projects/${encodeURIComponent(id)}/check`, body),
+  resetChecks: (id: string, direction: 'out' | 'in' | 'both') =>
+    request<{ removed: number }>('POST', `/api/projects/${encodeURIComponent(id)}/checks/reset`, { direction }),
+  copyProject: (id: string, name?: string) => request<{ id: string }>('POST', `/api/projects/${encodeURIComponent(id)}/copy`, { name }),
   getConflicts: (id: string) => request<{ pending: boolean; conflicts: Conflict[] }>('GET', `/api/projects/${encodeURIComponent(id)}/conflicts`),
   resolveConflicts: (id: string, resolutions: Record<string, Resolution>) =>
     request<{ ok: true }>('POST', `/api/projects/${encodeURIComponent(id)}/conflicts`, { resolutions }),

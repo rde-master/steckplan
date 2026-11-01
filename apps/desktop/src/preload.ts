@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld('steckplanDesktop', {
   openRecent: (path: string) => ipcRenderer.invoke('project:openRecent', path),
   listRecent: () => ipcRenderer.invoke('recent:list'),
   openLibrary: () => ipcRenderer.invoke('library:open'),
+  copyAsNew: (projectId: string) => ipcRenderer.invoke('project:copyAsNew', projectId),
   onRecentChanged: (callback: () => void) => {
     const listener = () => callback();
     ipcRenderer.on('recent:changed', listener);

@@ -8,6 +8,10 @@ import * as syncProtocol from 'y-protocols/sync';
 import {
   analyzeProject,
   applyAnalysis,
+  resetChecks as resetCheckMarks,
+  setCheck,
+  type CheckDirection,
+  type CheckMark,
   buildSnapshots,
   can,
   finishProject,
@@ -181,6 +185,26 @@ export class Room {
     this.markDirty();
     for (const connection of this.connections) this.sendWelcome(connection);
     this.notify(`${by} hat den Vorlagen-Abgleich durchgeführt.`);
+  }
+
+  /**
+   * Häkchen der Packliste setzen oder entfernen (auch mit Lese-Zugang erlaubt).
+   * Der Server schreibt selbst ins Dokument – Name und Zeit stammen vom Server.
+   */
+  applyCheck(kind: 'device' | 'cable', id: string, direction: CheckDirection, status: CheckMark['status'] | null, by: string, note?: string): boolean {
+    const reason = this.deps.store.readOnlyReason(this.id) ?? (this.pending ? RECONCILE_PENDING_REASON : undefined);
+    if (reason) throw new Error(reason);
+    const mark: CheckMark | null = status ? { at: new Date().toISOString(), by, status, ...(note?.trim() ? { note: note.trim() } : {}) } : null;
+    return setCheck(this.doc, kind, id, direction, mark, new ServerOrigin(by));
+  }
+
+  /** Häkchen zurücksetzen (nur Bearbeiten-Zugang – wird in der Route geprüft). */
+  resetChecks(direction: CheckDirection | 'both', by: string): number {
+    if (this.readOnlyReason) throw new Error(this.readOnlyReason);
+    const removed = resetCheckMarks(this.doc, direction, new ServerOrigin(by));
+    const what = direction === 'both' ? 'alle Häkchen' : direction === 'out' ? 'die Häkchen „Hin“' : 'die Häkchen „Zurück“';
+    if (removed) this.notify(`${by} hat ${what} zurückgesetzt.`);
+    return removed;
   }
 
   /** Die Bibliothek hat sich geändert: betrifft es dieses Projekt, Snapshot in der Datei erneuern. */

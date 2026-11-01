@@ -1,8 +1,8 @@
 // Projekte im lokalen Modus: neu, öffnen (mit Sperrdatei-Abfrage), speichern unter, schließen.
 import { existsSync } from 'node:fs';
-import { basename, join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import { app, dialog, type BrowserWindow } from 'electron';
-import { createEmptyProject, FILE_EXTENSION, ProjectFormatError } from '@steckplan/core';
+import { copyAsNewProject, createEmptyProject, FILE_EXTENSION, ProjectFormatError } from '@steckplan/core';
 import { LockedError, type LockInfo } from '@steckplan/server';
 import type { EmbeddedServer } from './embedded-server';
 import type { SettingsStore } from './settings';
@@ -142,6 +142,29 @@ export class ProjectActions {
     // War die Datei nur lesend geöffnet, darf jetzt in die Kopie geschrieben werden → neu verbinden lassen
     parent?.webContents.reload();
     parent?.setRepresentedFilename(path);
+  }
+
+  /** „Neues Projekt aus diesem“: Kopie ohne Häkchen, sofort mit Speicherort. */
+  async copyAsNew(projectId: string, parent?: BrowserWindow): Promise<void> {
+    const room = this.deps.server.rooms.peek(projectId);
+    const currentPath = this.deps.server.store.pathOf(projectId);
+    if (!room || !currentPath) return;
+    await room.flush();
+    const source = room.currentProject();
+    const options = {
+      title: 'Neues Projekt aus diesem',
+      buttonLabel: 'Anlegen',
+      defaultPath: join(dirname(currentPath), `${source.meta.name || 'Projekt'} (Kopie)${FILE_EXTENSION}`),
+      filters: FILTERS,
+      properties: ['createDirectory', 'showOverwriteConfirmation'] as ('createDirectory' | 'showOverwriteConfirmation')[],
+    };
+    const result = parent ? await dialog.showSaveDialog(parent, options) : await dialog.showSaveDialog(options);
+    if (result.canceled || !result.filePath) return;
+    const path = ensureExtension(result.filePath);
+    const copy = copyAsNewProject(source, basename(path).slice(0, -FILE_EXTENSION.length));
+    const id = await this.deps.server.store.create(path, copy);
+    await this.remember(path);
+    this.deps.openWindow(id, path);
   }
 
   async close(projectId: string): Promise<void> {

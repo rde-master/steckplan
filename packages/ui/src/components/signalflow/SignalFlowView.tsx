@@ -22,6 +22,7 @@ import type { ProjectData } from '../../lib/useProjectData';
 import { texts } from '../../texts';
 import { Banner, Button } from '../ui';
 import { CableTypeChooser, type CableChoice } from './CableTypeChooser';
+import { FilterBar } from '../FilterBar';
 import { ChecksPanel } from './ChecksPanel';
 import { LibrarySidebar } from './LibrarySidebar';
 import { Minimap } from './Minimap';
@@ -40,6 +41,8 @@ export function SignalFlowView({ doc, data, library, editable, undo }: { doc: Y.
   const clearSelection = useEditor((st) => st.clearSelection);
   const focus = useEditor((st) => st.focus);
   const showStageObjects = useEditor((st) => st.showStageObjects);
+  const filter = useEditor((st) => st.filter);
+  const colorMode = useEditor((st) => st.colorMode);
   const narrow = useIsNarrow(900);
   const [panel, setPanel] = useState<'none' | 'library' | 'properties'>('none');
   const [pending, setPending] = useState<{ from: PortRef; to: PortRef } | null>(null);
@@ -47,8 +50,8 @@ export function SignalFlowView({ doc, data, library, editable, undo }: { doc: Y.
   const [viewport, setViewport] = useState({ width: 800, height: 600 });
 
   const issues = useIssues(data, library);
-  const boxes = useMemo(() => buildBoxes(data.devices, library, showStageObjects), [data.devices, library, showStageObjects]);
-  const lines = useMemo(() => buildCableLines(data.cables, boxes, library, issues), [data.cables, boxes, library, issues]);
+  const boxes = useMemo(() => buildBoxes(data.devices, library, showStageObjects, { colorMode, filter }), [data.devices, library, showStageObjects, colorMode, filter]);
+  const lines = useMemo(() => buildCableLines(data.cables, boxes, library, issues, filter), [data.cables, boxes, library, issues, filter]);
   const occupied = useMemo(() => new Set(data.cables.flatMap((c) => [`${c.from.deviceId}/${c.from.portId}`, `${c.to.deviceId}/${c.to.portId}`])), [data.cables]);
   const templates = useMemo(() => new Map((library?.templates ?? []).map((t) => [t.id, t])), [library]);
 
@@ -256,6 +259,7 @@ export function SignalFlowView({ doc, data, library, editable, undo }: { doc: Y.
         onFit={fit}
         zoom={view.zoom}
       />
+      <FilterBar library={library} data={data} />
       {narrow && (
         <div className="flex gap-1 border-b border-slate-200 bg-white px-2 py-1 dark:border-slate-700 dark:bg-slate-900">
           <Button variant={panel === 'library' ? 'primary' : 'ghost'} onClick={() => setPanel(panel === 'library' ? 'none' : 'library')}>
