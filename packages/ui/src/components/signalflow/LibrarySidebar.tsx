@@ -7,12 +7,23 @@ import { TextInput } from '../ui';
 
 const s = texts.signalflow;
 
-export function LibrarySidebar({ library, editable, onAdd }: { library: Library | null; editable: boolean; onAdd: (template: Template) => void }) {
+export function LibrarySidebar({
+  library,
+  editable,
+  onAdd,
+  mode = 'signalflow',
+}: {
+  library: Library | null;
+  editable: boolean;
+  onAdd: (template: Template) => void;
+  mode?: 'signalflow' | 'stageplan';
+}) {
   const [query, setQuery] = useState('');
-  const showStageObjects = useEditor((st) => st.showStageObjects);
+  const showStageObjectsSetting = useEditor((st) => st.showStageObjects);
   const setShowStageObjects = useEditor((st) => st.setShowStageObjects);
+  const showStageObjects = mode === 'stageplan' || showStageObjectsSetting;
   const templates = (library?.templates ?? [])
-    .filter(isPlaceableInSignalFlow)
+    .filter((t) => (mode === 'stageplan' ? t.kind !== 'cableType' : isPlaceableInSignalFlow(t)))
     .filter((t) => showStageObjects || !['stageElement', 'truss', 'stand'].includes(t.kind))
     .filter((t) => !query || `${t.name} ${t.manufacturer ?? ''}`.toLowerCase().includes(query.toLowerCase()))
     .sort((a, b) => a.name.localeCompare(b.name, 'de'));
@@ -28,10 +39,12 @@ export function LibrarySidebar({ library, editable, onAdd }: { library: Library 
   return (
     <aside className="flex h-full flex-col gap-2 overflow-hidden p-2" aria-label={s.library}>
       <TextInput type="search" placeholder={texts.library.search} aria-label={s.searchLibrary} value={query} onChange={(e) => setQuery(e.target.value)} />
-      <label className="flex items-center gap-2 px-1 text-xs text-slate-600 dark:text-slate-300">
-        <input type="checkbox" checked={showStageObjects} onChange={(e) => setShowStageObjects(e.target.checked)} />
-        {s.showStageObjects}
-      </label>
+      {mode === 'signalflow' && (
+        <label className="flex items-center gap-2 px-1 text-xs text-slate-600 dark:text-slate-300">
+          <input type="checkbox" checked={showStageObjects} onChange={(e) => setShowStageObjects(e.target.checked)} />
+          {s.showStageObjects}
+        </label>
+      )}
       <div className="flex-1 overflow-y-auto">
         {groups.length === 0 && <p className="p-2 text-xs text-slate-500">{s.libraryEmpty}</p>}
         {groups.map((group) => (

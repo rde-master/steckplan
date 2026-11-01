@@ -5,7 +5,6 @@ import {
   addCable,
   addDevice,
   autoCableType,
-  checkSignalFlow,
   duplicateDevices,
   isMulticore,
   removeCables,
@@ -17,6 +16,7 @@ import {
 } from '@steckplan/core';
 import { useEditor } from '../../lib/editor';
 import type { UndoApi } from '../../lib/undo';
+import { useIssues } from '../../lib/useIssues';
 import { useIsNarrow } from '../../lib/useProjectDoc';
 import type { ProjectData } from '../../lib/useProjectData';
 import { texts } from '../../texts';
@@ -46,7 +46,7 @@ export function SignalFlowView({ doc, data, library, editable, undo }: { doc: Y.
   const [message, setMessage] = useState<string | null>(null);
   const [viewport, setViewport] = useState({ width: 800, height: 600 });
 
-  const issues = useMemo<Issue[]>(() => (library ? checkSignalFlow(data, library) : []), [data, library]);
+  const issues = useIssues(data, library);
   const boxes = useMemo(() => buildBoxes(data.devices, library, showStageObjects), [data.devices, library, showStageObjects]);
   const lines = useMemo(() => buildCableLines(data.cables, boxes, library, issues), [data.cables, boxes, library, issues]);
   const occupied = useMemo(() => new Set(data.cables.flatMap((c) => [`${c.from.deviceId}/${c.from.portId}`, `${c.to.deviceId}/${c.to.portId}`])), [data.cables]);

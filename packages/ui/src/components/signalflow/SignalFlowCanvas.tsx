@@ -368,6 +368,7 @@ export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onC
                 />
                 <Text text={box.device.label} x={8} y={8} width={width - 16} fontStyle="bold" fontSize={13} fill={box.text} ellipsis wrap="none" />
                 {!box.template && <Text text="Vorlage fehlt" x={8} y={30} fontSize={11} fill="#dc2626" />}
+                {box.unplaced && <Text name="unplaced-marker" text="⌖ nicht im Bühnenplan" x={0} y={height + 4} fontSize={10} fill="#b45309" fontStyle="italic" listening={false} />}
                 {ends && (
                   <>
                     <Text text={ends.a} x={8} y={28} fontSize={10} fill={box.text} opacity={0.75} />

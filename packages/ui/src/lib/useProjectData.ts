@@ -1,24 +1,51 @@
 // Geräte, Kabel und Ebenen aus dem Live-Dokument lesen (rendert bei jeder Änderung neu).
 import { useMemo, useSyncExternalStore } from 'react';
 import type * as Y from 'yjs';
-import { readCables, readDevices, readLayers, type Cable, type DeviceInstance, type Project } from '@steckplan/core';
+import {
+  readBackground,
+  readCables,
+  readDevices,
+  readLayers,
+  readSettings,
+  readShapes,
+  type Background,
+  type Cable,
+  type DeviceInstance,
+  type Project,
+  type ProjectSettings,
+  type Shape,
+} from '@steckplan/core';
 
 export interface ProjectData {
   devices: DeviceInstance[];
   cables: Cable[];
   layers: Project['layers'];
+  shapes: Shape[];
+  background: Background | undefined;
+  settings: Partial<ProjectSettings>;
 }
 
-const EMPTY: ProjectData = { devices: [], cables: [], layers: [] };
+const EMPTY: ProjectData = { devices: [], cables: [], layers: [], shapes: [], background: undefined, settings: {} };
+
+function read(doc: Y.Doc): ProjectData {
+  return {
+    devices: readDevices(doc),
+    cables: readCables(doc),
+    layers: readLayers(doc),
+    shapes: readShapes(doc),
+    background: readBackground(doc),
+    settings: readSettings(doc),
+  };
+}
 
 export function useProjectData(doc: Y.Doc | undefined): ProjectData {
   const store = useMemo(() => {
     if (!doc) return null;
-    let snapshot: ProjectData = { devices: readDevices(doc), cables: readCables(doc), layers: readLayers(doc) };
+    let snapshot: ProjectData = read(doc);
     return {
       subscribe(onChange: () => void) {
         const handler = () => {
-          snapshot = { devices: readDevices(doc), cables: readCables(doc), layers: readLayers(doc) };
+          snapshot = read(doc);
           onChange();
         };
         doc.on('afterTransaction', handler);

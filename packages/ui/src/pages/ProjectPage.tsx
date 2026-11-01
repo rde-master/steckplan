@@ -15,6 +15,7 @@ import { AppHeader } from '../components/AppHeader';
 import { ConflictDialog } from '../components/ConflictDialog';
 import { VersionsDialog } from '../components/VersionsDialog';
 import { SignalFlowView } from '../components/signalflow/SignalFlowView';
+import { StagePlanView } from '../components/stageplan/StagePlanView';
 import { AccessBadge, Banner, Button, Field, Spinner, TextArea, TextInput } from '../components/ui';
 
 type Tab = 'signalflow' | 'stageplan' | 'meta';
@@ -153,7 +154,7 @@ export function ProjectPage({ id }: { id: string }) {
       ) : tab === 'signalflow' ? (
         <SignalFlowView doc={project.doc} data={data} library={library} editable={editable} undo={undo} />
       ) : tab === 'stageplan' ? (
-        <main className="flex flex-1 items-center justify-center p-6 text-center text-sm text-slate-500">{texts.signalflow.stageplanSoon}</main>
+        <StagePlanView doc={project.doc} data={data} library={library} editable={editable} undo={undo} />
       ) : (
         <main className="mx-auto w-full max-w-3xl flex-1 overflow-y-auto p-4">
           <MetaForm doc={project.doc} meta={meta} editable={editable} />
