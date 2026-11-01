@@ -88,6 +88,20 @@ describe('Bibliothek: Vorlagen', () => {
     expect((await post({ ...spotInput, dmxModes: [{ name: 'x', channels: 0 }] })).statusCode).toBe(400);
   });
 
+  it('speichert Multicore-Kabeltypen mit Adern', async () => {
+    const { server, edit } = await setup();
+    const channels = [
+      { id: 's1', label: 'Send 1', connectorA: 'XLR 3 f', connectorB: 'XLR 3 m', direction: 'aToB', signal: 'Audio' },
+      { id: 'r1', label: 'Return 1', connectorA: 'XLR 3 m', connectorB: 'XLR 3 f', direction: 'bToA', signal: 'Audio' },
+    ];
+    const post = (template: object) => server.app.inject({ method: 'POST', url: '/api/library/templates', headers: { cookie: edit }, payload: { template } });
+    const ok = await post({ kind: 'cableType', name: 'Multicore 8/8', endALabel: 'Bühne', endBLabel: 'FOH', channels, availableLengthsMm: [30000, 50000] });
+    expect(ok.statusCode).toBe(201);
+    expect(ok.json()).toMatchObject({ endALabel: 'Bühne', channels: [{ direction: 'aToB' }, { direction: 'bToA' }] });
+    expect((await post({ kind: 'cableType', name: 'X', channels: [channels[0], channels[0]] })).json().error).toMatch(/Adern/);
+    expect((await post({ kind: 'device', name: 'X', channels })).json().error).toMatch(/nur bei Kabeltypen/);
+  });
+
   it('Lese-Zugang darf nur ansehen', async () => {
     const { server, read } = await setup();
     expect((await server.app.inject({ method: 'POST', url: '/api/library/templates', headers: { cookie: read }, payload: { template: spotInput } })).statusCode).toBe(403);

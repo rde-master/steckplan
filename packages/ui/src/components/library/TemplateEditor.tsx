@@ -8,6 +8,7 @@ import { formatMeterList, parseMeterList } from '../../lib/units';
 import { texts } from '../../texts';
 import { Banner, Button, Field, TextArea, TextInput } from '../ui';
 import { BulkPortsForm } from './BulkPortsForm';
+import { ChannelsEditor } from './ChannelsEditor';
 import { ColorField, MasterSelect, MeterField, NumberField, selectClass, SelectField } from './fields';
 
 const t = texts.library.fields;
@@ -63,6 +64,8 @@ export function TemplateEditor({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showBulk, setShowBulk] = useState(false);
   const [confirmClearPorts, setConfirmClearPorts] = useState(false);
+  const [confirmDisableMulticore, setConfirmDisableMulticore] = useState(false);
+  const isMulticore = draft.channels !== undefined;
   const isNew = !draft.id;
   const kind = draft.kind;
   const disabled = !canEdit;
@@ -206,16 +209,68 @@ export function TemplateEditor({
 
       {/* Kabeltyp */}
       {kind === 'cableType' && (
+        <div className="space-y-1">
+          <label className="flex items-center gap-2 text-sm font-medium">
+            <input
+              type="checkbox"
+              checked={isMulticore}
+              disabled={disabled}
+              onChange={(e) => {
+                if (e.target.checked) set({ channels: [] });
+                else if ((draft.channels?.length ?? 0) > 0) setConfirmDisableMulticore(true);
+                else set({ channels: undefined, endALabel: undefined, endBLabel: undefined });
+              }}
+            />
+            {texts.library.multicore.toggle}
+          </label>
+          <p className="pl-6 text-xs text-slate-500">{texts.library.multicore.toggleHint}</p>
+          {confirmDisableMulticore && (
+            <Banner tone="warn">
+              <div className="flex flex-wrap items-center gap-2">
+                {texts.library.multicore.disableConfirm(draft.channels?.length ?? 0)}
+                <Button
+                  variant="danger"
+                  onClick={() => {
+                    set({ channels: undefined, endALabel: undefined, endBLabel: undefined });
+                    setConfirmDisableMulticore(false);
+                  }}
+                >
+                  {t.remove}
+                </Button>
+                <Button onClick={() => setConfirmDisableMulticore(false)}>{texts.common.cancel}</Button>
+              </div>
+            </Banner>
+          )}
+        </div>
+      )}
+      {kind === 'cableType' && isMulticore && (
+        <>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label={texts.library.multicore.endALabel}>
+              <TextInput value={draft.endALabel ?? ''} placeholder={texts.library.multicore.endPlaceholderA} onChange={(e) => set({ endALabel: e.target.value })} disabled={disabled} />
+            </Field>
+            <Field label={texts.library.multicore.endBLabel}>
+              <TextInput value={draft.endBLabel ?? ''} placeholder={texts.library.multicore.endPlaceholderB} onChange={(e) => set({ endBLabel: e.target.value })} disabled={disabled} />
+            </Field>
+          </div>
+          <ChannelsEditor channels={draft.channels ?? []} endALabel={draft.endALabel} endBLabel={draft.endBLabel} disabled={disabled} onChange={(channels) => set({ channels })} />
+        </>
+      )}
+      {kind === 'cableType' && (
         <fieldset className="grid gap-3 rounded-md border border-slate-200 p-3 sm:grid-cols-3 dark:border-slate-700">
-          <Field label={t.connectorA}>
-            <TextInput list="steckplan-connectors" value={draft.connectorA ?? ''} onChange={(e) => set({ connectorA: e.target.value })} disabled={disabled} />
-          </Field>
-          <Field label={t.connectorB}>
-            <TextInput list="steckplan-connectors" value={draft.connectorB ?? ''} onChange={(e) => set({ connectorB: e.target.value })} disabled={disabled} />
-          </Field>
-          <Field label={t.signal}>
-            <TextInput list="steckplan-signals" value={draft.signal ?? ''} onChange={(e) => set({ signal: e.target.value })} disabled={disabled} />
-          </Field>
+          {!isMulticore && (
+            <>
+              <Field label={t.connectorA}>
+                <TextInput list="steckplan-connectors" value={draft.connectorA ?? ''} onChange={(e) => set({ connectorA: e.target.value })} disabled={disabled} />
+              </Field>
+              <Field label={t.connectorB}>
+                <TextInput list="steckplan-connectors" value={draft.connectorB ?? ''} onChange={(e) => set({ connectorB: e.target.value })} disabled={disabled} />
+              </Field>
+              <Field label={t.signal}>
+                <TextInput list="steckplan-signals" value={draft.signal ?? ''} onChange={(e) => set({ signal: e.target.value })} disabled={disabled} />
+              </Field>
+            </>
+          )}
           <MeterField label={t.maxLength} value={draft.maxLengthMm} onChange={(maxLengthMm) => set({ maxLengthMm })} disabled={disabled} />
           <div className="sm:col-span-2">
             <Field label={t.lengths} hint={lengthsInvalid ? t.invalidNumber : t.lengthsHint}>

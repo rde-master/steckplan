@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bulkLabels, bulkPreview, createBulkPorts, MAX_BULK_PORTS } from './ports';
+import { bulkLabels, bulkPreview, createBulkChannels, createBulkPorts, MAX_BULK_PORTS } from './ports';
 
 const base = { connector: ' XLR 3 ', direction: 'in' as const, signal: 'Audio', isNetwork: false };
 
@@ -39,5 +39,17 @@ describe('Mehrere Anschlüsse anlegen', () => {
     expect(ports[31]).toMatchObject({ label: 'In 32', connector: 'XLR 3', direction: 'in', signal: 'Audio' });
     expect(ports[0]!.isNetwork).toBeUndefined();
     expect(createBulkPorts({ ...base, pattern: 'LAN #', count: 1, start: 1, pad: false, isNetwork: true }, [])[0]!.isNetwork).toBe(true);
+  });
+});
+
+describe('Mehrere Adern anlegen (Multicore)', () => {
+  it('erzeugt Adern mit Steckern an beiden Enden', () => {
+    const channels = createBulkChannels(
+      { pattern: 'Send #', count: 8, start: 1, pad: false, connectorA: 'XLR 3 f', connectorB: 'XLR 3 m', direction: 'aToB', signal: 'Audio' },
+      [{ id: 'c-x', label: 'Alt', connectorA: '', connectorB: '', direction: 'bi', signal: '' }],
+    );
+    expect(channels).toHaveLength(8);
+    expect(channels[7]).toMatchObject({ label: 'Send 8', connectorA: 'XLR 3 f', connectorB: 'XLR 3 m', direction: 'aToB' });
+    expect(new Set([...channels.map((c) => c.id), 'c-x']).size).toBe(9);
   });
 });

@@ -164,7 +164,7 @@ test('Projekt aus fremder Bibliothek: Abgleich beim Öffnen', async ({ page, bro
   const library = await (await page.request.get('/api/library')).json();
   const spot = library.templates.find((t: { name: string }) => t.name.startsWith('Spot 575'));
   const project = {
-    schemaVersion: 2,
+    schemaVersion: 3,
     id: 'fremd-1',
     libraryId: 'andere-bibliothek',
     meta: { name: 'Fremdes Projekt' },
@@ -190,4 +190,47 @@ test('Projekt aus fremder Bibliothek: Abgleich beim Öffnen', async ({ page, bro
   await dialog.getByRole('button', { name: 'Übernehmen', exact: true }).click();
   await expect(page.getByLabel('Projektname')).toBeEnabled();
   await expect(anna.getByText('Ralf hat den Vorlagen-Abgleich durchgeführt.')).toBeVisible();
+});
+
+test('Multicore-Kabeltyp: 8 Sends und 8 Returns mit XLR an beiden Enden', async ({ page }) => {
+  await loginAs(page, 'edit', 'Ralf');
+  await openLibrary(page, 'cableType');
+  await page.getByRole('button', { name: /Neu: Kabeltyp/ }).click();
+  await page.getByLabel('Name', { exact: true }).fill('Multicore 8/8 30 m');
+  await page.getByLabel(/Multicore \(mehrere Adern/).check();
+  await expect(page.getByLabel('Stecker A', { exact: true })).toHaveCount(0); // einzelner Stecker entfällt
+  await page.getByLabel('Name Ende A').fill('Bühne');
+  await page.getByLabel('Name Ende B').fill('FOH');
+
+  const bulk = page.getByRole('group', { name: 'Mehrere Adern anlegen' });
+  await page.getByRole('button', { name: /Mehrere Adern anlegen/ }).click();
+  await bulk.getByLabel('Anzahl').fill('8');
+  await bulk.getByLabel('Bezeichnung', { exact: true }).fill('Send #');
+  await bulk.getByLabel('Stecker Bühne').fill('XLR 3 Buchse');
+  await bulk.getByLabel('Stecker FOH').fill('XLR 3 Stecker');
+  await bulk.getByLabel('Signal').fill('Audio');
+  await expect(bulk.getByTestId('bulk-channels-preview')).toHaveText('Vorschau: Send 1, Send 2, … Send 8');
+  await bulk.getByRole('button', { name: '8 Adern hinzufügen' }).click();
+
+  await page.getByRole('button', { name: /Mehrere Adern anlegen/ }).click();
+  await bulk.getByLabel('Anzahl').fill('8');
+  await bulk.getByLabel('Bezeichnung', { exact: true }).fill('Return #');
+  await bulk.getByLabel('Stecker Bühne').fill('XLR 3 Stecker');
+  await bulk.getByLabel('Stecker FOH').fill('XLR 3 Buchse');
+  await bulk.getByRole('combobox', { name: 'Richtung' }).selectOption({ label: 'FOH → Bühne' });
+  await bulk.getByRole('button', { name: '8 Adern hinzufügen' }).click();
+
+  await expect(page.getByTestId('channels-aToB').getByRole('rowheader')).toHaveText('Bühne → FOH (8)');
+  await expect(page.getByTestId('channels-bToA').getByRole('rowheader')).toHaveText('FOH → Bühne (8)');
+  await expect(page.getByLabel('Ader 16', { exact: true })).toHaveValue('Return 8');
+  await page.getByLabel('Verfügbare Längen (m)').fill('30');
+  await page.getByRole('button', { name: 'Speichern' }).click();
+  await expect(page.getByText('Gespeichert.')).toBeVisible();
+  await expect(page.getByRole('button', { name: /Multicore 8\/8 30 m/ })).toContainText('Multicore, 16 Adern');
+
+  const library = await (await page.request.get('/api/library')).json();
+  const mc = library.templates.find((t: { name: string }) => t.name === 'Multicore 8/8 30 m');
+  expect(mc).toMatchObject({ endALabel: 'Bühne', endBLabel: 'FOH', availableLengthsMm: [30000] });
+  expect(mc.channels).toHaveLength(16);
+  expect(mc.channels[8]).toMatchObject({ label: 'Return 1', connectorA: 'XLR 3 Stecker', connectorB: 'XLR 3 Buchse', direction: 'bToA' });
 });
