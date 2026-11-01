@@ -4,4 +4,5 @@ export * from './model';
 export * from './library';
 export * from './signalflow';
 export * from './stageplan';
+export * from './logistics';
 export * from './sync';

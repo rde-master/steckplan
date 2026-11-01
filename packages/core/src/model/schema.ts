@@ -200,6 +200,8 @@ export const CableSchema = z.object({
   trailerId: id.optional(),
   inventoryNo: z.string().optional(),
   categoryOverride: id.optional(),
+  /** Notiz (seit Format 3) */
+  notes: z.string().optional(),
   from: cableEnd,
   to: cableEnd,
   waypoints: z.array(PointSchema).default([]),
