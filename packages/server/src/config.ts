@@ -5,6 +5,7 @@ export interface StandaloneConfig {
   uiDir: string | undefined;
   editPassword: string;
   readPassword: string;
+  trustProxy: boolean;
 }
 
 export class ConfigError extends Error {
@@ -41,5 +42,6 @@ export function readStandaloneConfig(env: NodeJS.ProcessEnv): StandaloneConfig {
     uiDir: env.STECKPLAN_UI_DIR || undefined,
     editPassword,
     readPassword,
+    trustProxy: ['1', 'true', 'yes', 'ja'].includes((env.STECKPLAN_TRUST_PROXY ?? '').toLowerCase()),
   };
 }

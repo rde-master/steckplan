@@ -2,21 +2,86 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import Fastify, { type FastifyInstance } from 'fastify';
 import fastifyStatic from '@fastify/static';
+import fastifyWebsocket from '@fastify/websocket';
 import { createHealthInfo, type ServerMode } from '@steckplan/core';
+import { registerAuth } from './auth/plugin';
+import type { PasswordChecker } from './auth/passwords';
+import type { LoginRateLimiter } from './auth/rate-limit';
+import type { SessionStore } from './auth/sessions';
+import { registerProjectRoutes } from './routes/projects';
+import type { ProjectStore } from './storage/types';
+import type { VersionStore } from './storage/version-store';
+import { RoomManager } from './sync/rooms';
 
 export interface ServerOptions {
   /** Betriebsart: eingebettet in der Desktop-App oder eigenständig (Docker). */
   mode: ServerMode;
+  store: ProjectStore;
+  versions: VersionStore;
+  sessions: SessionStore;
+  /** Bearbeiten-/Lese-Passwort; null = keine Anmeldung per Browser */
+  passwords: PasswordChecker | null;
   /** Ordner mit der gebauten UI (index.html). Fehlt er, wird nur die API ausgeliefert. */
   uiDir?: string;
   /** Fastify-Logger an/aus. Niemals Passwörter oder Projektinhalte loggen. */
   logger?: boolean;
+  /** Hinter einem Reverse-Proxy: X-Forwarded-* auswerten (IP für Rate-Limit, https für Cookies) */
+  trustProxy?: boolean;
+  rateLimiter?: LoginRateLimiter;
+  /** Für Tests: Verzögerungen beim Speichern */
+  saveDelayMs?: number;
+  versionIntervalMs?: number;
+  idleMs?: number;
 }
 
-export async function createServer(options: ServerOptions): Promise<FastifyInstance> {
-  const app = Fastify({ logger: options.logger ?? false });
+export interface SteckplanServer {
+  app: FastifyInstance;
+  rooms: RoomManager;
+}
+
+export async function createServer(options: ServerOptions): Promise<SteckplanServer> {
+  const app = Fastify({
+    logger: options.logger
+      ? { redact: ['req.headers.cookie', 'req.headers.authorization', 'res.headers["set-cookie"]'] }
+      : false,
+    trustProxy: options.trustProxy ?? false,
+  });
+
+  const rooms = new RoomManager({
+    store: options.store,
+    versions: options.versions,
+    sessions: options.sessions,
+    unloadWhenIdle: options.store.kind === 'dataDir',
+    idleMs: options.idleMs,
+    saveDelayMs: options.saveDelayMs,
+    versionIntervalMs: options.versionIntervalMs,
+    log: {
+      info: (msg) => app.log.info(msg),
+      warn: (msg) => app.log.warn(msg),
+      error: (msg) => app.log.error(msg),
+    },
+  });
+
+  app.addHook('onClose', async () => {
+    await rooms.closeAll('Server wird beendet');
+    await options.sessions.flush();
+  });
 
   app.get('/api/health', async () => createHealthInfo(options.mode));
+
+  await registerAuth(app, {
+    sessions: options.sessions,
+    passwords: options.passwords,
+    rateLimiter: options.rateLimiter,
+    onLogout: (session) => rooms.disconnectSession(session.id),
+  });
+
+  await app.register(fastifyWebsocket);
+  app.get<{ Params: { id: string } }>('/api/projects/:id/sync', { websocket: true }, (socket, request) => {
+    rooms.handleConnection(socket, request, request.params.id);
+  });
+
+  registerProjectRoutes(app, rooms);
 
   const uiDir = options.uiDir;
   const hasUi = uiDir !== undefined && existsSync(join(uiDir, 'index.html'));
@@ -32,5 +97,5 @@ export async function createServer(options: ServerOptions): Promise<FastifyInsta
     return reply.code(404).send({ error: 'Nicht gefunden' });
   });
 
-  return app;
+  return { app, rooms };
 }

@@ -26,10 +26,29 @@ Alternativ mit Docker Compose: [`apps/docker/docker-compose.yml`](../apps/docker
 | `STECKPLAN_READ_PASSWORD` | ja | – | Lese-Passwort (ansehen, Packliste abhaken) – muss sich vom Bearbeiten-Passwort unterscheiden |
 | `PORT` | nein | `8080` | Port im Container |
 | `TZ` | nein | UTC | Zeitzone, z. B. `Europe/Berlin` |
+| `STECKPLAN_TRUST_PROXY` | nein | `false` | `true` nur hinter einem Reverse-Proxy: dann werden `X-Forwarded-For`/`-Proto` ausgewertet (richtige IP für die Begrenzung von Fehlversuchen, sichere Cookies bei HTTPS) |
 
 Ohne die beiden Passwörter startet der Container nicht und meldet, was fehlt.
 
-Alle Daten (Projekte, Bibliothek, Stammdaten, Versionen) liegen im Volume `/data`.
+## Anmelden
+
+Im Browser gibt man **Name** und **Passwort** ein:
+
+- **Bearbeiten-Passwort:** alles bearbeiten, Projekte anlegen, hochladen, löschen, Versionen wiederherstellen
+- **Lese-Passwort:** alles ansehen und herunterladen (ohne WLAN-Passwörter), Packliste abhaken – sonst keine Änderungen
+
+Die Anmeldung bleibt 30 Tage gültig und verlängert sich bei Benutzung. Werden die Passwörter geändert (Container mit neuen Werten neu starten), sind alle bestehenden Anmeldungen beendet. Nach 10 Fehlversuchen innerhalb von 15 Minuten wird die IP-Adresse vorübergehend gesperrt.
+
+## Daten
+
+Alles liegt im Volume `/data`:
+
+| Ordner/Datei | Inhalt |
+|---|---|
+| `projects/` | Projekte als `.steckplan`-Dateien (JSON) |
+| `versions/` | automatische Versionen (die letzten 30 pro Projekt) |
+| `trash/` | gelöschte Projekte (30 Tage wiederherstellbar) |
+| `sessions.json` | Anmeldungen (nur Prüfsummen, keine Passwörter) |
 
 ## Image-Tags
 

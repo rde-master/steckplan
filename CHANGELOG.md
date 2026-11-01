@@ -7,6 +7,24 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-01
+
+Meilenstein M1 – Datenmodell, Server, Sync & Anmeldung.
+
+### Hinzugefügt
+
+- Datenmodell (Zod-Schemas) für Projekt, Vorlagen, Stammdaten, Geräte, Kabel und Netzwerk; Dateiformat `.steckplan` mit `schemaVersion` 1 und Migrations-Gerüst
+- Live-Sync per Yjs über WebSocket: mehrere Personen bearbeiten dasselbe Projekt gleichzeitig; Anzeige, wer verbunden ist
+- Anmeldung im Browser mit Bearbeiten- oder Lese-Passwort plus Name; Sitzung 30 Tage, Begrenzung von Fehlversuchen
+- Rechte serverseitig: Lese-Zugang kann nichts ändern, nichts löschen und keine Versionen wiederherstellen; WLAN-Passwörter erhält er nicht
+- Automatische Versionen (die letzten 30, höchstens eine pro 10 Minuten) mit Vorschau und Wiederherstellen
+- Docker: Projektliste, Projekt anlegen, hochladen, herunterladen, löschen mit Papierkorb (30 Tage)
+- Desktop lokal: `.steckplan`-Dateien frei speichern und per Doppelklick öffnen, Autosave in die Datei, ein Fenster pro Projekt, Zuletzt geöffnet, Speichern unter
+- Desktop: Sperrdatei neben der Datei (Nextcloud-tauglich) mit „Nur lesen öffnen“ und „Sperre übernehmen“ bei veralteter Sperre
+- Desktop: eigener Name beim ersten Start
+- Projektdaten (Name, Ort, Datum, Planer, Auftraggeber, Version, Notizen) als erstes live bearbeitbares Element
+- E2E-Tests mit Playwright für Browser, Handy-Ansicht und Desktop-App
+
 ## [0.1.0] - 2026-11-01
 
 Meilenstein M0 – Projektgerüst.
@@ -22,5 +40,6 @@ Meilenstein M0 – Projektgerüst.
 - Docker-Image mit Datenvolume `/data` und Beispiel-`docker-compose.yml`
 - GitHub Actions: Tests und Smoke-Test bei jedem Push, Installer als Artefakte, Docker-Image `:develop`, Release-Workflow für Tags `vX.Y.Z`
 
-[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.1.0...develop
+[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.2.0...develop
+[0.2.0]: https://github.com/rde-master/steckplan/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/rde-master/steckplan/releases/tag/v0.1.0
