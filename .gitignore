@@ -6,6 +6,7 @@ node_modules/
 dist/
 out/
 build/
+!apps/desktop/build/
 release/
 *.tsbuildinfo
 coverage/
@@ -37,3 +38,5 @@ Thumbs.db
 .vscode/*
 !.vscode/extensions.json
 *.swp
+
+.dev-data/
