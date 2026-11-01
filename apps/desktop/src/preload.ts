@@ -12,6 +12,14 @@ contextBridge.exposeInMainWorld('steckplanDesktop', {
   listRecent: () => ipcRenderer.invoke('recent:list'),
   openLibrary: () => ipcRenderer.invoke('library:open'),
   copyAsNew: (projectId: string) => ipcRenderer.invoke('project:copyAsNew', projectId),
+  webAccess: {
+    status: () => ipcRenderer.invoke('web:status'),
+    start: (address: string) => ipcRenderer.invoke('web:start', address),
+    stop: () => ipcRenderer.invoke('web:stop'),
+    setPasswords: (passwords: { edit: string; read: string }) => ipcRenderer.invoke('web:setPasswords', passwords),
+    setPort: (port: number) => ipcRenderer.invoke('web:setPort', port),
+    disconnect: (sessionId: string) => ipcRenderer.invoke('web:disconnect', sessionId),
+  },
   onRecentChanged: (callback: () => void) => {
     const listener = () => callback();
     ipcRenderer.on('recent:changed', listener);

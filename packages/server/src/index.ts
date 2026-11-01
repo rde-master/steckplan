@@ -6,3 +6,4 @@ export * from './storage';
 export * from './sync';
 export * from './library';
 export * from './events/event-hub';
+export { qrCodeSvg } from './qr';

@@ -68,3 +68,76 @@ test('Desktop: Name beim ersten Start, Datei öffnen, Autosave, Sperrdatei', asy
     await app.close();
   }
 });
+
+test('Desktop: Weboberfläche per QR starten, im Browser lesend anmelden, trennen', async ({ browser }) => {
+  const userData = mkdtempSync(join(tmpdir(), 'steckplan-userdata-'));
+  const projectDir = mkdtempSync(join(tmpdir(), 'steckplan-projekte-'));
+  const file = join(projectDir, 'Open-Air.steckplan');
+  writeFileSync(file, JSON.stringify({ schemaVersion: 3, id: 'e2e-web', meta: { name: 'Open Air' } }));
+  writeFileSync(join(userData, 'settings.json'), JSON.stringify({ name: 'Ralf Pult', recentFiles: [] }));
+
+  const env = { ...process.env, STECKPLAN_USER_DATA: userData } as Record<string, string>;
+  delete env.ELECTRON_RUN_AS_NODE;
+  const app = await electron.launch({
+    executablePath: electronPath,
+    args: [...(process.platform === 'linux' ? ['--no-sandbox'] : []), appDir, file],
+    env,
+  });
+  const phone = await browser.newContext();
+
+  try {
+    const projectWindow = await app.waitForEvent('window', { predicate: (w) => w.url().includes('/projekt/') });
+    await projectWindow.getByRole('button', { name: 'Handy (QR)' }).click();
+    const dialog = projectWindow.getByRole('dialog', { name: 'Weboberfläche (QR & Handy)' });
+    await expect(dialog.getByText('Bitte zuerst ein Bearbeiten- und ein Lese-Passwort festlegen.')).toBeVisible();
+    await expect(dialog.getByRole('button', { name: 'Weboberfläche starten' })).toBeDisabled();
+
+    // gleiche Passwörter werden abgelehnt
+    await dialog.getByLabel('Bearbeiten-Passwort').fill('pult-geheim');
+    await dialog.getByLabel('Lese-Passwort').fill('pult-geheim');
+    await dialog.getByRole('button', { name: 'Passwörter speichern' }).click();
+    await expect(dialog.getByRole('alert')).toContainText('unterscheiden');
+    await dialog.getByLabel('Lese-Passwort').fill('nur-lesen');
+    await dialog.getByRole('button', { name: 'Passwörter speichern' }).click();
+    await expect(dialog.getByText('Passwörter sind festgelegt.')).toBeVisible();
+
+    // nur der Hash landet in den Einstellungen
+    const settingsText = readFileSync(join(userData, 'settings.json'), 'utf8');
+    expect(settingsText).not.toContain('pult-geheim');
+    expect(settingsText).not.toContain('nur-lesen');
+    expect(JSON.parse(settingsText).webAccess.port).toBe(8080);
+
+    // Port ändern, Adresse „nur dieser Rechner“ (im CI gibt es evtl. kein LAN), starten
+    await dialog.getByLabel('Port').fill('18890');
+    await dialog.getByRole('button', { name: 'Übernehmen' }).click();
+    await dialog.getByRole('combobox').selectOption('127.0.0.1');
+    await dialog.getByRole('button', { name: 'Weboberfläche starten' }).click();
+    const urlLink = dialog.getByTestId('web-url');
+    await expect(urlLink).toHaveText(/^http:\/\/127\.0\.0\.1:188\d\d\/$/);
+    await expect(dialog.getByRole('img', { name: 'QR-Code mit der Adresse der Weboberfläche' })).toBeVisible();
+    const url = (await urlLink.textContent())!;
+
+    // Handy: anmelden mit Lese-Passwort, nur das geöffnete Projekt, schreibgeschützt
+    const page = await phone.newPage();
+    await page.goto(url);
+    await expect(page).toHaveURL(/\/anmelden/);
+    await page.getByLabel('Dein Name').fill('Handy Anna');
+    await page.getByLabel('Passwort', { exact: true }).fill('nur-lesen');
+    await page.getByRole('button', { name: 'Anmelden' }).click();
+    await page.getByRole('link', { name: /Open Air/ }).click();
+    await expect(page.getByText('Nur lesen').first()).toBeVisible();
+
+    // Desktop sieht die Person und trennt sie
+    await expect(dialog.getByRole('listitem').filter({ hasText: 'Handy Anna' })).toContainText('Open Air');
+    await dialog.getByRole('listitem').filter({ hasText: 'Handy Anna' }).getByRole('button', { name: 'Trennen' }).click();
+    await expect(page).toHaveURL(/\/anmelden/, { timeout: 10_000 });
+
+    // Beenden → Adresse nicht mehr erreichbar
+    await dialog.getByRole('button', { name: 'Beenden' }).click();
+    await expect(dialog.getByRole('button', { name: 'Weboberfläche starten' })).toBeVisible();
+    await expect.poll(() => fetch(`${url}api/health`).then(() => 'erreichbar', () => 'aus')).toBe('aus');
+  } finally {
+    await phone.close();
+    await app.close();
+  }
+});

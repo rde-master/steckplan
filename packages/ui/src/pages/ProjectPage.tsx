@@ -19,6 +19,7 @@ import { StagePlanView } from '../components/stageplan/StagePlanView';
 import { ListsView } from '../components/lists/ListsView';
 import { NetworkView } from '../components/network/NetworkView';
 import { ExportDialog } from '../components/ExportDialog';
+import { WebAccessDialog } from '../components/WebAccessDialog';
 import { useIssues } from '../lib/useIssues';
 import { MeterField } from '../components/library/fields';
 import { AccessBadge, Banner, Button, Field, Spinner, TextArea, TextInput } from '../components/ui';
@@ -48,6 +49,7 @@ export function ProjectPage({ id }: { id: string }) {
   const refreshSession = useSession((s) => s.refresh);
   const [showVersions, setShowVersions] = useState(false);
   const [showExport, setShowExport] = useState(false);
+  const [showWeb, setShowWeb] = useState(false);
   const [conflicts, setConflicts] = useState<Conflict[] | null>(null);
   const [conflictError, setConflictError] = useState<string | null>(null);
   const library = useLibrary((s) => s.library);
@@ -73,6 +75,7 @@ export function ProjectPage({ id }: { id: string }) {
       getDesktop()?.onMenuCommand((command) => {
         if (command === 'versions') setShowVersions(true);
         if (command === 'export') setShowExport(true);
+        if (command === 'webAccess') setShowWeb(true);
       }),
     [],
   );
@@ -117,6 +120,11 @@ export function ProjectPage({ id }: { id: string }) {
             <Button variant="ghost" onClick={() => setShowVersions(true)}>
               {texts.project.versions}
             </Button>
+            {isDesktop && (
+              <Button variant="ghost" onClick={() => setShowWeb(true)} title={texts.webAccess.title}>
+                {texts.webAccess.open}
+              </Button>
+            )}
             {!isDesktop && (
               <a className="hidden rounded-md px-3 py-2 text-sm text-slate-600 hover:bg-slate-200 sm:inline dark:text-slate-300 dark:hover:bg-slate-700" href={api.downloadUrl(id)}>
                 {texts.project.download}
@@ -219,6 +227,7 @@ export function ProjectPage({ id }: { id: string }) {
           onClose={() => setShowVersions(false)}
         />
       )}
+      {showWeb && getDesktop() && <WebAccessDialog desktop={getDesktop()!} onClose={() => setShowWeb(false)} />}
     </div>
   );
 }

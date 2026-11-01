@@ -10,6 +10,41 @@ export interface DesktopSettings {
   name: string;
 }
 
+export interface NetworkAddress {
+  name: string;
+  address: string;
+}
+
+export interface ConnectedPerson {
+  sessionId: string;
+  name: string;
+  access: 'edit' | 'read' | 'local';
+  via: string;
+  projects: string[];
+}
+
+export interface WebAccessStatus {
+  running: boolean;
+  url: string | null;
+  qrSvg: string | null;
+  port: number;
+  actualPort: number | null;
+  address: string | null;
+  interfaces: NetworkAddress[];
+  hasPasswords: boolean;
+  people: ConnectedPerson[];
+}
+
+/** Weboberfläche per QR & Handy (siehe apps/desktop/src/web-access.ts) */
+export interface WebAccessBridge {
+  status(): Promise<WebAccessStatus>;
+  start(address: string): Promise<WebAccessStatus>;
+  stop(): Promise<WebAccessStatus>;
+  setPasswords(passwords: { edit: string; read: string }): Promise<WebAccessStatus>;
+  setPort(port: number): Promise<WebAccessStatus>;
+  disconnect(sessionId: string): Promise<WebAccessStatus>;
+}
+
 export interface DesktopBridge {
   platform: string;
   getSettings(): Promise<DesktopSettings>;
@@ -20,6 +55,7 @@ export interface DesktopBridge {
   listRecent(): Promise<RecentFile[]>;
   openLibrary(): Promise<void>;
   copyAsNew(projectId: string): Promise<void>;
+  webAccess: WebAccessBridge;
   onRecentChanged(callback: () => void): () => void;
   /** Befehle aus dem Anwendungsmenü, z. B. „versions“ */
   onMenuCommand(callback: (command: string) => void): () => void;
