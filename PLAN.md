@@ -551,6 +551,7 @@ Jeder Meilenstein endet mit grünen Tests, lauffähigem Build (Desktop **und** D
 | **M6** | DMX & Netzwerk | DMX-Modi/Adressen/Prüfungen/Auto-Adressierung/Patchliste; Subnetze, IPs mit Prüfungen, WLAN-Netze, WLAN-QR-Code in der App; WLAN-Passwörter im geschützten Bereich, Lese-Zugang sieht sie nicht |
 | **M7** | PDF & CSV | A4/A3 wählbar; Planzeichnung (beide Ansichten), Packliste (Kategorie/Anhänger/Besitzer, zusammengefasst/einzeln), Kabel-, Stück-, DMX-, Geräte-, Netzwerkliste, WLAN-Aushang; CSV |
 | **M8** | Weboberfläche per QR & Handy | Desktop: „Weboberfläche starten“, LAN-Freigabe, Passwörter in den Einstellungen, QR-Code, verbundene Personen; Handy-Ansicht (Packliste abhaken mit Zähler, Plan ansehen, volle Bearbeitung per Touch); „zuletzt geändert von“ und Änderungsprotokoll |
+| **M8c** | Personen, Gruppen, Cases, Lager | Personen je Projekt (Name, Vorname, Art) und Geräte „benutzt von Mensch“ mit Anzeige in allen Plänen, Personenliste und Geräte-Etiketten (PDF); Gruppen im Signalfluss (automatischer Rahmen, im Bühnenplan ein-/ausblendbar); Stative mit T-Bar (Geräte nebeneinander, hängend oder stehend); Cases als Stammdaten (Inhalt je Projekt, Case → Anhänger); Lagerbestand mit Warnung; Packliste mit Besitzer, Kategorie, Anhänger, Case; Vorlagen kopieren, Stammdaten direkt beim Anlegen erstellen, Gerätewahl nach Kategorien |
 | **M8b** | Desktop ↔ Server-Verbindung | Desktop-Zugangsschlüssel auf dem Docker-Server (erzeugen, Zugangsstufe, widerrufen); Desktop „Mit Server verbinden“ (mehrere Server, Schlüssel im OS-Schlüsselbund), Live-Arbeit auf Server-Projekten/Bibliothek/Stammdaten, Verbindungsstatus, Sperre bei Verbindungsabbruch; lokales Projekt hochladen (mit Konfliktabfrage) / Server-Projekt herunterladen |
 | **M9** | Release 1.0 | Installer (.dmg Universal ad-hoc signiert, .exe), Docker-Image (amd64/arm64) auf GHCR, Update-Hinweis (Desktop) über GitHub Releases, Benutzerhandbuch, Docker-Anleitung inkl. Aktualisieren, Beispielprojekt (nur in `docs/`, nicht in der Bibliothek), Bugfixing |
 | **M10** | Phase 2a: Ton-Patch | Stagebox-/Pult-Kanalbelegung, Input-Liste als PDF |
@@ -636,6 +637,13 @@ Jeder Meilenstein endet mit grünen Tests, lauffähigem Build (Desktop **und** D
 - Planzeichnung im festen Maßstab, die nicht auf eine Seite passt: Aufteilung auf mehrere Seiten (Kacheln mit Überlappung und Seitenangabe) (01.11.2026)
 - Weboberfläche am Desktop: fester Port 8080 (in den Einstellungen änderbar); ist er belegt, wird der nächste freie genommen und angezeigt (01.11.2026)
 - Änderungsprotokoll: ein Eintrag je Person und Minute (zusammengefasst), dazu eigene Einträge für wichtige Aktionen (Häkchen zurücksetzen, Version wiederhergestellt, Vorlagen-Abgleich) (01.11.2026)
+- Erweiterung M8c (vor M8b, Version 0.10.0, Schema 4) auf Wunsch des Eigentümers (01.11.2026):
+  - „Benutzt von Mensch“: Vorgabe in der Vorlage, je Gerät im Projekt änderbar; dort wird eine Person zugeordnet. Personen je Projekt mit Name, Vorname und Art (Freitext mit Vorschlägen bereits verwendeter Arten)
+  - Geräte-Etiketten als PDF auf A4-Bögen, Etikettgröße wählbar (gängige Klebe-Etiketten-Formate)
+  - Cases (Kisten) sind Stammdaten wie Anhänger, mit Standard-Anhänger; im Projekt kann ein Case einem anderen Anhänger zugeordnet werden. Geräte und Kabel kommen in ein Case oder direkt in einen Anhänger
+  - Lagerbestand je Vorlage; Kabeltypen mit festen Längen haben den Bestand je Länge. Warnung, wenn ein Projekt mehr verwendet als im Lager steht (je Projekt, nicht projektübergreifend)
+  - Stative haben eine T-Bar: Länge als Vorgabe in der Vorlage, je Stativ änderbar; angedockte Geräte verteilen sich nebeneinander auf der T-Bar, hängend (unten) oder stehend (oben)
+  - Gruppen im Signalfluss: benannt mit Farbe, jedes Gerät in höchstens einer Gruppe, Rahmen wird automatisch berechnet; im Bühnenplan ein-/ausblendbar
 
 ---
 
