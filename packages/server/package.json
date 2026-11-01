@@ -22,10 +22,12 @@
     "@steckplan/core": "workspace:*",
     "fastify": "^5.12.7",
     "lib0": "^0.2.119",
+    "qrcode": "^1.5.4",
     "y-protocols": "^1.0.7",
     "yjs": "^13.6.33"
   },
   "devDependencies": {
+    "@types/qrcode": "^1.5.6",
     "@types/ws": "^8.18.2",
     "cross-env": "^10.1.0",
     "tsup": "^9.0.0",
