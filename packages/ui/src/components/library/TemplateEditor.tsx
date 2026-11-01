@@ -7,6 +7,7 @@ import { suggestions } from '../../lib/library';
 import { formatMeterList, parseMeterList } from '../../lib/units';
 import { texts } from '../../texts';
 import { Banner, Button, Field, TextArea, TextInput } from '../ui';
+import { BulkPortsForm } from './BulkPortsForm';
 import { ColorField, MasterSelect, MeterField, NumberField, selectClass, SelectField } from './fields';
 
 const t = texts.library.fields;
@@ -53,6 +54,8 @@ export function TemplateEditor({
   const [stale, setStale] = useState<Template | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [showBulk, setShowBulk] = useState(false);
+  const [confirmClearPorts, setConfirmClearPorts] = useState(false);
   const isNew = !draft.id;
   const kind = draft.kind;
   const disabled = !canEdit;
@@ -292,7 +295,34 @@ export function TemplateEditor({
               </div>
             )}
             {!disabled && (
-              <Button onClick={() => set({ ports: [...ports, { id: portId(), label: '', connector: '', direction: 'in', signal: '' }] })}>＋ {t.addPort}</Button>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button onClick={() => set({ ports: [...ports, { id: portId(), label: '', connector: '', direction: 'in', signal: '' }] })}>＋ {t.addPort}</Button>
+                {!showBulk && <Button onClick={() => setShowBulk(true)}>⊞ {texts.library.bulk.open}</Button>}
+                <div className="flex-1" />
+                {ports.length > 1 &&
+                  (confirmClearPorts ? (
+                    <span className="flex items-center gap-2 text-sm">
+                      {texts.library.bulk.removeAllConfirm(ports.length)}
+                      <Button
+                        variant="danger"
+                        onClick={() => {
+                          set({ ports: [] });
+                          setConfirmClearPorts(false);
+                        }}
+                      >
+                        {t.remove}
+                      </Button>
+                      <Button onClick={() => setConfirmClearPorts(false)}>{texts.common.cancel}</Button>
+                    </span>
+                  ) : (
+                    <Button variant="ghost" onClick={() => setConfirmClearPorts(true)}>
+                      {texts.library.bulk.removeAll}
+                    </Button>
+                  ))}
+              </div>
+            )}
+            {!disabled && showBulk && (
+              <BulkPortsForm existing={ports} onAdd={(added) => set({ ports: [...ports, ...added] })} onClose={() => setShowBulk(false)} />
             )}
           </section>
 
