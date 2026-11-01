@@ -18,14 +18,36 @@ function matches(password: string, stored: Hashed): boolean {
   return timingSafeEqual(candidate, stored.hash);
 }
 
+/** Gespeicherter Passwort-Hash (z. B. in den Desktop-Einstellungen) – nie das Passwort selbst. */
+export interface StoredPassword {
+  salt: string;
+  hash: string;
+}
+
+export function hashForStorage(password: string): StoredPassword {
+  const h = hash(password);
+  return { salt: h.salt.toString('hex'), hash: h.hash.toString('hex') };
+}
+
 /** Prüft Bearbeiten- und Lese-Passwort; beide werden immer geprüft (gleichbleibende Laufzeit). */
 export class PasswordChecker {
   private readonly edit: Hashed;
   private readonly read: Hashed;
 
-  constructor(passwords: { edit: string; read: string }) {
-    this.edit = hash(passwords.edit);
-    this.read = hash(passwords.read);
+  constructor(passwords: { edit: string; read: string } | { stored: { edit: StoredPassword; read: StoredPassword } }) {
+    if ('stored' in passwords) {
+      const from = (s: StoredPassword): Hashed => ({ salt: Buffer.from(s.salt, 'hex'), hash: Buffer.from(s.hash, 'hex') });
+      this.edit = from(passwords.stored.edit);
+      this.read = from(passwords.stored.read);
+    } else {
+      this.edit = hash(passwords.edit);
+      this.read = hash(passwords.read);
+    }
+  }
+
+  /** true, wenn das Passwort eines der beiden ist (z. B. um gleiche Passwörter zu verhindern). */
+  matchesAny(password: string): boolean {
+    return this.check(password) !== null;
   }
 
   check(password: string): Exclude<Access, 'local'> | null {

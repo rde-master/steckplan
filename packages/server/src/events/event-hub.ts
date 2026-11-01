@@ -45,6 +45,10 @@ export class EventHub {
     this.sockets.clear();
   }
 
+  sessionIds(): string[] {
+    return [...new Set(this.sockets.values())];
+  }
+
   get size(): number {
     return this.sockets.size;
   }

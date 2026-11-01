@@ -17,15 +17,19 @@ declare module 'fastify' {
 
 export interface AuthOptions {
   sessions: SessionStore;
-  /** Ohne Passwörter ist keine Anmeldung per Browser möglich (z. B. Desktop ohne Weboberfläche). */
-  passwords: PasswordChecker | null;
+  /**
+   * Ohne Passwörter ist keine Anmeldung per Browser möglich (z. B. Desktop ohne Weboberfläche).
+   * Als Funktion: wird bei jeder Anmeldung neu gefragt (Desktop: Weboberfläche an/aus, Passwörter geändert).
+   */
+  passwords: PasswordChecker | null | (() => PasswordChecker | null);
   rateLimiter?: LoginRateLimiter;
   /** Wird nach dem Abmelden aufgerufen (z. B. um offene Verbindungen zu trennen). */
   onLogout?: (session: Session) => void;
 }
 
 export async function registerAuth(app: FastifyInstance, options: AuthOptions): Promise<void> {
-  const { sessions, passwords } = options;
+  const { sessions } = options;
+  const currentPasswords = (): PasswordChecker | null => (typeof options.passwords === 'function' ? options.passwords() : options.passwords);
   const limiter = options.rateLimiter ?? new LoginRateLimiter();
 
   await app.register(fastifyCookie);
@@ -40,12 +44,13 @@ export async function registerAuth(app: FastifyInstance, options: AuthOptions): 
   });
 
   app.get('/api/auth/session', async (request, reply) => {
-    if (!request.session) return reply.code(401).send({ error: 'Nicht angemeldet', loginAvailable: passwords !== null });
+    if (!request.session) return reply.code(401).send({ error: 'Nicht angemeldet', loginAvailable: currentPasswords() !== null });
     const { name, access, via } = request.session;
     return { name, access, via };
   });
 
   app.post<{ Body: { password?: unknown; name?: unknown } }>('/api/auth/login', async (request, reply) => {
+    const passwords = currentPasswords();
     if (!passwords) return reply.code(404).send({ error: 'Anmeldung ist hier nicht verfügbar.' });
 
     const retry = limiter.retryAfter(request.ip);

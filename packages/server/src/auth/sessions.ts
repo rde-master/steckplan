@@ -148,6 +148,25 @@ export class SessionStore {
     if (stored && this.sessions.delete(hash) && stored.persistent) this.schedulePersist();
   }
 
+  /** Alle Sitzungen (ohne Token). */
+  list(): Session[] {
+    return [...this.sessions.values()].map((s) => this.toSession(s));
+  }
+
+  /** Beendet Sitzungen, auf die die Bedingung zutrifft; gibt sie zurück. */
+  deleteWhere(predicate: (session: Session) => boolean): Session[] {
+    const removed: Session[] = [];
+    for (const [hash, stored] of this.sessions) {
+      const session = this.toSession(stored);
+      if (predicate(session)) {
+        this.sessions.delete(hash);
+        removed.push(session);
+        if (stored.persistent) this.schedulePersist();
+      }
+    }
+    return removed;
+  }
+
   /** Ändert den Namen einer Sitzung (Desktop: Name in den Einstellungen geändert). */
   rename(token: string, name: string): void {
     const stored = this.sessions.get(hashToken(token));
