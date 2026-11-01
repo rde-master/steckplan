@@ -7,6 +7,26 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-01
+
+Meilenstein M2 – Bibliothek & Stammdaten.
+
+### Hinzugefügt
+
+- Bibliothek (startet leer) mit Editoren für Geräte, Kabeltypen, Bühnenelemente, Traversen und Stative: Form und Maße in Metern, Anschlüsse mit Stecker/Richtung/Signal/Netzwerk, DMX-Modi, Leistung, verfügbare Kabellängen, Standardfarbe, Kategorie, Standard-Besitzer und -Anhänger, Notiz
+- Stammdaten Kategorien, Besitzer und Anhänger (projektübergreifend): anlegen, umbenennen, Farbe; löschen nur, wenn unbenutzt, sonst archivieren (rückgängig machbar)
+- Vorlagen löschen nur, wenn sie in keinem bekannten Projekt verwendet werden
+- Änderungen an Bibliothek und Stammdaten erscheinen sofort bei allen Verbundenen
+- Gleichzeitiges Ändern derselben Vorlage: Hinweis „inzwischen geändert von X“ mit „Neu laden“ oder „Trotzdem überschreiben“
+- Vorlagen-Abgleich beim Öffnen und Hochladen: fehlende Vorlagen werden übernommen, eigene Projekte automatisch aktualisiert; bei Projekten aus einer anderen Bibliothek wird pro Eintrag gefragt (eigene behalten / fremde übernehmen / als Kopie anlegen)
+- Import/Export von Bibliothek und Stammdaten als JSON, mit derselben Konfliktabfrage
+- Desktop: Bibliothek in eigenem Fenster (Datei → Bibliothek …)
+
+### Geändert
+
+- Dateiformat Version 2 (Vorlagen mit „zuletzt geändert von“ und Notiz); Dateien im Format 1 werden beim Öffnen automatisch umgewandelt
+- Die Kopien der verwendeten Vorlagen und Stammdaten in der Projektdatei werden beim Speichern aus der Bibliothek erzeugt
+
 ## [0.2.0] - 2026-11-01
 
 Meilenstein M1 – Datenmodell, Server, Sync & Anmeldung.
@@ -40,6 +60,7 @@ Meilenstein M0 – Projektgerüst.
 - Docker-Image mit Datenvolume `/data` und Beispiel-`docker-compose.yml`
 - GitHub Actions: Tests und Smoke-Test bei jedem Push, Installer als Artefakte, Docker-Image `:develop`, Release-Workflow für Tags `vX.Y.Z`
 
-[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.2.0...develop
+[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.3.0...develop
+[0.3.0]: https://github.com/rde-master/steckplan/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/rde-master/steckplan/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/rde-master/steckplan/releases/tag/v0.1.0
