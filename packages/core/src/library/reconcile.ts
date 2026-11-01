@@ -197,9 +197,9 @@ export function applyAnalysis(
 
 /** Schreibt die ids im Projekt um (bei „als Kopie anlegen“) und erneuert libraryId und Snapshots. */
 export function finishProject(project: Project, library: Library, idMap: IdMap): Project {
-  const remap = <T extends { templateId: string; ownerId?: string; trailerId?: string; categoryOverride?: string }>(item: T): T => ({
+  const remap = <T extends { templateId?: string; ownerId?: string; trailerId?: string; categoryOverride?: string }>(item: T): T => ({
     ...item,
-    templateId: idMap.templates.get(item.templateId) ?? item.templateId,
+    ...(item.templateId ? { templateId: idMap.templates.get(item.templateId) ?? item.templateId } : {}),
     ...(item.ownerId ? { ownerId: idMap.owners.get(item.ownerId) ?? item.ownerId } : {}),
     ...(item.trailerId ? { trailerId: idMap.trailers.get(item.trailerId) ?? item.trailerId } : {}),
     ...(item.categoryOverride ? { categoryOverride: idMap.categories.get(item.categoryOverride) ?? item.categoryOverride } : {}),

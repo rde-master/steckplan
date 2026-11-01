@@ -23,7 +23,7 @@ function addTemplateMasterUsage(usage: Usage, template: Template): void {
 export function projectUsage(project: Pick<Project, 'devices' | 'cables'>): Usage {
   const usage = emptyUsage();
   for (const item of [...project.devices, ...project.cables]) {
-    usage.templates.add(item.templateId);
+    if (item.templateId) usage.templates.add(item.templateId);
     if (item.ownerId) usage.owners.add(item.ownerId);
     if (item.trailerId) usage.trailers.add(item.trailerId);
     if (item.categoryOverride) usage.categories.add(item.categoryOverride);
