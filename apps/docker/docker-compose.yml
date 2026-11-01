@@ -1,0 +1,22 @@
+# Beispiel für den Betrieb von Steckplan mit Docker Compose.
+# Start: docker compose up -d   →   http://<server>:8080
+#
+# Für Zugriff von außerhalb des eigenen Netzes nur hinter einem
+# Reverse-Proxy mit HTTPS betreiben!
+services:
+  steckplan:
+    image: ghcr.io/rde-master/steckplan:latest
+    container_name: steckplan
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      # Pflicht – ohne diese beiden Passwörter startet der Container nicht.
+      STECKPLAN_EDIT_PASSWORD: "bitte-aendern-bearbeiten"
+      STECKPLAN_READ_PASSWORD: "bitte-aendern-lesen"
+      TZ: Europe/Berlin
+    volumes:
+      - steckplan-data:/data
+
+volumes:
+  steckplan-data:

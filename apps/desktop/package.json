@@ -1,0 +1,29 @@
+{
+  "name": "@steckplan/desktop",
+  "version": "0.3.0",
+  "productName": "Steckplan",
+  "private": true,
+  "description": "Steckplan – Planung von Licht-, Ton- und Netzwerktechnik für Veranstaltungen",
+  "license": "GPL-3.0-only",
+  "author": "rde-master <info@rde-master.de>",
+  "homepage": "https://github.com/rde-master/steckplan",
+  "main": "dist/main.cjs",
+  "scripts": {
+    "build": "tsup && node scripts/copy-ui.mjs",
+    "start": "electron .",
+    "dev": "pnpm --filter @steckplan/ui build && pnpm run build && electron .",
+    "dist": "pnpm run build && electron-builder",
+    "smoke": "node scripts/smoke.mjs",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run --passWithNoTests"
+  },
+  "devDependencies": {
+    "@steckplan/core": "workspace:*",
+    "@steckplan/server": "workspace:*",
+    "@steckplan/ui": "workspace:*",
+    "electron": "^45.2.1",
+    "electron-builder": "^26.18.0",
+    "fastify": "^5.12.7",
+    "tsup": "^9.0.0"
+  }
+}

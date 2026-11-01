@@ -1,0 +1,51 @@
+appId: io.github.rde-master.steckplan
+productName: Steckplan
+executableName: steckplan
+copyright: Copyright © rde-master – GPL-3.0
+artifactName: Steckplan-${version}-${os}-${arch}.${ext}
+
+directories:
+  output: release
+  buildResources: build
+
+files:
+  - dist/**
+  - package.json
+
+fileAssociations:
+  - ext: steckplan
+    name: Steckplan-Projekt
+    description: Steckplan-Projekt
+    role: Editor
+    mimeType: application/x-steckplan
+
+asar: true
+npmRebuild: false
+publish: null
+
+mac:
+  target:
+    - target: dmg
+      arch: universal
+  category: public.app-category.productivity
+  # Ad-hoc-Signatur: ohne kostenpflichtiges Zertifikat, aber nötig, damit die App auf Apple-Silicon-Macs startet.
+  identity: '-'
+  hardenedRuntime: false
+  gatekeeperAssess: false
+
+dmg:
+  artifactName: Steckplan-${version}-mac-universal.${ext}
+
+win:
+  target:
+    - target: nsis
+      arch: x64
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  artifactName: Steckplan-${version}-win-setup.${ext}
+
+linux:
+  target: dir

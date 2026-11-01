@@ -1,0 +1,21 @@
+{
+  "name": "@steckplan/core",
+  "version": "0.3.0",
+  "private": true,
+  "description": "Fachlogik, Datenmodell und Schemas von Steckplan",
+  "license": "GPL-3.0-only",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "lib0": "^0.2.119",
+    "y-protocols": "^1.0.7",
+    "yjs": "^13.6.33",
+    "zod": "^4.6.7"
+  }
+}
