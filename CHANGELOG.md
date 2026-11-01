@@ -7,6 +7,30 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-11-01
+
+Meilenstein M8c – Personen, Gruppen, Cases, Lager (Dateiformat 4; ältere Dateien werden beim Öffnen automatisch angehoben).
+
+### Hinzugefügt
+
+- Personen je Projekt (Name, Vorname, Art mit Vorschlägen) unter Projektdaten
+- „Benutzt von Mensch“ für Geräte: Vorgabe in der Vorlage, je Gerät änderbar; Person zuordnen (auch direkt neu anlegen). Der Name erscheint im Signalfluss, im Bühnenplan, in den Listen und in den PDFs
+- Personenliste (Listen → Personen, PDF und CSV) mit Anschlüssen und Kabeln je Gerät
+- Geräte-Etiketten als PDF auf A4-Bögen (70 × 37, 63,5 × 38,1, 105 × 48, 105 × 74 mm; optional Schnittlinien): Gerät, Person und wo es mit welchem Kabel eingesteckt wird
+- Gruppen im Signalfluss (Gruppieren-Knopf oder Strg/⌘+G): Name und Farbe, Rahmen mit schattiertem Hintergrund wird automatisch berechnet; Ziehen am Rahmen verschiebt die Gruppe. Im Bühnenplan und im PDF ein-/ausblendbar
+- Stative mit T-Bar: Länge in der Vorlage, je Stativ änderbar; angedockte Geräte liegen nebeneinander statt übereinander; Gerät hängt unten oder steht oben
+- Cases (Kisten) als Stammdaten mit Standard-Anhänger; Geräte und Kabel kommen in ein Case, Cases je Projekt in einen Anhänger (Projektdaten → Cases); Standard-Case in der Vorlage
+- Lagerbestand je Vorlage (Kabeltypen mit festen Längen je Länge) mit Warnung, wenn ein Projekt mehr verwendet
+- Bibliothek: Geräte/Kabel kopieren (in der Liste und im Editor); Kategorien, Besitzer, Anhänger und Cases direkt im Auswahlfeld neu anlegen
+- Änderungsprotokoll erfasst auch Personen, Gruppen und Case-Zuordnungen
+
+### Geändert
+
+- Packliste zeigt Kategorie, Besitzer, Anhänger, Case und Person; Gruppieren auch nach Case; Inhalt eines Cases steht im Anhänger des Cases
+- Kabel-, Geräte- und Packliste (Bildschirm, PDF, CSV) mit Spalte „Case“, Geräteliste zusätzlich mit Person und Gruppe
+- Gerätewahl im Signalfluss nach Kategorien unterteilt (einklappbar)
+- Anhänger-Filter findet auch den Inhalt von Cases, die in diesem Anhänger stehen
+
 ## [0.9.0] - 2026-11-01
 
 Meilenstein M8 – Weboberfläche per QR & Handy.
@@ -169,7 +193,8 @@ Meilenstein M0 – Projektgerüst.
 - Docker-Image mit Datenvolume `/data` und Beispiel-`docker-compose.yml`
 - GitHub Actions: Tests und Smoke-Test bei jedem Push, Installer als Artefakte, Docker-Image `:develop`, Release-Workflow für Tags `vX.Y.Z`
 
-[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.9.0...develop
+[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.10.0...develop
+[0.10.0]: https://github.com/rde-master/steckplan/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/rde-master/steckplan/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/rde-master/steckplan/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/rde-master/steckplan/compare/v0.6.0...v0.7.0
