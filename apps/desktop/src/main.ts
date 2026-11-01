@@ -41,6 +41,7 @@ function refreshMenu(): void {
       if (id && win) void projects.saveAs(id, win);
     },
     showVersions: () => BrowserWindow.getFocusedWindow()?.webContents.send('menu:command', 'versions'),
+    exportDocument: () => BrowserWindow.getFocusedWindow()?.webContents.send('menu:command', 'export'),
     showStart: () => windows.showStart(),
     showLibrary: () => windows.showLibrary(),
     copyAsNew: () => {
@@ -158,6 +159,11 @@ if (!app.requestSingleInstanceLock()) {
       app.exit(1);
       return;
     }
+
+    // Downloads (Export, Projekt herunterladen) immer mit Speichern-Dialog
+    session.defaultSession.on('will-download', (_event, item) => {
+      item.setSaveDialogOptions({ title: 'Speichern unter', defaultPath: join(app.getPath('documents'), item.getFilename()) });
+    });
 
     // Lokale Sitzung (volle Rechte) für alle Fenster der Desktop-App
     await session.defaultSession.cookies.set({

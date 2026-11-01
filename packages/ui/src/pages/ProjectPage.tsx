@@ -18,6 +18,7 @@ import { SignalFlowView } from '../components/signalflow/SignalFlowView';
 import { StagePlanView } from '../components/stageplan/StagePlanView';
 import { ListsView } from '../components/lists/ListsView';
 import { NetworkView } from '../components/network/NetworkView';
+import { ExportDialog } from '../components/ExportDialog';
 import { useIssues } from '../lib/useIssues';
 import { MeterField } from '../components/library/fields';
 import { AccessBadge, Banner, Button, Field, Spinner, TextArea, TextInput } from '../components/ui';
@@ -46,6 +47,7 @@ export function ProjectPage({ id }: { id: string }) {
   const session = useSession((s) => s.session);
   const refreshSession = useSession((s) => s.refresh);
   const [showVersions, setShowVersions] = useState(false);
+  const [showExport, setShowExport] = useState(false);
   const [conflicts, setConflicts] = useState<Conflict[] | null>(null);
   const [conflictError, setConflictError] = useState<string | null>(null);
   const library = useLibrary((s) => s.library);
@@ -65,8 +67,15 @@ export function ProjectPage({ id }: { id: string }) {
 
   useEffect(() => resetEditor(), [id, resetEditor]);
 
-  // Desktop: „Datei → Versionen …“ im Menü
-  useEffect(() => getDesktop()?.onMenuCommand((command) => command === 'versions' && setShowVersions(true)), []);
+  // Desktop: Menübefehle „Versionen …“ und „Exportieren …“
+  useEffect(
+    () =>
+      getDesktop()?.onMenuCommand((command) => {
+        if (command === 'versions') setShowVersions(true);
+        if (command === 'export') setShowExport(true);
+      }),
+    [],
+  );
 
   const online = status === 'synced';
   const editable = online && !state?.readOnly;
@@ -102,6 +111,9 @@ export function ProjectPage({ id }: { id: string }) {
                 {texts.project.readOnly}
               </span>
             )}
+            <Button variant="ghost" onClick={() => setShowExport(true)} disabled={!library || !project}>
+              {texts.exportDialog.open}
+            </Button>
             <Button variant="ghost" onClick={() => setShowVersions(true)}>
               {texts.project.versions}
             </Button>
@@ -196,6 +208,9 @@ export function ProjectPage({ id }: { id: string }) {
             setConflicts(null);
           }}
         />
+      )}
+      {showExport && library && project && (
+        <ExportDialog projectId={id} data={data} library={library} meta={meta} issues={issues} onClose={() => setShowExport(false)} />
       )}
       {showVersions && session && (
         <VersionsDialog
