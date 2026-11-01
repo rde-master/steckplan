@@ -16,6 +16,7 @@ import {
   type Template,
 } from '@steckplan/core';
 import { useEditor } from '../../lib/editor';
+import { useLongPress } from '../../lib/useLongPress';
 import { DIMMED_OPACITY } from '../../lib/display';
 import { formatLength, scaleBar, type MulticoreRoute, type StageCable, type StageItem } from './model';
 
@@ -87,6 +88,8 @@ export function StagePlanCanvas(props: StageCanvasProps) {
   const setView = useEditor((s) => s.setStageView);
   const selection = useEditor((s) => s.selection);
   const select = useEditor((s) => s.select);
+  const requestProperties = useEditor((s) => s.requestProperties);
+  useLongPress(container, requestProperties);
   const toggleDevice = useEditor((s) => s.toggleDevice);
   const toggleShape = useEditor((s) => s.toggleShape);
   const clearSelection = useEditor((s) => s.clearSelection);
@@ -173,6 +176,24 @@ export function StagePlanCanvas(props: StageCanvasProps) {
     const wx = (point.x - view.x) / view.zoom;
     const wy = (point.y - view.y) / view.zoom;
     setView({ zoom, x: point.x - wx * zoom, y: point.y - wy * zoom });
+  }
+
+  // Touch: Zwei-Finger-Zoom (Geste) – Verschieben mit einem Finger übernimmt Konva (draggable)
+  const pinch = useRef<{ distance: number; zoom: number } | null>(null);
+  function handleTouchMove(e: Konva.KonvaEventObject<TouchEvent>) {
+    const touches = e.evt.touches;
+    if (touches.length !== 2) {
+      setPointer(world());
+      return;
+    }
+    e.evt.preventDefault();
+    if (stageRef.current?.isDragging()) stageRef.current.stopDrag();
+    const [t1, t2] = [touches[0]!, touches[1]!];
+    const distance = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+    const rect = container.current!.getBoundingClientRect();
+    const center = { x: (t1.clientX + t2.clientX) / 2 - rect.left, y: (t1.clientY + t2.clientY) / 2 - rect.top };
+    if (!pinch.current) pinch.current = { distance, zoom: view.zoom };
+    zoomAt(center, pinch.current.zoom * (distance / pinch.current.distance));
   }
 
   function finishWall() {
@@ -315,6 +336,8 @@ export function StagePlanCanvas(props: StageCanvasProps) {
           } else setView({ ...view, x: view.x - e.evt.deltaX, y: view.y - e.evt.deltaY });
         }}
         onMouseMove={() => setPointer(world())}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={() => (pinch.current = null)}
         onClick={(e) => {
           if (tool !== 'select') {
             handleToolClick(e);

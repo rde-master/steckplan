@@ -4,6 +4,7 @@ import { Circle, Group, Layer, Line, Rect, Stage, Text } from 'react-konva';
 import type Konva from 'konva';
 import { orientConnection, type EffectivePort } from '@steckplan/core';
 import { useEditor } from '../../lib/editor';
+import { useLongPress } from '../../lib/useLongPress';
 import { DIMMED_OPACITY } from '../../lib/display';
 import { anchorOf, bounds, ROLE_COLORS, type CableLine, type DeviceBox } from './model';
 
@@ -44,6 +45,8 @@ export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onC
   const setView = useEditor((s) => s.setView);
   const selection = useEditor((s) => s.selection);
   const select = useEditor((s) => s.select);
+  const requestProperties = useEditor((s) => s.requestProperties);
+  useLongPress(container, requestProperties);
   const toggleDevice = useEditor((s) => s.toggleDevice);
   const toggleCable = useEditor((s) => s.toggleCable);
   const clearSelection = useEditor((s) => s.clearSelection);
@@ -200,6 +203,7 @@ export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onC
       return;
     }
     e.evt.preventDefault();
+    if (stageRef.current?.isDragging()) stageRef.current.stopDrag();
     const [t1, t2] = [touches[0]!, touches[1]!];
     const distance = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
     const rect = container.current!.getBoundingClientRect();

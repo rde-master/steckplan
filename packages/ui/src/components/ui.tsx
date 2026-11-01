@@ -1,5 +1,5 @@
 // Kleine, wiederverwendbare Bausteine (Tailwind).
-import { useEffect, useRef, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type TextareaHTMLAttributes } from 'react';
+import { useEffect, useId, useRef, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type TextareaHTMLAttributes } from 'react';
 import type { Access } from '@steckplan/core';
 import { texts } from '../texts';
 
@@ -74,6 +74,7 @@ export function AccessBadge({ access }: { access: Access }) {
 
 export function Modal({ title, onClose, children, footer }: { title: string; onClose: () => void; children: ReactNode; footer?: ReactNode }) {
   const ref = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
   useEffect(() => {
     const dialog = ref.current;
     if (dialog && !dialog.open) dialog.showModal();
@@ -81,12 +82,13 @@ export function Modal({ title, onClose, children, footer }: { title: string; onC
   return (
     <dialog
       ref={ref}
+      aria-labelledby={titleId}
       onClose={onClose}
       onCancel={onClose}
       className="m-auto w-[min(40rem,calc(100vw-2rem))] rounded-lg bg-white p-0 text-slate-900 shadow-xl backdrop:bg-slate-900/50 dark:bg-slate-800 dark:text-slate-100"
     >
       <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-slate-700">
-        <h2 className="text-base font-semibold">{title}</h2>
+        <h2 id={titleId} className="text-base font-semibold">{title}</h2>
         <Button variant="ghost" onClick={onClose} aria-label={texts.common.close}>
           ✕
         </Button>

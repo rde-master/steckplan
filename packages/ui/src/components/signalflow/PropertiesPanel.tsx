@@ -13,6 +13,7 @@ import {
   type Template,
 } from '@steckplan/core';
 import type { ProjectData } from '../../lib/useProjectData';
+import { formatDateTime } from '../../lib/format';
 import { texts } from '../../texts';
 import { Banner, Button, Field, TextArea, TextInput } from '../ui';
 import { ColorField, MasterSelect, selectClass } from '../library/fields';
@@ -94,6 +95,16 @@ function Logistics({
   );
 }
 
+/** „Zuletzt geändert von … am …“ (vom Server gestempelt) */
+function LastModified({ value }: { value?: { at: string; by: string } }) {
+  if (!value) return null;
+  return (
+    <div className="text-xs text-slate-500 dark:text-slate-400" data-testid="last-modified">
+      {texts.lastModified(value.by, formatDateTime(value.at))}
+    </div>
+  );
+}
+
 function IssueList({ issues, id }: { issues: Issue[]; id: string }) {
   const mine = issues.filter((i) => i.objectIds.includes(id));
   if (mine.length === 0) return null;
@@ -121,6 +132,7 @@ function DeviceProperties({ doc, origin, library, data, device, editable, issues
         <div className="text-xs text-slate-500">
           {template?.name ?? '–'} · {s.connections(connected)}
         </div>
+        <LastModified value={device.lastModified} />
       </div>
       <IssueList issues={issues} id={device.id} />
       <Field label={s.label}>
@@ -178,6 +190,7 @@ function CableProperties({ doc, origin, library, data, cable, editable, issues }
           <div className="text-slate-400">↓</div>
           <div>{portName(data, library, cable.to)}</div>
         </div>
+        <LastModified value={cable.lastModified} />
       </div>
       <IssueList issues={issues} id={cable.id} />
       <Field label={s.cableType}>

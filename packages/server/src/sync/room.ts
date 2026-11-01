@@ -33,6 +33,7 @@ import type { Session } from '../auth/sessions';
 import type { LibraryChange, LibraryStore } from '../library/library-store';
 import type { UsageTracker } from '../library/usage-tracker';
 import type { ProjectStore } from '../storage/types';
+import { ActivityTracker, STAMP_ORIGIN, type Actor } from './activity';
 import { VERSION_INTERVAL_MS, type VersionInfo, type VersionStore } from '../storage/version-store';
 
 export interface Connection {
@@ -56,12 +57,19 @@ export interface RoomDeps {
   saveDelayMs?: number;
   maxSaveDelayMs?: number;
   versionIntervalMs?: number;
+  /** „Zuletzt geändert“: Bündelung der Stempel */
+  stampDelayMs?: number;
+  /** Änderungsprotokoll: Zeitfenster je Person */
+  changeLogWindowMs?: number;
 }
 
 /** Herkunft für Änderungen, die der Server selbst schreibt (z. B. Wiederherstellen). */
 class ServerOrigin {
   constructor(readonly by: string) {}
 }
+
+export const MAX_CHANGELOG_IN_FILE = 500;
+export const MAX_CHANGELOG = 5000;
 
 const OPEN = 1;
 
@@ -113,6 +121,38 @@ export class Room {
     this.maxSaveDelayMs = deps.maxSaveDelayMs ?? 10_000;
     this.versionIntervalMs = deps.versionIntervalMs ?? VERSION_INTERVAL_MS;
     this.doc.on('update', this.handleUpdate);
+    this.activity = new ActivityTracker({
+      doc: this.doc,
+      stampDelayMs: deps.stampDelayMs,
+      windowMs: deps.changeLogWindowMs,
+      onEntry: (entry) => this.appendLog(entry),
+    });
+    this.doc.on('afterTransaction', this.handleTransaction);
+  }
+
+  private readonly activity: ActivityTracker;
+
+  private handleTransaction = (transaction: Y.Transaction): void => {
+    const origin = transaction.origin as unknown;
+    if (origin && typeof origin === 'object' && 'session' in origin) {
+      const session = (origin as Connection).session;
+      this.activity.record(transaction, { by: session.name, access: session.access, via: session.via });
+    }
+  };
+
+  private appendLog(entry: Project['changeLog'][number]): void {
+    this.changeLog = [...this.changeLog, entry].slice(-MAX_CHANGELOG);
+    this.markDirty();
+  }
+
+  /** Eigener Protokolleintrag für wichtige Aktionen. */
+  logAction(actor: Actor, action: string, objectIds: string[] = []): void {
+    this.appendLog({ at: new Date().toISOString(), by: actor.by, access: actor.access, via: actor.via, action, objectIds });
+  }
+
+  /** Änderungsprotokoll, neueste zuerst (inkl. noch offener Einträge). */
+  changeLogEntries(): Project['changeLog'] {
+    return [...this.changeLog, ...this.activity.pendingEntries()].sort((a, b) => b.at.localeCompare(a.at));
   }
 
   static async load(id: string, deps: RoomDeps): Promise<Room> {
@@ -120,6 +160,10 @@ export class Room {
     const { project, pending } = await Room.reconcileOnLoad(loaded, deps);
     const room = new Room(id, project, deps);
     room.pending = pending;
+    if (deps.store.loadChangeLog) {
+      const separate = await deps.store.loadChangeLog(id).catch(() => []);
+      room.changeLog = [...separate, ...project.changeLog].slice(-MAX_CHANGELOG);
+    }
     deps.usage.record(deps.store.persistentKey(id), project.meta.name, projectUsage(project));
     const latest = await deps.versions.latest(project.id).catch(() => undefined);
     room.lastVersionAt = latest ? Date.parse(latest.at) : 0;
@@ -160,7 +204,7 @@ export class Room {
   }
 
   /** Entscheidungen für den Vorlagen-Abgleich anwenden; danach ist das Projekt normal bearbeitbar. */
-  async resolveConflicts(resolutions: Record<string, Resolution>, by: string): Promise<void> {
+  async resolveConflicts(resolutions: Record<string, Resolution>, by: string, actor?: Omit<Actor, 'by'>): Promise<void> {
     const pending = this.pending;
     if (!pending) return;
     const result = await this.deps.library.mutate((lib) => {
@@ -185,6 +229,8 @@ export class Room {
     this.markDirty();
     for (const connection of this.connections) this.sendWelcome(connection);
     this.notify(`${by} hat den Vorlagen-Abgleich durchgeführt.`);
+    const s = result.summary;
+    this.logAction({ by, access: actor?.access ?? 'edit', via: actor?.via ?? 'browser' }, `Vorlagen-Abgleich: ${s.kept} behalten, ${s.replaced} übernommen, ${s.copied} als Kopie`);
   }
 
   /**
@@ -215,11 +261,15 @@ export class Room {
   }
 
   /** Häkchen zurücksetzen (nur Bearbeiten-Zugang – wird in der Route geprüft). */
-  resetChecks(direction: CheckDirection | 'both', by: string): number {
+  resetChecks(direction: CheckDirection | 'both', by: string, actor?: Omit<Actor, 'by'>): number {
     if (this.readOnlyReason) throw new Error(this.readOnlyReason);
     const removed = resetCheckMarks(this.doc, direction, new ServerOrigin(by));
     const what = direction === 'both' ? 'alle Häkchen' : direction === 'out' ? 'die Häkchen „Hin“' : 'die Häkchen „Zurück“';
-    if (removed) this.notify(`${by} hat ${what} zurückgesetzt.`);
+    if (removed) {
+      this.notify(`${by} hat ${what} zurückgesetzt.`);
+      const which = direction === 'both' ? 'Hin und Zurück' : direction === 'out' ? 'Hin' : 'Zurück';
+      this.logAction({ by, access: actor?.access ?? 'edit', via: actor?.via ?? 'browser' }, `Häkchen zurückgesetzt (${which}, ${removed} Stück)`);
+    }
     return removed;
   }
 
@@ -252,7 +302,8 @@ export class Room {
   private readCurrent(): ReturnType<typeof readProjectFromYDoc> {
     const wifiIds = new Set([...this.doc.getMap('wifi').keys()]);
     const secrets = { ...this.secrets, wifiPasswords: this.secrets.wifiPasswords.filter((w) => wifiIds.has(w.wifiId)) };
-    const result = readProjectFromYDoc(this.doc, { secrets, changeLog: this.changeLog, ...this.snapshots });
+    const changeLog = this.deps.store.saveChangeLog ? [] : this.changeLog.slice(-MAX_CHANGELOG_IN_FILE);
+    const result = readProjectFromYDoc(this.doc, { secrets, changeLog, ...this.snapshots });
     if (!result.ok || this.pending) return result;
     const project = { ...result.project, libraryId: this.libraryIdInFile || this.deps.library.libraryId };
     return { ok: true, project: { ...project, ...buildSnapshots(project, this.deps.library.get()) } };
@@ -361,7 +412,9 @@ export class Room {
     syncProtocol.writeUpdate(encoder, update);
     this.broadcast(encoding.toUint8Array(encoder), origin);
 
-    if (origin && typeof origin === 'object' && 'session' in origin) {
+    if (origin === STAMP_ORIGIN) {
+      // nur „zuletzt geändert“ – zählt nicht als Bearbeitung
+    } else if (origin && typeof origin === 'object' && 'session' in origin) {
       this.editorsSinceVersion.add((origin as Connection).session.name);
     } else if (origin instanceof ServerOrigin) {
       this.editorsSinceVersion.add(origin.by);
@@ -407,6 +460,7 @@ export class Room {
     this.deps.usage.record(this.deps.store.persistentKey(this.id), result.project.meta.name, projectUsage(result.project));
     try {
       await this.deps.store.save(this.id, result.project);
+      await this.deps.store.saveChangeLog?.(this.id, this.changeLog);
     } catch (error) {
       this.deps.log.error(`Projekt ${this.id} konnte nicht gespeichert werden: ${(error as Error).message}`);
       this.markDirty();
@@ -431,7 +485,7 @@ export class Room {
   }
 
   /** Stellt einen früheren Stand wieder her (vorher wird der aktuelle Stand als Version gesichert). */
-  async restoreVersion(versionId: string, by: string): Promise<void> {
+  async restoreVersion(versionId: string, by: string, actor?: Omit<Actor, 'by'>): Promise<void> {
     if (this.readOnlyReason) throw new Error(this.readOnlyReason);
     await this.flush();
     const old = await this.deps.versions.load(this.projectId, versionId);
@@ -451,9 +505,11 @@ export class Room {
     const info = (await this.deps.versions.list(this.projectId)).find((v) => v.id === versionId);
     const at = info ? formatDateTime(info.at) : 'früher';
     this.notify(`${by} hat den Stand vom ${at} wiederhergestellt.`);
+    this.logAction({ by, access: actor?.access ?? 'edit', via: actor?.via ?? 'browser' }, `Version vom ${at} wiederhergestellt`);
   }
 
   async close(code: number, reason: string): Promise<void> {
+    this.activity.stop();
     await this.flush();
     this.closed = true;
     for (const connection of this.connections) connection.socket.close(code, reason);

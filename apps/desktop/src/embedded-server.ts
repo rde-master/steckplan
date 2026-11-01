@@ -1,4 +1,5 @@
 // Eingebetteter Server im Main-Prozess: nur auf 127.0.0.1, zufälliger Port.
+// Die Weboberfläche fürs Handy öffnet einen zusätzlichen Zugang (siehe web-access.ts).
 import { join } from 'node:path';
 import {
   createServer,
@@ -7,6 +8,7 @@ import {
   SessionStore,
   UsageTracker,
   VersionStore,
+  type PasswordChecker,
   type SteckplanServer,
 } from '@steckplan/server';
 
@@ -18,7 +20,13 @@ export interface EmbeddedServer extends SteckplanServer {
   localToken: string;
 }
 
-export async function startEmbeddedServer(options: { userDataDir: string; uiDir: string; userName: string }): Promise<EmbeddedServer> {
+export async function startEmbeddedServer(options: {
+  userDataDir: string;
+  uiDir: string;
+  userName: string;
+  /** Passwörter der Weboberfläche (null = keine Anmeldung möglich) */
+  passwords: () => PasswordChecker | null;
+}): Promise<EmbeddedServer> {
   const store = new LocalFileStore(options.userName);
   const sessions = new SessionStore();
   const library = new LibraryStore(join(options.userDataDir, 'library.json'));
@@ -33,7 +41,7 @@ export async function startEmbeddedServer(options: { userDataDir: string; uiDir:
     sessions,
     library,
     usage,
-    passwords: null, // Weboberfläche per QR folgt in M8
+    passwords: options.passwords,
   });
   const { token } = sessions.create(options.userName || 'Desktop', 'local', 'desktop', { persistent: false, expires: false });
   await server.app.listen({ host: '127.0.0.1', port: 0 });

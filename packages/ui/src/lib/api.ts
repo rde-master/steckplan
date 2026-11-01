@@ -1,5 +1,5 @@
 // Zugriff auf die REST-Schnittstelle des Servers.
-import type { Access, Conflict, Library, MasterEntry, MasterKind, Project, Resolution, Template } from '@steckplan/core';
+import type { Access, ChangeLogEntry, Conflict, Library, MasterEntry, MasterKind, Project, Resolution, Template } from '@steckplan/core';
 
 export class ApiError extends Error {
   constructor(
@@ -94,6 +94,7 @@ export const api = {
     request<{ ok: true }>('POST', `/api/projects/${encodeURIComponent(id)}/check`, body),
   resetChecks: (id: string, direction: 'out' | 'in' | 'both') =>
     request<{ removed: number }>('POST', `/api/projects/${encodeURIComponent(id)}/checks/reset`, { direction }),
+  getChangeLog: (id: string) => request<{ entries: ChangeLogEntry[] }>('GET', `/api/projects/${encodeURIComponent(id)}/changelog`),
   getSecrets: (id: string) => request<{ wifiPasswords: { wifiId: string; password: string }[] }>('GET', `/api/projects/${encodeURIComponent(id)}/secrets`),
   setWifiPassword: (id: string, wifiId: string, password: string | null) =>
     request<{ ok: true }>('PUT', `/api/projects/${encodeURIComponent(id)}/secrets/wifi/${encodeURIComponent(wifiId)}`, { password }),

@@ -2,13 +2,42 @@
 import { readFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { basename, join } from 'node:path';
-import { writeFileAtomic } from '@steckplan/server';
+import { writeFileAtomic, type StoredPassword } from '@steckplan/server';
 
 export const MAX_RECENT = 10;
+export const DEFAULT_WEB_PORT = 8080;
+
+/** Weboberfläche (QR & Handy): Passwörter nur als scrypt-Hash */
+export interface WebAccessSettings {
+  port: number;
+  /** zuletzt gewählte IPv4-Adresse */
+  address?: string;
+  edit?: StoredPassword;
+  read?: StoredPassword;
+}
 
 export interface Settings {
   name: string;
   recentFiles: string[];
+  webAccess: WebAccessSettings;
+}
+
+function isStored(value: unknown): value is StoredPassword {
+  const v = value as StoredPassword | undefined;
+  return !!v && typeof v.salt === 'string' && typeof v.hash === 'string' && /^[0-9a-f]+$/.test(v.salt + v.hash);
+}
+
+export function isValidPort(port: unknown): port is number {
+  return typeof port === 'number' && Number.isInteger(port) && port >= 1024 && port <= 65535;
+}
+
+function readWebAccess(value: unknown): WebAccessSettings {
+  const v = (value ?? {}) as Record<string, unknown>;
+  return {
+    port: isValidPort(v.port) ? v.port : DEFAULT_WEB_PORT,
+    ...(typeof v.address === 'string' ? { address: v.address } : {}),
+    ...(isStored(v.edit) && isStored(v.read) ? { edit: v.edit, read: v.read } : {}),
+  };
 }
 
 export interface RecentFile {
@@ -18,7 +47,7 @@ export interface RecentFile {
 }
 
 export class SettingsStore {
-  private settings: Settings = { name: '', recentFiles: [] };
+  private settings: Settings = { name: '', recentFiles: [], webAccess: { port: DEFAULT_WEB_PORT } };
   private readonly file: string;
 
   constructor(userDataDir: string) {
@@ -31,6 +60,7 @@ export class SettingsStore {
       this.settings = {
         name: typeof data.name === 'string' ? data.name : '',
         recentFiles: Array.isArray(data.recentFiles) ? data.recentFiles.filter((p) => typeof p === 'string').slice(0, MAX_RECENT) : [],
+        webAccess: readWebAccess(data.webAccess),
       };
     } catch {
       // erste Benutzung
@@ -43,6 +73,15 @@ export class SettingsStore {
 
   async setName(name: string): Promise<void> {
     this.settings.name = name;
+    await this.save();
+  }
+
+  get webAccess(): WebAccessSettings {
+    return this.settings.webAccess;
+  }
+
+  async updateWebAccess(change: Partial<WebAccessSettings>): Promise<void> {
+    this.settings.webAccess = { ...this.settings.webAccess, ...change };
     await this.save();
   }
 

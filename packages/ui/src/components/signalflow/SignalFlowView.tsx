@@ -73,6 +73,16 @@ export function SignalFlowView({ doc, data, library, editable, undo }: { doc: Y.
     return { x: (viewport.width / 2 - view.x) / view.zoom - 80, y: (viewport.height / 2 - view.y) / view.zoom - 40 };
   }
 
+  // Langes Drücken auf ein Objekt: auf schmalen Bildschirmen die Eigenschaften (mit allen Aktionen) öffnen
+  useEffect(
+    () =>
+      useEditor.subscribe((st, prev) => {
+        const count = st.selection.devices.length + st.selection.cables.length;
+        if (narrow && st.propertiesRequest !== prev.propertiesRequest && count > 0) setPanel('properties');
+      }),
+    [narrow],
+  );
+
   function add(template: Template, at?: { x: number; y: number }) {
     if (!editable) return;
     const position = at ?? viewCenter();

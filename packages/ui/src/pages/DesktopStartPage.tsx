@@ -5,12 +5,16 @@ import type { DesktopBridge, RecentFile } from '../lib/desktop';
 import { useSession } from '../lib/session';
 import { texts } from '../texts';
 import { Banner, Button, Field, Spinner, TextInput } from '../components/ui';
+import { WebAccessDialog } from '../components/WebAccessDialog';
 
 export function DesktopStartPage({ desktop }: { desktop: DesktopBridge }) {
   const [name, setName] = useState<string | null>(null);
   const [recent, setRecent] = useState<RecentFile[]>([]);
   const [version, setVersion] = useState<string>();
   const [error, setError] = useState<string | null>(null);
+  const [showWeb, setShowWeb] = useState(false);
+
+  useEffect(() => desktop.onMenuCommand((command) => command === 'webAccess' && setShowWeb(true)), [desktop]);
 
   useEffect(() => {
     desktop.getSettings().then((s) => setName(s.name), (err: unknown) => setError(errorMessage(err)));
@@ -52,7 +56,11 @@ export function DesktopStartPage({ desktop }: { desktop: DesktopBridge }) {
           <Button variant="ghost" onClick={() => void run(() => desktop.openLibrary())}>
             {texts.desktop.library}
           </Button>
+          <Button variant="ghost" onClick={() => setShowWeb(true)}>
+            {texts.webAccess.title}
+          </Button>
         </div>
+        {showWeb && <WebAccessDialog desktop={desktop} onClose={() => setShowWeb(false)} />}
         {error && <Banner tone="error">{error}</Banner>}
         <section>
           <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">{texts.desktop.recent}</h2>

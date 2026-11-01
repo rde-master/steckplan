@@ -7,6 +7,23 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-01
+
+Meilenstein M8 – Weboberfläche per QR & Handy.
+
+### Hinzugefügt
+
+- Desktop: „Weboberfläche (QR & Handy)“ (Menü Datei, Startfenster, Projektfenster) – macht die am Desktop geöffneten Projekte im lokalen Netz erreichbar; QR-Code mit der Adresse, Netzwerkkarte wählbar, Port 8080 (einstellbar; ist er belegt, wird der nächste freie genommen), Hinweis zur Firewall
+- Bearbeiten- und Lese-Passwort für die Weboberfläche in den Einstellungen (nur als Hash gespeichert); neue Passwörter oder Beenden melden alle Browser ab
+- Liste der verbundenen Personen mit Zugang und geöffneten Projekten, einzeln trennbar
+- Handy: Packliste als Startansicht, waagrecht scrollende Reiter, Zwei-Finger-Zoom auch im Bühnenplan, langes Drücken öffnet die Eigenschaften des Objekts
+- „Zuletzt geändert von … am …“ bei Geräten und Kabeln (vom Server mit dem Namen aus der Anmeldung gestempelt)
+- Änderungsprotokoll je Projekt (Listen → Änderungen): je Person und Minute zusammengefasst, eigene Einträge für Häkchen zurücksetzen, Version wiederhergestellt und Vorlagen-Abgleich; im Docker-Betrieb getrennt von der Projektdatei gespeichert
+
+### Geändert
+
+- Dialoge haben einen zugänglichen Namen (Screenreader)
+
 ## [0.8.0] - 2026-11-01
 
 Meilenstein M7 – PDF & CSV.
@@ -152,7 +169,8 @@ Meilenstein M0 – Projektgerüst.
 - Docker-Image mit Datenvolume `/data` und Beispiel-`docker-compose.yml`
 - GitHub Actions: Tests und Smoke-Test bei jedem Push, Installer als Artefakte, Docker-Image `:develop`, Release-Workflow für Tags `vX.Y.Z`
 
-[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.8.0...develop
+[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.9.0...develop
+[0.9.0]: https://github.com/rde-master/steckplan/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/rde-master/steckplan/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/rde-master/steckplan/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/rde-master/steckplan/compare/v0.5.0...v0.6.0

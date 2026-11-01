@@ -94,9 +94,9 @@ export function connect(server: TestServer, projectId: string, cookie: string | 
   });
 }
 
-export async function waitFor(check: () => boolean, timeoutMs = 3000, message = 'Bedingung nicht erfüllt'): Promise<void> {
+export async function waitFor(check: () => boolean | Promise<boolean>, timeoutMs = 3000, message = 'Bedingung nicht erfüllt'): Promise<void> {
   const started = Date.now();
-  while (!check()) {
+  while (!(await check())) {
     if (Date.now() - started > timeoutMs) throw new Error(message);
     await new Promise((r) => setTimeout(r, 10));
   }
