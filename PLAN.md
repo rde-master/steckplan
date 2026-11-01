@@ -630,6 +630,8 @@ Jeder Meilenstein endet mit grünen Tests, lauffähigem Build (Desktop **und** D
 - Hintergrund-Grundriss: Bilder (PNG/JPG) und PDF (eine Seite wählbar, beim Import in ein Bild umgewandelt und im Projekt gespeichert) (01.11.2026)
 - Neue Objekte im Bühnenplan landen auf der aktiven Ebene (01.11.2026)
 - Multicore im Bühnenplan: zwei Enden (A/B) mit Kabelweg und Knickpunkten; Länge wird wie bei Kabeln berechnet (01.11.2026)
+- DMX-Universen werden ab 1 gezählt (01.11.2026)
+- Auto-Adressierung entlang der DMX-Kette: passt ein Gerät nicht mehr ins Universum, geht es im nächsten Universum ab Adresse 1 weiter (mit Hinweis) (01.11.2026)
 
 ---
 
