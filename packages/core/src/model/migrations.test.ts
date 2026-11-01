@@ -29,6 +29,19 @@ describe('Migrationen', () => {
     expect(() => parseProject({ schemaVersion: 1 })).toThrow(/beschädigt oder ungültig \(id/);
   });
 
+  it('hebt Format 1 auf Format 2 an (Vorlagen bleiben unverändert)', () => {
+    const v1 = {
+      schemaVersion: 1,
+      id: 'p1',
+      meta: { name: 'Alt' },
+      templateSnapshot: [{ id: 't1', kind: 'device', version: 3, updatedAt: '2026-01-01T00:00:00Z', name: 'Spot' }],
+    };
+    const project = parseProject(v1);
+    expect(project.schemaVersion).toBe(2);
+    expect(project.meta.name).toBe('Alt');
+    expect(project.templateSnapshot[0]).toMatchObject({ id: 't1', version: 3, name: 'Spot' });
+  });
+
   it('lädt eine gespeicherte Datei wieder', () => {
     const project = createEmptyProject({ name: 'Test' });
     expect(parseProjectFile(serializeProject(project))).toEqual(project);

@@ -3,7 +3,7 @@
 // Jede Änderung hier, die bestehende Dateien betrifft, braucht: schemaVersion erhöhen + Migration + Test.
 import { z } from 'zod';
 
-export const CURRENT_SCHEMA_VERSION = 1;
+export const CURRENT_SCHEMA_VERSION = 2;
 
 const id = z.string().min(1);
 const isoDate = z.string();
@@ -87,6 +87,8 @@ export const TemplateSchema = z.object({
   kind: TemplateKindSchema,
   version: z.number().int().nonnegative(),
   updatedAt: isoDate,
+  /** Name der Person, die die Vorlage zuletzt geändert hat (seit Format 2) */
+  updatedBy: z.string().optional(),
   name: z.string(),
   manufacturer: z.string().optional(),
   categoryId: id.optional(),
@@ -106,6 +108,8 @@ export const TemplateSchema = z.object({
   powerW: z.number().nonnegative().optional(),
   maxMountedDevices: z.number().int().nonnegative().optional(),
   lengthMm: mm.optional(),
+  /** Freie Notiz, z. B. Traversen-Querschnitt/Typ (seit Format 2) */
+  notes: z.string().optional(),
   // nur Kabeltypen
   connectorA: z.string().optional(),
   connectorB: z.string().optional(),
