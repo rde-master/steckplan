@@ -7,8 +7,22 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-01
+
+Meilenstein M3 – Signalfluss-Ansicht.
+
 ### Hinzugefügt
 
+- Signalfluss-Ansicht: Geräte aus der Bibliothek frei platzieren (ziehen oder ＋), komplett in Gerätefarbe, Eingänge links, Ausgänge rechts
+- Kabel von Anschluss zu Anschluss ziehen: passende Anschlüsse werden hervorgehoben, Signal nur von Ausgang zu Eingang; Kabeltyp automatisch, wenn genau einer passt, sonst Auswahl; „direkt gesteckt“ ohne eigenes Kabel
+- Multicore als Kasten mit je einem Anschluss pro Ader an beiden Enden (z. B. Bühne/FOH)
+- Automatische rechtwinklige Kabelführung; Kabel folgen beim Verschieben
+- Eigenschaften-Panel: Kennung, Farbe und Kategorie (pro Gerät überschreibbar, „auf Vorlage zurücksetzen“), Besitzer, Anhänger, Inventarnummer, Notiz; Kabeltyp änderbar
+- Mehrfachauswahl, Auswahlrahmen, Ausrichten und Verteilen, Duplizieren, Löschen (samt angeschlossener Kabel)
+- Rückgängig/Wiederholen pro Person, Tastenkürzel, Zoom per Strg/⌘ + Mausrad oder Fingergeste, Einpassen, Minikarte
+- Prüfungen-Panel: falsche Richtung, unpassende Stecker (Kabel rot markiert), mehrfach belegte Anschlüsse, verwaiste Kabel, fehlende Vorlagen – Klick springt zum Objekt
+- Vorlagen-Änderungen in der Bibliothek wirken sofort auf alle platzierten Geräte
+- Projektansicht mit Reitern Signalfluss, Bühnenplan (folgt) und Projektdaten
 - Geräte-Editor: „Mehrere Anschlüsse anlegen“ – viele Kanäle in einem Schritt (Anzahl, Bezeichnung mit laufender Nummer, z. B. „In #“ → In 1 … In 32, optional mit führenden Nullen; Stecker, Richtung, Signal und Netzwerk für alle gemeinsam, mit Vorschau)
 - Geräte-Editor: „Alle Anschlüsse entfernen“ (mit Rückfrage)
 - Geräte-Editor: Anschlüsse optisch getrennt nach Eingängen, Ausgängen und Ein-/Ausgängen (eigene Gruppe mit Anzahl und Farbmarkierung)
@@ -16,7 +30,7 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Geändert
 
-- Dateiformat Version 3 (Multicore-Kabeltypen); ältere Dateien werden beim Öffnen automatisch umgewandelt
+- Dateiformat Version 3 (Multicore-Kabeltypen, direkt gesteckte Verbindungen); ältere Dateien werden beim Öffnen automatisch umgewandelt
 
 ## [0.3.0] - 2026-11-01
 
@@ -71,7 +85,8 @@ Meilenstein M0 – Projektgerüst.
 - Docker-Image mit Datenvolume `/data` und Beispiel-`docker-compose.yml`
 - GitHub Actions: Tests und Smoke-Test bei jedem Push, Installer als Artefakte, Docker-Image `:develop`, Release-Workflow für Tags `vX.Y.Z`
 
-[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.3.0...develop
+[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.4.0...develop
+[0.4.0]: https://github.com/rde-master/steckplan/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/rde-master/steckplan/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/rde-master/steckplan/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/rde-master/steckplan/releases/tag/v0.1.0
