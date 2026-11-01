@@ -90,6 +90,17 @@ test('Mehrere Anschlüsse auf einmal anlegen (Stagebox mit 32 Eingängen)', asyn
   await expect(page.getByLabel('Stecker 32', { exact: true })).toHaveValue('XLR 3');
   await expect(page.getByLabel('Bezeichnung 33', { exact: true })).toHaveValue('Out 1');
   await expect(page.getByLabel('Richtung 40', { exact: true })).toHaveValue('out');
+
+  // optische Trennung: Eingänge und Ausgänge in eigenen Gruppen
+  await expect(page.getByTestId('ports-in').getByRole('rowheader')).toHaveText('Eingänge (32)');
+  await expect(page.getByTestId('ports-out').getByRole('rowheader')).toHaveText('Ausgänge (8)');
+  await expect(page.getByTestId('ports-bi')).toHaveCount(0);
+  await expect(page.getByTestId('ports-out').getByLabel('Bezeichnung 33', { exact: true })).toHaveValue('Out 1');
+  // Richtung ändern → Anschluss wechselt die Gruppe
+  await page.getByLabel('Richtung 40', { exact: true }).selectOption('bi');
+  await expect(page.getByTestId('ports-bi').getByRole('rowheader')).toHaveText('Ein-/Ausgänge (1)');
+  await expect(page.getByTestId('ports-out').getByRole('rowheader')).toHaveText('Ausgänge (7)');
+
   await page.getByRole('button', { name: 'Speichern' }).click();
   await expect(page.getByText('Gespeichert.')).toBeVisible();
 

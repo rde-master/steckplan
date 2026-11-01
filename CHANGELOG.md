@@ -11,6 +11,7 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 - Geräte-Editor: „Mehrere Anschlüsse anlegen“ – viele Kanäle in einem Schritt (Anzahl, Bezeichnung mit laufender Nummer, z. B. „In #“ → In 1 … In 32, optional mit führenden Nullen; Stecker, Richtung, Signal und Netzwerk für alle gemeinsam, mit Vorschau)
 - Geräte-Editor: „Alle Anschlüsse entfernen“ (mit Rückfrage)
+- Geräte-Editor: Anschlüsse optisch getrennt nach Eingängen, Ausgängen und Ein-/Ausgängen (eigene Gruppe mit Anzahl und Farbmarkierung)
 
 ## [0.3.0] - 2026-11-01
 

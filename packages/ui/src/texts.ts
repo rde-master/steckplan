@@ -144,6 +144,7 @@ export const texts = {
       portSignal: 'Signal',
       portNetwork: 'Netzwerk',
       directions: { in: 'Eingang', out: 'Ausgang', bi: 'beides' },
+      portGroups: { in: 'Eingänge', out: 'Ausgänge', bi: 'Ein-/Ausgänge' },
       addPort: 'Anschluss hinzufügen',
       duplicatePort: 'Duplizieren',
       dmxModes: 'DMX-Modi',
