@@ -32,6 +32,8 @@ test('Desktop: Name beim ersten Start, Datei öffnen, Autosave, Sperrdatei', asy
 
     // Die per Kommandozeile übergebene Datei öffnet sich in einem eigenen Fenster
     const project = await projectWindowPromise;
+    await expect(project.getByRole('tab', { name: 'Signalfluss' })).toHaveAttribute('aria-selected', 'true');
+    await project.getByRole('tab', { name: 'Projektdaten' }).click();
     await expect(project.getByLabel('Projektname')).toHaveValue('Hallenfest');
     await expect(project.getByTestId('presence')).toContainText('Ralf Desktop');
     await expect(project.getByLabel('Projektname')).toBeEnabled();
@@ -44,8 +46,8 @@ test('Desktop: Name beim ersten Start, Datei öffnen, Autosave, Sperrdatei', asy
     await project.getByLabel('Ort / Veranstaltungsstätte').fill('Stadthalle');
     await expect.poll(() => JSON.parse(readFileSync(file, 'utf8')).meta.venue, { timeout: 10_000 }).toBe('Stadthalle');
 
-    // Datei im alten Format 1 wurde beim Speichern auf Format 2 angehoben
-    expect(JSON.parse(readFileSync(file, 'utf8')).schemaVersion).toBe(2);
+    // Datei im alten Format 1 wurde beim Speichern auf das aktuelle Format angehoben
+    expect(JSON.parse(readFileSync(file, 'utf8')).schemaVersion).toBe(3);
 
     // Bibliothek in eigenem Fenster (Menü/Startfenster)
     const libraryWindowPromise = app.waitForEvent('window');

@@ -75,6 +75,11 @@ export function suggestions(library: Library | null): { connectors: string[]; si
       if (p.connector) connectors.add(p.connector);
       if (p.signal) signals.add(p.signal);
     }
+    for (const c of t.channels ?? []) {
+      if (c.connectorA) connectors.add(c.connectorA);
+      if (c.connectorB) connectors.add(c.connectorB);
+      if (c.signal) signals.add(c.signal);
+    }
     if (t.connectorA) connectors.add(t.connectorA);
     if (t.connectorB) connectors.add(t.connectorB);
     if (t.signal) signals.add(t.signal);

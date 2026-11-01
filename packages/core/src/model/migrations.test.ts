@@ -29,7 +29,7 @@ describe('Migrationen', () => {
     expect(() => parseProject({ schemaVersion: 1 })).toThrow(/beschädigt oder ungültig \(id/);
   });
 
-  it('hebt Format 1 auf Format 2 an (Vorlagen bleiben unverändert)', () => {
+  it('hebt Format 1 über 2 auf das aktuelle Format an (Vorlagen bleiben unverändert)', () => {
     const v1 = {
       schemaVersion: 1,
       id: 'p1',
@@ -37,9 +37,31 @@ describe('Migrationen', () => {
       templateSnapshot: [{ id: 't1', kind: 'device', version: 3, updatedAt: '2026-01-01T00:00:00Z', name: 'Spot' }],
     };
     const project = parseProject(v1);
-    expect(project.schemaVersion).toBe(2);
+    expect(project.schemaVersion).toBe(3);
     expect(project.meta.name).toBe('Alt');
     expect(project.templateSnapshot[0]).toMatchObject({ id: 't1', version: 3, name: 'Spot' });
+  });
+
+  it('Format 3: Multicore-Kabeltyp mit Adern', () => {
+    const project = parseProject({
+      schemaVersion: 2,
+      id: 'p',
+      templateSnapshot: [{ id: 'mc', kind: 'cableType', version: 1, updatedAt: 'x', name: 'Multicore 8/8' }],
+    });
+    expect(project.schemaVersion).toBe(3);
+    const withChannels = parseProject({
+      ...project,
+      templateSnapshot: [
+        {
+          ...project.templateSnapshot[0],
+          endALabel: 'Bühne',
+          endBLabel: 'FOH',
+          channels: [{ id: 'c1', label: 'Send 1', connectorA: 'XLR 3 f', connectorB: 'XLR 3 m', direction: 'aToB', signal: 'Audio' }],
+        },
+      ],
+    });
+    expect(withChannels.templateSnapshot[0]!.channels![0]!.direction).toBe('aToB');
+    expect(() => parseProject({ ...withChannels, templateSnapshot: [{ ...withChannels.templateSnapshot[0], channels: [{ id: 'c', label: 'x', connectorA: '', connectorB: '', direction: 'quer', signal: '' }] }] })).toThrow();
   });
 
   it('lädt eine gespeicherte Datei wieder', () => {

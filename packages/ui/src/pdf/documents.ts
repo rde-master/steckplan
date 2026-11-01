@@ -1,0 +1,344 @@
+// PDF-Dokumente als pdfmake-Definitionen (reine Daten – getestet ohne Browser).
+import type { CheckMark, PackGroup, PackingList, PackRow, ProjectMeta } from '@steckplan/core';
+import { formatCableLength } from '@steckplan/core';
+import type { Rect } from './svg';
+
+export type PageFormat = 'A4' | 'A3';
+export type Orientation = 'portrait' | 'landscape';
+export type DocDefinition = Record<string, unknown>;
+type Content = unknown;
+
+export interface DocContext {
+  meta: Partial<ProjectMeta>;
+  format: PageFormat;
+  orientation: Orientation;
+  /** „Steckplan 0.8.0“ */
+  appTitle: string;
+  /** Name der Person, die exportiert */
+  by: string;
+  now?: Date;
+  /** Hinweis auf aktive Filter */
+  filterNote?: string;
+}
+
+const SIZES: Record<PageFormat, [number, number]> = { A4: [595.28, 841.89], A3: [841.89, 1190.55] };
+export const MARGIN = { left: 34, top: 46, right: 34, bottom: 38 };
+export const PT_PER_MM = 72 / 25.4;
+
+export function pageSize(format: PageFormat, orientation: Orientation): { width: number; height: number } {
+  const [w, h] = SIZES[format];
+  return orientation === 'portrait' ? { width: w, height: h } : { width: h, height: w };
+}
+
+/** Zeichen, die der eingebetteten Schrift fehlen, ersetzen. */
+export function pdfText(text: string | undefined | null): string {
+  return (text ?? '').replace(/→/g, '–>').replace(/[✓✔]/g, 'x').replace(/[☐☑]/g, '');
+}
+
+function formatDate(date: Date): string {
+  return date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
+function projectLine(meta: Partial<ProjectMeta>): string {
+  const date = meta.date && /^\d{4}-\d{2}-\d{2}$/.test(meta.date) ? meta.date.split('-').reverse().join('.') : meta.date;
+  return [meta.name, meta.venue, date].filter(Boolean).map(pdfText).join(' · ');
+}
+
+function base(ctx: DocContext, title: string, content: Content[]): DocDefinition {
+  const now = ctx.now ?? new Date();
+  return {
+    info: { title: `${pdfText(ctx.meta.name)} – ${title}`, creator: ctx.appTitle, producer: ctx.appTitle },
+    pageSize: ctx.format,
+    pageOrientation: ctx.orientation,
+    pageMargins: [MARGIN.left, MARGIN.top, MARGIN.right, MARGIN.bottom],
+    defaultStyle: { font: 'Roboto', fontSize: 9, lineHeight: 1.1 },
+    styles: {
+      title: { fontSize: 15, bold: true, margin: [0, 0, 0, 6] },
+      group: { fontSize: 11, bold: true, margin: [0, 10, 0, 4] },
+      subgroup: { fontSize: 9.5, bold: true, margin: [0, 6, 0, 3], color: '#334155' },
+      th: { bold: true, fontSize: 8, color: '#334155', fillColor: '#f1f5f9' },
+      small: { fontSize: 7.5, color: '#64748b' },
+    },
+    header: () => ({
+      columns: [
+        { text: title, bold: true, fontSize: 8 },
+        { text: projectLine(ctx.meta), alignment: 'right', fontSize: 8 },
+      ],
+      margin: [MARGIN.left, 18, MARGIN.right, 0],
+    }),
+    footer: (page: number, pages: number) => ({
+      columns: [
+        { text: `${ctx.appTitle} · erstellt am ${formatDate(now)}${ctx.by ? ` von ${pdfText(ctx.by)}` : ''}${ctx.filterNote ? ` · ${pdfText(ctx.filterNote)}` : ''}`, fontSize: 7, color: '#64748b' },
+        { text: `Seite ${page} von ${pages}`, alignment: 'right', fontSize: 7, color: '#64748b' },
+      ],
+      margin: [MARGIN.left, 12, MARGIN.right, 0],
+    }),
+    content,
+  };
+}
+
+function checkbox(mark?: CheckMark, show = false): Content {
+  const shapes: unknown[] = [{ type: 'rect', x: 0, y: 1, w: 9, h: 9, lineWidth: 0.8, lineColor: '#0f172a' }];
+  if (show && mark) {
+    if (mark.status === 'ok') shapes.push({ type: 'polyline', points: [{ x: 1.8, y: 5.6 }, { x: 3.8, y: 8 }, { x: 7.6, y: 2.6 }], lineWidth: 1.2 });
+    else shapes.push({ type: 'line', x1: 1.5, y1: 2.5, x2: 7.5, y2: 8.5, lineWidth: 1 }, { type: 'line', x1: 7.5, y1: 2.5, x2: 1.5, y2: 8.5, lineWidth: 1 });
+  }
+  return { canvas: shapes, alignment: 'center' };
+}
+
+function colorSquare(color?: string): Content {
+  return color ? { canvas: [{ type: 'rect', x: 0, y: 2, w: 8, h: 8, color, lineColor: '#94a3b8', lineWidth: 0.5 }], width: 12 } : { text: '', width: 0 };
+}
+
+// ---------- Packliste ----------
+
+export interface PackingDocOptions {
+  mode: 'aggregated' | 'single';
+  /** aktuellen Stand der Häkchen eindrucken */
+  showChecks: boolean;
+  names: { category: (id?: string) => string; owner: (id?: string) => string; trailer: (id?: string) => string };
+  groupTitle: string;
+}
+
+function packRowCells(row: PackRow, opts: PackingDocOptions): Content[] {
+  const first = row.items[0]!;
+  const unique = (values: (string | undefined)[]) => [...new Set(values.filter(Boolean))].join(', ');
+  const aggregated = opts.mode === 'aggregated';
+  const allOut = row.items.every((i) => i.check?.out);
+  const allIn = row.items.every((i) => i.check?.in);
+  const name = aggregated
+    ? [{ text: pdfText(row.name), bold: true }, row.items.length > 1 && row.items.some((i) => i.label) ? { text: `\n${pdfText(unique(row.items.map((i) => i.label)))}`, style: 'small' } : '']
+    : [{ text: pdfText(first.label || first.name), bold: true }, first.inventoryNo ? { text: `  ${pdfText(first.inventoryNo)}`, style: 'small' } : ''];
+  return [
+    checkbox(allOut ? first.check?.out : undefined, opts.showChecks && allOut),
+    checkbox(allIn ? first.check?.in : undefined, opts.showChecks && allIn),
+    { text: String(row.items.length), alignment: 'right', bold: true },
+    { text: name },
+    pdfText([aggregated ? '' : row.name, row.lengthMm ? formatCableLength(row.lengthMm) : ''].filter(Boolean).join(' ')),
+    pdfText(opts.names.category(first.categoryId)),
+    pdfText(opts.names.owner(first.ownerId)),
+    pdfText(opts.names.trailer(first.trailerId)),
+    pdfText(unique(row.items.map((i) => i.carrier ?? i.route))),
+    pdfText(unique(row.items.map((i) => i.notes))),
+  ];
+}
+
+const PACK_HEADERS = ['Hin', 'Zur.', 'Anz.', 'Bezeichnung', 'Typ/Länge', 'Kategorie', 'Besitzer', 'Anhänger', 'Stativ/Position', 'Notiz'];
+const PACK_WIDTHS = [16, 16, 20, '*', 62, 52, 52, 52, 70, '*'];
+
+function signature(): Content {
+  return {
+    columns: [
+      { text: 'Gepackt (Hin): ______________________   Datum: __________', fontSize: 8 },
+      { text: 'Zurück: ______________________   Datum: __________', fontSize: 8, alignment: 'right' },
+    ],
+    margin: [0, 6, 0, 2],
+  };
+}
+
+function groupContent(group: PackGroup, opts: PackingDocOptions, depth: number): Content[] {
+  const out: Content[] = [];
+  const count = (g: PackGroup): number => g.rows.reduce((s, r) => s + r.items.length, 0) + g.groups.reduce((s, x) => s + count(x), 0);
+  out.push({
+    columns: [colorSquare(group.color), { text: `${pdfText(group.label)}  (${count(group)})`, italics: group.unassigned }],
+    columnGap: 4,
+    style: depth === 0 ? 'group' : 'subgroup',
+  });
+  if (group.rows.length) {
+    out.push({
+      table: {
+        headerRows: 1,
+        dontBreakRows: true,
+        widths: PACK_WIDTHS,
+        body: [PACK_HEADERS.map((h) => ({ text: h, style: 'th' })), ...group.rows.map((r) => packRowCells(r, opts))],
+      },
+      layout: { hLineWidth: () => 0.4, vLineWidth: () => 0, hLineColor: () => '#cbd5e1', paddingTop: () => 3, paddingBottom: () => 3 },
+    });
+  }
+  for (const sub of group.groups) out.push(...groupContent(sub, opts, depth + 1));
+  if (depth === 0) out.push(signature());
+  return out;
+}
+
+export function packingListDoc(list: PackingList, opts: PackingDocOptions, ctx: DocContext): DocDefinition {
+  const content: Content[] = [
+    { text: 'Packliste', style: 'title' },
+    { text: `${opts.groupTitle} · ${opts.mode === 'aggregated' ? 'zusammengefasst' : 'einzeln'} · ${list.total} Objekte`, style: 'small', margin: [0, 0, 0, 6] },
+  ];
+  for (const group of list.groups) content.push(...groupContent(group, opts, 0));
+  content.push({ text: 'Fehlt / defekt', style: 'group', pageBreak: list.problems.length > 12 ? 'before' : undefined });
+  if (list.problems.length === 0) {
+    content.push({ text: 'Bei der Rückgabe fehlende oder defekte Teile hier eintragen:', style: 'small' });
+    content.push({ table: { widths: ['*', 60, '*'], body: [[{ text: 'Bezeichnung', style: 'th' }, { text: 'Zustand', style: 'th' }, { text: 'Notiz', style: 'th' }], ...Array.from({ length: 6 }, () => [' ', ' ', ' '])] }, layout: 'lightHorizontalLines' });
+  } else {
+    content.push({
+      table: {
+        headerRows: 1,
+        widths: [42, 36, '*', 70, '*', 90],
+        body: [
+          ['Zustand', 'Richtung', 'Bezeichnung', 'Typ', 'Notiz', 'Erfasst'].map((h) => ({ text: h, style: 'th' })),
+          ...list.problems.map(({ item, direction, mark }) => [
+            { text: mark.status === 'missing' ? 'fehlt' : 'defekt', bold: true, color: mark.status === 'missing' ? '#b91c1c' : '#b45309' },
+            direction === 'out' ? 'Hin' : 'Zurück',
+            pdfText(item.label || item.name),
+            pdfText(`${item.name}${item.lengthMm ? ` ${formatCableLength(item.lengthMm)}` : ''}`),
+            pdfText(mark.note),
+            pdfText(`${mark.by}, ${new Date(mark.at).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' })}`),
+          ]),
+        ],
+      },
+      layout: 'lightHorizontalLines',
+    });
+  }
+  return base(ctx, 'Packliste', content);
+}
+
+// ---------- Tabellen-Listen (Kabel, Stück, DMX, Geräte, Netzwerk) ----------
+
+export function tableDoc(title: string, headers: string[], rows: (string | number)[][], ctx: DocContext, options: { widths?: (number | string)[]; subtitle?: string; summary?: string[] } = {}): DocDefinition {
+  const content: Content[] = [{ text: title, style: 'title' }];
+  if (options.subtitle) content.push({ text: pdfText(options.subtitle), style: 'small', margin: [0, 0, 0, 6] });
+  if (options.summary?.length) content.push({ text: options.summary.map(pdfText).join('   ·   '), margin: [0, 0, 0, 8] });
+  if (rows.length === 0) content.push({ text: 'Keine Einträge.', italics: true, color: '#64748b' });
+  else
+    content.push({
+      table: {
+        headerRows: 1,
+        widths: options.widths ?? headers.map(() => '*'),
+        body: [headers.map((h) => ({ text: h, style: 'th' })), ...rows.map((r) => r.map((c) => (typeof c === 'number' ? { text: String(c), alignment: 'right' } : pdfText(c))))],
+      },
+      layout: { hLineWidth: () => 0.4, vLineWidth: () => 0, hLineColor: () => '#cbd5e1', fillColor: (i: number) => (i > 0 && i % 2 === 0 ? '#f8fafc' : null) },
+    });
+  return base(ctx, title, content);
+}
+
+// ---------- WLAN-Aushang ----------
+
+export interface WifiPoster {
+  ssid: string;
+  security: string;
+  hidden: boolean;
+  qrSvg: string;
+  password?: string;
+}
+
+export function wifiPosterDoc(posters: WifiPoster[], ctx: DocContext): DocDefinition {
+  const page = pageSize(ctx.format, ctx.orientation);
+  const qrSize = Math.min(page.width, page.height) * 0.55;
+  const scale = ctx.format === 'A3' ? 1.4 : 1;
+  const content: Content[] = posters.flatMap((p, index) => [
+    { text: 'WLAN', fontSize: 28 * scale, bold: true, alignment: 'center', color: '#0284c7', margin: [0, 30, 0, 6], ...(index > 0 ? { pageBreak: 'before' } : {}) },
+    { text: pdfText(p.ssid), fontSize: 36 * scale, bold: true, alignment: 'center', margin: [0, 0, 0, 20] },
+    { svg: p.qrSvg, width: qrSize, alignment: 'center' },
+    { text: 'Kamera-App öffnen und den QR-Code scannen, um sich zu verbinden.', fontSize: 13 * scale, alignment: 'center', margin: [0, 16, 0, 16] },
+    ...(p.password
+      ? [
+          { text: 'Passwort', fontSize: 12 * scale, alignment: 'center', color: '#64748b' },
+          { text: pdfText(p.password), fontSize: 24 * scale, bold: true, alignment: 'center', margin: [0, 2, 0, 0] },
+        ]
+      : []),
+    { text: `${p.security === 'open' ? 'Offenes Netz' : p.security}${p.hidden ? ' · verstecktes Netz' : ''}`, fontSize: 9 * scale, alignment: 'center', color: '#64748b', margin: [0, 18, 0, 0] },
+  ]);
+  return { ...base(ctx, 'WLAN-Aushang', content), header: undefined };
+}
+
+// ---------- Planzeichnung ----------
+
+export const TITLE_BLOCK_PT = 64;
+
+export interface PlanTile {
+  svg: string;
+  label: string;
+}
+
+export interface PlanDocOptions {
+  title: string;
+  scaleText: string;
+  legend: { name: string; color?: string }[];
+  lineLegend: { name: string; color: string; dashed?: boolean; width?: number }[];
+}
+
+/** Zeichenfläche einer Seite (ohne Ränder und Planköpfchen) in pt. */
+export function drawableArea(ctx: Pick<DocContext, 'format' | 'orientation'>): { width: number; height: number } {
+  const page = pageSize(ctx.format, ctx.orientation);
+  return { width: page.width - MARGIN.left - MARGIN.right, height: page.height - MARGIN.top - MARGIN.bottom - TITLE_BLOCK_PT };
+}
+
+function titleBlock(ctx: DocContext, opts: PlanDocOptions, tileLabel: string): Content {
+  const m = ctx.meta;
+  const cell = (label: string, value: string | undefined) => ({ stack: [{ text: label, fontSize: 6.5, color: '#64748b' }, { text: pdfText(value) || '–', fontSize: 8.5, bold: true }] });
+  const legendItems: Content[] = [
+    ...opts.legend.slice(0, 8).map((l) => ({ columns: [colorSquare(l.color), { text: pdfText(l.name), fontSize: 7 }], columnGap: 3, width: 'auto' })),
+    ...opts.lineLegend.map((l) => ({
+      columns: [{ canvas: [{ type: 'line', x1: 0, y1: 6, x2: 16, y2: 6, lineWidth: l.width ?? 1.5, lineColor: l.color, ...(l.dashed ? { dash: { length: 3, space: 2 } } : {}) }], width: 18 }, { text: l.name, fontSize: 7 }],
+      columnGap: 3,
+      width: 'auto',
+    })),
+  ];
+  return {
+    table: {
+      widths: ['*', 80, 70, 70, 60, 70, 60],
+      body: [
+        [
+          { stack: [{ text: pdfText(opts.title), fontSize: 10, bold: true }, { columns: legendItems, columnGap: 8, margin: [0, 3, 0, 0] }] },
+          cell('Projekt', m.name),
+          cell('Ort', m.venue),
+          cell('Datum', m.date && /^\d{4}-\d{2}-\d{2}$/.test(m.date) ? m.date.split('-').reverse().join('.') : m.date),
+          cell('Planer', m.planner),
+          cell('Version / Maßstab', `${m.version ? `${m.version} · ` : ''}${opts.scaleText}`),
+          cell('Blatt', tileLabel),
+        ],
+      ],
+    },
+    layout: { hLineWidth: () => 0.6, vLineWidth: () => 0.6, hLineColor: () => '#475569', vLineColor: () => '#475569', paddingTop: () => 3, paddingBottom: () => 3 },
+    margin: [0, 6, 0, 0],
+  };
+}
+
+export function planDoc(tiles: PlanTile[], opts: PlanDocOptions, ctx: DocContext): DocDefinition {
+  const area = drawableArea(ctx);
+  const content: Content[] = tiles.flatMap((tile, i) => [
+    { svg: tile.svg, width: area.width, height: area.height, ...(i > 0 ? { pageBreak: 'before' } : {}) },
+    titleBlock(ctx, opts, tile.label),
+  ]);
+  return base(ctx, opts.title, content);
+}
+
+// ---------- Kacheln für große Pläne ----------
+
+export interface TileSpec {
+  view: Rect;
+  row: number;
+  col: number;
+  rows: number;
+  cols: number;
+}
+
+/**
+ * Teilt den Inhalt (Weltkoordinaten in mm) in Seiten auf.
+ * worldPerPt = wie viele Welt-Millimeter einem Punkt auf dem Papier entsprechen; overlapPt = Überlappung.
+ */
+export function tilePlan(bounds: Rect, area: { width: number; height: number }, worldPerPt: number, overlapPt = 28): TileSpec[] {
+  const tileW = area.width * worldPerPt;
+  const tileH = area.height * worldPerPt;
+  const overlap = overlapPt * worldPerPt;
+  const cols = Math.max(1, Math.ceil((bounds.width - overlap) / (tileW - overlap)));
+  const rows = Math.max(1, Math.ceil((bounds.height - overlap) / (tileH - overlap)));
+  // Inhalt mittig, wenn er kleiner als eine Seite ist
+  const offsetX = cols === 1 ? (bounds.width - tileW) / 2 : 0;
+  const offsetY = rows === 1 ? (bounds.height - tileH) / 2 : 0;
+  const tiles: TileSpec[] = [];
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      tiles.push({ view: { x: bounds.x + offsetX + c * (tileW - overlap), y: bounds.y + offsetY + r * (tileH - overlap), width: tileW, height: tileH }, row: r, col: c, rows, cols });
+    }
+  }
+  return tiles;
+}
+
+/** Welt-Millimeter pro Punkt für einen Maßstab 1:n (Welt in mm). */
+export function worldPerPtForScale(denominator: number): number {
+  return denominator / PT_PER_MM;
+}
+
+export type { Rect };

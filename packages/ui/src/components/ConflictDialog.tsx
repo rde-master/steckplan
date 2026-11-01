@@ -39,6 +39,9 @@ const FIELD_LABELS: Record<string, string> = {
   availableLengthsMm: f.lengths,
   color: f.color,
   contact: texts.library.master.contact,
+  channels: texts.library.multicore.channels,
+  endALabel: texts.library.multicore.endALabel,
+  endBLabel: texts.library.multicore.endBLabel,
 };
 
 function display(field: string, value: unknown, library: Library | null): string {
@@ -56,6 +59,8 @@ function display(field: string, value: unknown, library: Library | null): string
     }
     case 'ports':
       return (value as NonNullable<Template['ports']>).map((p) => `${p.label} (${p.connector}, ${f.directions[p.direction]})`).join('; ');
+    case 'channels':
+      return (value as NonNullable<Template['channels']>).map((c) => `${c.label} (${c.connectorA} ↔ ${c.connectorB})`).join('; ');
     case 'dmxModes':
       return (value as NonNullable<Template['dmxModes']>).map((d) => `${d.name}: ${d.channels}`).join('; ');
     case 'lengthMm':

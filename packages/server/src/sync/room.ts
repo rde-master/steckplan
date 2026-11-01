@@ -8,6 +8,10 @@ import * as syncProtocol from 'y-protocols/sync';
 import {
   analyzeProject,
   applyAnalysis,
+  resetChecks as resetCheckMarks,
+  setCheck,
+  type CheckDirection,
+  type CheckMark,
   buildSnapshots,
   can,
   finishProject,
@@ -183,6 +187,42 @@ export class Room {
     this.notify(`${by} hat den Vorlagen-Abgleich durchgeführt.`);
   }
 
+  /**
+   * Häkchen der Packliste setzen oder entfernen (auch mit Lese-Zugang erlaubt).
+   * Der Server schreibt selbst ins Dokument – Name und Zeit stammen vom Server.
+   */
+  applyCheck(kind: 'device' | 'cable', id: string, direction: CheckDirection, status: CheckMark['status'] | null, by: string, note?: string): boolean {
+    const reason = this.deps.store.readOnlyReason(this.id) ?? (this.pending ? RECONCILE_PENDING_REASON : undefined);
+    if (reason) throw new Error(reason);
+    const mark: CheckMark | null = status ? { at: new Date().toISOString(), by, status, ...(note?.trim() ? { note: note.trim() } : {}) } : null;
+    return setCheck(this.doc, kind, id, direction, mark, new ServerOrigin(by));
+  }
+
+  /** Geschützter Bereich: WLAN-Passwörter (nur für Bearbeiten-Zugang, nie im Yjs-Dokument). */
+  getSecrets(): Secrets {
+    return this.secrets;
+  }
+
+  wifiPassword(wifiId: string): string | undefined {
+    return this.secrets.wifiPasswords.find((w) => w.wifiId === wifiId)?.password;
+  }
+
+  setWifiPassword(wifiId: string, password: string | null): void {
+    if (this.readOnlyReason) throw new Error(this.readOnlyReason);
+    const others = this.secrets.wifiPasswords.filter((w) => w.wifiId !== wifiId);
+    this.secrets = { ...this.secrets, wifiPasswords: password ? [...others, { wifiId, password }] : others };
+    this.markDirty();
+  }
+
+  /** Häkchen zurücksetzen (nur Bearbeiten-Zugang – wird in der Route geprüft). */
+  resetChecks(direction: CheckDirection | 'both', by: string): number {
+    if (this.readOnlyReason) throw new Error(this.readOnlyReason);
+    const removed = resetCheckMarks(this.doc, direction, new ServerOrigin(by));
+    const what = direction === 'both' ? 'alle Häkchen' : direction === 'out' ? 'die Häkchen „Hin“' : 'die Häkchen „Zurück“';
+    if (removed) this.notify(`${by} hat ${what} zurückgesetzt.`);
+    return removed;
+  }
+
   /** Die Bibliothek hat sich geändert: betrifft es dieses Projekt, Snapshot in der Datei erneuern. */
   libraryChanged(change: LibraryChange): void {
     if (this.readOnlyReason || this.closed) return;
@@ -210,7 +250,9 @@ export class Room {
   }
 
   private readCurrent(): ReturnType<typeof readProjectFromYDoc> {
-    const result = readProjectFromYDoc(this.doc, { secrets: this.secrets, changeLog: this.changeLog, ...this.snapshots });
+    const wifiIds = new Set([...this.doc.getMap('wifi').keys()]);
+    const secrets = { ...this.secrets, wifiPasswords: this.secrets.wifiPasswords.filter((w) => wifiIds.has(w.wifiId)) };
+    const result = readProjectFromYDoc(this.doc, { secrets, changeLog: this.changeLog, ...this.snapshots });
     if (!result.ok || this.pending) return result;
     const project = { ...result.project, libraryId: this.libraryIdInFile || this.deps.library.libraryId };
     return { ok: true, project: { ...project, ...buildSnapshots(project, this.deps.library.get()) } };

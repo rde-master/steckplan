@@ -6,18 +6,48 @@ import { useLibrary } from '../lib/library';
 import { getDesktop } from '../lib/desktop';
 import { navigate } from '../lib/router';
 import { useSession } from '../lib/session';
+import { useEditor } from '../lib/editor';
+import { useUndo } from '../lib/undo';
+import { useProjectData } from '../lib/useProjectData';
 import { useProjectDoc, useYMap } from '../lib/useProjectDoc';
 import { texts } from '../texts';
 import { AppHeader } from '../components/AppHeader';
 import { ConflictDialog } from '../components/ConflictDialog';
 import { VersionsDialog } from '../components/VersionsDialog';
+import { SignalFlowView } from '../components/signalflow/SignalFlowView';
+import { StagePlanView } from '../components/stageplan/StagePlanView';
+import { ListsView } from '../components/lists/ListsView';
+import { NetworkView } from '../components/network/NetworkView';
+import { ExportDialog } from '../components/ExportDialog';
+import { useIssues } from '../lib/useIssues';
+import { MeterField } from '../components/library/fields';
 import { AccessBadge, Banner, Button, Field, Spinner, TextArea, TextInput } from '../components/ui';
+
+type Tab = 'signalflow' | 'stageplan' | 'network' | 'lists' | 'meta';
+const TAB_PARAM: Record<Tab, string> = { signalflow: 'signalfluss', stageplan: 'buehnenplan', network: 'netzwerk', lists: 'listen', meta: 'projektdaten' };
+
+function initialTab(): Tab {
+  const value = new URLSearchParams(window.location.search).get('ansicht');
+  return (Object.entries(TAB_PARAM).find(([, v]) => v === value)?.[0] as Tab | undefined) ?? 'signalflow';
+}
 
 export function ProjectPage({ id }: { id: string }) {
   const project = useProjectDoc(id);
+  const data = useProjectData(project?.doc);
+  const undo = useUndo(project?.doc);
+  const issues = useIssues(data, useLibrary((st) => st.library));
+  const resetEditor = useEditor((s) => s.reset);
+  const [tab, setTabState] = useState<Tab>(initialTab);
+  const setTab = (next: Tab) => {
+    setTabState(next);
+    const url = new URL(window.location.href);
+    url.searchParams.set('ansicht', TAB_PARAM[next]);
+    window.history.replaceState(null, '', url.pathname + url.search);
+  };
   const session = useSession((s) => s.session);
   const refreshSession = useSession((s) => s.refresh);
   const [showVersions, setShowVersions] = useState(false);
+  const [showExport, setShowExport] = useState(false);
   const [conflicts, setConflicts] = useState<Conflict[] | null>(null);
   const [conflictError, setConflictError] = useState<string | null>(null);
   const library = useLibrary((s) => s.library);
@@ -35,8 +65,17 @@ export function ProjectPage({ id }: { id: string }) {
     if (status === 'unauthorized') void refreshSession();
   }, [status, refreshSession]);
 
-  // Desktop: „Datei → Versionen …“ im Menü
-  useEffect(() => getDesktop()?.onMenuCommand((command) => command === 'versions' && setShowVersions(true)), []);
+  useEffect(() => resetEditor(), [id, resetEditor]);
+
+  // Desktop: Menübefehle „Versionen …“ und „Exportieren …“
+  useEffect(
+    () =>
+      getDesktop()?.onMenuCommand((command) => {
+        if (command === 'versions') setShowVersions(true);
+        if (command === 'export') setShowExport(true);
+      }),
+    [],
+  );
 
   const online = status === 'synced';
   const editable = online && !state?.readOnly;
@@ -60,7 +99,7 @@ export function ProjectPage({ id }: { id: string }) {
   }
 
   return (
-    <div className="flex min-h-full flex-col bg-slate-50 dark:bg-slate-950">
+    <div className="flex h-full flex-col bg-slate-50 dark:bg-slate-950">
       <AppHeader
         left={backButton}
         title={meta.name || ' '}
@@ -72,6 +111,9 @@ export function ProjectPage({ id }: { id: string }) {
                 {texts.project.readOnly}
               </span>
             )}
+            <Button variant="ghost" onClick={() => setShowExport(true)} disabled={!library || !project}>
+              {texts.exportDialog.open}
+            </Button>
             <Button variant="ghost" onClick={() => setShowVersions(true)}>
               {texts.project.versions}
             </Button>
@@ -83,7 +125,16 @@ export function ProjectPage({ id }: { id: string }) {
           </div>
         }
       />
-      <main className="mx-auto w-full max-w-3xl flex-1 space-y-4 p-4">
+      <div className="flex flex-wrap items-center gap-1 border-b border-slate-200 bg-white px-2 py-1 dark:border-slate-700 dark:bg-slate-900" role="tablist">
+        {(['signalflow', 'stageplan', 'network', 'lists', 'meta'] as const).map((t) => (
+          <Button key={t} role="tab" aria-selected={tab === t} variant={tab === t ? 'primary' : 'ghost'} onClick={() => setTab(t)}>
+            {texts.signalflow.tabs[t]}
+          </Button>
+        ))}
+        <div className="flex-1" />
+        {state && state.users.length > 0 && <Presence users={state.users} me={state.connectionId} />}
+      </div>
+      <div className="space-y-2 empty:hidden px-2 pt-2">
         {status === 'disconnected' && <Banner tone="warn">{texts.project.disconnected}</Banner>}
         {state?.reconcilePending ? (
           <Banner tone="warn">
@@ -113,15 +164,40 @@ export function ProjectPage({ id }: { id: string }) {
           state?.readOnlyReason && <Banner tone="warn">{state.readOnlyReason}</Banner>
         )}
         {state?.notice && <Banner tone="info">{state.notice}</Banner>}
-        {state && state.users.length > 0 && <Presence users={state.users} me={state.connectionId} />}
+      </div>
 
-        {!project || status === 'connecting' || (status === 'connected' && !meta.name) ? (
-          <Spinner />
-        ) : (
+      {!project || status === 'connecting' || (status === 'connected' && !meta.name) ? (
+        <Spinner />
+      ) : tab === 'signalflow' ? (
+        <SignalFlowView doc={project.doc} data={data} library={library} editable={editable} undo={undo} />
+      ) : tab === 'stageplan' ? (
+        <StagePlanView doc={project.doc} data={data} library={library} editable={editable} undo={undo} />
+      ) : tab === 'network' ? (
+        <NetworkView
+          projectId={id}
+          doc={project.doc}
+          origin={undo.origin}
+          data={data}
+          library={library}
+          issues={issues}
+          editable={editable}
+          canSeeSecrets={!!session && can(session.access, 'viewSecrets')}
+        />
+      ) : tab === 'lists' ? (
+        <ListsView
+          projectId={id}
+          data={data}
+          library={library}
+          canCheck={online && !state?.readOnlyReason && !!session && can(session.access, 'checkItems')}
+          canReset={editable && !!session && can(session.access, 'resetChecks')}
+        />
+      ) : (
+        <main className="mx-auto w-full max-w-3xl flex-1 space-y-4 overflow-y-auto p-4">
           <MetaForm doc={project.doc} meta={meta} editable={editable} />
-        )}
-        <p className="text-center text-sm text-slate-500 dark:text-slate-400">{texts.project.comingSoon}</p>
-      </main>
+          <SettingsForm doc={project.doc} settings={data.settings} editable={editable} />
+          {session && can(session.access, 'manageProjects') && <CopyProject projectId={id} name={meta.name ?? ''} />}
+        </main>
+      )}
       {conflicts && (
         <ConflictDialog
           conflicts={conflicts}
@@ -132,6 +208,9 @@ export function ProjectPage({ id }: { id: string }) {
             setConflicts(null);
           }}
         />
+      )}
+      {showExport && library && project && (
+        <ExportDialog projectId={id} data={data} library={library} meta={meta} issues={issues} onClose={() => setShowExport(false)} />
       )}
       {showVersions && session && (
         <VersionsDialog
@@ -157,7 +236,7 @@ function ConnectionDot({ status }: { status: string }) {
 
 function Presence({ users, me }: { users: PresenceUser[]; me: string | null }) {
   return (
-    <div className="flex flex-wrap items-center gap-2 text-sm" data-testid="presence">
+    <div className="flex flex-wrap items-center gap-1.5 text-xs" data-testid="presence">
       <span className="text-slate-500 dark:text-slate-400">{texts.project.present}</span>
       {users.map((user) => (
         <span
@@ -204,6 +283,53 @@ function MetaForm({ doc, meta, editable }: { doc: Y.Doc; meta: Partial<ProjectMe
           );
         })}
       </div>
+    </section>
+  );
+}
+
+function SettingsForm({ doc, settings, editable }: { doc: Y.Doc; settings: { defaultReservePercent?: number; defaultReservePerEndMm?: number }; editable: boolean }) {
+  const map = doc.getMap('settings');
+  return (
+    <section className="space-y-3 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+      <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">{texts.project.settings}</h2>
+      <p className="text-xs text-slate-500">{texts.project.reserveHint}</p>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field label={texts.project.reservePercent}>
+          <TextInput
+            type="number"
+            min={0}
+            value={settings.defaultReservePercent ?? 10}
+            disabled={!editable}
+            onChange={(e) => map.set('defaultReservePercent', Math.max(0, Number(e.target.value) || 0))}
+          />
+        </Field>
+        <MeterField label={texts.project.reservePerEnd} value={settings.defaultReservePerEndMm ?? 500} disabled={!editable} onChange={(v) => map.set('defaultReservePerEndMm', v ?? 0)} />
+      </div>
+    </section>
+  );
+}
+
+function CopyProject({ projectId, name }: { projectId: string; name: string }) {
+  const [error, setError] = useState<string | null>(null);
+  const desktop = getDesktop();
+  return (
+    <section className="space-y-2 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+      <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">{texts.project.copyTitle}</h2>
+      <p className="text-xs text-slate-500">{texts.project.copyHint}</p>
+      <Button
+        onClick={async () => {
+          setError(null);
+          try {
+            if (desktop) await desktop.copyAsNew(projectId);
+            else navigate(`/projekt/${(await api.copyProject(projectId, `${name} (Kopie)`)).id}?ansicht=projektdaten`);
+          } catch (err) {
+            setError(errorMessage(err));
+          }
+        }}
+      >
+        ⧉ {texts.project.copy}
+      </Button>
+      {error && <Banner tone="error">{error}</Banner>}
     </section>
   );
 }

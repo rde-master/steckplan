@@ -9,8 +9,10 @@ export interface MenuActions {
   save(): void;
   saveAs(): void;
   showVersions(): void;
+  exportDocument(): void;
   showStart(): void;
   showLibrary(): void;
+  copyAsNew(): void;
   isProjectWindow(win: BrowserWindow | null): boolean;
   recent(): RecentFile[];
   isDev: boolean;
@@ -36,6 +38,8 @@ export function buildMenu(actions: MenuActions): void {
       { label: 'Speichern', accelerator: 'CmdOrCtrl+S', enabled: projectFocused, click: () => actions.save() },
       { label: 'Speichern unter …', accelerator: 'Shift+CmdOrCtrl+S', enabled: projectFocused, click: () => actions.saveAs() },
       { label: 'Versionen …', enabled: projectFocused, click: () => actions.showVersions() },
+      { label: 'Exportieren (PDF/CSV) …', accelerator: 'CmdOrCtrl+E', enabled: projectFocused, click: () => actions.exportDocument() },
+      { label: 'Neues Projekt aus diesem …', enabled: projectFocused, click: () => actions.copyAsNew() },
       { type: 'separator' },
       { label: 'Bibliothek …', accelerator: 'Shift+CmdOrCtrl+B', click: () => actions.showLibrary() },
       { label: 'Startfenster', click: () => actions.showStart() },

@@ -1,8 +1,9 @@
 name: CI
 
 on:
+  # main wird nicht extra geprüft: dorthin kommt nur der bereits auf develop getestete Stand (Release)
   push:
-    branches: [main, develop, 'feature/**']
+    branches: [develop, 'feature/**']
   pull_request:
   workflow_dispatch:
 
@@ -111,6 +112,8 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - uses: docker/build-push-action@v7
+        env:
+          DOCKER_BUILD_RECORD_UPLOAD: 'false'
         with:
           context: .
           file: apps/docker/Dockerfile

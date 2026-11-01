@@ -622,6 +622,18 @@ Jeder Meilenstein endet mit grünen Tests, lauffähigem Build (Desktop **und** D
 - Maße in den Vorlagen-Editoren überall in Metern (mit Komma, z. B. 0,45 m); intern Millimeter (01.11.2026)
 - Stecker und Signalarten: Freitext mit Vorschlägen aus der eigenen Bibliothek, nichts mitgeliefert (01.11.2026)
 - Vorlagen löschen nur, wenn sie in keinem bekannten Projekt verwendet werden (wie Stammdaten) (01.11.2026)
+- Multicore zusätzlich als Kabeltyp mit mehreren Adern: je Ader Stecker an Ende A und B, Richtung (A → B / B → A / beides), Signal; Enden benennbar (z. B. Bühne/FOH). Anschluss an Geräte wird in M3 festgelegt (01.11.2026)
+- Signalfluss: Multicore erscheint als eigener Kasten mit je einem Anschluss pro Ader an beiden Enden; Geräte werden per Kabel oder „direkt gesteckt“ an die Adern angeschlossen (01.11.2026)
+- Stecker passen nicht: Verbindung erlaubt, aber rot markiert und im Prüfungen-Panel gelistet; Richtung Ausgang → Eingang wird immer erzwungen (01.11.2026)
+- Kabeltyp beim Ziehen: passt genau einer, wird er automatisch genommen, sonst kleine Auswahl (passende zuerst); im Eigenschaften-Panel änderbar (01.11.2026)
+- Bühnenplan: Geräte docken automatisch an, wenn sie über einem Stativ, einer Traverse oder einem Bühnenelement abgelegt werden (Alt-Taste: nicht andocken); Lösen durch Wegziehen oder im Eigenschaften-Panel (01.11.2026)
+- Hintergrund-Grundriss: Bilder (PNG/JPG) und PDF (eine Seite wählbar, beim Import in ein Bild umgewandelt und im Projekt gespeichert) (01.11.2026)
+- Neue Objekte im Bühnenplan landen auf der aktiven Ebene (01.11.2026)
+- Multicore im Bühnenplan: zwei Enden (A/B) mit Kabelweg und Knickpunkten; Länge wird wie bei Kabeln berechnet (01.11.2026)
+- DMX-Universen werden ab 1 gezählt (01.11.2026)
+- Auto-Adressierung entlang der DMX-Kette: passt ein Gerät nicht mehr ins Universum, geht es im nächsten Universum ab Adresse 1 weiter (mit Hinweis) (01.11.2026)
+- WLAN-Aushang: Passwort als Text aufdrucken ist wählbar (Standard: an, nur mit Bearbeiten-Zugang); Lese-Zugang druckt SSID und QR-Code (01.11.2026)
+- Planzeichnung im festen Maßstab, die nicht auf eine Seite passt: Aufteilung auf mehrere Seiten (Kacheln mit Überlappung und Seitenangabe) (01.11.2026)
 
 ---
 

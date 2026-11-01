@@ -7,6 +7,8 @@ import { suggestions } from '../../lib/library';
 import { formatMeterList, parseMeterList } from '../../lib/units';
 import { texts } from '../../texts';
 import { Banner, Button, Field, TextArea, TextInput } from '../ui';
+import { BulkPortsForm } from './BulkPortsForm';
+import { ChannelsEditor } from './ChannelsEditor';
 import { ColorField, MasterSelect, MeterField, NumberField, selectClass, SelectField } from './fields';
 
 const t = texts.library.fields;
@@ -27,6 +29,13 @@ export function newDraft(kind: TemplateKind): Draft {
       return { kind, name: '', shape: { form: 'circle', widthMm: 1200, depthMm: 1200, heightMm: 2500 }, maxMountedDevices: 2 };
   }
 }
+
+/** Optische Trennung der Anschlüsse nach Richtung */
+const PORT_GROUPS = [
+  { direction: 'in', label: texts.library.fields.portGroups.in, accent: 'border-sky-400 dark:border-sky-600', badge: 'bg-sky-100 text-sky-900 dark:bg-sky-900 dark:text-sky-100' },
+  { direction: 'out', label: texts.library.fields.portGroups.out, accent: 'border-orange-400 dark:border-orange-600', badge: 'bg-orange-100 text-orange-900 dark:bg-orange-900 dark:text-orange-100' },
+  { direction: 'bi', label: texts.library.fields.portGroups.bi, accent: 'border-violet-400 dark:border-violet-600', badge: 'bg-violet-100 text-violet-900 dark:bg-violet-900 dark:text-violet-100' },
+] as const satisfies readonly { direction: PortDef['direction']; label: string; accent: string; badge: string }[];
 
 function portId(): string {
   return `p-${Math.random().toString(36).slice(2, 8)}`;
@@ -53,6 +62,10 @@ export function TemplateEditor({
   const [stale, setStale] = useState<Template | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [showBulk, setShowBulk] = useState(false);
+  const [confirmClearPorts, setConfirmClearPorts] = useState(false);
+  const [confirmDisableMulticore, setConfirmDisableMulticore] = useState(false);
+  const isMulticore = draft.channels !== undefined;
   const isNew = !draft.id;
   const kind = draft.kind;
   const disabled = !canEdit;
@@ -196,16 +209,68 @@ export function TemplateEditor({
 
       {/* Kabeltyp */}
       {kind === 'cableType' && (
+        <div className="space-y-1">
+          <label className="flex items-center gap-2 text-sm font-medium">
+            <input
+              type="checkbox"
+              checked={isMulticore}
+              disabled={disabled}
+              onChange={(e) => {
+                if (e.target.checked) set({ channels: [] });
+                else if ((draft.channels?.length ?? 0) > 0) setConfirmDisableMulticore(true);
+                else set({ channels: undefined, endALabel: undefined, endBLabel: undefined });
+              }}
+            />
+            {texts.library.multicore.toggle}
+          </label>
+          <p className="pl-6 text-xs text-slate-500">{texts.library.multicore.toggleHint}</p>
+          {confirmDisableMulticore && (
+            <Banner tone="warn">
+              <div className="flex flex-wrap items-center gap-2">
+                {texts.library.multicore.disableConfirm(draft.channels?.length ?? 0)}
+                <Button
+                  variant="danger"
+                  onClick={() => {
+                    set({ channels: undefined, endALabel: undefined, endBLabel: undefined });
+                    setConfirmDisableMulticore(false);
+                  }}
+                >
+                  {t.remove}
+                </Button>
+                <Button onClick={() => setConfirmDisableMulticore(false)}>{texts.common.cancel}</Button>
+              </div>
+            </Banner>
+          )}
+        </div>
+      )}
+      {kind === 'cableType' && isMulticore && (
+        <>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label={texts.library.multicore.endALabel}>
+              <TextInput value={draft.endALabel ?? ''} placeholder={texts.library.multicore.endPlaceholderA} onChange={(e) => set({ endALabel: e.target.value })} disabled={disabled} />
+            </Field>
+            <Field label={texts.library.multicore.endBLabel}>
+              <TextInput value={draft.endBLabel ?? ''} placeholder={texts.library.multicore.endPlaceholderB} onChange={(e) => set({ endBLabel: e.target.value })} disabled={disabled} />
+            </Field>
+          </div>
+          <ChannelsEditor channels={draft.channels ?? []} endALabel={draft.endALabel} endBLabel={draft.endBLabel} disabled={disabled} onChange={(channels) => set({ channels })} />
+        </>
+      )}
+      {kind === 'cableType' && (
         <fieldset className="grid gap-3 rounded-md border border-slate-200 p-3 sm:grid-cols-3 dark:border-slate-700">
-          <Field label={t.connectorA}>
-            <TextInput list="steckplan-connectors" value={draft.connectorA ?? ''} onChange={(e) => set({ connectorA: e.target.value })} disabled={disabled} />
-          </Field>
-          <Field label={t.connectorB}>
-            <TextInput list="steckplan-connectors" value={draft.connectorB ?? ''} onChange={(e) => set({ connectorB: e.target.value })} disabled={disabled} />
-          </Field>
-          <Field label={t.signal}>
-            <TextInput list="steckplan-signals" value={draft.signal ?? ''} onChange={(e) => set({ signal: e.target.value })} disabled={disabled} />
-          </Field>
+          {!isMulticore && (
+            <>
+              <Field label={t.connectorA}>
+                <TextInput list="steckplan-connectors" value={draft.connectorA ?? ''} onChange={(e) => set({ connectorA: e.target.value })} disabled={disabled} />
+              </Field>
+              <Field label={t.connectorB}>
+                <TextInput list="steckplan-connectors" value={draft.connectorB ?? ''} onChange={(e) => set({ connectorB: e.target.value })} disabled={disabled} />
+              </Field>
+              <Field label={t.signal}>
+                <TextInput list="steckplan-signals" value={draft.signal ?? ''} onChange={(e) => set({ signal: e.target.value })} disabled={disabled} />
+              </Field>
+            </>
+          )}
           <MeterField label={t.maxLength} value={draft.maxLengthMm} onChange={(maxLengthMm) => set({ maxLengthMm })} disabled={disabled} />
           <div className="sm:col-span-2">
             <Field label={t.lengths} hint={lengthsInvalid ? t.invalidNumber : t.lengthsHint}>
@@ -242,57 +307,97 @@ export function TemplateEditor({
                       <th />
                     </tr>
                   </thead>
-                  <tbody>
-                    {ports.map((port, index) => (
-                      <tr key={port.id} className="align-top">
-                        <td className="pr-2 pb-2">
-                          <TextInput aria-label={`${t.portLabel} ${index + 1}`} value={port.label} required onChange={(e) => setPort(index, { label: e.target.value })} disabled={disabled} />
-                        </td>
-                        <td className="pr-2 pb-2">
-                          <TextInput aria-label={`${t.portConnector} ${index + 1}`} list="steckplan-connectors" value={port.connector} onChange={(e) => setPort(index, { connector: e.target.value })} disabled={disabled} />
-                        </td>
-                        <td className="pr-2 pb-2">
-                          <select aria-label={`${t.portDirection} ${index + 1}`} className={`${selectClass} min-w-[7.5rem]`} value={port.direction} onChange={(e) => setPort(index, { direction: e.target.value as PortDef['direction'] })} disabled={disabled}>
-                            {(['in', 'out', 'bi'] as const).map((d) => (
-                              <option key={d} value={d}>
-                                {t.directions[d]}
-                              </option>
-                            ))}
-                          </select>
-                        </td>
-                        <td className="pr-2 pb-2">
-                          <TextInput aria-label={`${t.portSignal} ${index + 1}`} list="steckplan-signals" value={port.signal} onChange={(e) => setPort(index, { signal: e.target.value })} disabled={disabled} />
-                        </td>
-                        <td className="pr-2 pb-2 text-center">
-                          <input
-                            type="checkbox"
-                            aria-label={`${t.portNetwork} ${index + 1}`}
-                            className="mt-3 h-4 w-4"
-                            checked={port.isNetwork ?? false}
-                            onChange={(e) => setPort(index, { isNetwork: e.target.checked || undefined })}
-                            disabled={disabled}
-                          />
-                        </td>
-                        <td className="whitespace-nowrap pb-2">
-                          {!disabled && (
-                            <>
-                              <Button variant="ghost" title={t.duplicatePort} aria-label={`${t.duplicatePort} ${index + 1}`} onClick={() => set({ ports: [...ports.slice(0, index + 1), { ...port, id: portId(), label: port.label }, ...ports.slice(index + 1)] })}>
-                                ⧉
-                              </Button>
-                              <Button variant="ghost" title={t.remove} aria-label={`${t.remove} ${index + 1}`} onClick={() => set({ ports: ports.filter((_, i) => i !== index) })}>
-                                ✕
-                              </Button>
-                            </>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
+                  {PORT_GROUPS.map(({ direction, label, accent, badge }) => {
+                    const rows = ports.map((port, index) => ({ port, index })).filter(({ port }) => port.direction === direction);
+                    if (rows.length === 0) return null;
+                    return (
+                      <tbody key={direction} data-testid={`ports-${direction}`}>
+                        <tr>
+                          <th colSpan={6} scope="rowgroup" className="pt-3 pb-1 text-left">
+                            <span className={`inline-flex items-center gap-2 rounded-full px-2.5 py-0.5 text-xs font-semibold ${badge}`}>
+                              {label} <span className="font-normal opacity-80">({rows.length})</span>
+                            </span>
+                          </th>
+                        </tr>
+                        {rows.map(({ port, index }) => (
+                          <tr key={port.id} className="align-top">
+                            <td className={`border-l-4 pr-2 pb-2 pl-2 ${accent}`}>
+                              <TextInput aria-label={`${t.portLabel} ${index + 1}`} value={port.label} required onChange={(e) => setPort(index, { label: e.target.value })} disabled={disabled} />
+                            </td>
+                            <td className="pr-2 pb-2">
+                              <TextInput aria-label={`${t.portConnector} ${index + 1}`} list="steckplan-connectors" value={port.connector} onChange={(e) => setPort(index, { connector: e.target.value })} disabled={disabled} />
+                            </td>
+                            <td className="pr-2 pb-2">
+                              <select aria-label={`${t.portDirection} ${index + 1}`} className={`${selectClass} min-w-[7.5rem]`} value={port.direction} onChange={(e) => setPort(index, { direction: e.target.value as PortDef['direction'] })} disabled={disabled}>
+                                {(['in', 'out', 'bi'] as const).map((d) => (
+                                  <option key={d} value={d}>
+                                    {t.directions[d]}
+                                  </option>
+                                ))}
+                              </select>
+                            </td>
+                            <td className="pr-2 pb-2">
+                              <TextInput aria-label={`${t.portSignal} ${index + 1}`} list="steckplan-signals" value={port.signal} onChange={(e) => setPort(index, { signal: e.target.value })} disabled={disabled} />
+                            </td>
+                            <td className="pr-2 pb-2 text-center">
+                              <input
+                                type="checkbox"
+                                aria-label={`${t.portNetwork} ${index + 1}`}
+                                className="mt-3 h-4 w-4"
+                                checked={port.isNetwork ?? false}
+                                onChange={(e) => setPort(index, { isNetwork: e.target.checked || undefined })}
+                                disabled={disabled}
+                              />
+                            </td>
+                            <td className="whitespace-nowrap pb-2">
+                              {!disabled && (
+                                <>
+                                  <Button variant="ghost" title={t.duplicatePort} aria-label={`${t.duplicatePort} ${index + 1}`} onClick={() => set({ ports: [...ports.slice(0, index + 1), { ...port, id: portId(), label: port.label }, ...ports.slice(index + 1)] })}>
+                                    ⧉
+                                  </Button>
+                                  <Button variant="ghost" title={t.remove} aria-label={`${t.remove} ${index + 1}`} onClick={() => set({ ports: ports.filter((_, i) => i !== index) })}>
+                                    ✕
+                                  </Button>
+                                </>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    );
+                  })}
                 </table>
               </div>
             )}
             {!disabled && (
-              <Button onClick={() => set({ ports: [...ports, { id: portId(), label: '', connector: '', direction: 'in', signal: '' }] })}>＋ {t.addPort}</Button>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button onClick={() => set({ ports: [...ports, { id: portId(), label: '', connector: '', direction: 'in', signal: '' }] })}>＋ {t.addPort}</Button>
+                {!showBulk && <Button onClick={() => setShowBulk(true)}>⊞ {texts.library.bulk.open}</Button>}
+                <div className="flex-1" />
+                {ports.length > 1 &&
+                  (confirmClearPorts ? (
+                    <span className="flex items-center gap-2 text-sm">
+                      {texts.library.bulk.removeAllConfirm(ports.length)}
+                      <Button
+                        variant="danger"
+                        onClick={() => {
+                          set({ ports: [] });
+                          setConfirmClearPorts(false);
+                        }}
+                      >
+                        {t.remove}
+                      </Button>
+                      <Button onClick={() => setConfirmClearPorts(false)}>{texts.common.cancel}</Button>
+                    </span>
+                  ) : (
+                    <Button variant="ghost" onClick={() => setConfirmClearPorts(true)}>
+                      {texts.library.bulk.removeAll}
+                    </Button>
+                  ))}
+              </div>
+            )}
+            {!disabled && showBulk && (
+              <BulkPortsForm existing={ports} onAdd={(added) => set({ ports: [...ports, ...added] })} onClose={() => setShowBulk(false)} />
             )}
           </section>
 

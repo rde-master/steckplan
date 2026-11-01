@@ -3,7 +3,7 @@
 // Jede Änderung hier, die bestehende Dateien betrifft, braucht: schemaVersion erhöhen + Migration + Test.
 import { z } from 'zod';
 
-export const CURRENT_SCHEMA_VERSION = 2;
+export const CURRENT_SCHEMA_VERSION = 3;
 
 const id = z.string().min(1);
 const isoDate = z.string();
@@ -79,6 +79,18 @@ export const PortDefSchema = z.object({
 });
 export type PortDef = z.infer<typeof PortDefSchema>;
 
+/** Ader/Kanal eines Multicore-Kabels: Stecker an beiden Enden und Signalrichtung (seit Format 3) */
+export const CableChannelSchema = z.object({
+  id,
+  label: z.string(),
+  connectorA: z.string(),
+  connectorB: z.string(),
+  /** aToB: Signal geht an Ende A hinein und kommt an Ende B heraus */
+  direction: z.enum(['aToB', 'bToA', 'bi']),
+  signal: z.string(),
+});
+export type CableChannel = z.infer<typeof CableChannelSchema>;
+
 export const TemplateKindSchema = z.enum(['device', 'cableType', 'stageElement', 'truss', 'stand']);
 export type TemplateKind = z.infer<typeof TemplateKindSchema>;
 
@@ -116,6 +128,11 @@ export const TemplateSchema = z.object({
   signal: z.string().optional(),
   maxLengthMm: mm.optional(),
   availableLengthsMm: z.array(mm).optional(),
+  /** Multicore: einzelne Adern/Kanäle (seit Format 3); vorhanden = Multicore */
+  channels: z.array(CableChannelSchema).optional(),
+  /** Multicore: Namen der Enden, z. B. „Bühne“ und „FOH“ (seit Format 3) */
+  endALabel: z.string().optional(),
+  endBLabel: z.string().optional(),
 });
 export type Template = z.infer<typeof TemplateSchema>;
 
@@ -138,8 +155,13 @@ export const DeviceInstanceSchema = z.object({
       rotationDeg: z.number().default(0),
       heightMm: mm.optional(),
       standsOnId: id.optional(),
+      /** Multicore: Lage von Ende B (Ende A = position) und Knickpunkte dazwischen (seit Format 3) */
+      endB: PointSchema.optional(),
+      waypoints: z.array(PointSchema).optional(),
     })
     .optional(),
+  /** Multicore: Länge von Hand statt berechnet (seit Format 3) */
+  manualLengthMm: mm.optional(),
   signalFlow: z.object({ position: PointSchema }).optional(),
   mountedOnId: id.optional(),
   dmx: z
@@ -169,12 +191,17 @@ const cableEnd = z.object({ deviceId: id, portId: id });
 
 export const CableSchema = z.object({
   id,
-  templateId: id,
+  /** Kabeltyp; fehlt bei direkt gesteckten Verbindungen (direct) */
+  templateId: id.optional(),
+  /** Direkt gesteckt (z. B. Multicore-Fan-out ins Pult): kein eigenes Kabel, erscheint nicht in Pack-/Kabellisten (seit Format 3) */
+  direct: z.boolean().optional(),
   label: z.string().optional(),
   ownerId: id.optional(),
   trailerId: id.optional(),
   inventoryNo: z.string().optional(),
   categoryOverride: id.optional(),
+  /** Notiz (seit Format 3) */
+  notes: z.string().optional(),
   from: cableEnd,
   to: cableEnd,
   waypoints: z.array(PointSchema).default([]),
@@ -258,11 +285,21 @@ export const ProjectViewsSchema = z.object({
 export type ProjectViews = z.infer<typeof ProjectViewsSchema>;
 
 export const BackgroundSchema = z.object({
+  /** Bild als data-URL (PDF wird beim Import in ein Bild umgewandelt) */
   image: z.string(),
+  /** Bildgröße in Pixeln (seit Format 3) */
+  widthPx: z.number().positive().optional(),
+  heightPx: z.number().positive().optional(),
+  /** Referenzstrecke: zwei Punkte im Bild (Pixel) und ihr echter Abstand */
   calibration: z
     .object({ p1: PointSchema, p2: PointSchema, realDistanceMm: mm.positive() })
     .optional(),
+  /** Lage der linken oberen Bildecke im Plan (mm) (seit Format 3) */
+  offset: PointSchema.optional(),
+  /** Deckkraft 0–1 (seit Format 3) */
+  opacity: z.number().min(0).max(1).optional(),
 });
+export type Background = z.infer<typeof BackgroundSchema>;
 
 export const ProjectSchema = z.object({
   schemaVersion: z.literal(CURRENT_SCHEMA_VERSION),

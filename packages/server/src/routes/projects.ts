@@ -2,16 +2,20 @@
 import type { FastifyInstance, FastifyReply } from 'fastify';
 import {
   can,
+  copyAsNewProject,
   createEmptyProject,
   newId,
   parseProject,
   projectUsage,
+  wifiQrPayload,
+  type WifiNetwork,
   ProjectFormatError,
   serializeProject,
   withoutSecrets,
   type Project,
   type Resolution,
 } from '@steckplan/core';
+import QRCode from 'qrcode';
 import { requireSession } from '../auth/plugin';
 import type { UsageTracker } from '../library/usage-tracker';
 import { isManagedStore, ProjectNotFoundError } from '../storage/types';
@@ -128,6 +132,123 @@ export function registerProjectRoutes(app: FastifyInstance, rooms: RoomManager, 
       if (error instanceof ProjectNotFoundError) return reply.code(404).send({ error: 'Eintrag nicht gefunden' });
       throw error;
     }
+  });
+
+  // ---------- Packliste: Häkchen ----------
+
+  app.post<{ Params: { id: string }; Body: { kind?: unknown; id?: unknown; direction?: unknown; status?: unknown; note?: unknown } }>(
+    '/api/projects/:id/check',
+    async (request, reply) => {
+      const session = requireSession(request, reply, 'checkItems');
+      if (!session) return reply;
+      const { kind, id, direction, status, note } = request.body ?? {};
+      if ((kind !== 'device' && kind !== 'cable') || typeof id !== 'string' || (direction !== 'out' && direction !== 'in')) {
+        return reply.code(400).send({ error: 'Ungültige Angaben.' });
+      }
+      if (status !== null && status !== 'ok' && status !== 'missing' && status !== 'damaged') return reply.code(400).send({ error: 'Ungültiger Status.' });
+      if (note !== undefined && (typeof note !== 'string' || note.length > 500)) return reply.code(400).send({ error: 'Notiz zu lang.' });
+      let room;
+      try {
+        room = await rooms.get(request.params.id);
+      } catch (error) {
+        if (error instanceof ProjectNotFoundError) return notFound(reply);
+        throw error;
+      }
+      try {
+        if (!room.applyCheck(kind, id, direction, status, session.name, note as string | undefined)) return reply.code(404).send({ error: 'Objekt nicht gefunden.' });
+      } catch (error) {
+        return reply.code(409).send({ error: (error as Error).message });
+      }
+      return { ok: true };
+    },
+  );
+
+  app.post<{ Params: { id: string }; Body: { direction?: unknown } }>('/api/projects/:id/checks/reset', async (request, reply) => {
+    const session = requireSession(request, reply, 'resetChecks');
+    if (!session) return reply;
+    const direction = request.body?.direction;
+    if (direction !== 'out' && direction !== 'in' && direction !== 'both') return reply.code(400).send({ error: 'Ungültige Richtung.' });
+    let room;
+    try {
+      room = await rooms.get(request.params.id);
+    } catch (error) {
+      if (error instanceof ProjectNotFoundError) return notFound(reply);
+      throw error;
+    }
+    try {
+      return { removed: room.resetChecks(direction, session.name) };
+    } catch (error) {
+      return reply.code(409).send({ error: (error as Error).message });
+    }
+  });
+
+  // ---------- Geschützter Bereich: WLAN-Passwörter ----------
+
+  async function roomOr404(id: string, reply: FastifyReply) {
+    try {
+      return await rooms.get(id);
+    } catch (error) {
+      if (error instanceof ProjectNotFoundError) {
+        notFound(reply);
+        return null;
+      }
+      throw error;
+    }
+  }
+
+  app.get<{ Params: { id: string } }>('/api/projects/:id/secrets', async (request, reply) => {
+    if (!requireSession(request, reply, 'viewSecrets')) return reply;
+    const room = await roomOr404(request.params.id, reply);
+    if (!room) return reply;
+    return reply.header('Cache-Control', 'no-store').send(room.getSecrets());
+  });
+
+  app.put<{ Params: { id: string; wifiId: string }; Body: { password?: unknown } }>('/api/projects/:id/secrets/wifi/:wifiId', async (request, reply) => {
+    if (!requireSession(request, reply, 'viewSecrets')) return reply;
+    const password = request.body?.password;
+    if (password !== null && (typeof password !== 'string' || password.length > 63)) {
+      return reply.code(400).send({ error: 'WLAN-Passwörter haben höchstens 63 Zeichen.' });
+    }
+    const room = await roomOr404(request.params.id, reply);
+    if (!room) return reply;
+    if (!room.doc.getMap('wifi').has(request.params.wifiId)) return reply.code(404).send({ error: 'WLAN-Netz nicht gefunden.' });
+    try {
+      room.setWifiPassword(request.params.wifiId, password === '' ? null : (password as string | null));
+    } catch (error) {
+      return reply.code(409).send({ error: (error as Error).message });
+    }
+    return { ok: true };
+  });
+
+  /** QR-Code zum Verbinden – erzeugt der Server, damit Lese-Clients das Passwort nie im Klartext erhalten. */
+  app.get<{ Params: { id: string; wifiId: string } }>('/api/projects/:id/wifi/:wifiId/qr.svg', async (request, reply) => {
+    if (!requireSession(request, reply)) return reply;
+    const room = await roomOr404(request.params.id, reply);
+    if (!room) return reply;
+    const item = room.doc.getMap('wifi').get(request.params.wifiId) as { toJSON(): WifiNetwork } | undefined;
+    if (!item) return reply.code(404).send({ error: 'WLAN-Netz nicht gefunden.' });
+    const network = item.toJSON();
+    const svg = await QRCode.toString(wifiQrPayload(network, room.wifiPassword(network.id)), { type: 'svg', errorCorrectionLevel: 'M', margin: 2 });
+    return reply.header('Content-Type', 'image/svg+xml').header('Cache-Control', 'no-store').send(svg);
+  });
+
+  // ---------- Neues Projekt aus diesem ----------
+
+  app.post<{ Params: { id: string }; Body: { name?: unknown } }>('/api/projects/:id/copy', async (request, reply) => {
+    if (!requireSession(request, reply, 'manageProjects')) return reply;
+    if (!isManagedStore(store)) return reply.code(405).send({ error: 'Hier können keine Projekte angelegt werden.' });
+    let project: Project;
+    try {
+      project = await currentProject(request.params.id);
+    } catch (error) {
+      if (error instanceof ProjectNotFoundError) return notFound(reply);
+      throw error;
+    }
+    const name = typeof request.body?.name === 'string' && request.body.name.trim() ? request.body.name.trim().slice(0, 120) : undefined;
+    const copy = copyAsNewProject(project, name);
+    const id = await store.create(copy);
+    usage.record(store.persistentKey(id), copy.meta.name, projectUsage(copy));
+    return reply.code(201).send({ id });
   });
 
   // ---------- Vorlagen-Abgleich ----------
