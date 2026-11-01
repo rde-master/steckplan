@@ -1,6 +1,6 @@
 // Editor für eine Vorlage (Gerät, Kabeltyp, Bühnenelement, Traverse, Stativ).
 import { useState } from 'react';
-import { TEMPLATE_KIND_LABELS, type Library, type PortDef, type Template, type TemplateKind } from '@steckplan/core';
+import { formatCableLength, TEMPLATE_KIND_LABELS, type Library, type PortDef, type Template, type TemplateKind } from '@steckplan/core';
 import { api, ApiError, errorMessage } from '../../lib/api';
 import { formatDateTime } from '../../lib/format';
 import { suggestions } from '../../lib/library';
@@ -14,6 +14,12 @@ import { ColorField, MasterSelect, MeterField, NumberField, selectClass, SelectF
 const t = texts.library.fields;
 
 export type Draft = Omit<Template, 'id' | 'version' | 'updatedAt'> & Partial<Pick<Template, 'id' | 'version' | 'updatedAt'>>;
+
+/** Kopie einer Vorlage als neuer, noch nicht gespeicherter Entwurf. */
+export function copyDraft(template: Template): Draft {
+  const { id: _id, version: _version, updatedAt: _updatedAt, updatedBy: _updatedBy, ...rest } = template;
+  return { ...rest, name: `${template.name}${texts.library.copySuffix}` };
+}
 
 export function newDraft(kind: TemplateKind): Draft {
   switch (kind) {
@@ -48,6 +54,7 @@ export function TemplateEditor({
   onSaved,
   onDeleted,
   onCancel,
+  onCopy,
 }: {
   library: Library;
   draft: Draft;
@@ -55,6 +62,7 @@ export function TemplateEditor({
   onSaved: (template: Template) => void;
   onDeleted: () => void;
   onCancel: () => void;
+  onCopy?: (draft: Draft) => void;
 }) {
   const [draft, setDraft] = useState<Draft>(initial);
   const [error, setError] = useState<string | null>(null);
@@ -165,9 +173,19 @@ export function TemplateEditor({
         <Field label={t.manufacturer}>
           <TextInput value={draft.manufacturer ?? ''} onChange={(e) => set({ manufacturer: e.target.value })} disabled={disabled} />
         </Field>
-        <MasterSelect label={t.category} emptyLabel={t.noCategory} entries={library.masterData.categories} value={draft.categoryId} onChange={(categoryId) => set({ categoryId })} disabled={disabled} />
-        <MasterSelect label={t.owner} emptyLabel={t.none} entries={library.masterData.owners} value={draft.defaultOwnerId} onChange={(defaultOwnerId) => set({ defaultOwnerId })} disabled={disabled} />
-        <MasterSelect label={t.trailer} emptyLabel={t.none} entries={library.masterData.trailers} value={draft.defaultTrailerId} onChange={(defaultTrailerId) => set({ defaultTrailerId })} disabled={disabled} />
+        <MasterSelect label={t.category} emptyLabel={t.noCategory} entries={library.masterData.categories} value={draft.categoryId} onChange={(categoryId) => set({ categoryId })} disabled={disabled} createKind="categories" />
+        <MasterSelect label={t.owner} emptyLabel={t.none} entries={library.masterData.owners} value={draft.defaultOwnerId} onChange={(defaultOwnerId) => set({ defaultOwnerId })} disabled={disabled} createKind="owners" />
+        <MasterSelect label={t.trailer} emptyLabel={t.none} entries={library.masterData.trailers} value={draft.defaultTrailerId} onChange={(defaultTrailerId) => set({ defaultTrailerId })} disabled={disabled} createKind="trailers" />
+        <MasterSelect label={t.case} emptyLabel={t.none} entries={library.masterData.cases} value={draft.defaultCaseId} onChange={(defaultCaseId) => set({ defaultCaseId })} disabled={disabled} createKind="cases" />
+        {kind === 'device' && (
+          <div className="sm:col-span-2">
+            <label className="flex items-center gap-2 text-sm font-medium">
+              <input type="checkbox" checked={draft.usedByPerson ?? false} disabled={disabled} onChange={(e) => set({ usedByPerson: e.target.checked || undefined })} />
+              {t.usedByPerson}
+            </label>
+            <p className="pl-6 text-xs text-slate-500">{t.usedByPersonHint}</p>
+          </div>
+        )}
         <div className="sm:col-span-2">
           <ColorField label={t.color} value={draft.defaultColor} onChange={(defaultColor) => set({ defaultColor })} disabled={disabled} />
         </div>
@@ -204,6 +222,12 @@ export function TemplateEditor({
       {(kind === 'truss' || kind === 'stand') && (
         <div className="grid gap-3 sm:grid-cols-3">
           <NumberField label={t.maxMounted} value={draft.maxMountedDevices} onChange={(maxMountedDevices) => set({ maxMountedDevices })} disabled={disabled} />
+          {kind === 'stand' && (
+            <div className="sm:col-span-2">
+              <MeterField label={t.tBarLength} value={draft.tBarLengthMm} onChange={(tBarLengthMm) => set({ tBarLengthMm })} disabled={disabled} />
+              <p className="mt-1 text-xs text-slate-500">{t.tBarHint}</p>
+            </div>
+          )}
         </div>
       )}
 
@@ -288,6 +312,9 @@ export function TemplateEditor({
           </div>
         </fieldset>
       )}
+
+      {/* Lagerbestand */}
+      <StockFields draft={draft} disabled={disabled} onChange={set} />
 
       {/* Gerät: Anschlüsse, DMX, Leistung */}
       {kind === 'device' && (
@@ -457,6 +484,11 @@ export function TemplateEditor({
             {texts.common.save}
           </Button>
           <Button onClick={onCancel}>{texts.common.cancel}</Button>
+          {!isNew && current && onCopy && (
+            <Button variant="ghost" onClick={() => onCopy(copyDraft(current))}>
+              ⧉ {texts.library.copy}
+            </Button>
+          )}
           <div className="flex-1" />
           {!isNew &&
             (confirmDelete ? (
@@ -475,5 +507,38 @@ export function TemplateEditor({
         </div>
       )}
     </form>
+  );
+}
+
+/** Lagerbestand: Stückzahl, bei Kabeltypen mit festen Längen je Länge. */
+function StockFields({ draft, disabled, onChange }: { draft: Draft; disabled: boolean; onChange: (patch: Partial<Draft>) => void }) {
+  const lengths = draft.kind === 'cableType' ? (draft.availableLengthsMm ?? []) : [];
+  if (lengths.length === 0) {
+    return (
+      <div className="grid gap-3 sm:grid-cols-3">
+        <div>
+          <NumberField label={t.stock} value={draft.stock} onChange={(stock) => onChange({ stock, stockByLength: undefined })} disabled={disabled} />
+          <p className="mt-1 text-xs text-slate-500">{t.stockHint}</p>
+        </div>
+      </div>
+    );
+  }
+  const byLength = new Map((draft.stockByLength ?? []).map((s) => [s.lengthMm, s.count]));
+  const setCount = (lengthMm: number, count: number | undefined) => {
+    const next = lengths
+      .map((l) => ({ lengthMm: l, count: l === lengthMm ? count : byLength.get(l) }))
+      .filter((s): s is { lengthMm: number; count: number } => s.count !== undefined);
+    onChange({ stockByLength: next.length ? next : undefined, stock: undefined });
+  };
+  return (
+    <fieldset className="space-y-2 rounded-md border border-slate-200 p-3 dark:border-slate-700" data-testid="stock-by-length">
+      <legend className="px-1 text-sm font-medium">{t.stockByLength}</legend>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {lengths.map((l) => (
+          <NumberField key={l} label={formatCableLength(l)} value={byLength.get(l)} onChange={(count) => setCount(l, count)} disabled={disabled} />
+        ))}
+      </div>
+      <p className="text-xs text-slate-500">{t.stockByLengthHint}</p>
+    </fieldset>
   );
 }

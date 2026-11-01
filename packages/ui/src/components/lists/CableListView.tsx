@@ -14,7 +14,7 @@ export function CableListView({ data, library }: { data: ProjectData; library: L
     if (!library) return [];
     const templates = new Map(library.templates.map((t) => [t.id, t]));
     const settings = { gridMm: 500, snap: true, defaultReservePercent: 10, defaultReservePerEndMm: 500, ...data.settings };
-    return buildCableList({ devices: data.devices, cables: data.cables, settings }, library).filter((row) => {
+    return buildCableList({ devices: data.devices, cables: data.cables, settings, caseTrailers: data.caseTrailers }, library).filter((row) => {
       const cable = data.cables.find((x) => x.id === row.id);
       if (cable) return cableMatches(filter, cable, templates.get(cable.templateId ?? ''));
       const device = data.devices.find((d) => d.id === row.id);
@@ -76,6 +76,7 @@ export function CableListView({ data, library }: { data: ProjectData; library: L
                   </td>
                   <td className="px-2 py-1">{masterName(library, 'owners', r.ownerId)}</td>
                   <td className="px-2 py-1">{masterName(library, 'trailers', r.trailerId)}</td>
+                  <td className="px-2 py-1">{masterName(library, 'cases', r.caseId)}</td>
                   <td className="px-2 py-1">{r.inventoryNo}</td>
                 </tr>
               );

@@ -1,7 +1,10 @@
 // Export: aus Projektdaten PDF-Definitionen bzw. CSV erzeugen (dieselben Listen wie auf dem Bildschirm).
 import {
+  boundsOf,
   buildBom,
   buildCableList,
+  buildDeviceLabels,
+  buildPeopleList,
   buildDeviceList,
   buildDmxPatch,
   buildNetworkList,
@@ -25,10 +28,12 @@ import {
 } from '@steckplan/core';
 import type { ColorMode } from '../lib/editor';
 import type { ProjectData } from '../lib/useProjectData';
-import { buildBoxes, buildCableLines } from '../components/signalflow/model';
-import { buildMulticoreRoutes, buildStageCables, buildStageItems } from '../components/stageplan/model';
+import { buildBoxes, buildCableLines, buildGroupFrames } from '../components/signalflow/model';
+import { buildMulticoreRoutes, buildStageCables, buildStageGroupFrames, buildStageItems } from '../components/stageplan/model';
 import {
   drawableArea,
+  LABEL_FORMATS,
+  labelsDoc,
   packingListDoc,
   planDoc,
   PT_PER_MM,
@@ -44,9 +49,9 @@ import {
 } from './documents';
 import { signalFlowBounds, signalFlowSvg, stageBounds, stagePlanSvg, usedCategories, type StageDrawing } from './svg';
 
-export type ExportKind = 'stageplan' | 'signalflow' | 'packing' | 'cables' | 'bom' | 'dmx' | 'devices' | 'network' | 'wifi';
+export type ExportKind = 'stageplan' | 'signalflow' | 'packing' | 'cables' | 'bom' | 'dmx' | 'devices' | 'network' | 'people' | 'labels' | 'wifi';
 
-export const CSV_KINDS: ExportKind[] = ['packing', 'cables', 'bom', 'dmx', 'devices', 'network'];
+export const CSV_KINDS: ExportKind[] = ['packing', 'cables', 'bom', 'dmx', 'devices', 'network', 'people'];
 
 export const EXPORT_TITLES: Record<ExportKind, string> = {
   stageplan: 'Bühnenplan',
@@ -57,6 +62,8 @@ export const EXPORT_TITLES: Record<ExportKind, string> = {
   dmx: 'DMX-Patch',
   devices: 'Geräteliste',
   network: 'Netzwerkliste',
+  people: 'Personenliste',
+  labels: 'Geräte-Etiketten',
   wifi: 'WLAN-Aushang',
 };
 
@@ -74,6 +81,11 @@ export interface ExportOptions {
   showChecks: boolean;
   wifiIds: string[];
   printPassword: boolean;
+  /** Etiketten: Bogenformat und Schnittlinien (für Normalpapier) */
+  labelFormat: string;
+  cutLines: boolean;
+  /** Bühnenplan: Gruppenrahmen einzeichnen */
+  showGroups: boolean;
 }
 
 export const DEFAULT_OPTIONS: ExportOptions = {
@@ -89,6 +101,9 @@ export const DEFAULT_OPTIONS: ExportOptions = {
   showChecks: false,
   wifiIds: [],
   printPassword: true,
+  labelFormat: LABEL_FORMATS[0]!.id,
+  cutLines: false,
+  showGroups: true,
 };
 
 export interface ExportInput {
@@ -112,7 +127,15 @@ function settings(data: ProjectData) {
 }
 
 function projectLike(data: ProjectData) {
-  return { devices: data.devices, cables: data.cables, settings: settings(data), network: data.network };
+  return {
+    devices: data.devices,
+    cables: data.cables,
+    settings: settings(data),
+    network: data.network,
+    people: data.people,
+    groups: data.groups,
+    caseTrailers: data.caseTrailers,
+  };
 }
 
 /** Exemplare der Packliste, gefiltert wie auf dem Bildschirm. */
@@ -120,20 +143,21 @@ export function filteredPackItems(data: ProjectData, library: Library, filter: F
   const templates = new Map(library.templates.map((t) => [t.id, t]));
   const devices = new Map(data.devices.map((d) => [d.id, d]));
   const cables = new Map(data.cables.map((c) => [c.id, c]));
+  const ctx = { caseTrailers: data.caseTrailers, cases: library.masterData.cases };
   return packItems(projectLike(data), library).filter((item) => {
     const d = devices.get(item.id);
-    if (d) return deviceMatches(filter, d, templates.get(d.templateId));
+    if (d) return deviceMatches(filter, d, templates.get(d.templateId), ctx);
     const c = cables.get(item.id);
-    return c ? cableMatches(filter, c, templates.get(c.templateId ?? '')) : true;
+    return c ? cableMatches(filter, c, templates.get(c.templateId ?? ''), ctx) : true;
   });
 }
 
 function visibleDevices(data: ProjectData, library: Library, filter: Filter) {
   const templates = new Map(library.templates.map((t) => [t.id, t]));
-  return data.devices.filter((d) => deviceMatches(filter, d, templates.get(d.templateId)));
+  return data.devices.filter((d) => deviceMatches(filter, d, templates.get(d.templateId), { caseTrailers: data.caseTrailers, cases: library.masterData.cases }));
 }
 
-const GROUP_TITLE: Record<GroupBy, string> = { category: 'Kategorie', trailer: 'Anhänger', owner: 'Besitzer' };
+const GROUP_TITLE: Record<GroupBy, string> = { category: 'Kategorie', trailer: 'Anhänger', owner: 'Besitzer', case: 'Case' };
 
 export async function buildExportDoc(opts: ExportOptions, input: ExportInput): Promise<DocDefinition> {
   const { data, library, filter } = input;
@@ -147,7 +171,7 @@ export async function buildExportDoc(opts: ExportOptions, input: ExportInput): P
     ...(isFilterActive(filter) ? { filterNote: 'Filter aktiv' } : {}),
   };
   const templates = new Map(library.templates.map((t) => [t.id, t]));
-  const name = (kind: 'categories' | 'owners' | 'trailers') => (id?: string) => masterLabel(library, kind, id);
+  const name = (kind: 'categories' | 'owners' | 'trailers' | 'cases') => (id?: string) => masterLabel(library, kind, id);
 
   switch (opts.kind) {
     case 'packing': {
@@ -157,7 +181,7 @@ export async function buildExportDoc(opts: ExportOptions, input: ExportInput): P
         {
           mode: opts.mode,
           showChecks: opts.showChecks,
-          names: { category: name('categories'), owner: name('owners'), trailer: name('trailers') },
+          names: { category: name('categories'), owner: name('owners'), trailer: name('trailers'), case: name('cases') },
           groupTitle: `gruppiert nach ${GROUP_TITLE[opts.groupBy]}${opts.thenBy ? `, dann ${GROUP_TITLE[opts.thenBy]}` : ''}`,
         },
         ctx,
@@ -174,7 +198,7 @@ export async function buildExportDoc(opts: ExportOptions, input: ExportInput): P
       }
       return tableDoc(
         'Kabelliste',
-        ['Kabeltyp', 'Kennung', 'Von', 'Nach', 'Plan', 'Höhe', 'Benötigt', 'Gewählt', 'Besitzer', 'Anhänger', 'Inv.-Nr.'],
+        ['Kabeltyp', 'Kennung', 'Von', 'Nach', 'Plan', 'Höhe', 'Benötigt', 'Gewählt', 'Besitzer', 'Anhänger', 'Case', 'Inv.-Nr.'],
         rows.map((r) => [
           r.typeName,
           r.label,
@@ -186,10 +210,11 @@ export async function buildExportDoc(opts: ExportOptions, input: ExportInput): P
           r.length.status === 'open' ? 'offen' : r.length.chosenMm === null ? 'Verlängerung!' : formatCableLength(r.length.chosenMm),
           masterLabel(library, 'owners', r.ownerId),
           masterLabel(library, 'trailers', r.trailerId),
+          masterLabel(library, 'cases', r.caseId),
           r.inventoryNo ?? '',
         ]),
         ctx,
-        { widths: [62, 40, '*', '*', 38, 34, 42, 46, 50, 50, 42], summary: [...summary].map(([k, v]) => `${v} × ${k}`) },
+        { widths: [58, 38, '*', '*', 34, 32, 40, 44, 46, 46, 46, 40], summary: [...summary].map(([k, v]) => `${v} × ${k}`) },
       );
     }
     case 'bom': {
@@ -213,11 +238,33 @@ export async function buildExportDoc(opts: ExportOptions, input: ExportInput): P
       const rows = buildDeviceList(projectLike(data), library).filter((r) => ids.has(r.id));
       return tableDoc(
         'Geräteliste',
-        ['Kennung', 'Vorlage', 'Art', 'Kategorie', 'Besitzer', 'Anhänger', 'Inv.-Nr.', 'Stativ/Podest', 'Höhe', 'DMX', 'IP'],
-        rows.map((r) => [r.label, r.template, r.kind, r.category, r.owner, r.trailer, r.inventoryNo, r.carrier, r.height, r.dmx, r.ip]),
+        ['Kennung', 'Vorlage', 'Art', 'Kategorie', 'Besitzer', 'Anhänger', 'Case', 'Person', 'Inv.-Nr.', 'Stativ/Podest', 'Höhe', 'DMX', 'IP'],
+        rows.map((r) => [r.label, r.template, r.kind, r.category, r.owner, r.trailer, r.case, r.person, r.inventoryNo, r.carrier, r.height, r.dmx, r.ip]),
         ctx,
-        { widths: ['*', '*', 50, 52, 52, 52, 42, 60, 36, 58, 60] },
+        { widths: ['*', '*', 42, 46, 46, 46, 46, 56, 38, 54, 32, 52, 54] },
       );
+    }
+    case 'people': {
+      const ids = new Set(visibleDevices(data, library, filter).map((d) => d.id));
+      const rows: string[][] = [];
+      for (const entry of buildPeopleList(projectLike(data), library)) {
+        const devices = entry.devices.filter((d) => ids.has(d.device.id));
+        devices.forEach((d, i) => {
+          const person = i === 0 ? (entry.person ? `${entry.person.lastName}, ${entry.person.firstName}`.replace(/^, |, $/g, '') : '(nicht zugeordnet)') : '';
+          const kind = i === 0 ? (entry.person?.kind ?? '') : '';
+          const connections = d.connections.map((c) => `${c.port} → ${c.target} (${c.cable}${c.cableLabel ? `, ${c.cableLabel}` : ''})`).join('\n');
+          rows.push([person, kind, d.device.label, d.templateName, connections || '–']);
+        });
+      }
+      return tableDoc('Personenliste', ['Person', 'Art', 'Gerät', 'Vorlage', 'Einstecken'], rows, ctx, {
+        widths: [90, 60, 70, 80, '*'],
+        subtitle: `${data.people.length} Personen · Geräte „benutzt von Mensch“ mit Verbindungen`,
+      });
+    }
+    case 'labels': {
+      const ids = visibleDevices(data, library, filter).map((d) => d.id);
+      const format = LABEL_FORMATS.find((f) => f.id === opts.labelFormat) ?? LABEL_FORMATS[0]!;
+      return labelsDoc(buildDeviceLabels(projectLike(data), library, ids), format, ctx, { cutLines: opts.cutLines });
     }
     case 'network': {
       const rows = buildNetworkList({ devices: visibleDevices(data, library, filter), network: data.network }, templates);
@@ -240,8 +287,10 @@ export async function buildExportDoc(opts: ExportOptions, input: ExportInput): P
     }
     case 'stageplan': {
       const visibleLayers = new Set(data.layers.filter((l) => l.visible).map((l) => l.id));
+      const stageItems = buildStageItems(data.devices, library, data.layers, { colorMode: input.colorMode, filter, people: data.people });
       const drawing: StageDrawing = {
-        items: buildStageItems(data.devices, library, data.layers, { colorMode: input.colorMode, filter }),
+        items: stageItems,
+        ...(opts.showGroups ? { groupFrames: buildStageGroupFrames(data.groups, stageItems) } : {}),
         shapes: data.shapes.filter((s) => visibleLayers.has(s.layerId) || !data.layers.some((l) => l.id === s.layerId)),
         cables: buildStageCables(data.cables, data.devices, library, data.layers, filter, input.issues),
         multicores: buildMulticoreRoutes(data.devices, library, data.layers, filter),
@@ -274,14 +323,16 @@ export async function buildExportDoc(opts: ExportOptions, input: ExportInput): P
       );
     }
     case 'signalflow': {
-      const boxes = buildBoxes(data.devices, library, false, { colorMode: input.colorMode, filter });
+      const boxes = buildBoxes(data.devices, library, false, { colorMode: input.colorMode, filter, people: data.people });
+      const frames = buildGroupFrames(data.groups, boxes);
       const lines = buildCableLines(data.cables, boxes, library, input.issues, filter);
-      const bounds = signalFlowBounds(boxes) ?? { x: 0, y: 0, width: 800, height: 500 };
+      const boxBounds = signalFlowBounds(boxes);
+      const bounds = boxBounds && frames.length ? boundsOf([boxBounds, ...frames], 0)! : (boxBounds ?? { x: 0, y: 0, width: 800, height: 500 });
       const area = drawableArea(ctx);
       const worldPerPt = Math.max(bounds.width / area.width, bounds.height / area.height, 0.5);
       const view = { x: bounds.x - (area.width * worldPerPt - bounds.width) / 2, y: bounds.y - (area.height * worldPerPt - bounds.height) / 2, width: area.width * worldPerPt, height: area.height * worldPerPt };
       return planDoc(
-        [{ svg: signalFlowSvg(boxes, lines, view, area.width, area.height), label: '1 von 1' }],
+        [{ svg: signalFlowSvg(boxes, lines, view, area.width, area.height, frames), label: '1 von 1' }],
         {
           title: 'Signalfluss',
           scaleText: 'ohne Maßstab',
@@ -315,6 +366,8 @@ export function buildCsv(kind: ExportKind, data: ProjectData, library: Library, 
     case 'devices':
     case 'network':
       return listCsv(kind, { ...all, devices }, library);
+    case 'people':
+      return listCsv('people', all, library);
     default:
       return '';
   }

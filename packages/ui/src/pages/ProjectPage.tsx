@@ -19,6 +19,8 @@ import { StagePlanView } from '../components/stageplan/StagePlanView';
 import { ListsView } from '../components/lists/ListsView';
 import { NetworkView } from '../components/network/NetworkView';
 import { ExportDialog } from '../components/ExportDialog';
+import { CasesPanel } from '../components/project/CasesPanel';
+import { PeoplePanel } from '../components/project/PeoplePanel';
 import { WebAccessDialog } from '../components/WebAccessDialog';
 import { useIssues } from '../lib/useIssues';
 import { MeterField } from '../components/library/fields';
@@ -204,6 +206,8 @@ export function ProjectPage({ id }: { id: string }) {
       ) : (
         <main className="mx-auto w-full max-w-3xl flex-1 space-y-4 overflow-y-auto p-4">
           <MetaForm doc={project.doc} meta={meta} editable={editable} />
+          <PeoplePanel doc={project.doc} origin={undo.origin} data={data} library={library} editable={editable} />
+          <CasesPanel doc={project.doc} origin={undo.origin} data={data} library={library} editable={editable} />
           <SettingsForm doc={project.doc} settings={data.settings} editable={editable} />
           {session && can(session.access, 'manageProjects') && <CopyProject projectId={id} name={meta.name ?? ''} />}
         </main>

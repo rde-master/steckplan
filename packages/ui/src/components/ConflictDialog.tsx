@@ -25,6 +25,11 @@ const FIELD_LABELS: Record<string, string> = {
   defaultColor: f.color,
   defaultOwnerId: f.owner,
   defaultTrailerId: f.trailer,
+  defaultCaseId: f.case,
+  usedByPerson: f.usedByPerson,
+  stock: f.stock,
+  stockByLength: f.stockByLength,
+  tBarLengthMm: f.tBarLength,
   shape: `${f.form} / Maße`,
   ports: f.ports,
   dmxModes: f.dmxModes,
@@ -53,6 +58,8 @@ function display(field: string, value: unknown, library: Library | null): string
       return masterName(library, 'owners', value as string);
     case 'defaultTrailerId':
       return masterName(library, 'trailers', value as string);
+    case 'defaultCaseId':
+      return masterName(library, 'cases', value as string);
     case 'shape': {
       const s = value as NonNullable<Template['shape']>;
       return `${f.forms[s.form]} ${formatMeters(s.widthMm)} × ${formatMeters(s.depthMm)}${s.heightMm ? ` × ${formatMeters(s.heightMm)}` : ''} m`;

@@ -84,7 +84,7 @@ describe('Listen', () => {
   const library: Library = {
     ...createEmptyLibrary('l'),
     templates,
-    masterData: { categories: [{ id: 'licht', name: 'Licht', color: '#f59e0b' }], owners: [{ id: 'ralf', name: 'Ralf' }], trailers: [{ id: 'a1', name: 'Anhänger 1' }] },
+    masterData: { categories: [{ id: 'licht', name: 'Licht', color: '#f59e0b' }], owners: [{ id: 'ralf', name: 'Ralf' }], trailers: [{ id: 'a1', name: 'Anhänger 1' }], cases: [] },
   };
   const base = createEmptyProject({ name: 'P' });
   const project: Pick<Project, 'devices' | 'cables' | 'settings'> = {

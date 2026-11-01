@@ -1,9 +1,11 @@
 // Eingabefelder für die Vorlagen-Editoren.
 import { useId, useState } from 'react';
-import type { MasterEntry } from '@steckplan/core';
+import { MASTER_KIND_LABELS, type MasterEntry, type MasterKind } from '@steckplan/core';
+import { api, errorMessage } from '../../lib/api';
+import { useLibrary } from '../../lib/library';
 import { formatMeters, parseMeters } from '../../lib/units';
 import { texts } from '../../texts';
-import { Field, TextInput } from '../ui';
+import { Button, Field, TextInput } from '../ui';
 
 const selectClass =
   'w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/30 disabled:bg-slate-100 sm:text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100';
@@ -107,7 +109,12 @@ export function SelectField<T extends string>({
   );
 }
 
-/** Auswahl aus Stammdaten; archivierte Einträge nur, wenn sie bereits gesetzt sind. */
+const NEW_ENTRY = '__neu';
+
+/**
+ * Auswahl aus Stammdaten; archivierte Einträge nur, wenn sie bereits gesetzt sind.
+ * Mit `createKind` lässt sich direkt ein neuer Eintrag anlegen („+ Neu anlegen …“).
+ */
 export function MasterSelect({
   label,
   emptyLabel,
@@ -115,6 +122,7 @@ export function MasterSelect({
   value,
   onChange,
   disabled,
+  createKind,
 }: {
   label: string;
   emptyLabel: string;
@@ -122,22 +130,81 @@ export function MasterSelect({
   value: string | undefined;
   onChange: (id: string | undefined) => void;
   disabled?: boolean;
+  createKind?: MasterKind;
 }) {
-  const options = entries.filter((e) => !e.archived || e.id === value);
+  const [creating, setCreating] = useState(false);
+  const [name, setName] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [created, setCreated] = useState<MasterEntry | null>(null);
+  const all = created && !entries.some((e) => e.id === created.id) ? [...entries, created] : entries;
+  const options = all.filter((e) => !e.archived || e.id === value);
   const known = !value || options.some((e) => e.id === value);
+
+  async function create() {
+    if (!createKind || !name.trim()) return;
+    setError(null);
+    try {
+      const entry = await api.createMaster(createKind, { name: name.trim() });
+      setCreated(entry);
+      onChange(entry.id);
+      setCreating(false);
+      setName('');
+      void useLibrary.getState().load();
+    } catch (err) {
+      setError(errorMessage(err));
+    }
+  }
+
   return (
-    <Field label={label}>
-      <select className={selectClass} value={value ?? ''} disabled={disabled} onChange={(e) => onChange(e.target.value || undefined)}>
-        <option value="">{emptyLabel}</option>
-        {options.map((e) => (
-          <option key={e.id} value={e.id}>
-            {e.name}
-            {e.archived ? ` (${texts.library.master.archived})` : ''}
-          </option>
-        ))}
-        {!known && <option value={value}>(unbekannt)</option>}
-      </select>
-    </Field>
+    <div>
+      <Field label={label}>
+        <select
+          className={selectClass}
+          value={value ?? ''}
+          disabled={disabled}
+          onChange={(e) => {
+            if (e.target.value === NEW_ENTRY) setCreating(true);
+            else onChange(e.target.value || undefined);
+          }}
+        >
+          <option value="">{emptyLabel}</option>
+          {options.map((e) => (
+            <option key={e.id} value={e.id}>
+              {e.name}
+              {e.archived ? ` (${texts.library.master.archived})` : ''}
+            </option>
+          ))}
+          {!known && <option value={value}>(unbekannt)</option>}
+          {createKind && <option value={NEW_ENTRY}>{texts.library.master.createInline(MASTER_KIND_LABELS[createKind].singular)}</option>}
+        </select>
+      </Field>
+      {creating && createKind && (
+        <div className="mt-1 flex gap-1">
+          <TextInput
+            aria-label={texts.library.master.newName(MASTER_KIND_LABELS[createKind].singular)}
+            placeholder={texts.library.master.newName(MASTER_KIND_LABELS[createKind].singular)}
+            value={name}
+            autoFocus
+            maxLength={120}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                void create();
+              }
+              if (e.key === 'Escape') setCreating(false);
+            }}
+          />
+          <Button variant="primary" disabled={!name.trim()} onClick={() => void create()}>
+            {texts.library.master.create}
+          </Button>
+          <Button variant="ghost" onClick={() => setCreating(false)} aria-label={texts.common.cancel}>
+            ✕
+          </Button>
+        </div>
+      )}
+      {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
+    </div>
   );
 }
 

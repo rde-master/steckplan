@@ -11,6 +11,8 @@ export const migrations: MigrationRegistry = {
   1: (p) => ({ ...p, schemaVersion: 2 }),
   // 2 → 3: Kabeltypen können Multicore sein (channels, endALabel, endBLabel) – vorhandene Daten bleiben unverändert.
   2: (p) => ({ ...p, schemaVersion: 3 }),
+  // 3 → 4: Personen, Gruppen, Cases, Lagerbestand, T-Bar – alles optional bzw. leere Listen; vorhandene Daten bleiben unverändert.
+  3: (p) => ({ ...p, schemaVersion: 4 }),
 };
 
 export class ProjectFormatError extends Error {

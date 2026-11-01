@@ -43,8 +43,8 @@ test('Bibliothek: Stammdaten und Gerätevorlage anlegen, live bei anderen, Lese-
   await expect(page.getByText('Gespeichert.')).toBeVisible();
 
   // Live beim Lese-Client, ohne Neuladen
-  await expect(anna.getByRole('button', { name: /Spot 575/ })).toBeVisible();
-  await anna.getByRole('button', { name: /Spot 575/ }).click();
+  await expect(anna.getByRole('button', { name: /^Spot 575/ })).toBeVisible();
+  await anna.getByRole('button', { name: /^Spot 575/ }).click();
   await expect(anna.getByLabel('Name', { exact: true })).toHaveValue('Spot 575');
   await expect(anna.getByLabel('Name', { exact: true })).toBeDisabled();
   await expect(anna.getByLabel('Breite (m)')).toHaveValue('0,45');
@@ -121,7 +121,7 @@ test('Gleichzeitiges Ändern: „inzwischen geändert“, trotzdem überschreibe
   await loginAs(tom, 'edit', 'Tom');
   for (const p of [page, tom]) {
     await openLibrary(p);
-    await p.getByRole('button', { name: /Spot 575/ }).click();
+    await p.getByRole('button', { name: /^Spot 575/ }).click();
   }
   await page.getByLabel('Name', { exact: true }).fill('Spot 575 (Ralf)');
   await page.getByRole('button', { name: 'Speichern' }).click();
@@ -133,7 +133,7 @@ test('Gleichzeitiges Ändern: „inzwischen geändert“, trotzdem überschreibe
   await expect(tom.getByText('Diese Vorlage wurde inzwischen von Ralf geändert.')).toBeVisible();
   await tom.getByRole('button', { name: 'Trotzdem überschreiben' }).click();
   await expect(tom.getByText('Gespeichert.')).toBeVisible();
-  await expect(page.getByRole('button', { name: /Spot 575/ })).toContainText('Tom Licht');
+  await expect(page.getByRole('button', { name: /^Spot 575/ })).toContainText('Tom Licht');
 });
 
 test('Import mit Konfliktabfrage: als Kopie anlegen', async ({ page }) => {
@@ -155,8 +155,8 @@ test('Import mit Konfliktabfrage: als Kopie anlegen', async ({ page }) => {
   await dialog.getByRole('button', { name: 'Als Kopie anlegen' }).first().click();
   await dialog.getByRole('button', { name: 'Übernehmen', exact: true }).click();
   await expect(page.getByText(/Import abgeschlossen: 1 neu, 0 übernommen, 1 als Kopie/)).toBeVisible();
-  await expect(page.getByRole('button', { name: /Spot vom Verein \(Kopie\)/ })).toBeVisible();
-  await expect(page.getByRole('button', { name: /Wash 300/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /^Spot vom Verein \(Kopie\)/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /^Wash 300/ })).toBeVisible();
 });
 
 test('Projekt aus fremder Bibliothek: Abgleich beim Öffnen', async ({ page, browser }) => {
@@ -226,7 +226,7 @@ test('Multicore-Kabeltyp: 8 Sends und 8 Returns mit XLR an beiden Enden', async 
   await page.getByLabel('Verfügbare Längen (m)').fill('30');
   await page.getByRole('button', { name: 'Speichern' }).click();
   await expect(page.getByText('Gespeichert.')).toBeVisible();
-  await expect(page.getByRole('button', { name: /Multicore 8\/8 30 m/ })).toContainText('Multicore, 16 Adern');
+  await expect(page.getByRole('button', { name: /^Multicore 8\/8 30 m/ })).toContainText('Multicore, 16 Adern');
 
   const library = await (await page.request.get('/api/library')).json();
   const mc = library.templates.find((t: { name: string }) => t.name === 'Multicore 8/8 30 m');

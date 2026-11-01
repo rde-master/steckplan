@@ -24,6 +24,19 @@ export interface CanvasProps {
   onDropTemplate: (templateId: string, at: { x: number; y: number }) => void;
   onInvalidConnection: (message: string) => void;
   showDmx?: boolean;
+  /** Gruppenrahmen (automatisch aus den Mitgliedern berechnet) */
+  groups?: GroupFrame[];
+}
+
+export interface GroupFrame {
+  id: string;
+  name: string;
+  color: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  deviceIds: string[];
 }
 
 const GRID = 10;
@@ -37,7 +50,7 @@ declare global {
   }
 }
 
-export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onConnect, onDropTemplate, onInvalidConnection, showDmx = false }: CanvasProps) {
+export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onConnect, onDropTemplate, onInvalidConnection, showDmx = false, groups = [] }: CanvasProps) {
   const container = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
   const [size, setSize] = useState({ width: 800, height: 600 });
@@ -239,6 +252,27 @@ export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onC
     }
   }
 
+  // ---------- Gruppenrahmen ziehen: alle Mitglieder mit ----------
+
+  const groupDrag = useRef<{ x: number; y: number; members: { id: string; x: number; y: number }[] } | null>(null);
+  function handleGroupDrag(frame: GroupFrame, node: Konva.Node, phase: 'start' | 'move' | 'end') {
+    if (phase === 'start') {
+      groupDrag.current = { x: node.x(), y: node.y(), members: frame.deviceIds.map((id) => ({ id, x: boxById.get(id)?.x ?? 0, y: boxById.get(id)?.y ?? 0 })) };
+      select({ devices: frame.deviceIds });
+      return;
+    }
+    const start = groupDrag.current;
+    if (!start) return;
+    const final = phase === 'end';
+    const dx = node.x() - start.x;
+    const dy = node.y() - start.y;
+    onMove(start.members.map((m) => ({ id: m.id, x: final ? snap(m.x + dx) : m.x + dx, y: final ? snap(m.y + dy) : m.y + dy })), final);
+    if (final) {
+      node.position({ x: start.x, y: start.y });
+      groupDrag.current = null;
+    }
+  }
+
   const area = bounds(boxes);
 
   return (
@@ -293,6 +327,42 @@ export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onC
         }}
       >
         <Layer>
+          {/* Gruppenrahmen (unter Kabeln und Kästen) */}
+          {groups.map((frame) => (
+            <Group
+              key={frame.id}
+              name="group-frame"
+              id={`group-${frame.id}`}
+              x={frame.x}
+              y={frame.y}
+              draggable={editable && !connecting}
+              onDragStart={(e) => {
+                e.cancelBubble = true;
+                handleGroupDrag(frame, e.target, 'start');
+              }}
+              onDragMove={(e) => {
+                e.cancelBubble = true;
+                handleGroupDrag(frame, e.target, 'move');
+              }}
+              onDragEnd={(e) => {
+                e.cancelBubble = true;
+                handleGroupDrag(frame, e.target, 'end');
+              }}
+              onClick={(e) => {
+                e.cancelBubble = true;
+                select({ devices: frame.deviceIds });
+              }}
+              onTap={(e) => {
+                e.cancelBubble = true;
+                select({ devices: frame.deviceIds });
+              }}
+            >
+              <Rect width={frame.width} height={frame.height} fill={frame.color} opacity={0.1} cornerRadius={10} />
+              <Rect width={frame.width} height={frame.height} stroke={frame.color} strokeWidth={1.5} dash={[8, 4]} cornerRadius={10} listening={false} />
+              <Text text={frame.name} x={10} y={6} fontSize={12} fontStyle="bold" fill={frame.color} listening={false} />
+            </Group>
+          ))}
+
           {/* Kabel */}
           {lines.map((line) => {
             const selected = selectedCables.has(line.cable.id);
@@ -377,6 +447,7 @@ export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onC
                 <Text text={box.device.label} x={8} y={8} width={width - 16 - (showDmx && box.dmxLabel ? 44 : 0)} fontStyle="bold" fontSize={13} fill={box.text} ellipsis wrap="none" />
                 {showDmx && box.dmxLabel && <Text name="dmx-label" text={box.dmxLabel} x={width - 52} y={9} width={44} align="right" fontSize={11} fontFamily="monospace" fill={box.text} />}
                 {!box.template && <Text text="Vorlage fehlt" x={8} y={30} fontSize={11} fill="#dc2626" />}
+                {box.person && <Text name="person-label" text={`👤 ${box.person}`} x={8} y={27} width={width - 16} fontSize={11} fill={box.text} opacity={0.9} ellipsis wrap="none" />}
                 {box.unplaced && <Text name="unplaced-marker" text="⌖ nicht im Bühnenplan" x={0} y={height + 4} fontSize={10} fill="#b45309" fontStyle="italic" listening={false} />}
                 {ends && (
                   <>

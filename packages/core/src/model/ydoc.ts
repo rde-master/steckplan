@@ -16,6 +16,9 @@ export const Y_COLLECTIONS = {
   shapes: ['shapes'],
   devices: ['devices'],
   cables: ['cables'],
+  people: ['people'],
+  groups: ['groups'],
+  caseTrailers: ['caseTrailers'],
   subnets: ['network', 'subnets'],
   wifi: ['network', 'wifi'],
 } as const satisfies Record<string, CollectionPath>;
@@ -115,7 +118,7 @@ export function readProjectFromYDoc(
   raw.secrets = extra.secrets ?? { wifiPasswords: [] };
   raw.changeLog = extra.changeLog ?? [];
   raw.templateSnapshot = extra.templateSnapshot ?? [];
-  raw.masterDataSnapshot = extra.masterDataSnapshot ?? { categories: [], owners: [], trailers: [] };
+  raw.masterDataSnapshot = extra.masterDataSnapshot ?? { categories: [], owners: [], trailers: [], cases: [] };
   const parsed = ProjectSchema.safeParse(raw);
   if (!parsed.success) {
     const issue = parsed.error.issues[0];

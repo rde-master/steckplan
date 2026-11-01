@@ -37,7 +37,7 @@ describe('Migrationen', () => {
       templateSnapshot: [{ id: 't1', kind: 'device', version: 3, updatedAt: '2026-01-01T00:00:00Z', name: 'Spot' }],
     };
     const project = parseProject(v1);
-    expect(project.schemaVersion).toBe(3);
+    expect(project.schemaVersion).toBe(4);
     expect(project.meta.name).toBe('Alt');
     expect(project.templateSnapshot[0]).toMatchObject({ id: 't1', version: 3, name: 'Spot' });
   });
@@ -48,7 +48,7 @@ describe('Migrationen', () => {
       id: 'p',
       templateSnapshot: [{ id: 'mc', kind: 'cableType', version: 1, updatedAt: 'x', name: 'Multicore 8/8' }],
     });
-    expect(project.schemaVersion).toBe(3);
+    expect(project.schemaVersion).toBe(4);
     const withChannels = parseProject({
       ...project,
       templateSnapshot: [
@@ -62,6 +62,35 @@ describe('Migrationen', () => {
     });
     expect(withChannels.templateSnapshot[0]!.channels![0]!.direction).toBe('aToB');
     expect(() => parseProject({ ...withChannels, templateSnapshot: [{ ...withChannels.templateSnapshot[0], channels: [{ id: 'c', label: 'x', connectorA: '', connectorB: '', direction: 'quer', signal: '' }] }] })).toThrow();
+  });
+
+  it('Format 4: Personen, Gruppen, Cases, Lager und T-Bar (Format 3 bleibt unverändert)', () => {
+    const v3 = {
+      schemaVersion: 3,
+      id: 'p',
+      devices: [{ id: 'd', templateId: 't', layerId: 'l', label: 'Mikro 1', ownerId: 'o' }],
+      masterDataSnapshot: { categories: [], owners: [{ id: 'o', name: 'Ralf' }], trailers: [] },
+    };
+    const project = parseProject(v3);
+    expect(project.schemaVersion).toBe(4);
+    expect(project.people).toEqual([]);
+    expect(project.groups).toEqual([]);
+    expect(project.caseTrailers).toEqual([]);
+    expect(project.masterDataSnapshot.cases).toEqual([]);
+    expect(project.devices[0]).toMatchObject({ label: 'Mikro 1', ownerId: 'o' });
+
+    const v4 = parseProject({
+      ...project,
+      people: [{ id: 'anna', lastName: 'Muster', firstName: 'Anna', kind: 'Sängerin' }],
+      groups: [{ id: 'g', name: 'Drums', color: '#f00' }],
+      caseTrailers: [{ id: 'c1', trailerId: 'a2' }],
+      devices: [{ ...project.devices[0], usedByPerson: true, personId: 'anna', groupId: 'g', caseId: 'c1', mountSide: 'top' }],
+      templateSnapshot: [{ id: 't', kind: 'cableType', version: 1, updatedAt: 'x', name: 'XLR', stockByLength: [{ lengthMm: 5000, count: 20 }] }],
+      masterDataSnapshot: { ...project.masterDataSnapshot, cases: [{ id: 'c1', name: 'Kabelcase 1', defaultTrailerId: 'a1' }] },
+    });
+    expect(v4.devices[0]).toMatchObject({ personId: 'anna', caseId: 'c1', mountSide: 'top' });
+    expect(v4.templateSnapshot[0]!.stockByLength).toEqual([{ lengthMm: 5000, count: 20 }]);
+    expect(() => parseProject({ ...v4, devices: [{ ...v4.devices[0], mountSide: 'seitlich' }] })).toThrow();
   });
 
   it('lädt eine gespeicherte Datei wieder', () => {

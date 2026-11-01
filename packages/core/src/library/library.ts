@@ -2,12 +2,14 @@
 import { z } from 'zod';
 import { newId } from '../model/project';
 import {
+  CaseSchema,
   CategorySchema,
   MasterDataSchema,
   OwnerSchema,
   TemplateKindSchema,
   TemplateSchema,
   TrailerSchema,
+  type Case,
   type Category,
   type MasterData,
   type Owner,
@@ -22,22 +24,23 @@ export const LibrarySchema = z.object({
   /** Zähler, steigt bei jeder Änderung */
   revision: z.number().int().nonnegative().default(0),
   templates: z.array(TemplateSchema).default([]),
-  masterData: MasterDataSchema.default({ categories: [], owners: [], trailers: [] }),
+  masterData: MasterDataSchema.default({ categories: [], owners: [], trailers: [], cases: [] }),
 });
 export type Library = z.infer<typeof LibrarySchema>;
 
 export function createEmptyLibrary(libraryId: string = newId()): Library {
-  return { libraryId, revision: 0, templates: [], masterData: { categories: [], owners: [], trailers: [] } };
+  return { libraryId, revision: 0, templates: [], masterData: { categories: [], owners: [], trailers: [], cases: [] } };
 }
 
-export const MASTER_KINDS = ['categories', 'owners', 'trailers'] as const;
+export const MASTER_KINDS = ['categories', 'owners', 'trailers', 'cases'] as const;
 export type MasterKind = (typeof MASTER_KINDS)[number];
-export type MasterEntry = Category | Owner | Trailer;
+export type MasterEntry = Category | Owner | Trailer | Case;
 
 export const MASTER_ENTRY_SCHEMAS = {
   categories: CategorySchema,
   owners: OwnerSchema,
   trailers: TrailerSchema,
+  cases: CaseSchema,
 } as const;
 
 export function isMasterKind(value: unknown): value is MasterKind {
@@ -61,6 +64,7 @@ export const MASTER_KIND_LABELS: Record<MasterKind, { singular: string; plural: 
   categories: { singular: 'Kategorie', plural: 'Kategorien' },
   owners: { singular: 'Besitzer', plural: 'Besitzer' },
   trailers: { singular: 'Anhänger', plural: 'Anhänger' },
+  cases: { singular: 'Case', plural: 'Cases' },
 };
 
 // ---------- Export-/Importdatei ----------
@@ -73,7 +77,7 @@ export const LibraryExportSchema = z.object({
   libraryId: z.string().default(''),
   exportedAt: z.string().default(''),
   templates: z.array(TemplateSchema).default([]),
-  masterData: MasterDataSchema.default({ categories: [], owners: [], trailers: [] }),
+  masterData: MasterDataSchema.default({ categories: [], owners: [], trailers: [], cases: [] }),
 });
 export type LibraryExport = z.infer<typeof LibraryExportSchema>;
 
@@ -89,7 +93,7 @@ export function createLibraryExport(library: Library, now = new Date()): Library
 }
 
 export function emptyMasterData(): MasterData {
-  return { categories: [], owners: [], trailers: [] };
+  return { categories: [], owners: [], trailers: [], cases: [] };
 }
 
 export type { Template };

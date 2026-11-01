@@ -17,7 +17,7 @@ function sampleProject(): Project {
     ],
     network: { subnets: [{ id: 's1', name: 'Licht', cidr: '10.0.0.0/24' }], wifi: [{ id: 'w1', ssid: 'Crew', security: 'WPA2', hidden: false }] },
     secrets: { wifiPasswords: [{ wifiId: 'w1', password: 'geheim' }] },
-    masterDataSnapshot: { categories: [{ id: 'k1', name: 'Licht' }], owners: [], trailers: [{ id: 'a1', name: 'Anhänger 1' }] },
+    masterDataSnapshot: { categories: [{ id: 'k1', name: 'Licht' }], owners: [], trailers: [{ id: 'a1', name: 'Anhänger 1' }], cases: [] },
   };
 }
 
