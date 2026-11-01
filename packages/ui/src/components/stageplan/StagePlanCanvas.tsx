@@ -398,7 +398,7 @@ export function StagePlanCanvas(props: StageCanvasProps) {
             const label = item.person ? `${item.device.label}\n👤 ${item.person}` : item.device.label;
             const heightText = [
               item.height.heightMm > 0 ? formatLength(item.height.heightMm) : '',
-              item.mountSide ? (item.mountSide === 'top' ? 'oben' : 'hängend') : '',
+              item.mountSide === 'top' ? 'steht oben' : '',
               showDmx && item.device.dmx ? `DMX ${formatDmx(item.device.dmx.universe, item.device.dmx.address)}` : '',
             ]
               .filter(Boolean)

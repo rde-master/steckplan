@@ -74,7 +74,7 @@ test('Export: Packliste als PDF und CSV, Bühnenplan, WLAN-Aushang (Lese-Zugang 
   const csv = readFileSync(await (await csvPromise).path(), 'utf8');
   expect(csv.charCodeAt(0)).toBe(0xfeff);
   expect(csv).toContain('Bezeichnung;Typ;Länge;Kategorie;Besitzer;Anhänger');
-  expect(csv).toContain('Spot 6;Spot M7;;;;;;;;fehlt;nicht zurück');
+  expect(csv).toContain('Spot 6;Spot M7;;;;;;;;;;fehlt;nicht zurück');
   await page.getByRole('dialog').getByRole('button', { name: 'Abbrechen' }).click();
 
   // Bühnenplan 1:50 auf A4 → mehrere Blätter
