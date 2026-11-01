@@ -14,7 +14,6 @@ export const E2E = {
 
 export default defineConfig({
   testDir: 'e2e',
-  testIgnore: ['**/electron.spec.ts'],
   fullyParallel: false,
   workers: 1,
   retries: process.env.CI ? 1 : 0,
@@ -28,6 +27,7 @@ export default defineConfig({
   projects: [
     { name: 'desktop-browser', use: { ...devices['Desktop Chrome'] }, testIgnore: [/mobile\.spec\.ts/, /electron\.spec\.ts/] },
     { name: 'handy', use: { ...devices['Pixel 7'] }, testMatch: /mobile\.spec\.ts/ },
+    { name: 'electron', testMatch: /electron\.spec\.ts/ },
   ],
   webServer: {
     command: 'node packages/server/dist/standalone.cjs',

@@ -30,6 +30,9 @@ export function ProjectPage({ id }: { id: string }) {
     if (status === 'unauthorized') void refreshSession();
   }, [status, refreshSession]);
 
+  // Desktop: „Datei → Versionen …“ im Menü
+  useEffect(() => getDesktop()?.onMenuCommand((command) => command === 'versions' && setShowVersions(true)), []);
+
   const online = status === 'synced';
   const editable = online && !state?.readOnly;
 

@@ -12,6 +12,13 @@ files:
   - dist/**
   - package.json
 
+fileAssociations:
+  - ext: steckplan
+    name: Steckplan-Projekt
+    description: Steckplan-Projekt
+    role: Editor
+    mimeType: application/x-steckplan
+
 asar: true
 npmRebuild: false
 publish: null
