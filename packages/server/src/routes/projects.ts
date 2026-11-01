@@ -2,6 +2,7 @@
 import type { FastifyInstance, FastifyReply } from 'fastify';
 import {
   can,
+  copyAsNewProject,
   createEmptyProject,
   newId,
   parseProject,
@@ -128,6 +129,73 @@ export function registerProjectRoutes(app: FastifyInstance, rooms: RoomManager, 
       if (error instanceof ProjectNotFoundError) return reply.code(404).send({ error: 'Eintrag nicht gefunden' });
       throw error;
     }
+  });
+
+  // ---------- Packliste: Häkchen ----------
+
+  app.post<{ Params: { id: string }; Body: { kind?: unknown; id?: unknown; direction?: unknown; status?: unknown; note?: unknown } }>(
+    '/api/projects/:id/check',
+    async (request, reply) => {
+      const session = requireSession(request, reply, 'checkItems');
+      if (!session) return reply;
+      const { kind, id, direction, status, note } = request.body ?? {};
+      if ((kind !== 'device' && kind !== 'cable') || typeof id !== 'string' || (direction !== 'out' && direction !== 'in')) {
+        return reply.code(400).send({ error: 'Ungültige Angaben.' });
+      }
+      if (status !== null && status !== 'ok' && status !== 'missing' && status !== 'damaged') return reply.code(400).send({ error: 'Ungültiger Status.' });
+      if (note !== undefined && (typeof note !== 'string' || note.length > 500)) return reply.code(400).send({ error: 'Notiz zu lang.' });
+      let room;
+      try {
+        room = await rooms.get(request.params.id);
+      } catch (error) {
+        if (error instanceof ProjectNotFoundError) return notFound(reply);
+        throw error;
+      }
+      try {
+        if (!room.applyCheck(kind, id, direction, status, session.name, note as string | undefined)) return reply.code(404).send({ error: 'Objekt nicht gefunden.' });
+      } catch (error) {
+        return reply.code(409).send({ error: (error as Error).message });
+      }
+      return { ok: true };
+    },
+  );
+
+  app.post<{ Params: { id: string }; Body: { direction?: unknown } }>('/api/projects/:id/checks/reset', async (request, reply) => {
+    const session = requireSession(request, reply, 'resetChecks');
+    if (!session) return reply;
+    const direction = request.body?.direction;
+    if (direction !== 'out' && direction !== 'in' && direction !== 'both') return reply.code(400).send({ error: 'Ungültige Richtung.' });
+    let room;
+    try {
+      room = await rooms.get(request.params.id);
+    } catch (error) {
+      if (error instanceof ProjectNotFoundError) return notFound(reply);
+      throw error;
+    }
+    try {
+      return { removed: room.resetChecks(direction, session.name) };
+    } catch (error) {
+      return reply.code(409).send({ error: (error as Error).message });
+    }
+  });
+
+  // ---------- Neues Projekt aus diesem ----------
+
+  app.post<{ Params: { id: string }; Body: { name?: unknown } }>('/api/projects/:id/copy', async (request, reply) => {
+    if (!requireSession(request, reply, 'manageProjects')) return reply;
+    if (!isManagedStore(store)) return reply.code(405).send({ error: 'Hier können keine Projekte angelegt werden.' });
+    let project: Project;
+    try {
+      project = await currentProject(request.params.id);
+    } catch (error) {
+      if (error instanceof ProjectNotFoundError) return notFound(reply);
+      throw error;
+    }
+    const name = typeof request.body?.name === 'string' && request.body.name.trim() ? request.body.name.trim().slice(0, 120) : undefined;
+    const copy = copyAsNewProject(project, name);
+    const id = await store.create(copy);
+    usage.record(store.persistentKey(id), copy.meta.name, projectUsage(copy));
+    return reply.code(201).send({ id });
   });
 
   // ---------- Vorlagen-Abgleich ----------
