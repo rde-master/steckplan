@@ -623,6 +623,9 @@ Jeder Meilenstein endet mit grünen Tests, lauffähigem Build (Desktop **und** D
 - Stecker und Signalarten: Freitext mit Vorschlägen aus der eigenen Bibliothek, nichts mitgeliefert (01.11.2026)
 - Vorlagen löschen nur, wenn sie in keinem bekannten Projekt verwendet werden (wie Stammdaten) (01.11.2026)
 - Multicore zusätzlich als Kabeltyp mit mehreren Adern: je Ader Stecker an Ende A und B, Richtung (A → B / B → A / beides), Signal; Enden benennbar (z. B. Bühne/FOH). Anschluss an Geräte wird in M3 festgelegt (01.11.2026)
+- Signalfluss: Multicore erscheint als eigener Kasten mit je einem Anschluss pro Ader an beiden Enden; Geräte werden per Kabel oder „direkt gesteckt“ an die Adern angeschlossen (01.11.2026)
+- Stecker passen nicht: Verbindung erlaubt, aber rot markiert und im Prüfungen-Panel gelistet; Richtung Ausgang → Eingang wird immer erzwungen (01.11.2026)
+- Kabeltyp beim Ziehen: passt genau einer, wird er automatisch genommen, sonst kleine Auswahl (passende zuerst); im Eigenschaften-Panel änderbar (01.11.2026)
 
 ---
 
