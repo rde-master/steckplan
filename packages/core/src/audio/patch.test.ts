@@ -133,6 +133,7 @@ describe('Netzwerk-Kanäle (digitale Stagebox)', () => {
     const p = base();
     const routes = networkRoutes(p.devices[0]!, p, { templates: tpl });
     expect(routes.map((r) => [r.mixer.id, r.stagebox.id, r.stageboxPort, r.sourcePort])).toEqual([['DFOH', 'Box', 'In 1', 'Out']]);
+    expect(routes[0]).toMatchObject({ analogVia: [], networkVia: [] });
     const noNet = base({ cables: base().cables.filter((c) => c.id !== 'n') });
     expect(networkRoutes(noNet.devices[0]!, noNet, { templates: tpl })).toEqual([]);
   });
@@ -158,9 +159,50 @@ describe('Netzwerk-Kanäle (digitale Stagebox)', () => {
     expect(checkNetworkChannels(assigned, { templates: tpl }).map((i) => i.message)).toEqual(['DFOH Kanal 5 ist doppelt belegt (Gesang, Snare).']);
     expect(buildPatchLists(assigned, { templates: tpl }).find((l) => l.mixer.id === 'DFOH')!.network).toHaveLength(8);
     const broken = { ...assigned, cables: assigned.cables.filter((c) => c.id !== 'n') };
-    expect(checkNetworkChannels(broken, { templates: tpl }).map((i) => i.message)).toContain('Gesang: Kanal 5 auf DFOH – keine durchgehende Kette (Quelle → Stagebox → Netzwerkkabel → Pult).');
+    expect(checkNetworkChannels(broken, { templates: tpl }).map((i) => i.message)).toContain('Gesang: Kanal 5 auf DFOH – keine durchgehende Kette (Quelle → Stagebox → Netzwerk → Pult).');
     expect(validAssignments(broken, { templates: tpl })).toEqual([]);
     const outOfRange = { ...assigned, devices: assigned.devices.map((d) => (d.id === 'Gesang' ? { ...d, mixerChannel: { mixerId: 'DFOH', channel: 20 } } : d)) };
     expect(checkNetworkChannels(outOfRange, { templates: tpl }).map((i) => i.message)).toContain('Gesang: DFOH hat keinen Kanal 20.');
+  });
+});
+
+describe('Netzwerk-Kanäle: Kette mit Multicore davor und zweiter Stagebox dazwischen', () => {
+  const net = (id: string) => ({ id, label: id, connector: 'RJ45', direction: 'bi' as const, signal: 'Dante', isNetwork: true });
+  const tpl = [
+    ...templates,
+    t({ id: 'sb1', kind: 'device', name: 'Stagebox Bühne', ports: [audio('i5', 'In 5', 'in'), net('n1'), net('n2')] }),
+    t({ id: 'sb2', kind: 'device', name: 'Stagebox FOH', ports: [net('a'), net('b')] }),
+    t({ id: 'dp', kind: 'device', name: 'Digitalpult', mixer: true, networkChannels: 48, ports: [net('n')] }),
+  ];
+  // Mikro → Multicore Ader 1 (Bühne → FOH) → Stagebox 1 In 5 → Netzwerk → Stagebox 2 → Netzwerk → Pult
+  const p = (extra: Partial<Project> = {}) =>
+    project({
+      devices: [dev('Mikro', 'kondensator', { mixerChannel: { mixerId: 'Pult', channel: 12 } }), dev('MC', 'mc'), dev('SB1', 'sb1'), dev('SB2', 'sb2'), dev('Pult', 'dp')],
+      cables: [
+        cable('a', ['Mikro', 'out'], ['MC', 's1:a']),
+        cable('b', ['MC', 's1:b'], ['SB1', 'i5']),
+        cable('c', ['SB1', 'n1'], ['SB2', 'a']),
+        cable('d', ['SB2', 'b'], ['Pult', 'n']),
+      ],
+      ...extra,
+    });
+
+  it('wird erkannt; Input-Liste zeigt den ganzen Weg; Anzeige an Stagebox 1', () => {
+    const project1 = p();
+    const routes = networkRoutes(project1.devices[0]!, project1, { templates: tpl });
+    expect(routes).toHaveLength(1);
+    expect(routes[0]!.networkVia.map((d) => d.id)).toEqual(['SB2']);
+    const list = buildPatchLists(project1, { templates: tpl }).find((l) => l.mixer.id === 'Pult')!;
+    expect(viaText(list.network[11]!)).toBe('MC · Send 1 (FOH) → SB1 · In 5 (Netzwerk) → SB2');
+    expect([...stageboxChannelLabels(project1, { templates: tpl })]).toEqual([['SB1/i5', 'Pult 12']]);
+    expect(checkNetworkChannels(project1, { templates: tpl })).toEqual([]);
+  });
+
+  it('Unterbrechung irgendwo in der Kette → keine Zuordnung, Warnung', () => {
+    for (const missing of ['a', 'b', 'c', 'd']) {
+      const broken = p({ cables: p().cables.filter((c) => c.id !== missing) });
+      expect(networkRoutes(broken.devices[0]!, broken, { templates: tpl })).toEqual([]);
+      expect(checkNetworkChannels(broken, { templates: tpl }).some((i) => i.id === 'netchannel-chain:Mikro')).toBe(true);
+    }
   });
 });

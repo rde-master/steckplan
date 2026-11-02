@@ -7,6 +7,10 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+### Geändert
+
+- Netzwerk-Kanäle: Die Kette wird jetzt auch durch Multicore-Adern vor der Stagebox und über weitere Geräte im Netzwerk (z. B. zweite Stagebox, Switch) erkannt – z. B. Mikrofon → Multicore → Stagebox 1 → Stagebox 2 → Pult; die Input-Liste zeigt den ganzen Weg
+
 ### Hinzugefügt
 
 - Export: Tabellen sortierbar – „Sortieren nach … dann nach … dann nach …“ (bis zu drei Spalten, je auf- oder absteigend) für Kabelliste, Stückliste, DMX-Patch, Geräteliste, Netzwerkliste, Personenliste, Input-/Output-Liste und Stromliste; gilt für PDF, CSV und Vorschau; „natürliche“ Reihenfolge (Spot 2 vor Spot 10), leere Zellen am Ende
