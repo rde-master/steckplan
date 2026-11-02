@@ -7,6 +7,11 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+### Geändert
+
+- Neues Logo: App-Symbol (macOS/Windows), Favicon und Logo in der Oberfläche
+- PDF-Exporte mit Logo im Kopf (Pläne zusätzlich im Schriftfeld, WLAN-Aushang oben) und Fußzeile mit Programmversion, Art des Exports, Datum und Uhrzeit sowie Name
+
 ### Behoben
 
 - Bibliothek: Die Kästchen „Netzwerk“ und „Strom“ in der Anschlusstabelle saßen versetzt – jetzt mittig zu den Eingabefeldern; „Mehrere Anschlüsse/Adern anlegen“ mit passendem Symbol

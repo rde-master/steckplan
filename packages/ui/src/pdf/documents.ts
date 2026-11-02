@@ -1,5 +1,6 @@
 // PDF-Dokumente als pdfmake-Definitionen (reine Daten – getestet ohne Browser).
 import type { CheckMark, PackGroup, PackingList, PackRow, ProjectMeta } from '@steckplan/core';
+import { LOGO_PNG } from './logo';
 import { formatCableLength } from '@steckplan/core';
 import type { Rect } from './svg';
 
@@ -39,13 +40,29 @@ function formatDate(date: Date): string {
   return date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
+function formatDateTime(date: Date): string {
+  return `${formatDate(date)}, ${date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr`;
+}
+
+/** Fußzeile: Programm und Version · was exportiert wurde · Datum und Uhrzeit · von wem · Filter */
+export function footerText(ctx: Pick<DocContext, 'appTitle' | 'by' | 'filterNote' | 'now'>, title: string): string {
+  const now = ctx.now ?? new Date();
+  return [ctx.appTitle, pdfText(title), `erstellt am ${formatDateTime(now)}${ctx.by ? ` von ${pdfText(ctx.by)}` : ''}`, ctx.filterNote ? pdfText(ctx.filterNote) : '']
+    .filter(Boolean)
+    .join(' · ');
+}
+
+/** Logo oben links im Kopf (Höhe in pt) */
+function logo(size: number): { image: string; width: number; height: number } {
+  return { image: LOGO_PNG, width: size, height: size };
+}
+
 function projectLine(meta: Partial<ProjectMeta>): string {
   const date = meta.date && /^\d{4}-\d{2}-\d{2}$/.test(meta.date) ? meta.date.split('-').reverse().join('.') : meta.date;
   return [meta.name, meta.venue, date].filter(Boolean).map(pdfText).join(' · ');
 }
 
 function base(ctx: DocContext, title: string, content: Content[]): DocDefinition {
-  const now = ctx.now ?? new Date();
   return {
     info: { title: `${pdfText(ctx.meta.name)} – ${title}`, creator: ctx.appTitle, producer: ctx.appTitle },
     pageSize: ctx.format,
@@ -61,15 +78,16 @@ function base(ctx: DocContext, title: string, content: Content[]): DocDefinition
     },
     header: () => ({
       columns: [
-        { text: title, bold: true, fontSize: 8 },
-        { text: projectLine(ctx.meta), alignment: 'right', fontSize: 8 },
+        { ...logo(18), width: 18 },
+        { text: title, bold: true, fontSize: 8, margin: [5, 5, 0, 0] },
+        { text: projectLine(ctx.meta), alignment: 'right', fontSize: 8, margin: [0, 5, 0, 0] },
       ],
-      margin: [MARGIN.left, 18, MARGIN.right, 0],
+      margin: [MARGIN.left, 14, MARGIN.right, 0],
     }),
     footer: (page: number, pages: number) => ({
       columns: [
-        { text: `${ctx.appTitle} · erstellt am ${formatDate(now)}${ctx.by ? ` von ${pdfText(ctx.by)}` : ''}${ctx.filterNote ? ` · ${pdfText(ctx.filterNote)}` : ''}`, fontSize: 7, color: '#64748b' },
-        { text: `Seite ${page} von ${pages}`, alignment: 'right', fontSize: 7, color: '#64748b' },
+        { text: footerText(ctx, title), fontSize: 7, color: '#64748b' },
+        { text: `Seite ${page} von ${pages}`, alignment: 'right', fontSize: 7, color: '#64748b', width: 70 },
       ],
       margin: [MARGIN.left, 12, MARGIN.right, 0],
     }),
@@ -392,7 +410,8 @@ export function wifiPosterDoc(posters: WifiPoster[], ctx: DocContext): DocDefini
   const qrSize = Math.min(page.width, page.height) * 0.55;
   const scale = ctx.format === 'A3' ? 1.4 : 1;
   const content: Content[] = posters.flatMap((p, index) => [
-    { text: 'WLAN', fontSize: 28 * scale, bold: true, alignment: 'center', color: '#0284c7', margin: [0, 30, 0, 6], ...(index > 0 ? { pageBreak: 'before' } : {}) },
+    { ...logo(48 * scale), alignment: 'center', margin: [0, 10, 0, 0], ...(index > 0 ? { pageBreak: 'before' } : {}) },
+    { text: 'WLAN', fontSize: 28 * scale, bold: true, alignment: 'center', color: '#0284c7', margin: [0, 8, 0, 6] },
     { text: pdfText(p.ssid), fontSize: 36 * scale, bold: true, alignment: 'center', margin: [0, 0, 0, 20] },
     { svg: p.qrSvg, width: qrSize, alignment: 'center' },
     { text: 'Kamera-App öffnen und den QR-Code scannen, um sich zu verbinden.', fontSize: 13 * scale, alignment: 'center', margin: [0, 16, 0, 16] },
@@ -442,9 +461,10 @@ function titleBlock(ctx: DocContext, opts: PlanDocOptions, tileLabel: string): C
   ];
   return {
     table: {
-      widths: ['*', 80, 70, 70, 60, 70, 60],
+      widths: [30, '*', 80, 70, 70, 60, 70, 60],
       body: [
         [
+          { ...logo(26), alignment: 'center' },
           { stack: [{ text: pdfText(opts.title), fontSize: 10, bold: true }, { columns: legendItems, columnGap: 8, margin: [0, 3, 0, 0] }] },
           cell('Projekt', m.name),
           cell('Ort', m.venue),
