@@ -171,6 +171,12 @@ test('M8c: Stammdaten direkt anlegen, Vorlage kopieren, Personen, Gruppen, T-Bar
   await expect(caseList.getByRole('button', { name: /^Hin: Funkmikro M8c – 1 von 2/ })).toBeVisible();
   await page.getByRole('tab', { name: 'Personen' }).click();
   await expect(page.getByRole('region', { name: 'Anna Muster' })).toContainText('Mikro 1');
+  // Übersicht: Personen ohne Gerät (aus dem Import)
+  await expect(page.getByTestId('people-without-device')).toContainText('2 Personen ohne Gerät: Bert Beispiel, Nina Neu');
+  await page.getByLabel('nur Personen ohne Gerät').check();
+  await expect(page.getByRole('region', { name: 'Anna Muster' })).toHaveCount(0);
+  await expect(page.getByRole('region', { name: 'Nina Neu' })).toContainText('kein Gerät zugeordnet');
+  await page.getByLabel('nur Personen ohne Gerät').uncheck();
   await expect(page.getByRole('region', { name: 'Noch keiner Person zugeordnet' })).toContainText('Mikro 2');
 
   // ---------- Etiketten als PDF ----------

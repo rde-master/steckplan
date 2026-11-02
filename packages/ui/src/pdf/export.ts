@@ -24,6 +24,7 @@ import {
   listCsv,
   masterLabel,
   packItems,
+  peopleWithoutDevice,
   totalW,
   viaText,
   type Filter,
@@ -285,6 +286,10 @@ export async function buildExportDoc(opts: ExportOptions, input: ExportInput): P
       const ids = new Set(visibleDevices(data, library, filter).map((d) => d.id));
       const rows: string[][] = [];
       for (const entry of buildPeopleList(projectLike(data), library)) {
+        if (entry.person && entry.devices.length === 0) {
+          rows.push([`${entry.person.lastName}, ${entry.person.firstName}`.replace(/^, |, $/g, ''), entry.person.kind, '(kein Gerät)', '', '']);
+          continue;
+        }
         const devices = entry.devices.filter((d) => ids.has(d.device.id));
         devices.forEach((d, i) => {
           const person = i === 0 ? (entry.person ? `${entry.person.lastName}, ${entry.person.firstName}`.replace(/^, |, $/g, '') : '(nicht zugeordnet)') : '';
@@ -295,7 +300,10 @@ export async function buildExportDoc(opts: ExportOptions, input: ExportInput): P
       }
       return tableDoc('Personenliste', ['Person', 'Art', 'Gerät', 'Vorlage', 'Einstecken'], rows, ctx, {
         widths: [90, 60, 70, 80, '*'],
-        subtitle: `${data.people.length} Personen · Geräte „benutzt von Mensch“ mit Verbindungen`,
+        subtitle: `${data.people.length} Personen · Geräte „benutzt von Mensch“ mit Verbindungen${(() => {
+          const n = peopleWithoutDevice({ devices: data.devices, people: data.people }, library).length;
+          return n ? ` · ${n} ohne Gerät` : '';
+        })()}`,
       });
     }
     case 'patch': {

@@ -224,10 +224,12 @@ export function listCsv(kind: CsvKind, project: ProjectLike, library: Library, i
       return toCsv(
         ['Name', 'Vorname', 'Art', 'Gerät', 'Vorlage', 'Anschluss', 'Ziel', 'Kabel'],
         buildPeopleList({ ...project, people: project.people ?? [] }, library).flatMap((entry) =>
-          entry.devices.flatMap((d) => {
-            const base = [entry.person?.lastName ?? '(nicht zugeordnet)', entry.person?.firstName ?? '', entry.person?.kind ?? '', d.device.label, d.templateName];
-            return d.connections.length ? d.connections.map((c) => [...base, c.port, c.target, c.cable]) : [[...base, '', '', '']];
-          }),
+          entry.devices.length === 0 && entry.person
+            ? [[entry.person.lastName, entry.person.firstName, entry.person.kind, '(kein Gerät)', '', '', '', '']]
+            : entry.devices.flatMap((d) => {
+                const base = [entry.person?.lastName ?? '(nicht zugeordnet)', entry.person?.firstName ?? '', entry.person?.kind ?? '', d.device.label, d.templateName];
+                return d.connections.length ? d.connections.map((c) => [...base, c.port, c.target, c.cable]) : [[...base, '', '', '']];
+              }),
         ),
       );
     case 'network': {
