@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut } from 'lucide-react';
 import { errorMessage } from '../lib/api';
 import type { DocDefinition } from '../pdf/documents';
+import { parseCsv } from '../pdf/sorting';
 import { texts } from '../texts';
 import { ICON } from './icons';
 import { Button, Spinner } from './ui';
@@ -12,36 +13,6 @@ const t = texts.exportPreview;
 const DEBOUNCE_MS = 500;
 
 type PdfProxy = Awaited<ReturnType<typeof import('../lib/pdf').openPdf>>;
-
-/** CSV-Text in Zeilen/Zellen (Semikolon, Anführungszeichen) – nur für die Vorschau. */
-function parseCsv(text: string): string[][] {
-  const rows: string[][] = [];
-  let row: string[] = [];
-  let cell = '';
-  let quoted = false;
-  const src = text.replace(/^\uFEFF/, '');
-  for (let i = 0; i < src.length; i++) {
-    const ch = src[i]!;
-    if (quoted) {
-      if (ch === '"' && src[i + 1] === '"') {
-        cell += '"';
-        i++;
-      } else if (ch === '"') quoted = false;
-      else cell += ch;
-    } else if (ch === '"') quoted = true;
-    else if (ch === ';') {
-      row.push(cell);
-      cell = '';
-    } else if (ch === '\n') {
-      row.push(cell.replace(/\r$/, ''));
-      rows.push(row);
-      row = [];
-      cell = '';
-    } else cell += ch;
-  }
-  if (cell || row.length) rows.push([...row, cell]);
-  return rows;
-}
 
 export function ExportPreview({
   makeDoc,
