@@ -195,6 +195,48 @@ export function packingListDoc(list: PackingList, opts: PackingDocOptions, ctx: 
   return base(ctx, 'Packliste', content);
 }
 
+// ---------- Case-Listen: je Case eine Seite ----------
+
+export interface CaseListDoc {
+  name: string;
+  trailer: string;
+  notes?: string;
+  color?: string;
+  total: number;
+  rows: PackRow[];
+}
+
+/** Ohne Spalten Anhänger und Case (stehen im Kopf der Seite) */
+const CASE_DROP = new Set([7, 8]);
+
+export function caseListsDoc(lists: CaseListDoc[], opts: PackingDocOptions, ctx: DocContext): DocDefinition {
+  const content: Content[] = [];
+  if (lists.length === 0) content.push({ text: 'Case-Listen', style: 'title' }, { text: 'Noch nichts in Cases.', italics: true, color: '#64748b' });
+  lists.forEach((c, index) => {
+    content.push({
+      columns: [colorSquare(c.color), { text: pdfText(c.name), style: 'title' }],
+      columnGap: 6,
+      ...(index > 0 ? { pageBreak: 'before' } : {}),
+    });
+    content.push({
+      text: `${pdfText(c.trailer ? `Anhänger: ${c.trailer}` : 'ohne Anhänger')} · ${c.total} ${c.total === 1 ? 'Teil' : 'Teile'} · ${opts.mode === 'aggregated' ? 'zusammengefasst' : 'einzeln'}${c.notes ? ` · ${pdfText(c.notes)}` : ''}`,
+      style: 'small',
+      margin: [0, 0, 0, 6],
+    });
+    content.push({
+      table: {
+        headerRows: 1,
+        dontBreakRows: true,
+        widths: PACK_WIDTHS.filter((_, i) => !CASE_DROP.has(i)),
+        body: [PACK_HEADERS.filter((_, i) => !CASE_DROP.has(i)).map((h) => ({ text: h, style: 'th' })), ...c.rows.map((r) => packRowCells(r, opts).filter((_, i) => !CASE_DROP.has(i)))],
+      },
+      layout: { hLineWidth: () => 0.4, vLineWidth: () => 0, hLineColor: () => '#cbd5e1', paddingTop: () => 3, paddingBottom: () => 3 },
+    });
+    content.push(signature());
+  });
+  return base(ctx, 'Case-Listen', content);
+}
+
 // ---------- Tabellen-Listen (Kabel, Stück, DMX, Geräte, Netzwerk) ----------
 
 export function tableDoc(title: string, headers: string[], rows: (string | number)[][], ctx: DocContext, options: { widths?: (number | string)[]; subtitle?: string; summary?: string[] } = {}): DocDefinition {

@@ -28,6 +28,7 @@ const DEFAULT_ORIENTATION: Record<ExportKind, 'portrait' | 'landscape'> = {
   stageplan: 'landscape',
   signalflow: 'landscape',
   packing: 'landscape',
+  cases: 'portrait',
   cables: 'landscape',
   bom: 'portrait',
   dmx: 'portrait',
@@ -207,10 +208,35 @@ export function ExportDialog({
                 </label>
               ))}
             </div>
+            {field(
+              texts.packing.sortBy,
+              <select className={selectClass} aria-label={texts.packing.sortBy} value={opts.sortBy} onChange={(ev) => set({ sortBy: ev.target.value as 'name' | 'case' })}>
+                <option value="name">{texts.packing.sort.name}</option>
+                <option value="case">{texts.packing.sort.case}</option>
+              </select>,
+            )}
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" checked={opts.showChecks} onChange={(ev) => set({ showChecks: ev.target.checked })} />
               {e.showChecks}
             </label>
+          </div>
+        )}
+
+        {opts.kind === 'cases' && (
+          <div className="space-y-2">
+            <div className="flex gap-4 text-sm" role="radiogroup" aria-label={e.mode}>
+              {(['aggregated', 'single'] as const).map((m) => (
+                <label key={m} className="flex items-center gap-1.5">
+                  <input type="radio" name="case-mode" checked={opts.mode === m} onChange={() => set({ mode: m })} />
+                  {m === 'aggregated' ? e.aggregated : e.single}
+                </label>
+              ))}
+            </div>
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={opts.showChecks} onChange={(ev) => set({ showChecks: ev.target.checked })} />
+              {e.showChecks}
+            </label>
+            <p className="text-xs text-slate-500">{e.casesHint}</p>
           </div>
         )}
 

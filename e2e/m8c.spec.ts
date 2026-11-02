@@ -135,6 +135,14 @@ test('M8c: Stammdaten direkt anlegen, Vorlage kopieren, Personen, Gruppen, T-Bar
   await page.getByRole('combobox', { name: 'Gruppieren nach' }).selectOption({ label: 'Case' });
   await expect(page.getByRole('region', { name: 'Mikrocase M8c' })).toBeVisible();
   await expect(page.getByTestId('pack-info').filter({ hasText: 'Anna Muster' })).toBeVisible();
+  await page.getByRole('combobox', { name: 'Sortieren nach' }).selectOption({ label: 'Case' });
+  await expect(page.getByTestId('pack-row').first()).toContainText('Funkmikro M8c');
+  await page.getByRole('tab', { name: 'Cases' }).click();
+  const caseList = page.getByTestId('case-lists').getByRole('region', { name: 'Mikrocase M8c' });
+  await expect(caseList).toContainText('2 ×');
+  await expect(caseList.getByTestId('case-progress')).toContainText('0');
+  await caseList.getByRole('button', { name: /^Hin: Funkmikro M8c – 0 von 2/ }).click();
+  await expect(caseList.getByRole('button', { name: /^Hin: Funkmikro M8c – 1 von 2/ })).toBeVisible();
   await page.getByRole('tab', { name: 'Personen' }).click();
   await expect(page.getByRole('region', { name: 'Anna Muster' })).toContainText('Mikro 1');
   await expect(page.getByRole('region', { name: 'Noch keiner Person zugeordnet' })).toContainText('Mikro 2');

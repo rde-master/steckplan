@@ -162,6 +162,17 @@ describe('PDF-Export', () => {
     expect(labels.text).toContain('Person nicht zugeordnet');
   });
 
+  it('Case-Listen: je Case eine Seite mit Inhalt und Anhänger', async () => {
+    const { pages, text } = await render(await exportDoc({ kind: 'cases', orientation: 'portrait' }));
+    expect(pages).toBe(1);
+    expect(text).toContain('Kabelcase 1');
+    expect(text).toContain('Anhänger: Hänger 1');
+    expect(text).toContain('XLR');
+    expect(text).toContain('Gepackt (Hin)');
+    const sorted = (await render(await exportDoc({ kind: 'packing', groupBy: 'trailer', sortBy: 'case' }))).text;
+    expect(sorted).toContain('sortiert nach Case');
+  });
+
   it('Packliste mit Case-Spalte und Gruppierung nach Case', async () => {
     const { text } = await render(await exportDoc({ kind: 'packing', groupBy: 'trailer', thenBy: 'case' }));
     expect(text).toContain('Kabelcase 1');

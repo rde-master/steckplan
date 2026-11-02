@@ -6,7 +6,7 @@ import { buildNetworkList } from '../network/network';
 import { effectiveHeight } from '../stageplan/heights';
 import { formatCableLength, formatMeters } from './format';
 import { devicePerson, personName, buildPeopleList } from '../people/people';
-import { buildCableList, effectiveTrailerId, packItems, type PackItem } from './lists';
+import { buildCableList, buildCaseLists, effectiveTrailerId, packItems, type PackItem } from './lists';
 
 type ProjectLike = Pick<Project, 'devices' | 'cables' | 'settings' | 'network'> & Partial<Pick<Project, 'people' | 'groups' | 'caseTrailers'>>;
 
@@ -115,7 +115,7 @@ export function toCsv(headers: string[], rows: unknown[][]): string {
   return '﻿' + [headers, ...rows].map((row) => row.map(csvField).join(';')).join('\r\n') + '\r\n';
 }
 
-export type CsvKind = 'cables' | 'packing' | 'bom' | 'devices' | 'network' | 'people';
+export type CsvKind = 'cables' | 'packing' | 'bom' | 'devices' | 'network' | 'people' | 'cases';
 
 /** CSV einer Liste (Pack- und Stückliste aus den übergebenen Exemplaren, damit Filter gelten). */
 export function listCsv(kind: CsvKind, project: ProjectLike, library: Library, items?: PackItem[]): string {
@@ -166,6 +166,23 @@ export function listCsv(kind: CsvKind, project: ProjectLike, library: Library, i
       return toCsv(
         ['Kennung', 'Vorlage', 'Art', 'Kategorie', 'Besitzer', 'Anhänger', 'Case', 'Person', 'Gruppe', 'Inventarnummer', 'Stativ/Traverse/Podest', 'Höhe', 'DMX', 'IP'],
         buildDeviceList(project, library).map((r) => [r.label, r.template, r.kind, r.category, r.owner, r.trailer, r.case, r.person, r.group, r.inventoryNo, r.carrier, r.height, r.dmx, r.ip]),
+      );
+    case 'cases':
+      return toCsv(
+        ['Case', 'Anhänger', 'Anzahl', 'Bezeichnung', 'Länge', 'Kennungen', 'Person', 'Hin', 'Zurück'],
+        buildCaseLists(pack, library, { mode: 'aggregated', caseTrailers: project.caseTrailers }).flatMap((c) =>
+          c.rows.map((r) => [
+            c.name,
+            m('trailers', c.trailerId),
+            r.items.length,
+            r.name,
+            r.lengthMm ? formatCableLength(r.lengthMm) : '',
+            r.items.map((i) => i.label).filter(Boolean).join(', '),
+            [...new Set(r.items.map((i) => i.person).filter(Boolean))].join(', '),
+            `${r.checkedOut}/${r.items.length}`,
+            `${r.checkedIn}/${r.items.length}`,
+          ]),
+        ),
       );
     case 'people':
       return toCsv(

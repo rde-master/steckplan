@@ -322,7 +322,7 @@ export const texts = {
     zoomOut: 'Verkleinern',
     fit: 'Einpassen',
   },
-  lists: { title: 'Listen', packing: 'Packliste', cables: 'Kabelliste', dmx: 'DMX-Patch', network: 'Netzwerk', changes: 'Änderungen', people: 'Personen' },
+  lists: { title: 'Listen', packing: 'Packliste', cables: 'Kabelliste', dmx: 'DMX-Patch', network: 'Netzwerk', changes: 'Änderungen', people: 'Personen', cases: 'Cases' },
   changeLog: {
     empty: 'Noch keine Änderungen protokolliert.',
     columns: ['Wann', 'Wer', 'Was'],
@@ -343,6 +343,10 @@ export const texts = {
     thenBy: 'dann nach',
     groups: { category: 'Kategorie', trailer: 'Anhänger', owner: 'Besitzer', case: 'Case' },
     inCase: 'im',
+    sortBy: 'Sortieren nach',
+    sort: { name: 'Bezeichnung', case: 'Case' },
+    noCases: 'Noch nichts in Cases – Geräten und Kabeln in den Eigenschaften ein Case zuordnen.',
+    groupsUnassigned: { trailer: 'ohne Anhänger' },
     view: 'Ansicht',
     modes: { aggregated: 'Zusammengefasst', single: 'Einzeln' },
     progress: (out: number, back: number, total: number) => `Hin ${out}/${total} · Zurück ${back}/${total}`,
@@ -415,6 +419,7 @@ export const texts = {
     labelFormat: 'Etikettenbogen (A4)',
     cutLines: 'Schnittlinien drucken (für Normalpapier)',
     groups: 'Gruppenrahmen einzeichnen',
+    casesHint: 'Je Case eine Seite: was hineingehört, mit Anhänger und Unterschrift.',
     labelsHint: 'Je Gerät „benutzt von Mensch“ ein Etikett: Gerät, Person und wo es mit welchem Kabel eingesteckt wird.',
   },
   networkView: {

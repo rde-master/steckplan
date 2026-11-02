@@ -3,6 +3,7 @@ import {
   boundsOf,
   buildBom,
   buildCableList,
+  buildCaseLists,
   buildDeviceLabels,
   buildPeopleList,
   buildDeviceList,
@@ -31,6 +32,7 @@ import type { ProjectData } from '../lib/useProjectData';
 import { buildBoxes, buildCableLines, buildGroupFrames } from '../components/signalflow/model';
 import { buildMulticoreRoutes, buildStageCables, buildStageGroupFrames, buildStageItems } from '../components/stageplan/model';
 import {
+  caseListsDoc,
   drawableArea,
   LABEL_FORMATS,
   labelsDoc,
@@ -49,14 +51,15 @@ import {
 } from './documents';
 import { signalFlowBounds, signalFlowSvg, stageBounds, stagePlanSvg, usedCategories, type StageDrawing } from './svg';
 
-export type ExportKind = 'stageplan' | 'signalflow' | 'packing' | 'cables' | 'bom' | 'dmx' | 'devices' | 'network' | 'people' | 'labels' | 'wifi';
+export type ExportKind = 'stageplan' | 'signalflow' | 'packing' | 'cases' | 'cables' | 'bom' | 'dmx' | 'devices' | 'network' | 'people' | 'labels' | 'wifi';
 
-export const CSV_KINDS: ExportKind[] = ['packing', 'cables', 'bom', 'dmx', 'devices', 'network', 'people'];
+export const CSV_KINDS: ExportKind[] = ['packing', 'cases', 'cables', 'bom', 'dmx', 'devices', 'network', 'people'];
 
 export const EXPORT_TITLES: Record<ExportKind, string> = {
   stageplan: 'Bühnenplan',
   signalflow: 'Signalfluss',
   packing: 'Packliste',
+  cases: 'Case-Listen',
   cables: 'Kabelliste',
   bom: 'Stückliste',
   dmx: 'DMX-Patch',
@@ -78,6 +81,8 @@ export interface ExportOptions {
   groupBy: GroupBy;
   thenBy: GroupBy | '';
   mode: 'aggregated' | 'single';
+  /** Packliste: Zeilen nach Bezeichnung oder zuerst nach Case */
+  sortBy: 'name' | 'case';
   showChecks: boolean;
   wifiIds: string[];
   printPassword: boolean;
@@ -98,6 +103,7 @@ export const DEFAULT_OPTIONS: ExportOptions = {
   groupBy: 'category',
   thenBy: '',
   mode: 'aggregated',
+  sortBy: 'name',
   showChecks: false,
   wifiIds: [],
   printPassword: true,
@@ -175,14 +181,34 @@ export async function buildExportDoc(opts: ExportOptions, input: ExportInput): P
 
   switch (opts.kind) {
     case 'packing': {
-      const list = buildPackingList(filteredPackItems(data, library, filter), library, { groupBy: opts.thenBy ? [opts.groupBy, opts.thenBy] : [opts.groupBy], mode: opts.mode });
+      const list = buildPackingList(filteredPackItems(data, library, filter), library, { groupBy: opts.thenBy ? [opts.groupBy, opts.thenBy] : [opts.groupBy], mode: opts.mode, sortBy: opts.sortBy });
       return packingListDoc(
         list,
         {
           mode: opts.mode,
           showChecks: opts.showChecks,
           names: { category: name('categories'), owner: name('owners'), trailer: name('trailers'), case: name('cases') },
-          groupTitle: `gruppiert nach ${GROUP_TITLE[opts.groupBy]}${opts.thenBy ? `, dann ${GROUP_TITLE[opts.thenBy]}` : ''}`,
+          groupTitle: `gruppiert nach ${GROUP_TITLE[opts.groupBy]}${opts.thenBy ? `, dann ${GROUP_TITLE[opts.thenBy]}` : ''}${opts.sortBy === 'case' ? ', sortiert nach Case' : ''}`,
+        },
+        ctx,
+      );
+    }
+    case 'cases': {
+      const lists = buildCaseLists(filteredPackItems(data, library, filter), library, { mode: opts.mode, caseTrailers: data.caseTrailers });
+      return caseListsDoc(
+        lists.map((c) => ({
+          name: c.name,
+          trailer: masterLabel(library, 'trailers', c.trailerId),
+          total: c.total,
+          rows: c.rows,
+          ...(c.notes ? { notes: c.notes } : {}),
+          ...(c.color ? { color: c.color } : {}),
+        })),
+        {
+          mode: opts.mode,
+          showChecks: opts.showChecks,
+          names: { category: name('categories'), owner: name('owners'), trailer: name('trailers'), case: name('cases') },
+          groupTitle: '',
         },
         ctx,
       );
@@ -359,6 +385,7 @@ export function buildCsv(kind: ExportKind, data: ProjectData, library: Library, 
       return dmxCsv(buildDmxPatch({ devices }, templates));
     case 'packing':
     case 'bom':
+    case 'cases':
       return listCsv(kind, all, library, filteredPackItems(data, library, filter));
     case 'cables':
       // alle Geräte (für „von/nach“), aber nur passende Kabel
