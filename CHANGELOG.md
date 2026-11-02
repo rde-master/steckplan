@@ -9,6 +9,7 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Hinzugefügt
 
+- Bühnenplan, „Nicht platziert“: je Gerät die Person (wenn es von einem Menschen benutzt wird) und der Besitzer
 - Signalfluss: Kästen lassen sich am schraffierten Griff rechts unten breiter und höher ziehen (Anschlüsse verteilen sich mit mehr Abstand; nie kleiner als automatisch; Doppelklick auf den Griff = automatische Größe); die Größe gilt auch im PDF
 - Signalfluss: Kabellinien „eckig“ oder „geschwungen“ (Umschalter „Kabel“ in der Leiste, gilt für das ganze Projekt und im PDF)
 

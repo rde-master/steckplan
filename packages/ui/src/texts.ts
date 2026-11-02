@@ -526,6 +526,8 @@ export const texts = {
     showCables: 'Kabel',
     grid: 'Raster',
     snap: 'Fangen',
+    unplacedPerson: 'Person',
+    unplacedOwner: 'Besitzer',
     unplacedHint: 'Geräte, die schon im Signalfluss sind, aber noch keinen Platz im Bühnenplan haben. Auf den Plan ziehen oder mit ＋ in die Mitte setzen.',
     allPlaced: 'Alle Geräte sind platziert.',
     place: 'Platzieren',
