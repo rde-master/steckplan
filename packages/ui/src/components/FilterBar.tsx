@@ -1,4 +1,6 @@
 // Filterleiste: Kategorie, Besitzer, Anhänger, Stativ/Traverse – und „Einfärben nach …“.
+import { X } from 'lucide-react';
+import { ICON } from './icons';
 import { useEffect, useRef, useState } from 'react';
 import { EMPTY_FILTER, isFilterActive, type Filter, type Library } from '@steckplan/core';
 import { useEditor, type ColorMode } from '../lib/editor';
@@ -80,7 +82,7 @@ export function FilterBar({ library, data, showColorMode = true }: { library: Li
       <MultiSelect label={f.carrier} options={carriers} value={filter.carriers} onChange={(c) => set({ carriers: c })} />
       {isFilterActive(filter) && (
         <Button variant="ghost" className="min-h-7 px-2 py-0.5 text-xs" onClick={() => setFilter(EMPTY_FILTER)}>
-          ✕ {f.reset}
+          <X {...ICON} /> {f.reset}
         </Button>
       )}
       {showColorMode && (

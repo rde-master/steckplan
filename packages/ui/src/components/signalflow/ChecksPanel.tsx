@@ -1,4 +1,6 @@
 // Prüfungen-Panel: alle Warnungen, Klick springt zum Objekt.
+import { Check } from 'lucide-react';
+import { ICON } from '../icons';
 import { useState } from 'react';
 import type { Issue } from '@steckplan/core';
 import { texts } from '../../texts';
@@ -15,7 +17,7 @@ export function ChecksPanel({ issues, onJump }: { issues: Issue[]; onJump: (issu
       <button type="button" className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm" onClick={() => setOpen(!open)} aria-expanded={open}>
         <span className="font-medium">{s.checks}</span>
         {issues.length === 0 ? (
-          <span className="text-emerald-700 dark:text-emerald-400">✓ {s.noIssues}</span>
+          <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-400"><Check {...ICON} /> {s.noIssues}</span>
         ) : (
           <>
             {errors > 0 && <span className="rounded-full bg-red-100 px-2 text-xs text-red-900">{s.errors(errors)}</span>}

@@ -1,4 +1,6 @@
 // Ton-Patch: Input- und Output-Liste je Mischpult (automatisch aus dem Signalfluss, Angaben bearbeitbar).
+import { RotateCcw } from 'lucide-react';
+import { ICON } from '../icons';
 import { useMemo, useState } from 'react';
 import type * as Y from 'yjs';
 import { buildPatchLists, updatePatchEntry, viaText, type Library, type PatchRow } from '@steckplan/core';
@@ -113,7 +115,7 @@ function Row({ row, inputs, editable, onChange }: { row: PatchRow; inputs: boole
           />
           {row.edited.phantom && editable && (
             <Button variant="ghost" className="min-h-6 px-1 text-xs" aria-label={`${t.reset}: ${c.phantom} ${row.port}`} onClick={() => onChange({ phantom: undefined })}>
-              ↺
+              <RotateCcw {...ICON} />
             </Button>
           )}
         </td>

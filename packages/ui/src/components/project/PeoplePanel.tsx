@@ -1,22 +1,34 @@
 // Personen im Projekt (Name, Vorname, Art) – Geräte „benutzt von Mensch“ werden ihnen zugeordnet.
+import { Plus, Trash2, Upload } from 'lucide-react';
+import { ICON } from '../icons';
 import { useState, type FormEvent } from 'react';
 import type * as Y from 'yjs';
 import { addPerson, personKinds, removePerson, updatePerson, usesPerson, type Library, type Person } from '@steckplan/core';
 import type { ProjectData } from '../../lib/useProjectData';
 import { texts } from '../../texts';
 import { Button, TextInput } from '../ui';
+import { PeopleImportDialog } from './PeopleImportDialog';
 
 const t = texts.people;
 
 export function PeoplePanel({ doc, origin, data, library, editable }: { doc: Y.Doc; origin: object; data: ProjectData; library: Library | null; editable: boolean }) {
   const kinds = personKinds(data.people);
   const templates = new Map((library?.templates ?? []).map((x) => [x.id, x]));
+  const [importing, setImporting] = useState(false);
   const deviceCount = (person: Person) => data.devices.filter((d) => d.personId === person.id && usesPerson(d, templates.get(d.templateId))).length;
 
   return (
     <section className="space-y-3 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900" aria-label={t.title}>
-      <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">{t.title}</h2>
+      <div className="flex items-center gap-2">
+        <h2 className="flex-1 text-sm font-semibold uppercase tracking-wide text-slate-500">{t.title}</h2>
+        {editable && (
+          <Button variant="ghost" onClick={() => setImporting(true)}>
+            <Upload {...ICON} /> {texts.peopleImport.open}
+          </Button>
+        )}
+      </div>
       <p className="text-xs text-slate-500">{t.hint}</p>
+      {importing && <PeopleImportDialog doc={doc} origin={origin} people={data.people} onClose={() => setImporting(false)} />}
       <datalist id="steckplan-person-kinds">
         {kinds.map((k) => (
           <option key={k} value={k} />
@@ -52,7 +64,7 @@ export function PeoplePanel({ doc, origin, data, library, editable }: { doc: Y.D
                   <td className="pb-2">
                     {editable && (
                       <Button variant="ghost" aria-label={`${texts.common.delete}: ${person.firstName} ${person.lastName}`} onClick={() => removePerson(doc, person.id, origin)}>
-                        🗑
+                        <Trash2 {...ICON} />
                       </Button>
                     )}
                   </td>
@@ -83,7 +95,7 @@ export function AddPerson({ onAdd, compact = false }: { onAdd: (person: Omit<Per
       <TextInput aria-label={t.newFirstName} placeholder={t.firstName} value={person.firstName} onChange={(e) => setPerson({ ...person, firstName: e.target.value })} />
       <TextInput aria-label={t.newKind} placeholder={t.kind} list="steckplan-person-kinds" value={person.kind} onChange={(e) => setPerson({ ...person, kind: e.target.value })} />
       <Button type="submit" variant="primary" disabled={!valid}>
-        ＋ {t.add}
+        <Plus {...ICON} /> {t.add}
       </Button>
     </form>
   );

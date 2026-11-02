@@ -1,4 +1,6 @@
 // Stammdaten: Kategorien, Besitzer, Anhänger, Cases – anlegen, umbenennen, Farbe, archivieren, löschen (nur wenn unbenutzt).
+import { Plus } from 'lucide-react';
+import { ICON } from '../icons';
 import { useState } from 'react';
 import { MASTER_KIND_LABELS, MASTER_KINDS, type Library, type MasterEntry, type MasterKind } from '@steckplan/core';
 import { api, ApiError, errorMessage } from '../../lib/api';
@@ -77,7 +79,7 @@ function AddEntry({ kind }: { kind: MasterKind }) {
           </Field>
         </div>
         <Button type="submit" variant="primary" disabled={!name.trim()}>
-          ＋ {m.add}
+          <Plus {...ICON} /> {m.add}
         </Button>
       </div>
       <ColorField label={texts.library.fields.color} value={color} onChange={setColor} />

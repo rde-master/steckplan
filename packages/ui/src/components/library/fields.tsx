@@ -1,4 +1,6 @@
 // Eingabefelder für die Vorlagen-Editoren.
+import { X } from 'lucide-react';
+import { ICON } from '../icons';
 import { useId, useState } from 'react';
 import { MASTER_KIND_LABELS, type MasterEntry, type MasterKind } from '@steckplan/core';
 import { api, errorMessage } from '../../lib/api';
@@ -199,7 +201,7 @@ export function MasterSelect({
             {texts.library.master.create}
           </Button>
           <Button variant="ghost" onClick={() => setCreating(false)} aria-label={texts.common.cancel}>
-            ✕
+            <X {...ICON} />
           </Button>
         </div>
       )}

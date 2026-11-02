@@ -1,4 +1,6 @@
 // Dialog „Exportieren“: Dokumentart, Format, Optionen → PDF oder CSV.
+import { Download } from 'lucide-react';
+import { ICON } from './icons';
 import { useState } from 'react';
 import { can, formatAppTitle, isFilterActive, VERSION, type GroupBy, type Issue, type Library, type ProjectMeta } from '@steckplan/core';
 import { api, errorMessage } from '../lib/api';
@@ -112,9 +114,9 @@ export function ExportDialog({
       footer={
         <>
           <Button onClick={onClose}>{texts.common.cancel}</Button>
-          {CSV_KINDS.includes(opts.kind) && <Button onClick={createCsv}>⇩ CSV</Button>}
+          {CSV_KINDS.includes(opts.kind) && <Button onClick={createCsv}><Download {...ICON} /> CSV</Button>}
           <Button variant="primary" onClick={() => void createPdf()} disabled={busy || (opts.kind === 'wifi' && opts.wifiIds.length === 0)}>
-            {busy ? e.busy : '⇩ PDF'}
+            {busy ? e.busy : <><Download {...ICON} /> PDF</>}
           </Button>
         </>
       }

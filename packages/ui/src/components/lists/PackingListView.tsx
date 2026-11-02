@@ -1,5 +1,7 @@
 // Packliste zum Abhaken (Desktop, Browser, Handy): Hin/Zurück, fehlt/defekt, Zähler bei zusammengefassten Zeilen.
-import { createContext, useContext, useMemo, useState } from 'react';
+import { Check, RotateCcw, Square, SquareCheck } from 'lucide-react';
+import { ICON } from '../icons';
+import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
 import {
   buildCaseLists,
   buildPackingList,
@@ -209,7 +211,7 @@ export function PackingListView({ projectId, data, library, canCheck, canReset, 
         </div>
         {canReset && (
           <Button variant="ghost" onClick={() => setResetOpen(true)}>
-            ↺ {p.reset}
+            <RotateCcw {...ICON} /> {p.reset}
           </Button>
         )}
       </div>
@@ -306,7 +308,7 @@ function AggregatedRow({ row, canCheck, onCheck }: { row: PackRow; canCheck: boo
         aria-label={`${direction === 'out' ? p.out : p.in}: ${rowTitle(row)} – ${checked} von ${n}`}
         className={`min-h-11 min-w-24 rounded-md border px-3 text-sm font-medium tabular-nums ${complete ? 'border-emerald-300 bg-emerald-100 text-emerald-900 dark:border-emerald-800 dark:bg-emerald-900 dark:text-emerald-100' : 'border-slate-300 bg-white hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800'} disabled:cursor-default`}
       >
-        {complete ? '✓ ' : '☐ '}
+        {complete ? <SquareCheck {...ICON} /> : <Square {...ICON} />}
         {direction === 'out' ? p.out : p.in} {checked}/{n}
       </button>
     );
@@ -364,23 +366,23 @@ function CheckControl({ item, direction, canCheck, onCheck }: { item: PackItem; 
     setNote(mark?.note ?? '');
   }
   const label = `${direction === 'out' ? p.out : p.in}: ${item.label || item.name}`;
-  const btn = (status: CheckMark['status'], text: string, tone: string) => (
+  const btn = (status: CheckMark['status'], content: ReactNode, tone: string, text = String(content)) => (
     <button
       type="button"
       disabled={!canCheck}
       aria-pressed={mark?.status === status}
       aria-label={`${label} – ${text}`}
       onClick={() => onCheck(item, direction, mark?.status === status ? null : status)}
-      className={`min-h-10 rounded px-2 text-xs ${mark?.status === status ? tone : 'bg-white text-slate-600 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-300'} border border-slate-200 dark:border-slate-700`}
+      className={`inline-flex min-h-10 items-center rounded px-2 text-xs ${mark?.status === status ? tone : 'bg-white text-slate-600 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-300'} border border-slate-200 dark:border-slate-700`}
     >
-      {text}
+      {content}
     </button>
   );
   return (
     <div className="w-full space-y-1 sm:w-60" role="group" aria-label={label}>
       <div className="flex items-center gap-1">
         <span className="w-12 text-xs text-slate-500">{direction === 'out' ? p.out : p.in}</span>
-        {btn('ok', '✓', 'bg-emerald-600 text-white')}
+        {btn('ok', <Check {...ICON} />, 'bg-emerald-600 text-white', p.okLabel)}
         {btn('missing', p.missing, 'bg-red-600 text-white')}
         {btn('damaged', p.damaged, 'bg-amber-500 text-white')}
       </div>

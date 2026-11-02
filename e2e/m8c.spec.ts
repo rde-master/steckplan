@@ -34,7 +34,7 @@ test('M8c: Stammdaten direkt anlegen, Vorlage kopieren, Personen, Gruppen, T-Bar
 
   // ---------- Bibliothek: neues Gerät mit neuer Kategorie und neuem Case, benutzt von Mensch, Lager 1 ----------
   await page.goto('/bibliothek?bereich=device');
-  await page.getByRole('button', { name: '＋ Neu: Gerät' }).click();
+  await page.getByRole('button', { name: 'Neu: Gerät', exact: true }).click();
   await page.getByLabel('Name', { exact: true }).fill('Funkmikro M8c');
   await page.getByRole('combobox', { name: 'Kategorie' }).selectOption({ label: '+ Kategorie neu anlegen …' });
   await page.getByLabel('Name (Kategorie)').fill('Funk M8c');
@@ -89,8 +89,18 @@ test('M8c: Stammdaten direkt anlegen, Vorlage kopieren, Personen, Gruppen, T-Bar
   await page.getByLabel('Name der neuen Person', { exact: true }).fill('Muster');
   await page.getByLabel('Vorname der neuen Person').fill('Anna');
   await page.getByLabel('Art der neuen Person').fill('Sängerin');
-  await page.getByRole('button', { name: '＋ Person' }).click();
+  await page.getByRole('button', { name: 'Person', exact: true }).click();
   await expect(page.getByTestId('people-table')).toBeVisible();
+
+  // Personen importieren (aus Excel eingefügt): vorhandene werden übersprungen
+  await page.getByRole('button', { name: 'Importieren …', exact: true }).click();
+  const importDialog = page.getByRole('dialog', { name: 'Personen importieren' });
+  await importDialog.getByLabel('Personen (aus Excel eingefügt oder CSV)').fill('Name\tVorname\tArt\nMuster\tAnna\tSängerin\nBeispiel\tBert\tGitarre\nNeu\tNina\tBass');
+  await expect(importDialog.getByTestId('import-preview')).toContainText('schon vorhanden – übersprungen');
+  await importDialog.getByRole('button', { name: '2 Personen anlegen' }).click();
+  await expect(importDialog.getByText('2 Änderungen übernommen')).toBeVisible();
+  await importDialog.getByRole('button', { name: 'Schließen' }).last().click();
+  await expect(page.getByTestId('people-table').locator('tbody tr')).toHaveCount(3);
 
   // ---------- Signalfluss: Person zuordnen, Name im Kasten, Lagerwarnung, Gruppe ----------
   await page.getByRole('tab', { name: 'Signalfluss' }).click();
@@ -105,7 +115,7 @@ test('M8c: Stammdaten direkt anlegen, Vorlage kopieren, Personen, Gruppen, T-Bar
   await expect(props.getByText('Funkmikro M8c: 2 verwendet, aber nur 1 im Lager.')).toBeVisible();
 
   await page.keyboard.press('Control+a');
-  await page.getByRole('button', { name: '▣ Gruppieren' }).click();
+  await page.getByRole('button', { name: 'Gruppieren', exact: true }).click();
   await expect.poll(() => page.evaluate(() => window.__steckplanStage?.find('.group-frame').length ?? 0)).toBe(1);
   await expect.poll(async () => (await project(page.request, id)).groups.length).toBe(1);
 
@@ -153,7 +163,7 @@ test('M8c: Stammdaten direkt anlegen, Vorlage kopieren, Personen, Gruppen, T-Bar
   await dialog.getByLabel('Dokument').selectOption({ label: 'Geräte-Etiketten' });
   await dialog.getByLabel('Etikettenbogen (A4)').selectOption({ index: 2 });
   const downloadPromise = page.waitForEvent('download');
-  await dialog.getByRole('button', { name: '⇩ PDF' }).click();
+  await dialog.getByRole('button', { name: 'PDF', exact: true }).click();
   const download = await downloadPromise;
   expect(download.suggestedFilename()).toBe('M8c-Test - Geraete-Etiketten.pdf');
   const text = await pdfText((await download.path())!);

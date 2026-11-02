@@ -1,4 +1,6 @@
 // Desktop: Server-Verbindungen – Liste, „Mit Server verbinden“, „Auf Server hochladen“.
+import { Plus } from 'lucide-react';
+import { ICON } from './icons';
 import { useEffect, useState, type FormEvent } from 'react';
 import { errorMessage } from '../lib/api';
 import type { DesktopBridge, ServerInfo } from '../lib/desktop';
@@ -53,7 +55,7 @@ export function ServersSection({ desktop, connectRequest }: { desktop: DesktopBr
         <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">{t.title}</h2>
         <div className="flex-1" />
         <Button variant="ghost" onClick={() => setConnecting(true)}>
-          ＋ {t.connect}
+          <Plus {...ICON} /> {t.connect}
         </Button>
       </div>
       {error && <Banner tone="error">{error}</Banner>}

@@ -1,4 +1,6 @@
 // Seitenleisten des Bühnenplans: Nicht platziert, Ebenen, Hintergrund.
+import { Check, Eye, EyeOff, Lock, LockOpen, Plus, Ruler, X } from 'lucide-react';
+import { ICON } from '../icons';
 import { useRef, useState } from 'react';
 import type * as Y from 'yjs';
 import { addLayer, backgroundScale, isMulticore, removeLayer, setBackground, updateLayer, type Background, type DeviceInstance, type Library } from '@steckplan/core';
@@ -19,7 +21,7 @@ export function UnplacedPanel({ devices, library, editable, onPlace }: { devices
     <div className="h-full overflow-y-auto p-2">
       <p className="px-1 pb-2 text-xs text-slate-500">{s.unplacedHint}</p>
       {unplaced.length === 0 ? (
-        <p className="px-1 text-sm text-emerald-700 dark:text-emerald-400">✓ {s.allPlaced}</p>
+        <p className="flex items-center gap-1 px-1 text-sm text-emerald-700 dark:text-emerald-400"><Check {...ICON} /> {s.allPlaced}</p>
       ) : (
         <ul className="space-y-1" data-testid="unplaced-list">
           {unplaced.map((d) => {
@@ -38,7 +40,7 @@ export function UnplacedPanel({ devices, library, editable, onPlace }: { devices
                 <span className="min-w-0 flex-1 truncate">{d.label}</span>
                 {editable && (
                   <button type="button" className="rounded px-1.5 text-base leading-none text-slate-500 hover:bg-slate-200" aria-label={`${s.place}: ${d.label}`} onClick={() => onPlace(d.id)}>
-                    ＋
+                    <Plus {...ICON} />
                   </button>
                 )}
               </li>
@@ -74,10 +76,10 @@ export function LayersPanel({ doc, origin, data, editable }: { doc: Y.Doc; origi
               />
               <span className="text-xs text-slate-400">{count}</span>
               <button type="button" className="rounded px-1 hover:bg-slate-200 dark:hover:bg-slate-700" aria-label={`${layer.visible ? s.hide : s.show}: ${layer.name}`} aria-pressed={!layer.visible} onClick={() => updateLayer(doc, layer.id, { visible: !layer.visible }, origin)}>
-                {layer.visible ? '👁' : '🚫'}
+                {layer.visible ? <Eye {...ICON} /> : <EyeOff {...ICON} />}
               </button>
               <button type="button" className="rounded px-1 hover:bg-slate-200 dark:hover:bg-slate-700" disabled={!editable} aria-label={`${layer.locked ? s.unlock : s.lock}: ${layer.name}`} aria-pressed={layer.locked} onClick={() => updateLayer(doc, layer.id, { locked: !layer.locked }, origin)}>
-                {layer.locked ? '🔒' : '🔓'}
+                {layer.locked ? <Lock {...ICON} /> : <LockOpen {...ICON} />}
               </button>
               {editable && (
                 <button
@@ -88,7 +90,7 @@ export function LayersPanel({ doc, origin, data, editable }: { doc: Y.Doc; origi
                     setError(removeLayer(doc, data, layer.id, origin) ? null : s.layerNotEmpty(layer.name));
                   }}
                 >
-                  ✕
+                  <X {...ICON} />
                 </button>
               )}
             </li>
@@ -108,7 +110,7 @@ export function LayersPanel({ doc, origin, data, editable }: { doc: Y.Doc; origi
         >
           <TextInput value={name} placeholder={s.newLayer} aria-label={s.newLayer} onChange={(e) => setName(e.target.value)} />
           <Button type="submit" disabled={!name.trim()}>
-            ＋
+            <Plus {...ICON} />
           </Button>
         </form>
       )}
@@ -208,7 +210,7 @@ export function BackgroundPanel({ doc, origin, background, editable }: { doc: Y.
           {editable && (
             <>
               <Button className="w-full" onClick={() => setTool('calibrate')}>
-                📏 {s.calibrate}
+                <Ruler {...ICON} /> {s.calibrate}
               </Button>
               <label className="flex items-center gap-2">
                 <input type="checkbox" checked={moveBackground} onChange={(e) => setMoveBackground(e.target.checked)} />

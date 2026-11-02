@@ -1,4 +1,6 @@
-// Bibliothek als Seitenleiste: Vorlagen auf die Zeichenfläche ziehen oder mit ＋ hinzufügen.
+// Bibliothek als Seitenleiste: Vorlagen auf die Zeichenfläche ziehen oder mit + hinzufügen.
+import { Plus } from 'lucide-react';
+import { ICON } from '../icons';
 import { useState } from 'react';
 import { isMulticore, isPlaceableInSignalFlow, TEMPLATE_KIND_LABELS, type Library, type Template } from '@steckplan/core';
 import { useEditor } from '../../lib/editor';
@@ -87,7 +89,7 @@ export function LibrarySidebar({
                       aria-label={`${s.add}: ${template.name}`}
                       onClick={() => onAdd(template)}
                     >
-                      ＋
+                      <Plus {...ICON} />
                     </button>
                   )}
                 </li>

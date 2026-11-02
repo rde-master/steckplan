@@ -72,7 +72,7 @@ test('Strom: Verteiler, Last je Abgang und Phase, Überlast, Leistung je Gerät,
   const dialog = page.getByRole('dialog');
   await dialog.getByLabel('Dokument').selectOption({ label: 'Stromliste' });
   const downloadPromise = page.waitForEvent('download');
-  await dialog.getByRole('button', { name: '⇩ CSV' }).click();
+  await dialog.getByRole('button', { name: 'CSV', exact: true }).click();
   const download = await downloadPromise;
   expect(download.suggestedFilename()).toBe('Strom-Test - Stromliste.csv');
 });

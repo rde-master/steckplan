@@ -1,4 +1,6 @@
 // Kleine, wiederverwendbare Bausteine (Tailwind).
+import { X } from 'lucide-react';
+import { ICON } from './icons';
 import { useEffect, useId, useRef, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type TextareaHTMLAttributes } from 'react';
 import type { Access } from '@steckplan/core';
 import { texts } from '../texts';
@@ -90,7 +92,7 @@ export function Modal({ title, onClose, children, footer }: { title: string; onC
       <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-slate-700">
         <h2 id={titleId} className="text-base font-semibold">{title}</h2>
         <Button variant="ghost" onClick={onClose} aria-label={texts.common.close}>
-          ✕
+          <X {...ICON} />
         </Button>
       </div>
       <div className="max-h-[70vh] overflow-y-auto px-4 py-3">{children}</div>

@@ -1,4 +1,6 @@
 // Reiter „Netzwerk“: Subnetze, WLAN-Netze mit QR-Code, IP-Tabelle.
+import { Eye, EyeOff, Plus, X } from 'lucide-react';
+import { ICON } from '../icons';
 import { useCallback, useState } from 'react';
 import type * as Y from 'yjs';
 import {
@@ -65,7 +67,7 @@ function Subnets({ doc, origin, data, issues, editable }: Props) {
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">{n.subnets}</h2>
         {editable && (
-          <Button onClick={() => addNetworkItem<Subnet>(doc, 'subnets', { name: n.newSubnet, cidr: '192.168.1.0/24' }, origin)}>＋ {n.addSubnet}</Button>
+          <Button onClick={() => addNetworkItem<Subnet>(doc, 'subnets', { name: n.newSubnet, cidr: '192.168.1.0/24' }, origin)}><Plus {...ICON} /> {n.addSubnet}</Button>
         )}
       </div>
       {data.network.subnets.length === 0 && <p className="text-sm text-slate-500">{n.noSubnets}</p>}
@@ -89,7 +91,7 @@ function Subnets({ doc, origin, data, issues, editable }: Props) {
               </Field>
               {editable && (
                 <Button variant="ghost" aria-label={`${texts.common.delete}: ${s.name}`} disabled={used > 0} title={used > 0 ? n.subnetInUse : undefined} onClick={() => removeNetworkItem(doc, 'subnets', s.id, origin)}>
-                  ✕
+                  <X {...ICON} />
                 </Button>
               )}
             </div>
@@ -123,7 +125,7 @@ function Wifi({ projectId, doc, origin, data, editable, canSeeSecrets }: Props) 
     <section className="space-y-3 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900" aria-label={n.wifi}>
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">{n.wifi}</h2>
-        {editable && <Button onClick={() => addNetworkItem<WifiNetwork>(doc, 'wifi', { ssid: n.newSsid, security: 'WPA2', hidden: false }, origin)}>＋ {n.addWifi}</Button>}
+        {editable && <Button onClick={() => addNetworkItem<WifiNetwork>(doc, 'wifi', { ssid: n.newSsid, security: 'WPA2', hidden: false }, origin)}><Plus {...ICON} /> {n.addWifi}</Button>}
       </div>
       {canSeeSecrets && data.network.wifi.length > 0 && <p className="text-xs text-amber-700 dark:text-amber-400">{n.cleartextHint}</p>}
       {error && <Banner tone="error">{error}</Banner>}
@@ -220,7 +222,7 @@ function PasswordField({ value, editable, ssid, onSave }: { value: string; edita
         </Field>
       </div>
       <Button variant="ghost" onClick={() => setShow(!show)} aria-label={show ? n.hidePassword : n.showPassword}>
-        {show ? '🙈' : '👁'}
+        {show ? <EyeOff {...ICON} /> : <Eye {...ICON} />}
       </Button>
     </div>
   );

@@ -63,7 +63,7 @@ test('Ton-Patch: Input-/Output-Liste aus dem Signalfluss, Angaben bearbeiten, PD
   const dialog = page.getByRole('dialog');
   await dialog.getByLabel('Dokument').selectOption({ label: 'Input-/Output-Liste' });
   const downloadPromise = page.waitForEvent('download');
-  await dialog.getByRole('button', { name: '⇩ PDF' }).click();
+  await dialog.getByRole('button', { name: 'PDF', exact: true }).click();
   const download = await downloadPromise;
   const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
   const pdf = await pdfjs.getDocument({ data: new Uint8Array(readFileSync((await download.path())!)) }).promise;

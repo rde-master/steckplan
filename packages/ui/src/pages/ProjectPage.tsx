@@ -1,3 +1,5 @@
+import { ArrowLeft, Copy } from 'lucide-react';
+import { ICON } from '../components/icons';
 import { useEffect, useState } from 'react';
 import type * as Y from 'yjs';
 import { can, type Conflict, type PresenceUser, type ProjectMeta } from '@steckplan/core';
@@ -92,7 +94,7 @@ export function ProjectPage({ id }: { id: string }) {
 
   const backButton = !isDesktop ? (
     <Button variant="ghost" onClick={() => navigate('/')} aria-label={texts.project.toList} title={texts.project.toList}>
-      ←
+      <ArrowLeft {...ICON} />
     </Button>
   ) : null;
 
@@ -356,7 +358,7 @@ function CopyProject({ projectId, name }: { projectId: string; name: string }) {
           }
         }}
       >
-        ⧉ {texts.project.copy}
+        <Copy {...ICON} /> {texts.project.copy}
       </Button>
       {error && <Banner tone="error">{error}</Banner>}
     </section>

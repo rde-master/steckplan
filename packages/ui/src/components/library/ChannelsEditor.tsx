@@ -1,4 +1,6 @@
 // Multicore: Adern/Kanäle mit Stecker an Ende A und B, optisch getrennt nach Signalrichtung.
+import { X } from 'lucide-react';
+import { ICON } from '../icons';
 import { useState } from 'react';
 import type { CableChannel } from '@steckplan/core';
 import { bulkLabels, bulkPreview, createBulkChannels, MAX_BULK_PORTS, type BulkChannelOptions } from '../../lib/ports';
@@ -106,7 +108,7 @@ export function ChannelsEditor({
                       <td className="whitespace-nowrap pb-2">
                         {!disabled && (
                           <Button variant="ghost" title={t.remove} aria-label={`${t.remove} ${mc.channel} ${index + 1}`} onClick={() => onChange(channels.filter((_, i) => i !== index))}>
-                            ✕
+                            <X {...ICON} />
                           </Button>
                         )}
                       </td>
