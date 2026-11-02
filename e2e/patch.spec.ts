@@ -136,3 +136,54 @@ test('Ton-Patch: Netzwerk-Kanäle – Quelle über digitale Stagebox einem Pult-
   await expect(row3).toContainText('SB · In 1 (Netzwerk)');
   await expect(row3.getByLabel('48 V Netz 3')).toBeChecked();
 });
+
+test('Ton-Patch: Netzwerk-Kanal über Multicore → Stagebox 1 → Stagebox 2 → Pult', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await loginAs(page, 'edit', 'Kette-Ton');
+  const post = async (template: object) => (await page.request.post('/api/library/templates', { data: { template } })).json();
+  const net = (id: string) => ({ id, label: id === 'n1' ? 'Dante' : id === 'n2' ? 'Dante 2' : 'Netz', connector: 'RJ45 K', direction: 'bi', signal: 'Dante', isNetwork: true });
+  const mic = await post({ kind: 'device', name: 'Mikro K', ports: [{ id: 'out', label: 'Out', connector: 'XLR K', direction: 'out', signal: 'Audio' }] });
+  const snake = await post({
+    kind: 'cableType',
+    name: 'Multicore K',
+    endALabel: 'Bühne',
+    endBLabel: 'FOH',
+    channels: [{ id: 's1', label: 'Send 1', connectorA: 'XLR K', connectorB: 'XLR K', direction: 'aToB', signal: 'Audio' }],
+  });
+  const sb1 = await post({ kind: 'device', name: 'Stagebox 1 K', ports: [{ id: 'i1', label: 'In 1', connector: 'XLR K', direction: 'in', signal: 'Audio' }, net('n1')] });
+  const sb2 = await post({ kind: 'device', name: 'Stagebox 2 K', ports: [net('n1'), net('n2')] });
+  const desk = await post({ kind: 'device', name: 'Pult K', mixer: true, networkChannels: 24, ports: [net('n')] });
+  const d = (id: string, t: { id: string }, x: number) => ({ id, templateId: t.id, layerId: 'l1', label: id, signalFlow: { position: { x, y: 60 } } });
+  const c = (id: string, from: [string, string], to: [string, string]) => ({ id, from: { deviceId: from[0], portId: from[1] }, to: { deviceId: to[0], portId: to[1] }, waypoints: [] });
+  const { id } = await (
+    await page.request.post('/api/projects/upload', {
+      data: {
+        schemaVersion: 5,
+        id: 'kette',
+        meta: { name: 'Kette' },
+        layers: [{ id: 'l1', name: 'Ton', order: 0 }],
+        devices: [d('Mikrofon', mic, 20), d('MC', snake, 250), d('SB1', sb1, 500), d('SB2', sb2, 750), d('Pult', desk, 1000)],
+        cables: [c('a', ['Mikrofon', 'out'], ['MC', 's1:a']), c('b', ['MC', 's1:b'], ['SB1', 'i1']), c('n1', ['SB1', 'n1'], ['SB2', 'n1']), c('n2', ['SB2', 'n2'], ['Pult', 'n'])],
+      },
+    })
+  ).json();
+  await page.goto(`/projekt/${id}`);
+  await expect.poll(() => page.evaluate(() => window.__steckplanStage?.find('.device').length ?? 0)).toBe(5);
+  const pt = await page.evaluate(() => {
+    const stage = window.__steckplanStage!;
+    const r = stage.findOne('#device-Mikrofon')!.getClientRect();
+    const b = stage.container().getBoundingClientRect();
+    return { x: b.left + r.x + r.width / 2, y: b.top + r.y + 10 };
+  });
+  await page.mouse.click(pt.x, pt.y);
+  const props = page.getByRole('complementary', { name: 'Eigenschaften' });
+  await props.getByRole('combobox', { name: 'Pult-Kanal (Netzwerk)' }).selectOption({ label: 'Pult Kanal 7' });
+  await expect
+    .poll(() => page.evaluate(() => window.__steckplanStage!.find('Text').some((t) => (t as unknown as { text(): string }).text().includes('In 1 → Pult 7'))))
+    .toBe(true);
+  await page.getByRole('tab', { name: 'Listen' }).click();
+  await page.getByRole('tab', { name: 'Ton-Patch' }).click();
+  const row = page.getByTestId('patch-network').getByTestId('patch-row').nth(6);
+  await expect(row).toContainText('Mikrofon');
+  await expect(row).toContainText('MC · Send 1 (FOH) → SB1 · In 1 (Netzwerk) → SB2');
+});
