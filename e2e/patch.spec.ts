@@ -152,7 +152,7 @@ test('Ton-Patch: Netzwerk-Kanal über Multicore → Stagebox 1 → Stagebox 2 �
   });
   const sb1 = await post({ kind: 'device', name: 'Stagebox 1 K', ports: [{ id: 'i1', label: 'In 1', connector: 'XLR K', direction: 'in', signal: 'Audio' }, net('n1')] });
   const sb2 = await post({ kind: 'device', name: 'Stagebox 2 K', ports: [net('n1'), net('n2')] });
-  const desk = await post({ kind: 'device', name: 'Pult K', mixer: true, networkChannels: 24, ports: [net('n')] });
+  const desk = await post({ kind: 'device', name: 'Mischpult K', mixer: true, networkChannels: 24, ports: [net('n')] });
   const d = (id: string, t: { id: string }, x: number) => ({ id, templateId: t.id, layerId: 'l1', label: id, signalFlow: { position: { x, y: 60 } } });
   const c = (id: string, from: [string, string], to: [string, string]) => ({ id, from: { deviceId: from[0], portId: from[1] }, to: { deviceId: to[0], portId: to[1] }, waypoints: [] });
   const { id } = await (

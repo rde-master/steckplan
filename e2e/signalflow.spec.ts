@@ -88,11 +88,11 @@ test('Signalfluss: Geräte platzieren, Kabel ziehen, Multicore, Prüfungen, Rüc
   await expect(page.getByText('Geräte aus der Bibliothek links hierher ziehen')).toBeVisible();
 
   // Geräte hinzufügen (＋) und verschieben
-  await page.getByRole('button', { name: 'Hinzufügen: SM58' }).click();
+  await page.getByRole('button', { name: 'Hinzufügen: SM58', exact: true }).click();
   await expect.poll(async () => (await nodes(page, '.device')).length).toBe(1);
   const mic = (await nodes(page, '.device'))[0]!;
   await drag(page, { x: mic.x, y: mic.y - 10 }, { x: mic.x - 300, y: mic.y - 150 });
-  await page.getByRole('button', { name: 'Hinzufügen: Pult' }).click();
+  await page.getByRole('button', { name: 'Hinzufügen: Pult', exact: true }).click();
   await expect.poll(async () => (await nodes(page, '.device')).length).toBe(2);
   await expect(page.getByRole('complementary', { name: 'Eigenschaften' }).getByRole('heading', { name: 'Pult 1' })).toBeVisible();
 
@@ -102,7 +102,7 @@ test('Signalfluss: Geräte platzieren, Kabel ziehen, Multicore, Prüfungen, Rüc
   await loginAs(anna, 'read', 'Anna');
   await anna.goto(`/projekt/${id}`);
   await expect.poll(async () => (await nodes(anna, '.device')).length).toBe(2);
-  await expect(anna.getByRole('button', { name: 'Hinzufügen: SM58' })).toHaveCount(0);
+  await expect(anna.getByRole('button', { name: 'Hinzufügen: SM58', exact: true })).toHaveCount(0);
   expect((await nodes(anna, '.device')).every((d) => d.attrs.draggable === false)).toBe(true);
 
   // Kabel ziehen: genau ein passender Kabeltyp → automatisch
@@ -116,11 +116,11 @@ test('Signalfluss: Geräte platzieren, Kabel ziehen, Multicore, Prüfungen, Rüc
   await expect(page.getByText('Ein Eingang kann nur mit einem Ausgang verbunden werden.')).toBeVisible();
 
   // Multicore als Kasten: Mikrofon per Kabel an die Ader (Auswahl), Fan-out direkt ins Pult
-  await page.getByRole('button', { name: 'Hinzufügen: Multicore 1/1' }).click();
+  await page.getByRole('button', { name: 'Hinzufügen: Multicore 1/1', exact: true }).click();
   await expect.poll(async () => (await nodes(page, '.device')).length).toBe(3);
   const snakeBox = (await nodes(page, '.device')).at(-1)!;
   await drag(page, { x: snakeBox.x, y: snakeBox.y - 15 }, { x: snakeBox.x - 120, y: snakeBox.y + 220 });
-  await page.getByRole('button', { name: 'Hinzufügen: SM58' }).click();
+  await page.getByRole('button', { name: 'Hinzufügen: SM58', exact: true }).click();
   await expect.poll(async () => (await nodes(page, '.device')).length).toBe(4);
   const mic2 = (await nodes(page, '.device')).at(-1)!;
   await drag(page, { x: mic2.x, y: mic2.y - 10 }, { x: mic2.x - 420, y: mic2.y + 220 });
