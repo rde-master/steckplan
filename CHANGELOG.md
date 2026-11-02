@@ -7,6 +7,14 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.13.3] - 2026-11-02
+
+### Hinzugefügt
+
+- Übersicht „Personen ohne Gerät“: oben in Listen → Personen (mit Umschalter „nur Personen ohne Gerät“), hervorgehobene Gerätezahl unter Projektdaten → Personen, Hinweis in den Prüfungen; Personenliste als PDF/CSV enthält jetzt auch Personen ohne Gerät
+- Markieren: Wird der Rahmen an den Rand der Zeichenfläche gezogen (oder darüber hinaus), scrollt die Ansicht in diese Richtung – je näher am Rand, desto schneller; der Rahmen wächst mit (Signalfluss und Bühnenplan). Loslassen außerhalb der Zeichenfläche schließt den Rahmen ab
+- Knopf „Bibliothek“ im Projekt (vor „Exportieren“): öffnet am Desktop das Bibliotheksfenster, im Browser einen neuen Tab – das Projekt bleibt offen
+
 ## [0.13.2] - 2026-11-02
 
 ### Hinzugefügt
@@ -267,7 +275,8 @@ Meilenstein M0 – Projektgerüst.
 - Docker-Image mit Datenvolume `/data` und Beispiel-`docker-compose.yml`
 - GitHub Actions: Tests und Smoke-Test bei jedem Push, Installer als Artefakte, Docker-Image `:develop`, Release-Workflow für Tags `vX.Y.Z`
 
-[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.13.2...develop
+[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.13.3...develop
+[0.13.3]: https://github.com/rde-master/steckplan/compare/v0.13.2...v0.13.3
 [0.13.2]: https://github.com/rde-master/steckplan/compare/v0.13.1...v0.13.2
 [0.13.1]: https://github.com/rde-master/steckplan/compare/v0.13.0...v0.13.1
 [0.13.0]: https://github.com/rde-master/steckplan/compare/v0.12.0...v0.13.0

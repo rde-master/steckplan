@@ -5,6 +5,7 @@ import { formatCableLength } from '../logistics/format';
 import { computeCableLength, lengthContext } from '../logistics/length';
 import { newId } from '../model/project';
 import type { Cable, CaseTrailer, DeviceInstance, Person, Project, Template } from '../model/schema';
+import type { Issue } from '../signalflow/checks';
 import { findPort } from '../signalflow/ports';
 
 type Json = Record<string, unknown>;
@@ -172,6 +173,28 @@ export function buildPeopleList(project: ProjectLike, library: Pick<Library, 'te
     result.push(unassigned);
   }
   return result;
+}
+
+/** Personen, denen kein Gerät „benutzt von Mensch“ zugeordnet ist (nach Name sortiert). */
+export function peopleWithoutDevice(project: Pick<Project, 'devices' | 'people'>, library: Pick<Library, 'templates'>): Person[] {
+  const templates = new Map(library.templates.map((t) => [t.id, t]));
+  const used = new Set(project.devices.filter((d) => d.personId && usesPerson(d, templates.get(d.templateId))).map((d) => d.personId));
+  return project.people.filter((p) => !used.has(p.id)).sort(comparePeople);
+}
+
+/** Hinweis in den Prüfungen: Personen ohne Gerät */
+export function checkPeople(project: Pick<Project, 'devices' | 'people'>, library: Pick<Library, 'templates'>): Issue[] {
+  const without = peopleWithoutDevice(project, library);
+  if (without.length === 0) return [];
+  const names = without.slice(0, 5).map(personName).join(', ') + (without.length > 5 ? ' …' : '');
+  return [
+    {
+      id: 'people-without-device',
+      severity: 'info',
+      message: `${without.length === 1 ? '1 Person hat' : `${without.length} Personen haben`} kein Gerät (${names}).`,
+      objectIds: [],
+    },
+  ];
 }
 
 export interface DeviceLabel {

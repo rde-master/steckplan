@@ -38,6 +38,15 @@ test('Markieren: Rahmen ziehen, mehrere Objekte auswählen und gemeinsam verschi
     })
   ).json();
 
+  // Knopf „Bibliothek“ im Projekt öffnet die Bibliothek in einem neuen Tab, das Projekt bleibt offen
+  await page.goto(`/projekt/${id}`);
+  const popupPromise = page.context().waitForEvent('page');
+  await page.getByRole('button', { name: 'Bibliothek', exact: true }).click();
+  const popup = await popupPromise;
+  await expect(popup).toHaveURL(/\/bibliothek$/);
+  await expect(popup.getByRole('heading', { name: 'Bibliothek' })).toBeVisible();
+  await popup.close();
+
   // ---------- Signalfluss ----------
   await page.goto(`/projekt/${id}`);
   await expect.poll(() => page.evaluate(() => window.__steckplanStage?.find('.device').length ?? 0)).toBe(3);
@@ -77,4 +86,33 @@ test('Markieren: Rahmen ziehen, mehrere Objekte auswählen und gemeinsam verschi
       return [moved('A') > 0, moved('C') > 0, moved('B') === 0];
     })
     .toEqual([true, true, true]);
+});
+
+test('Markieren am Rand scrollt die Ansicht und markiert auch Objekte außerhalb des sichtbaren Bereichs', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await loginAs(page, 'edit', 'Markier-Rand');
+  const box = await (await page.request.post('/api/library/templates', { data: { template: { kind: 'device', name: 'Kasten Rand', shape: { form: 'rect', widthMm: 500, depthMm: 500 } } } })).json();
+  const d = (id: string, x: number, y: number) => ({ id, templateId: box.id, layerId: 'l1', label: id, signalFlow: { position: { x, y } } });
+  const { id } = await (
+    await page.request.post('/api/projects/upload', {
+      data: { schemaVersion: 4, id: 'marquee-rand', meta: { name: 'Rand' }, layers: [{ id: 'l1', name: 'Bühne', order: 0 }], devices: [d('Links', 40, 40), d('Fern', 2200, 40), d('Unten', 40, 500)] },
+    })
+  ).json();
+  await page.goto(`/projekt/${id}`);
+  await expect.poll(() => page.evaluate(() => window.__steckplanStage?.find('.device').length ?? 0)).toBe(3);
+  await page.getByRole('toolbar').getByRole('button', { name: 'Markieren', exact: true }).click();
+  const canvas = (await page.getByTestId('signalflow-canvas').boundingBox())!;
+  const links = await center(page, '__steckplanStage', '#device-Links');
+  // „Fern“ liegt rechts außerhalb des sichtbaren Bereichs
+  expect(await page.evaluate(() => window.__steckplanStage!.findOne('#device-Fern')!.getClientRect().x > window.__steckplanStage!.width())).toBe(true);
+  const viewBefore = await page.evaluate(() => window.__steckplanStage!.x());
+  await page.mouse.move(links.left - 15, links.top - 15);
+  await page.mouse.down();
+  await page.mouse.move(canvas.x + canvas.width - 4, links.bottom + 15, { steps: 6 });
+  await page.waitForTimeout(2500);
+  await page.mouse.move(canvas.x + canvas.width - 5, links.bottom + 15);
+  await page.mouse.up();
+  expect(await page.evaluate(() => window.__steckplanStage!.x())).toBeLessThan(viewBefore - 1000);
+  const props = page.getByRole('complementary', { name: 'Eigenschaften' });
+  await expect(props).toContainText('2 Objekte ausgewählt'); // Links und Fern, nicht Unten
 });

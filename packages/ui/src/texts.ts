@@ -55,6 +55,8 @@ export const texts = {
   },
   project: {
     meta: 'Projektdaten',
+    library: 'Bibliothek',
+    libraryTitle: 'Bibliothek öffnen (Vorlagen und Stammdaten) – das Projekt bleibt offen',
     fields: {
       name: 'Projektname',
       venue: 'Ort / Veranstaltungsstätte',
@@ -631,6 +633,10 @@ export const texts = {
     listTitle: 'Personen',
     listEmpty: 'Keine Geräte „benutzt von Mensch“ im Projekt.',
     unassigned: 'Noch keiner Person zugeordnet',
+    withoutDevice: (n: number) => (n === 1 ? '1 Person ohne Gerät' : `${n} Personen ohne Gerät`),
+    allHaveDevice: 'Alle Personen haben mindestens ein Gerät.',
+    onlyWithout: 'nur Personen ohne Gerät',
+    noDevice: 'kein Gerät zugeordnet',
     plug: 'Einstecken',
   },
   cases: {
