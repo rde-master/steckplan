@@ -1,5 +1,5 @@
 // Multicore: Adern/Kanäle mit Stecker an Ende A und B, optisch getrennt nach Signalrichtung.
-import { X } from 'lucide-react';
+import { ListPlus, X } from 'lucide-react';
 import { ICON } from '../icons';
 import { useState } from 'react';
 import type { CableChannel } from '@steckplan/core';
@@ -122,7 +122,7 @@ export function ChannelsEditor({
       )}
       {!disabled && (
         <div className="flex flex-wrap items-center gap-2">
-          {!showBulk && <Button onClick={() => setShowBulk(true)}>⊞ {mc.bulkOpen}</Button>}
+          {!showBulk && <Button onClick={() => setShowBulk(true)}><ListPlus {...ICON} /> {mc.bulkOpen}</Button>}
           <div className="flex-1" />
           {channels.length > 1 &&
             (confirmClear ? (

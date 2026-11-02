@@ -7,6 +7,10 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+### Behoben
+
+- Bibliothek: Die Kästchen „Netzwerk“ und „Strom“ in der Anschlusstabelle saßen versetzt – jetzt mittig zu den Eingabefeldern; „Mehrere Anschlüsse/Adern anlegen“ mit passendem Symbol
+
 ## [0.13.1] - 2026-11-02
 
 ### Behoben
