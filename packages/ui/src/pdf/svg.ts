@@ -1,7 +1,7 @@
 // Planzeichnungen als SVG aus den Daten (Vektor, kein Bildschirmfoto) – für den PDF-Export.
-import { backgroundScale, polylineLength, type Background, type Library, type Shape } from '@steckplan/core';
+import { backgroundScale, polylineLength, type Background, type CrossPageRef, type Library, type Shape } from '@steckplan/core';
 import { formatLength, type MulticoreRoute, type StageCable, type StageItem } from '../components/stageplan/model';
-import { ROLE_COLORS, type CableLine, type DeviceBox } from '../components/signalflow/model';
+import { anchorOf, ROLE_COLORS, type CableLine, type DeviceBox } from '../components/signalflow/model';
 
 export interface Rect {
   x: number;
@@ -179,8 +179,18 @@ export function signalFlowSvg(
   widthPt: number,
   heightPt: number,
   groupFrames: { id: string; name: string; color: string; x: number; y: number; width: number; height: number }[] = [],
+  pageRefs: CrossPageRef[] = [],
 ): string {
   const out: string[] = [];
+  // Verweise auf Kabel zu anderen Seiten (am Anschluss)
+  const byId = new Map(boxes.map((b) => [b.device.id, b]));
+  for (const ref of pageRefs) {
+    const box = byId.get(ref.deviceId);
+    const anchor = box ? anchorOf(box, ref.portId) : undefined;
+    if (!anchor) continue;
+    const left = anchor.side === 'left';
+    out.push(`<text x="${n(left ? anchor.x - 10 : anchor.x + 10)}" y="${n(anchor.y + 3.5)}" font-size="9" fill="#0369a1" text-anchor="${left ? 'end' : 'start'}">–&gt; ${esc(ref.targetPageName)}: ${esc(ref.targetDeviceLabel)}</text>`);
+  }
   for (const f of groupFrames) {
     out.push(
       `<rect x="${n(f.x)}" y="${n(f.y)}" width="${n(f.width)}" height="${n(f.height)}" rx="10" fill="${f.color}" fill-opacity="0.1" stroke="${f.color}" stroke-width="1.2" stroke-dasharray="8 4"/>` +

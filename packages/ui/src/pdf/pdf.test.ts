@@ -80,6 +80,7 @@ function setup(): { data: ProjectData; library: Library } {
     groups: [],
     caseTrailers: [],
     patch: [{ id: 'pult:i1', name: 'Lead Vox' }],
+    flowPages: [],
   };
   return { data, library };
 }
@@ -143,6 +144,29 @@ describe('PDF-Export', () => {
     expect(fill.pages).toBe(1);
     expect(fill.text).toContain('Seite füllen');
     expect(fill.text).toContain('Licht'); // Legende
+  });
+
+  it('Signalfluss: je Seite ein Blatt, Seiten wählbar, Verweise auf andere Seiten', async () => {
+    const { data, library } = setup();
+    const paged: ProjectData = {
+      ...data,
+      flowPages: [
+        { id: 'licht', name: 'Licht', order: 0 },
+        { id: 'ton', name: 'Ton', order: 1 },
+      ],
+      devices: data.devices.map((d) => (d.id === 'm1' || d.id === 'm2' || d.id === 'pult' ? { ...d, signalFlow: { position: { x: 40, y: 40 }, pageId: 'ton' } } : d)),
+    };
+    const make = (flowPageIds: string[]) =>
+      buildExportDoc({ ...DEFAULT_OPTIONS, kind: 'signalflow', flowPageIds }, { data: paged, library, meta: { name: 'Stadtfest' }, filter: EMPTY_FILTER, colorMode: 'device', issues: [], appTitle: 'Steckplan', by: 'Ralf', fetchQr: async () => QR_SVG, now: new Date(T0) });
+    const both = await render(await make([]));
+    expect(both.pages).toBe(2);
+    expect(both.text).toContain('Licht (1 von 2)');
+    expect(both.text).toContain('Ton (2 von 2)');
+    // Mikro 1 (Ton) ist mit Spot 6 (Licht) verbunden → Verweis
+    expect(both.text).toContain('–> Licht: Spot 6');
+    const onlyTon = await render(await make(['ton']));
+    expect(onlyTon.pages).toBe(1);
+    expect(onlyTon.text).toContain('Ton (1 von 1)');
   });
 
   it('Signalfluss auf einer Seite', async () => {

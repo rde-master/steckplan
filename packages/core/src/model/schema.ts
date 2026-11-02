@@ -187,7 +187,8 @@ export const DeviceInstanceSchema = z.object({
     .optional(),
   /** Multicore: Länge von Hand statt berechnet (seit Format 3) */
   manualLengthMm: mm.optional(),
-  signalFlow: z.object({ position: PointSchema }).optional(),
+  /** Signalfluss: Position und Seite (seit Format 5; ohne Seite = erste Seite) */
+  signalFlow: z.object({ position: PointSchema, pageId: id.optional() }).optional(),
   mountedOnId: id.optional(),
   dmx: z
     .object({
@@ -285,6 +286,10 @@ export const PatchEntrySchema = z.object({
   notes: z.string().optional(),
 });
 export type PatchEntry = z.infer<typeof PatchEntrySchema>;
+
+/** Seite im Signalfluss, z. B. „Licht“, „Ton“ (seit Format 5) */
+export const FlowPageSchema = z.object({ id, name: z.string(), order: z.number().default(0) });
+export type FlowPage = z.infer<typeof FlowPageSchema>;
 
 // ---------- Netzwerk ----------
 
@@ -386,6 +391,7 @@ export const ProjectSchema = z.object({
   groups: z.array(GroupSchema).default([]),
   caseTrailers: z.array(CaseTrailerSchema).default([]),
   patch: z.array(PatchEntrySchema).default([]),
+  flowPages: z.array(FlowPageSchema).default([]),
   network: z
     .object({
       subnets: z.array(SubnetSchema).default([]),

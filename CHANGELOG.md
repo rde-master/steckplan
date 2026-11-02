@@ -9,6 +9,9 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Hinzugefügt
 
+- Seiten im Signalfluss (z. B. Licht und Ton): Reiter über der Zeichenfläche, „Seite“ anlegen (beim ersten Mal bekommen die vorhandenen Geräte eine eigene Seite), „Seiten verwalten“ (umbenennen, Reihenfolge, löschen mit Umzug der Geräte); Geräte in den Eigenschaften auf eine andere Seite verschieben (auch mehrere); neue Geräte landen auf der aktuellen Seite; Kabel zu Geräten auf anderen Seiten als Verweis am Anschluss („→ Ton: Vox“) – ein Klick wechselt dorthin; im PDF je Seite ein Blatt, Seiten wählbar
+- Export-Vorschau: der Export-Dialog zeigt das PDF live neben den Optionen (blättern, vergrößern), bei Listen wahlweise die CSV als Tabelle
+
 - Netzwerk-Kanäle für digitale Stageboxen: Anzahl in der Mischpult-Vorlage (je Pult änderbar); in den Eigenschaften einer Quelle „Pult-Kanal (Netzwerk)“ zuordnen – nur bei durchgehender Kette (Quelle → Stagebox → Netzwerkkabel direkt zum Pult), belegte Kanäle sind gekennzeichnet; Anzeige „In 1 → FOH 12“ am Stagebox-Eingang im Signalfluss (ein-/ausblendbar unter „In Kästen: Kanäle“); eigener Abschnitt in der Input-Liste (Bildschirm, PDF, CSV); Prüfungen für unterbrochene Ketten, fehlende und doppelt belegte Kanäle
 
 ### Geändert
