@@ -1,17 +1,28 @@
 // Anmeldung: Bearbeiten- oder Lese-Passwort + eingetippter Name → Sitzung per HttpOnly-Cookie.
+// Desktop-App mit Server-Verbindung: Desktop-Zugangsschlüssel im Authorization-Header (Bearer),
+// Name aus den Einstellungen der Desktop-App im Header X-Steckplan-Name (URL-kodiert).
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import fastifyCookie from '@fastify/cookie';
 import { can, type Permission } from '@steckplan/core';
+import type { DesktopKeyStore } from './desktop-keys';
 import type { PasswordChecker } from './passwords';
 import { LoginRateLimiter } from './rate-limit';
 import { normalizeName, SESSION_TTL_MS, type Session, type SessionStore } from './sessions';
 
 export const SESSION_COOKIE = 'steckplan_session';
+export const NAME_HEADER = 'x-steckplan-name';
+
+/** Sitzungs-id für alle Verbindungen eines Desktop-Zugangsschlüssels (Widerruf trennt sie). */
+export function keySessionId(keyId: string): string {
+  return `key:${keyId}`;
+}
 
 declare module 'fastify' {
   interface FastifyRequest {
     session: Session | null;
     sessionToken: string | null;
+    /** Authorization-Header vorhanden, aber Schlüssel ungültig/widerrufen bzw. zu viele Fehlversuche */
+    keyRejected: 'invalid' | 'rateLimited' | null;
   }
 }
 
@@ -25,6 +36,17 @@ export interface AuthOptions {
   rateLimiter?: LoginRateLimiter;
   /** Wird nach dem Abmelden aufgerufen (z. B. um offene Verbindungen zu trennen). */
   onLogout?: (session: Session) => void;
+  /** Desktop-Zugangsschlüssel (nur Docker-Server) */
+  desktopKeys?: DesktopKeyStore;
+}
+
+function nameFromHeader(value: string | string[] | undefined): string | null {
+  if (typeof value !== 'string') return null;
+  try {
+    return normalizeName(decodeURIComponent(value));
+  } catch {
+    return null;
+  }
 }
 
 export async function registerAuth(app: FastifyInstance, options: AuthOptions): Promise<void> {
@@ -35,8 +57,35 @@ export async function registerAuth(app: FastifyInstance, options: AuthOptions): 
   await app.register(fastifyCookie);
   app.decorateRequest('session', null);
   app.decorateRequest('sessionToken', null);
+  app.decorateRequest('keyRejected', null);
 
   app.addHook('onRequest', async (request) => {
+    const authorization = request.headers.authorization;
+    if (options.desktopKeys && typeof authorization === 'string' && /^Bearer /i.test(authorization)) {
+      // Desktop-Zugangsschlüssel: Cookies werden dann nicht beachtet
+      request.session = null;
+      request.sessionToken = null;
+      if (limiter.retryAfter(request.ip) > 0) {
+        request.keyRejected = 'rateLimited';
+        return;
+      }
+      const entry = options.desktopKeys.verify(authorization.slice(7).trim());
+      if (!entry) {
+        limiter.fail(request.ip);
+        request.keyRejected = 'invalid';
+        return;
+      }
+      const now = new Date().toISOString();
+      request.session = {
+        id: keySessionId(entry.id),
+        name: nameFromHeader(request.headers[NAME_HEADER]) ?? entry.label,
+        access: entry.access,
+        via: 'desktopKey',
+        createdAt: entry.createdAt,
+        lastSeenAt: now,
+      };
+      return;
+    }
     const token = request.cookies[SESSION_COOKIE];
     const session = sessions.get(token);
     request.session = session ?? null;
@@ -44,7 +93,13 @@ export async function registerAuth(app: FastifyInstance, options: AuthOptions): 
   });
 
   app.get('/api/auth/session', async (request, reply) => {
-    if (!request.session) return reply.code(401).send({ error: 'Nicht angemeldet', loginAvailable: currentPasswords() !== null });
+    if (!request.session) {
+      return reply.code(401).send({
+        error: request.keyRejected === 'rateLimited' ? 'Zu viele Fehlversuche.' : request.keyRejected ? 'Desktop-Zugangsschlüssel ungültig oder widerrufen.' : 'Nicht angemeldet',
+        loginAvailable: currentPasswords() !== null,
+        ...(request.keyRejected ? { keyRejected: request.keyRejected } : {}),
+      });
+    }
     const { name, access, via } = request.session;
     return { name, access, via };
   });

@@ -48,13 +48,14 @@ export class WindowManager {
     return win;
   }
 
-  showStart(): BrowserWindow {
+  /** Startfenster zeigen; `query` nur beim Neuanlegen (z. B. „?verbinden=1“ öffnet den Server-Dialog). */
+  showStart(query = ''): BrowserWindow {
     if (this.startWindow && !this.startWindow.isDestroyed()) {
       if (this.startWindow.isMinimized()) this.startWindow.restore();
       this.startWindow.focus();
       return this.startWindow;
     }
-    const win = this.create(`${this.options.baseUrl}/`, { width: 900, height: 680 });
+    const win = this.create(`${this.options.baseUrl}/${query}`, { width: 900, height: 680 });
     win.on('closed', () => {
       this.startWindow = null;
     });

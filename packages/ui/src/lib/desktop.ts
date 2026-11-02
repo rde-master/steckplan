@@ -45,6 +45,22 @@ export interface WebAccessBridge {
   disconnect(sessionId: string): Promise<WebAccessStatus>;
 }
 
+export interface ServerInfo {
+  id: string;
+  label: string;
+  url: string;
+  insecure: boolean;
+}
+
+/** Gespeicherte Server-Verbindungen (siehe apps/desktop/src/servers.ts) */
+export interface ServersBridge {
+  list(): Promise<ServerInfo[]>;
+  add(input: { label: string; url: string; key: string }): Promise<ServerInfo>;
+  remove(id: string): Promise<void>;
+  open(id: string): Promise<void>;
+  onChanged(callback: () => void): () => void;
+}
+
 export interface DesktopBridge {
   platform: string;
   getSettings(): Promise<DesktopSettings>;
@@ -56,6 +72,9 @@ export interface DesktopBridge {
   openLibrary(): Promise<void>;
   copyAsNew(projectId: string): Promise<void>;
   webAccess: WebAccessBridge;
+  servers: ServersBridge;
+  /** Lokales Projekt auf einen Server hochladen; öffnet es dort im Server-Fenster */
+  uploadToServer(projectId: string, serverId: string): Promise<string>;
   onRecentChanged(callback: () => void): () => void;
   /** Befehle aus dem Anwendungsmenü, z. B. „versions“ */
   onMenuCommand(callback: (command: string) => void): () => void;

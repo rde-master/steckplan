@@ -7,12 +7,15 @@ import { createHealthInfo, type ServerMode } from '@steckplan/core';
 import { registerAuth } from './auth/plugin';
 import type { PasswordChecker } from './auth/passwords';
 import type { LoginRateLimiter } from './auth/rate-limit';
+import type { DesktopKeyStore } from './auth/desktop-keys';
+import { keySessionId } from './auth/plugin';
 import type { Session, SessionStore } from './auth/sessions';
 import { EventHub } from './events/event-hub';
 import type { LibraryStore } from './library/library-store';
 import type { UsageTracker } from './library/usage-tracker';
 import { registerLibraryRoutes } from './routes/library';
 import { registerProjectRoutes } from './routes/projects';
+import { registerSettingsRoutes } from './routes/settings';
 import type { ProjectStore } from './storage/types';
 import type { VersionStore } from './storage/version-store';
 import { RoomManager } from './sync/rooms';
@@ -36,6 +39,8 @@ export interface ServerOptions {
   /** Hinter einem Reverse-Proxy: X-Forwarded-* auswerten (IP für Rate-Limit, https für Cookies) */
   trustProxy?: boolean;
   rateLimiter?: LoginRateLimiter;
+  /** Desktop-Zugangsschlüssel (nur Docker-Server) */
+  desktopKeys?: DesktopKeyStore;
   /** Für Tests: Verzögerungen beim Speichern */
   saveDelayMs?: number;
   versionIntervalMs?: number;
@@ -98,6 +103,7 @@ export async function createServer(options: ServerOptions): Promise<SteckplanSer
     await rooms.closeAll('Server wird beendet');
     await options.sessions.flush();
     await options.usage.flush();
+    await options.desktopKeys?.flush();
   });
 
   app.get('/api/health', async () => createHealthInfo(options.mode));
@@ -106,6 +112,7 @@ export async function createServer(options: ServerOptions): Promise<SteckplanSer
     sessions: options.sessions,
     passwords: options.passwords,
     rateLimiter: options.rateLimiter,
+    ...(options.desktopKeys ? { desktopKeys: options.desktopKeys } : {}),
     onLogout: (session) => {
       rooms.disconnectSession(session.id);
       events.disconnectSession(session.id);
@@ -121,6 +128,16 @@ export async function createServer(options: ServerOptions): Promise<SteckplanSer
 
   registerProjectRoutes(app, rooms, options.usage);
   registerLibraryRoutes(app, { library: options.library, usage: options.usage });
+  if (options.desktopKeys) {
+    registerSettingsRoutes(app, {
+      desktopKeys: options.desktopKeys,
+      // Widerruf trennt alle Verbindungen dieses Schlüssels sofort
+      onRevoke: (keyId) => {
+        rooms.disconnectSession(keySessionId(keyId), 'Der Desktop-Zugangsschlüssel wurde widerrufen.');
+        events.disconnectSession(keySessionId(keyId));
+      },
+    });
+  }
 
   const uiDir = options.uiDir;
   const hasUi = uiDir !== undefined && existsSync(join(uiDir, 'index.html'));

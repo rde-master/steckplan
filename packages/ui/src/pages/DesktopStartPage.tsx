@@ -6,6 +6,7 @@ import { useSession } from '../lib/session';
 import { texts } from '../texts';
 import { Banner, Button, Field, Spinner, TextInput } from '../components/ui';
 import { WebAccessDialog } from '../components/WebAccessDialog';
+import { ServersSection } from '../components/ServerDialogs';
 
 export function DesktopStartPage({ desktop }: { desktop: DesktopBridge }) {
   const [name, setName] = useState<string | null>(null);
@@ -14,7 +15,15 @@ export function DesktopStartPage({ desktop }: { desktop: DesktopBridge }) {
   const [error, setError] = useState<string | null>(null);
   const [showWeb, setShowWeb] = useState(false);
 
-  useEffect(() => desktop.onMenuCommand((command) => command === 'webAccess' && setShowWeb(true)), [desktop]);
+  const [connectRequest, setConnectRequest] = useState(() => (new URLSearchParams(window.location.search).get('verbinden') ? 1 : 0));
+  useEffect(
+    () =>
+      desktop.onMenuCommand((command) => {
+        if (command === 'webAccess') setShowWeb(true);
+        if (command === 'connectServer') setConnectRequest((n) => n + 1);
+      }),
+    [desktop],
+  );
 
   useEffect(() => {
     desktop.getSettings().then((s) => setName(s.name), (err: unknown) => setError(errorMessage(err)));
@@ -86,6 +95,7 @@ export function DesktopStartPage({ desktop }: { desktop: DesktopBridge }) {
             </ul>
           )}
         </section>
+        <ServersSection desktop={desktop} connectRequest={connectRequest} />
         <SettingsSection desktop={desktop} name={name} onSaved={setName} />
       </main>
       <footer className="px-6 py-2 text-right text-xs text-slate-400">{version && formatAppTitle(version)}</footer>

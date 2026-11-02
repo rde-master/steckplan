@@ -16,10 +16,26 @@ export interface WebAccessSettings {
   read?: StoredPassword;
 }
 
+/** Gespeicherte Server-Verbindung; key = Desktop-Zugangsschlüssel, mit safeStorage verschlüsselt (base64) */
+export interface SavedServer {
+  id: string;
+  label: string;
+  url: string;
+  key: string;
+}
+
 export interface Settings {
   name: string;
   recentFiles: string[];
   webAccess: WebAccessSettings;
+  servers: SavedServer[];
+}
+
+function readServers(value: unknown): SavedServer[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter(
+    (s): s is SavedServer => !!s && typeof s.id === 'string' && typeof s.label === 'string' && typeof s.url === 'string' && typeof s.key === 'string',
+  );
 }
 
 function isStored(value: unknown): value is StoredPassword {
@@ -47,7 +63,7 @@ export interface RecentFile {
 }
 
 export class SettingsStore {
-  private settings: Settings = { name: '', recentFiles: [], webAccess: { port: DEFAULT_WEB_PORT } };
+  private settings: Settings = { name: '', recentFiles: [], webAccess: { port: DEFAULT_WEB_PORT }, servers: [] };
   private readonly file: string;
 
   constructor(userDataDir: string) {
@@ -61,6 +77,7 @@ export class SettingsStore {
         name: typeof data.name === 'string' ? data.name : '',
         recentFiles: Array.isArray(data.recentFiles) ? data.recentFiles.filter((p) => typeof p === 'string').slice(0, MAX_RECENT) : [],
         webAccess: readWebAccess(data.webAccess),
+        servers: readServers(data.servers),
       };
     } catch {
       // erste Benutzung
@@ -82,6 +99,15 @@ export class SettingsStore {
 
   async updateWebAccess(change: Partial<WebAccessSettings>): Promise<void> {
     this.settings.webAccess = { ...this.settings.webAccess, ...change };
+    await this.save();
+  }
+
+  get servers(): SavedServer[] {
+    return this.settings.servers;
+  }
+
+  async setServers(servers: SavedServer[]): Promise<void> {
+    this.settings.servers = servers;
     await this.save();
   }
 
