@@ -45,6 +45,8 @@ export interface DeviceBox {
   dmxLabel?: string;
   /** Person, die das Gerät benutzt */
   person?: string;
+  /** Besitzer (wenn eingeblendet) */
+  owner?: string;
   /** Anschluss → angezeigter Text */
   labels: Map<string, string>;
 }
@@ -70,6 +72,10 @@ export interface DisplayOptions {
   filter: Filter;
   /** Personen des Projekts (für „benutzt von Mensch“) */
   people?: Person[];
+  /** Namen der Personen in den Kästen zeigen (Standard: ja) */
+  showPeople?: boolean;
+  /** Besitzer in den Kästen zeigen (Standard: nein) */
+  showOwner?: boolean;
 }
 
 const DEFAULT_DISPLAY: DisplayOptions = { colorMode: 'device', filter: EMPTY_FILTER };
@@ -86,9 +92,12 @@ export function buildBoxes(devices: DeviceInstance[], library: Library | null, s
     const labels = new Map<string, string>();
     for (const port of ports) labels.set(port.id, multicore ? port.label.replace(/ \([^)]*\)$/, '') : port.label);
     const displayPorts: EffectivePort[] = ports.map((p) => ({ ...p, label: labels.get(p.id) ?? p.label }));
-    const person = personName(devicePerson(device, template, display.people ?? []));
-    const base = boxLayout(person && person.length > device.label.length ? person : device.label, displayPorts);
-    const extraHeader = multicore ? MULTICORE_END_ROW : person ? PERSON_ROW : 0;
+    const person = display.showPeople === false ? '' : personName(devicePerson(device, template, display.people ?? []));
+    const owner = display.showOwner && device.ownerId ? (library?.masterData.owners.find((o) => o.id === device.ownerId)?.name ?? '') : '';
+    const infoLines = [person, owner].filter(Boolean).length;
+    const longest = [device.label, person ? `👤 ${person}` : '', owner ? `Besitzer: ${owner}` : ''].reduce((a, b) => (b.length > a.length ? b : a), '');
+    const base = boxLayout(longest, displayPorts);
+    const extraHeader = multicore ? MULTICORE_END_ROW : infoLines * PERSON_ROW;
     const layout: BoxLayout = {
       width: base.width,
       height: base.height + extraHeader,
@@ -99,7 +108,7 @@ export function buildBoxes(devices: DeviceInstance[], library: Library | null, s
     const unplaced = template?.kind === 'device' && !device.stagePlan;
     const dimmed = !deviceVisible(display.filter, device, template);
     const dmxLabel = device.dmx ? formatDmx(device.dmx.universe, device.dmx.address) : undefined;
-    boxes.push({ device, template, x: pos.x, y: pos.y, layout, extraHeader, fill, text: contrastText(fill), multicore, stageObject, unplaced, dimmed, labels, ...(dmxLabel ? { dmxLabel } : {}), ...(person ? { person } : {}) });
+    boxes.push({ device, template, x: pos.x, y: pos.y, layout, extraHeader, fill, text: contrastText(fill), multicore, stageObject, unplaced, dimmed, labels, ...(dmxLabel ? { dmxLabel } : {}), ...(person ? { person } : {}), ...(owner ? { owner } : {}) });
   });
   return boxes;
 }

@@ -23,6 +23,9 @@ export function LibrarySidebar({
   const [query, setQuery] = useState('');
   const showStageObjectsSetting = useEditor((st) => st.showStageObjects);
   const setShowStageObjects = useEditor((st) => st.setShowStageObjects);
+  const showOwner = useEditor((st) => st.display.ownerInLibrary);
+  const setDisplay = useEditor((st) => st.setDisplay);
+  const ownerName = (t: Template) => (t.defaultOwnerId ? library?.masterData.owners.find((o) => o.id === t.defaultOwnerId)?.name : undefined);
   const showStageObjects = mode === 'stageplan' || showStageObjectsSetting;
   const templates = (library?.templates ?? [])
     .filter((t) => (mode === 'stageplan' ? t.kind !== 'cableType' : isPlaceableInSignalFlow(t)))
@@ -58,6 +61,10 @@ export function LibrarySidebar({
           {s.showStageObjects}
         </label>
       )}
+      <label className="flex items-center gap-2 px-1 text-xs text-slate-600 dark:text-slate-300">
+        <input type="checkbox" checked={showOwner} onChange={(e) => setDisplay({ ownerInLibrary: e.target.checked })} />
+        {s.showOwnerInLibrary}
+      </label>
       <div className="flex-1 overflow-y-auto">
         {groups.length === 0 && <p className="p-2 text-xs text-slate-500">{s.libraryEmpty}</p>}
         {groups.map((group) => (
@@ -81,7 +88,14 @@ export function LibrarySidebar({
                   title={editable ? s.dragHint : undefined}
                 >
                   <span className="h-3.5 w-3.5 shrink-0 rounded border border-slate-300 dark:border-slate-600" style={{ backgroundColor: template.defaultColor ?? '#cbd5e1' }} />
-                  <span className="min-w-0 flex-1 truncate">{template.name}</span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate">{template.name}</span>
+                    {showOwner && ownerName(template) && (
+                      <span className="block truncate text-xs text-slate-500" data-testid="library-owner">
+                        {ownerName(template)}
+                      </span>
+                    )}
+                  </span>
                   {editable && (
                     <button
                       type="button"

@@ -448,6 +448,7 @@ export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onC
                 {showDmx && box.dmxLabel && <Text name="dmx-label" text={box.dmxLabel} x={width - 52} y={9} width={44} align="right" fontSize={11} fontFamily="monospace" fill={box.text} />}
                 {!box.template && <Text text="Vorlage fehlt" x={8} y={30} fontSize={11} fill="#dc2626" />}
                 {box.person && <Text name="person-label" text={`👤 ${box.person}`} x={8} y={27} width={width - 16} fontSize={11} fill={box.text} opacity={0.9} ellipsis wrap="none" />}
+                {box.owner && <Text name="owner-label" text={`Besitzer: ${box.owner}`} x={8} y={box.person ? 43 : 27} width={width - 16} fontSize={11} fill={box.text} opacity={0.8} ellipsis wrap="none" />}
                 {box.unplaced && <Text name="unplaced-marker" text="⌖ nicht im Bühnenplan" x={0} y={height + 4} fontSize={10} fill="#b45309" fontStyle="italic" listening={false} />}
                 {ends && (
                   <>
