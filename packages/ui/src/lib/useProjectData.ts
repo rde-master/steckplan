@@ -8,6 +8,7 @@ import {
   readDevices,
   readGroups,
   readLayers,
+  readPatch,
   readPeople,
   readSettings,
   readShapes,
@@ -18,6 +19,7 @@ import {
   type CaseTrailer,
   type DeviceInstance,
   type Group,
+  type PatchEntry,
   type Person,
   type Project,
   type ProjectSettings,
@@ -35,6 +37,7 @@ export interface ProjectData {
   people: Person[];
   groups: Group[];
   caseTrailers: CaseTrailer[];
+  patch: PatchEntry[];
 }
 
 const EMPTY: ProjectData = {
@@ -48,6 +51,7 @@ const EMPTY: ProjectData = {
   people: [],
   groups: [],
   caseTrailers: [],
+  patch: [],
 };
 
 function read(doc: Y.Doc): ProjectData {
@@ -62,6 +66,7 @@ function read(doc: Y.Doc): ProjectData {
     people: readPeople(doc),
     groups: readGroups(doc),
     caseTrailers: readCaseTrailers(doc),
+    patch: readPatch(doc),
   };
 }
 

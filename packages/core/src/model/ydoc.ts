@@ -19,6 +19,7 @@ export const Y_COLLECTIONS = {
   people: ['people'],
   groups: ['groups'],
   caseTrailers: ['caseTrailers'],
+  patch: ['patch'],
   subnets: ['network', 'subnets'],
   wifi: ['network', 'wifi'],
 } as const satisfies Record<string, CollectionPath>;

@@ -237,6 +237,38 @@ export function caseListsDoc(lists: CaseListDoc[], opts: PackingDocOptions, ctx:
   return base(ctx, 'Case-Listen', content);
 }
 
+// ---------- Ton-Patch: Input-/Output-Liste je Mischpult ----------
+
+export interface PatchSection {
+  title: string;
+  subtitle?: string;
+  headers: string[];
+  widths: (number | string)[];
+  rows: (string | number)[][];
+}
+
+export function patchDoc(sections: PatchSection[], ctx: DocContext): DocDefinition {
+  const content: Content[] = [];
+  if (sections.length === 0) content.push({ text: 'Input-/Output-Liste', style: 'title' }, { text: 'Kein Mischpult im Projekt.', italics: true, color: '#64748b' });
+  sections.forEach((section, index) => {
+    content.push({ text: pdfText(section.title), style: 'title', ...(index > 0 ? { pageBreak: 'before' } : {}) });
+    if (section.subtitle) content.push({ text: pdfText(section.subtitle), style: 'small', margin: [0, 0, 0, 6] });
+    content.push({
+      table: {
+        headerRows: 1,
+        dontBreakRows: true,
+        widths: section.widths,
+        body: [
+          section.headers.map((h) => ({ text: h, style: 'th' })),
+          ...section.rows.map((r) => r.map((cell, i) => (i === 0 ? { text: String(cell), bold: true, alignment: 'right' } : pdfText(String(cell))))),
+        ],
+      },
+      layout: { hLineWidth: () => 0.4, vLineWidth: () => 0, hLineColor: () => '#cbd5e1', fillColor: (i: number) => (i > 0 && i % 2 === 0 ? '#f8fafc' : null), paddingTop: () => 4, paddingBottom: () => 4 },
+    });
+  });
+  return base(ctx, 'Input-/Output-Liste', content);
+}
+
 // ---------- Tabellen-Listen (Kabel, Stück, DMX, Geräte, Netzwerk) ----------
 
 export function tableDoc(title: string, headers: string[], rows: (string | number)[][], ctx: DocContext, options: { widths?: (number | string)[]; subtitle?: string; summary?: string[] } = {}): DocDefinition {

@@ -5,10 +5,11 @@ import type { CheckMark, Project, Template } from '../model/schema';
 import { buildNetworkList } from '../network/network';
 import { effectiveHeight } from '../stageplan/heights';
 import { formatCableLength, formatMeters } from './format';
+import { buildPatchLists, viaText } from '../audio/patch';
 import { devicePerson, personName, buildPeopleList } from '../people/people';
 import { buildCableList, buildCaseLists, effectiveTrailerId, packItems, type PackItem } from './lists';
 
-type ProjectLike = Pick<Project, 'devices' | 'cables' | 'settings' | 'network'> & Partial<Pick<Project, 'people' | 'groups' | 'caseTrailers'>>;
+type ProjectLike = Pick<Project, 'devices' | 'cables' | 'settings' | 'network'> & Partial<Pick<Project, 'people' | 'groups' | 'caseTrailers' | 'patch'>>;
 
 const KIND_LABEL: Record<Template['kind'], string> = {
   device: 'Gerät',
@@ -115,7 +116,7 @@ export function toCsv(headers: string[], rows: unknown[][]): string {
   return '﻿' + [headers, ...rows].map((row) => row.map(csvField).join(';')).join('\r\n') + '\r\n';
 }
 
-export type CsvKind = 'cables' | 'packing' | 'bom' | 'devices' | 'network' | 'people' | 'cases';
+export type CsvKind = 'cables' | 'packing' | 'bom' | 'devices' | 'network' | 'people' | 'cases' | 'patch';
 
 /** CSV einer Liste (Pack- und Stückliste aus den übergebenen Exemplaren, damit Filter gelten). */
 export function listCsv(kind: CsvKind, project: ProjectLike, library: Library, items?: PackItem[]): string {
@@ -166,6 +167,28 @@ export function listCsv(kind: CsvKind, project: ProjectLike, library: Library, i
       return toCsv(
         ['Kennung', 'Vorlage', 'Art', 'Kategorie', 'Besitzer', 'Anhänger', 'Case', 'Person', 'Gruppe', 'Inventarnummer', 'Stativ/Traverse/Podest', 'Höhe', 'DMX', 'IP'],
         buildDeviceList(project, library).map((r) => [r.label, r.template, r.kind, r.category, r.owner, r.trailer, r.case, r.person, r.group, r.inventoryNo, r.carrier, r.height, r.dmx, r.ip]),
+      );
+    case 'patch':
+      return toCsv(
+        ['Pult', 'Richtung', 'Kanal', 'Anschluss', 'Name', 'Quelle/Ziel', 'Vorlage', 'Person', 'Über', '48 V', 'Stativ', 'Bemerkung'],
+        buildPatchLists(project, library).flatMap((list) =>
+          (['inputs', 'outputs'] as const).flatMap((dir) =>
+            list[dir].map((r) => [
+              list.mixer.label,
+              dir === 'inputs' ? 'Eingang' : 'Ausgang',
+              r.channel,
+              r.port,
+              r.name,
+              r.device ? `${r.device.label}${r.devicePort ? ` · ${r.devicePort}` : ''}` : 'offen',
+              r.deviceTemplate ?? '',
+              r.person ?? '',
+              viaText(r),
+              dir === 'inputs' && r.phantom ? 'ja' : '',
+              dir === 'inputs' ? r.stand : '',
+              r.notes,
+            ]),
+          ),
+        ),
       );
     case 'cases':
       return toCsv(

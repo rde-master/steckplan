@@ -29,6 +29,7 @@ const DEFAULT_ORIENTATION: Record<ExportKind, 'portrait' | 'landscape'> = {
   signalflow: 'landscape',
   packing: 'landscape',
   cases: 'portrait',
+  patch: 'landscape',
   cables: 'landscape',
   bom: 'portrait',
   dmx: 'portrait',

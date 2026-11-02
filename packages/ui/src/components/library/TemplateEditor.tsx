@@ -184,6 +184,15 @@ export function TemplateEditor({
               {t.usedByPerson}
             </label>
             <p className="pl-6 text-xs text-slate-500">{t.usedByPersonHint}</p>
+            <label className="mt-2 flex items-center gap-2 text-sm font-medium">
+              <input type="checkbox" checked={draft.mixer ?? false} disabled={disabled} onChange={(e) => set({ mixer: e.target.checked || undefined })} />
+              {t.mixer}
+            </label>
+            <p className="pl-6 text-xs text-slate-500">{t.mixerHint}</p>
+            <label className="mt-2 flex items-center gap-2 text-sm font-medium">
+              <input type="checkbox" checked={draft.phantomPower ?? false} disabled={disabled} onChange={(e) => set({ phantomPower: e.target.checked || undefined })} />
+              {t.phantomPower}
+            </label>
           </div>
         )}
         <div className="sm:col-span-2">

@@ -10,6 +10,7 @@ import {
   buildDmxPatch,
   buildNetworkList,
   buildPackingList,
+  buildPatchLists,
   cableMatches,
   deviceMatches,
   dmxCsv,
@@ -20,6 +21,7 @@ import {
   listCsv,
   masterLabel,
   packItems,
+  viaText,
   type Filter,
   type GroupBy,
   type Issue,
@@ -37,6 +39,7 @@ import {
   LABEL_FORMATS,
   labelsDoc,
   packingListDoc,
+  patchDoc,
   planDoc,
   PT_PER_MM,
   tableDoc,
@@ -51,9 +54,9 @@ import {
 } from './documents';
 import { signalFlowBounds, signalFlowSvg, stageBounds, stagePlanSvg, usedCategories, type StageDrawing } from './svg';
 
-export type ExportKind = 'stageplan' | 'signalflow' | 'packing' | 'cases' | 'cables' | 'bom' | 'dmx' | 'devices' | 'network' | 'people' | 'labels' | 'wifi';
+export type ExportKind = 'stageplan' | 'signalflow' | 'packing' | 'cases' | 'cables' | 'bom' | 'dmx' | 'devices' | 'network' | 'people' | 'patch' | 'labels' | 'wifi';
 
-export const CSV_KINDS: ExportKind[] = ['packing', 'cases', 'cables', 'bom', 'dmx', 'devices', 'network', 'people'];
+export const CSV_KINDS: ExportKind[] = ['packing', 'cases', 'cables', 'bom', 'dmx', 'devices', 'network', 'people', 'patch'];
 
 export const EXPORT_TITLES: Record<ExportKind, string> = {
   stageplan: 'Bühnenplan',
@@ -66,6 +69,7 @@ export const EXPORT_TITLES: Record<ExportKind, string> = {
   devices: 'Geräteliste',
   network: 'Netzwerkliste',
   people: 'Personenliste',
+  patch: 'Input-/Output-Liste',
   labels: 'Geräte-Etiketten',
   wifi: 'WLAN-Aushang',
 };
@@ -141,6 +145,7 @@ function projectLike(data: ProjectData) {
     people: data.people,
     groups: data.groups,
     caseTrailers: data.caseTrailers,
+    patch: data.patch,
   };
 }
 
@@ -287,6 +292,32 @@ export async function buildExportDoc(opts: ExportOptions, input: ExportInput): P
         subtitle: `${data.people.length} Personen · Geräte „benutzt von Mensch“ mit Verbindungen`,
       });
     }
+    case 'patch': {
+      const sections = buildPatchLists(projectLike(data), library).flatMap((list) => {
+        const target = (r: (typeof list.inputs)[number]) => (r.device ? `${r.device.label}${r.devicePort ? ` · ${r.devicePort}` : ''}${r.deviceTemplate ? `\n${r.deviceTemplate}` : ''}` : 'offen');
+        return [
+          {
+            title: `Input-Liste – ${list.mixer.label}`,
+            subtitle: `${list.mixerTemplate.name} · ${list.inputs.length} Eingänge, ${list.inputs.filter((r) => r.device).length} belegt`,
+            headers: ['Kanal', 'Anschluss', 'Name', 'Quelle', 'Über', '48 V', 'Stativ', 'Bemerkung'],
+            widths: [30, 50, '*', '*', '*', 28, 70, '*'],
+            rows: list.inputs.map((r) => [r.channel, r.port, r.name, target(r), viaText(r), r.phantom ? '48 V' : '', r.stand, r.notes]),
+          },
+          ...(list.outputs.length
+            ? [
+                {
+                  title: `Output-Liste – ${list.mixer.label}`,
+                  subtitle: `${list.mixerTemplate.name} · ${list.outputs.length} Ausgänge, ${list.outputs.filter((r) => r.device).length} belegt`,
+                  headers: ['Weg', 'Anschluss', 'Name', 'Ziel', 'Person', 'Über', 'Bemerkung'],
+                  widths: [30, 50, '*', '*', 80, '*', '*'],
+                  rows: list.outputs.map((r) => [r.channel, r.port, r.name, target(r), r.person ?? '', viaText(r), r.notes]),
+                },
+              ]
+            : []),
+        ];
+      });
+      return patchDoc(sections, ctx);
+    }
     case 'labels': {
       const ids = visibleDevices(data, library, filter).map((d) => d.id);
       const format = LABEL_FORMATS.find((f) => f.id === opts.labelFormat) ?? LABEL_FORMATS[0]!;
@@ -395,6 +426,8 @@ export function buildCsv(kind: ExportKind, data: ProjectData, library: Library, 
       return listCsv(kind, { ...all, devices }, library);
     case 'people':
       return listCsv('people', all, library);
+    case 'patch':
+      return listCsv('patch', all, library);
     default:
       return '';
   }

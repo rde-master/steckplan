@@ -30,6 +30,8 @@ const FIELD_LABELS: Record<string, string> = {
   stock: f.stock,
   stockByLength: f.stockByLength,
   tBarLengthMm: f.tBarLength,
+  mixer: f.mixer,
+  phantomPower: f.phantomPower,
   shape: `${f.form} / Maße`,
   ports: f.ports,
   dmxModes: f.dmxModes,
