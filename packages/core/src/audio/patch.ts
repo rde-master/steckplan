@@ -299,6 +299,62 @@ export function stageboxChannelLabels(project: Pick<Project, 'devices' | 'cables
   return labels;
 }
 
+export interface StageboxInputInfo {
+  /** Quelle mit Person, z. B. „Mikro 1 (Anna Muster)“ */
+  source: string;
+  /** Pult-Kanal, z. B. „7“ oder bei mehreren Pulten „Wing 7“ */
+  channel: string;
+}
+
+/** Netzwerk-Kanäle mit Pult: Anzeige ohne Pultnamen, wenn es nur ein Pult mit Netzwerk-Kanälen gibt. */
+function channelText(assignments: ChannelAssignment[], mixer: DeviceInstance, channel: number): string {
+  const mixers = new Set(assignments.map((a) => a.mixer.id));
+  return mixers.size > 1 ? `${mixer.label} ${channel}` : String(channel);
+}
+
+/** An der Stagebox je Eingang: was steckt (mit Person) und auf welchem Pult-Kanal es liegt. */
+export function stageboxInputInfo(project: Pick<Project, 'devices' | 'cables'> & Partial<Pick<Project, 'people'>>, library: Pick<Library, 'templates'>): Map<string, StageboxInputInfo> {
+  const templates = new Map(library.templates.map((t) => [t.id, t]));
+  const assignments = validAssignments(project, library);
+  const info = new Map<string, StageboxInputInfo>();
+  for (const a of assignments) {
+    const key = `${a.route.stagebox.id}/${a.route.stageboxPortId}`;
+    const person = personName(devicePerson(a.device, templates.get(a.device.templateId), project.people ?? []));
+    const source = person ? `${a.device.label} (${person})` : a.device.label;
+    const channel = channelText(assignments, a.mixer, a.channel);
+    const existing = info.get(key);
+    info.set(key, existing ? { source: existing.source, channel: `${existing.channel}, ${channel}` } : { source, channel });
+  }
+  return info;
+}
+
+export interface MixerNetworkRow {
+  channel: number;
+  /** Kanalname aus der Input-Liste (geändert oder Vorschlag) */
+  name: string;
+  source: string;
+  stagebox: string;
+  stageboxPort: string;
+}
+
+/** Am Pult: die belegten Netzwerk-Kanäle mit Name, Quelle und Stagebox-Eingang. */
+export function mixerNetworkRows(project: ProjectLike, library: Pick<Library, 'templates'>): Map<string, MixerNetworkRow[]> {
+  const assignments = validAssignments(project, library);
+  const rows = new Map<string, MixerNetworkRow[]>();
+  for (const list of buildPatchLists(project, library)) {
+    const used = list.network.filter((r) => r.device);
+    if (!used.length) continue;
+    rows.set(
+      list.mixer.id,
+      used.map((r) => {
+        const a = assignments.find((x) => x.mixer.id === list.mixer.id && x.channel === r.channel)!;
+        return { channel: r.channel, name: r.name, source: r.device!.label, stagebox: a.route.stagebox.label, stageboxPort: a.route.stageboxPort };
+      }),
+    );
+  }
+  return rows;
+}
+
 /** Prüfungen: Zuordnung ohne durchgehende Kette, Kanal gibt es nicht, Kanal doppelt belegt. */
 export function checkNetworkChannels(project: Pick<Project, 'devices' | 'cables'>, library: Pick<Library, 'templates'>): Issue[] {
   const templates = new Map(library.templates.map((t) => [t.id, t]));

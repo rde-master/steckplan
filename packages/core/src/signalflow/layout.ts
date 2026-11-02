@@ -3,7 +3,7 @@ import type { EffectivePort } from './ports';
 
 export const BOX = {
   minWidth: 160,
-  maxWidth: 320,
+  maxWidth: 480,
   headerHeight: 30,
   portRowHeight: 20,
   padding: 8,

@@ -213,7 +213,7 @@ export function signalFlowSvg(
     if (b.dmxLabel) g.push(`<text x="${n(b.layout.width - 7)}" y="18" font-size="9" text-anchor="end" fill="${b.text}">${esc(b.dmxLabel)}</text>`);
     for (const a of b.layout.anchors) {
       const label = b.labels.get(a.port.id) ?? a.port.label;
-      g.push(`<circle cx="${n(a.x)}" cy="${n(a.y)}" r="3.5" fill="#ffffff" stroke="${ROLE_COLORS[a.port.role]}" stroke-width="1.5"/>`);
+      if (!a.port.virtual) g.push(`<circle cx="${n(a.x)}" cy="${n(a.y)}" r="3.5" fill="#ffffff" stroke="${ROLE_COLORS[a.port.role]}" stroke-width="1.5"/>`);
       g.push(
         a.port.side === 'left'
           ? `<text x="${n(a.x + 8)}" y="${n(a.y + 3)}" font-size="8.5" fill="${b.text}">${esc(label)}</text>`
