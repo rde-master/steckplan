@@ -22,6 +22,7 @@ import { ExportDialog } from '../components/ExportDialog';
 import { CasesPanel } from '../components/project/CasesPanel';
 import { PeoplePanel } from '../components/project/PeoplePanel';
 import { WebAccessDialog } from '../components/WebAccessDialog';
+import { UploadToServerDialog } from '../components/ServerDialogs';
 import { useIssues } from '../lib/useIssues';
 import { MeterField } from '../components/library/fields';
 import { AccessBadge, Banner, Button, Field, Spinner, TextArea, TextInput } from '../components/ui';
@@ -54,6 +55,7 @@ export function ProjectPage({ id }: { id: string }) {
   const [showVersions, setShowVersions] = useState(false);
   const [showExport, setShowExport] = useState(false);
   const [showWeb, setShowWeb] = useState(false);
+  const [showUpload, setShowUpload] = useState(false);
   const [conflicts, setConflicts] = useState<Conflict[] | null>(null);
   const [conflictError, setConflictError] = useState<string | null>(null);
   const library = useLibrary((s) => s.library);
@@ -80,6 +82,7 @@ export function ProjectPage({ id }: { id: string }) {
         if (command === 'versions') setShowVersions(true);
         if (command === 'export') setShowExport(true);
         if (command === 'webAccess') setShowWeb(true);
+        if (command === 'uploadToServer') setShowUpload(true);
       }),
     [],
   );
@@ -210,6 +213,13 @@ export function ProjectPage({ id }: { id: string }) {
           <CasesPanel doc={project.doc} origin={undo.origin} data={data} library={library} editable={editable} />
           <SettingsForm doc={project.doc} settings={data.settings} editable={editable} />
           {session && can(session.access, 'manageProjects') && <CopyProject projectId={id} name={meta.name ?? ''} />}
+          {isDesktop && (
+            <section className="space-y-2 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">{texts.servers.uploadTitle}</h2>
+              <p className="text-xs text-slate-500">{texts.servers.uploadIntro}</p>
+              <Button onClick={() => setShowUpload(true)}>{texts.servers.uploadTitle} …</Button>
+            </section>
+          )}
         </main>
       )}
       {conflicts && (
@@ -234,6 +244,7 @@ export function ProjectPage({ id }: { id: string }) {
         />
       )}
       {showWeb && getDesktop() && <WebAccessDialog desktop={getDesktop()!} onClose={() => setShowWeb(false)} />}
+      {showUpload && getDesktop() && <UploadToServerDialog desktop={getDesktop()!} projectId={id} onClose={() => setShowUpload(false)} />}
     </div>
   );
 }

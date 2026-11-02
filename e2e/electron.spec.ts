@@ -3,6 +3,7 @@ import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { _electron as electron, expect, test } from '@playwright/test';
+import { E2E } from '../playwright.config';
 
 // Desktop-App (lokaler Modus). Vorher: pnpm build. Unter Linux mit Xvfb (xvfb-run) ausführen.
 const appDir = join(process.cwd(), 'apps/desktop');
@@ -138,6 +139,79 @@ test('Desktop: Weboberfläche per QR starten, im Browser lesend anmelden, trenne
     await expect.poll(() => fetch(`${url}api/health`).then(() => 'erreichbar', () => 'aus')).toBe('aus');
   } finally {
     await phone.close();
+    await app.close();
+  }
+});
+
+test('Desktop: mit Server verbinden (Zugangsschlüssel), Projekt hochladen, Widerruf sperrt', async ({ request, baseURL }) => {
+  // Schlüssel auf dem Test-Server erzeugen (Bearbeiten-Zugang)
+  const login = await request.post('/api/auth/login', { data: { name: 'Admin', password: E2E.editPassword } });
+  expect(login.ok()).toBe(true);
+  const created = await (await request.post('/api/settings/desktop-keys', { data: { label: 'E2E-Desktop', access: 'edit' } })).json();
+  const key: string = created.key;
+
+  const userData = mkdtempSync(join(tmpdir(), 'steckplan-userdata-'));
+  const projectDir = mkdtempSync(join(tmpdir(), 'steckplan-projekte-'));
+  const file = join(projectDir, 'Hochladen.steckplan');
+  writeFileSync(file, JSON.stringify({ schemaVersion: 4, id: 'e2e-upload', meta: { name: 'Vom Desktop hochgeladen' } }));
+  writeFileSync(join(userData, 'settings.json'), JSON.stringify({ name: 'Ralf Desktop', recentFiles: [] }));
+
+  const env = { ...process.env, STECKPLAN_USER_DATA: userData, STECKPLAN_TEST_PLAINTEXT_KEYS: '1' } as Record<string, string>;
+  delete env.ELECTRON_RUN_AS_NODE;
+  const app = await electron.launch({ executablePath: electronPath, args: [...(process.platform === 'linux' ? ['--no-sandbox'] : []), appDir, file], env });
+  try {
+    const projectWindow = await app.waitForEvent('window', { predicate: (w) => w.url().includes('/projekt/') });
+    await expect(projectWindow.getByRole('tab', { name: 'Signalfluss' })).toBeVisible();
+
+    // Menü „Datei > Mit Server verbinden …“ öffnet das Startfenster mit dem Dialog
+    const startPromise = app.waitForEvent('window', { predicate: (w) => !w.url().includes('/projekt/') });
+    await app.evaluate(({ Menu }) => {
+      const file = Menu.getApplicationMenu()!.items.find((i) => i.label === 'Datei')!;
+      file.submenu!.items.find((i) => i.label === 'Mit Server verbinden …')!.click();
+    });
+    const start = await startPromise;
+    const dialog = start.getByRole('dialog', { name: 'Mit Server verbinden' });
+    await dialog.getByLabel('Adresse des Servers').fill('http://192.168.1.50:8080');
+    await expect(dialog.getByText('ohne Verschlüsselung')).toBeVisible();
+    await dialog.getByLabel('Adresse des Servers').fill(baseURL!);
+    await expect(dialog.getByText('ohne Verschlüsselung')).toHaveCount(0);
+
+    // falscher Schlüssel wird abgelehnt
+    await dialog.getByLabel('Desktop-Zugangsschlüssel').fill('stp_falsch');
+    await dialog.getByRole('button', { name: 'Verbinden' }).click();
+    await expect(dialog.getByRole('alert')).toContainText('ungültig');
+
+    await dialog.getByLabel('Desktop-Zugangsschlüssel').fill(key);
+    await dialog.getByLabel('Bezeichnung (optional)').fill('Test-Server');
+    const serverWindowPromise = app.waitForEvent('window', { predicate: (w) => w.url().startsWith(baseURL!) });
+    await dialog.getByRole('button', { name: 'Verbinden' }).click();
+    const serverWindow = await serverWindowPromise;
+    await expect(serverWindow.getByRole('heading', { name: 'Projekte' })).toBeVisible();
+    await expect(serverWindow.getByText('Ralf Desktop')).toBeVisible();
+    await expect(serverWindow.getByRole('button', { name: 'Abmelden' })).toHaveCount(0);
+    await expect(start.getByTestId('servers')).toContainText('Test-Server');
+
+    // Schlüssel liegt nur verschlüsselt in den Einstellungen
+    const settingsText = readFileSync(join(userData, 'settings.json'), 'utf8');
+    expect(settingsText).not.toContain(key);
+    expect(JSON.parse(settingsText).servers[0]).toMatchObject({ label: 'Test-Server', url: baseURL });
+
+    // Lokales Projekt hochladen → öffnet sich im Server-Fenster
+    await projectWindow.getByRole('tab', { name: 'Projektdaten' }).click();
+    await projectWindow.getByRole('button', { name: 'Auf Server hochladen …' }).click();
+    const upload = projectWindow.getByRole('dialog', { name: 'Auf Server hochladen' });
+    await expect(upload.getByText('Test-Server')).toBeVisible();
+    await upload.getByRole('button', { name: 'Hochladen' }).click();
+    await expect(upload.getByText('Hochgeladen und im Server-Fenster geöffnet.')).toBeVisible();
+    await expect(serverWindow).toHaveURL(/\/projekt\//);
+    await expect(serverWindow.getByRole('heading', { name: 'Vom Desktop hochgeladen' })).toBeVisible();
+    const projects = (await (await request.get('/api/projects')).json()).projects as { name: string }[];
+    expect(projects.some((p) => p.name === 'Vom Desktop hochgeladen')).toBe(true);
+
+    // Widerruf: Verbindung wird getrennt, Hinweis statt Anmeldeseite
+    await request.delete(`/api/settings/desktop-keys/${created.info.id}`);
+    await expect(serverWindow.getByText('ungültig oder wurde widerrufen')).toBeVisible({ timeout: 10_000 });
+  } finally {
     await app.close();
   }
 });

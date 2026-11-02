@@ -12,6 +12,18 @@ contextBridge.exposeInMainWorld('steckplanDesktop', {
   listRecent: () => ipcRenderer.invoke('recent:list'),
   openLibrary: () => ipcRenderer.invoke('library:open'),
   copyAsNew: (projectId: string) => ipcRenderer.invoke('project:copyAsNew', projectId),
+  servers: {
+    list: () => ipcRenderer.invoke('servers:list'),
+    add: (input: { label: string; url: string; key: string }) => ipcRenderer.invoke('servers:add', input),
+    remove: (id: string) => ipcRenderer.invoke('servers:remove', id),
+    open: (id: string) => ipcRenderer.invoke('servers:open', id),
+    onChanged: (callback: () => void) => {
+      const listener = () => callback();
+      ipcRenderer.on('servers:changed', listener);
+      return () => ipcRenderer.removeListener('servers:changed', listener);
+    },
+  },
+  uploadToServer: (projectId: string, serverId: string) => ipcRenderer.invoke('project:uploadToServer', projectId, serverId),
   webAccess: {
     status: () => ipcRenderer.invoke('web:status'),
     start: (address: string) => ipcRenderer.invoke('web:start', address),
