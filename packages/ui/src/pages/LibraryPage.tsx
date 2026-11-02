@@ -3,7 +3,7 @@ import { ICON } from '../components/icons';
 import { useRef, useState } from 'react';
 import { can, TEMPLATE_KIND_LABELS, TEMPLATE_KINDS, type Conflict, type Template, type TemplateKind } from '@steckplan/core';
 import { api, errorMessage } from '../lib/api';
-import { masterName, useLibrary } from '../lib/library';
+import { useLibrary } from '../lib/library';
 import { navigate } from '../lib/router';
 import { useSession } from '../lib/session';
 import { texts } from '../texts';
@@ -59,6 +59,13 @@ export function LibraryPage({ section: rawSection }: { section: string }) {
     .filter((t) => section !== 'master' && t.kind === section)
     .filter((t) => !query || `${t.name} ${t.manufacturer ?? ''}`.toLowerCase().includes(query.toLowerCase()))
     .sort((a, b) => a.name.localeCompare(b.name, 'de'));
+
+  // Liste nach Kategorien („ohne Kategorie“ am Ende), leere Gruppen ausgeblendet
+  const categories = [...(library?.masterData.categories ?? [])].sort((a, b) => a.name.localeCompare(b.name, 'de'));
+  const groups = [
+    ...categories.map((c) => ({ key: c.id, label: c.name, color: c.color, items: templates.filter((t) => t.categoryId === c.id) })),
+    { key: '', label: texts.library.noCategoryGroup, color: undefined, items: templates.filter((t) => !t.categoryId || !categories.some((c) => c.id === t.categoryId)) },
+  ].filter((g) => g.items.length > 0);
 
   return (
     <div className="flex min-h-full flex-col bg-slate-50 dark:bg-slate-950">
@@ -122,8 +129,17 @@ export function LibraryPage({ section: rawSection }: { section: string }) {
               {templates.length === 0 ? (
                 <p className="px-1 py-4 text-sm text-slate-500">{texts.library.empty}</p>
               ) : (
-                <ul className="divide-y divide-slate-200 overflow-hidden rounded-lg border border-slate-200 bg-white dark:divide-slate-700 dark:border-slate-700 dark:bg-slate-900">
-                  {templates.map((template) => (
+                <div className="space-y-2" data-testid="library-list">
+                  {groups.map((group) => (
+                    <details key={group.key || 'none'} open className="group" data-testid={`library-category-${group.key || 'none'}`}>
+                      <summary className="flex cursor-pointer list-none items-center gap-1.5 px-1 pb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        <span className="text-slate-400 transition-transform group-open:rotate-90">▸</span>
+                        {group.color && <span className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: group.color }} />}
+                        {group.label}
+                        <span className="font-normal">({group.items.length})</span>
+                      </summary>
+                      <ul className="divide-y divide-slate-200 overflow-hidden rounded-lg border border-slate-200 bg-white dark:divide-slate-700 dark:border-slate-700 dark:bg-slate-900">
+                    {group.items.map((template) => (
                     <li key={template.id} className="flex items-stretch">
                       <button
                         type="button"
@@ -137,7 +153,6 @@ export function LibraryPage({ section: rawSection }: { section: string }) {
                             {[
                               template.channels ? texts.library.multicore.summary(template.channels.length) : undefined,
                               template.manufacturer,
-                              masterName(library, 'categories', template.categoryId),
                             ]
                               .filter(Boolean)
                               .join(' · ') || ' '}
@@ -157,7 +172,10 @@ export function LibraryPage({ section: rawSection }: { section: string }) {
                       )}
                     </li>
                   ))}
-                </ul>
+                      </ul>
+                    </details>
+                  ))}
+                </div>
               )}
             </aside>
             <section className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">

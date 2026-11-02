@@ -54,6 +54,10 @@ test('M8c: Stammdaten direkt anlegen, Vorlage kopieren, Personen, Gruppen, T-Bar
   await page.getByRole('button', { name: 'Speichern' }).click();
   await expect(page.getByText('Gespeichert.')).toBeVisible();
 
+  // Liste nach Kategorien: beide in der Gruppe „Funk M8c“
+  const funkGroup = page.getByTestId('library-list').locator('details').filter({ has: page.locator('summary', { hasText: 'Funk M8c' }) });
+  await expect(funkGroup.locator('summary')).toContainText('(2)');
+  await expect(funkGroup).toContainText('Funkmikro M8c (Kopie)');
   const library = await (await page.request.get('/api/library')).json();
   const mic = library.templates.find((t: { name: string }) => t.name === 'Funkmikro M8c');
   const copy = library.templates.find((t: { name: string }) => t.name === 'Funkmikro M8c (Kopie)');

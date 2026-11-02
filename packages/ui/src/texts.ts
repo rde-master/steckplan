@@ -118,6 +118,7 @@ export const texts = {
     saved: 'Gespeichert.',
     deleted: 'Gelöscht.',
     copy: 'Kopieren',
+    noCategoryGroup: 'ohne Kategorie',
     copySuffix: ' (Kopie)',
     copied: 'Kopie angelegt – noch nicht gespeichert. Name anpassen und speichern.',
     deleteConfirm: (name: string) => `„${name}“ wirklich löschen?`,
