@@ -1,6 +1,6 @@
 // Bühnenplan-Ansicht: Werkzeuge, Seitenleisten, maßstäbliche Zeichenfläche, Eigenschaften, Prüfungen.
 import { useEffect, useMemo, useState } from 'react';
-import { BrickWall, Copy, Maximize, MousePointer2, Redo2, RotateCw, Ruler, Trash2, Type, Undo2, ZoomIn, ZoomOut, type LucideIcon } from 'lucide-react';
+import { BrickWall, Copy, Maximize, MousePointer2, Redo2, RotateCw, Ruler, SquareDashedMousePointer, Trash2, Type, Undo2, ZoomIn, ZoomOut, type LucideIcon } from 'lucide-react';
 import { ICON, TOOL_ICON } from '../icons';
 import type * as Y from 'yjs';
 import {
@@ -445,6 +445,7 @@ export function StagePlanView({ doc, data, library, editable, undo }: { doc: Y.D
         {editable && (
           <>
             {toolButton('select', s.tools.select, MousePointer2)}
+            {toolButton('marquee', s.tools.marquee, SquareDashedMousePointer)}
             {toolButton('wall', s.tools.wall, BrickWall)}
             {toolButton('text', s.tools.text, Type)}
             {toolButton('dimension', s.tools.dimension, Ruler)}

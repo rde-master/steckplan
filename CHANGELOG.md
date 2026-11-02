@@ -9,6 +9,8 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Hinzugefügt
 
+- Markieren-Modus in Signalfluss und Bühnenplan: Rahmen mit der Maus aufziehen, um mehrere Objekte auszuwählen (Umschalt/Strg = hinzufügen), und die markierten gemeinsam verschieben; daneben der bisherige Auswählen-Modus (leere Fläche ziehen verschiebt die Ansicht). Im Signalfluss werden Kabel zwischen markierten Geräten mit ausgewählt, im Bühnenplan auch Wände, Texte und Maßlinien
+
 - Signalfluss: Besitzer in der Geräteauswahl links einblendbar; in den Kästen Besitzer und Personennamen ein-/ausblendbar (wird je Browser bzw. Rechner gemerkt)
 
 ### Geändert

@@ -16,7 +16,9 @@ export interface Selection {
   shapes: string[];
 }
 
-export type StageTool = 'select' | 'wall' | 'text' | 'dimension' | 'calibrate';
+export type StageTool = 'select' | 'marquee' | 'wall' | 'text' | 'dimension' | 'calibrate';
+/** Signalfluss: Auswählen (leere Fläche ziehen = Ansicht verschieben) oder Markieren (Rahmen ziehen) */
+export type FlowMode = 'select' | 'marquee';
 
 interface EditorState {
   selection: Selection;
@@ -34,6 +36,8 @@ interface EditorState {
   /** Anzeige im Signalfluss (je Browser gemerkt): Besitzer in der Geräteauswahl, Besitzer und Personen in den Kästen */
   display: SignalFlowDisplay;
   setDisplay(patch: Partial<SignalFlowDisplay>): void;
+  flowMode: FlowMode;
+  setFlowMode(mode: FlowMode): void;
   setFilter(filter: Filter): void;
   setColorMode(mode: ColorMode): void;
   setShowCables(show: boolean): void;
@@ -103,6 +107,7 @@ const initial = {
   showCables: true,
   showDmx: false,
   showStageGroups: true,
+  flowMode: 'select' as FlowMode,
 };
 
 export const useEditor = create<EditorState>((set) => ({
@@ -156,6 +161,9 @@ export const useEditor = create<EditorState>((set) => ({
   },
   setShowStageGroups(showStageGroups) {
     set({ showStageGroups });
+  },
+  setFlowMode(flowMode) {
+    set({ flowMode });
   },
   display: loadDisplay(),
   setDisplay(patch) {
