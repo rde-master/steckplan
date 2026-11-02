@@ -1,5 +1,5 @@
 // Maßstäblicher Bühnenplan (Konva). Weltkoordinaten in Millimetern, Position = Mittelpunkt.
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Circle, Ellipse, Group, Image as KImage, Layer, Line, Rect, Stage, Text, Transformer } from 'react-konva';
 import type Konva from 'konva';
 import {
@@ -17,6 +17,7 @@ import {
 } from '@steckplan/core';
 import { useEditor } from '../../lib/editor';
 import { useLongPress } from '../../lib/useLongPress';
+import { useEdgeScroll } from '../../lib/useEdgeScroll';
 import { DIMMED_OPACITY } from '../../lib/display';
 import { formatLength, scaleBar, type MulticoreRoute, type StageCable, type StageGroupFrame, type StageItem } from './model';
 
@@ -100,6 +101,20 @@ export function StagePlanCanvas(props: StageCanvasProps) {
   const pointerTool = tool === 'select' || tool === 'marquee';
   const [band, setBand] = useState<{ x1: number; y1: number; x2: number; y2: number; additive: boolean } | null>(null);
   const bandEnded = useRef(false);
+  // Am Rand beim Markieren automatisch scrollen; der Rahmen wächst mit
+  const getPanView = useCallback(() => useEditor.getState().stageView, []);
+  const growBand = useCallback((p: { x: number; y: number }) => setBand((b) => (b ? { ...b, x2: p.x, y2: p.y } : b)), []);
+  useEdgeScroll({
+    active: band !== null,
+    container,
+    getView: getPanView,
+    setView,
+    onPointerWorld: growBand,
+    onRelease: () => {
+      finishBand();
+      bandEnded.current = false;
+    },
+  });
   const setTool = useEditor((s) => s.setTool);
   const moveBackground = useEditor((s) => s.moveBackground);
   const focusRequest = useEditor((s) => s.focusRequest);
@@ -236,6 +251,7 @@ export function StagePlanCanvas(props: StageCanvasProps) {
     if (band.additive) select({ devices: deviceIds, shapes: shapeIds }, true);
     else select({ devices: deviceIds, shapes: shapeIds, cables: [] });
   }
+
 
   function finishWall() {
     if (draft.length >= 2) props.onAddShape({ kind: 'wall', points: draft, rotationDeg: 0, strokeWidthMm: 200 });
