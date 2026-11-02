@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createEmptyProject } from '../model/project';
 import { createYDocFromProject } from '../model/ydoc';
-import { applyPeopleImport, parsePeopleTable, planPeopleImport } from './import';
+import { analyzePeopleTable, applyPeopleImport, parsePeopleTable, peopleFromTable, planPeopleImport } from './import';
 import { readPeople } from './people';
 
 describe('Personen importieren', () => {
@@ -25,6 +25,29 @@ describe('Personen importieren', () => {
     expect(parsePeopleTable('Anna Maria Muster\nBeispiel; Bert')).toHaveLength(2);
     expect(parsePeopleTable('Anna Maria Muster')).toEqual([{ lastName: 'Muster', firstName: 'Anna Maria', kind: '' }]);
     expect(parsePeopleTable('')).toEqual([]);
+  });
+
+  it('Art wird auch bei anderen Überschriften erkannt', () => {
+    const kinds = (header: string) => parsePeopleTable(`Vorname;Nachname;${header}\nAnna;Muster;Sängerin`)[0]!.kind;
+    expect(kinds('Art der Person')).toBe('Sängerin');
+    expect(kinds('Funktion/Rolle')).toBe('Sängerin');
+    expect(kinds('Instrumente')).toBe('Sängerin');
+    expect(kinds('Bereich')).toBe('Sängerin');
+    // unbekannte Überschrift, aber einzige weitere Spalte mit Inhalt
+    expect(kinds('Besonderes')).toBe('Sängerin');
+    // „Name“ wird nicht in „Vorname“ gefunden; Spalten in beliebiger Reihenfolge
+    expect(parsePeopleTable('Art\tVorname\tName\nGesang\tAnna\tMuster')).toEqual([{ lastName: 'Muster', firstName: 'Anna', kind: 'Gesang' }]);
+  });
+
+  it('Zuordnung der Spalten lässt sich von Hand ändern', () => {
+    const table = analyzePeopleTable('Anna;Muster;Gesang\nBert;Beispiel;Bass');
+    expect(table.hasHeader).toBe(false);
+    expect(table.headers).toEqual(['Spalte 1', 'Spalte 2', 'Spalte 3']);
+    expect(table.columns).toEqual({ lastName: 0, firstName: 1, kind: 2 });
+    // Datei hat Vorname zuerst → von Hand tauschen
+    expect(peopleFromTable(table, { lastName: 1, firstName: 0, kind: 2 })[0]).toEqual({ lastName: 'Muster', firstName: 'Anna', kind: 'Gesang' });
+    // Art weglassen
+    expect(peopleFromTable(table, { lastName: 1, firstName: 0, kind: -1 })[1]).toEqual({ lastName: 'Beispiel', firstName: 'Bert', kind: '' });
   });
 
   it('Abgleich: vorhandene überspringen, fehlende Art ergänzen, Doppelte im Import; Übernahme in einem Schritt', () => {

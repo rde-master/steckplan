@@ -6,11 +6,29 @@ import type { Person } from '../model/schema';
 
 export type ImportedPerson = Omit<Person, 'id'>;
 
+/** Wörter, an denen die Spalten erkannt werden (Überschrift ist gleich oder enthält das Wort) */
 const ALIASES: Record<keyof ImportedPerson, string[]> = {
-  lastName: ['name', 'nachname', 'familienname', 'lastname', 'last name', 'surname'],
-  firstName: ['vorname', 'firstname', 'first name', 'rufname'],
-  kind: ['art', 'rolle', 'funktion', 'typ', 'role', 'instrument', 'position'],
+  lastName: ['nachname', 'familienname', 'lastname', 'last name', 'surname', 'name'],
+  firstName: ['vorname', 'firstname', 'first name', 'rufname', 'given name'],
+  kind: ['art', 'rolle', 'funktion', 'typ', 'type', 'role', 'instrument', 'position', 'kategorie', 'gruppe', 'bereich', 'tätigkeit', 'aufgabe', 'besetzung', 'beschreibung', 'function'],
 };
+
+/** Zuordnung Feld → Spaltennummer (−1 = keine Spalte) */
+export interface PeopleColumns {
+  lastName: number;
+  firstName: number;
+  kind: number;
+}
+
+export interface PeopleTable {
+  /** Überschriften (bzw. „Spalte 1“ …, wenn die erste Zeile keine Überschrift ist) */
+  headers: string[];
+  hasHeader: boolean;
+  /** erkannte Zuordnung */
+  columns: PeopleColumns;
+  /** Datenzeilen (ohne Überschrift) */
+  rows: string[][];
+}
 
 /** Eine Tabellenzeile in Zellen zerlegen (Anführungszeichen wie in CSV). */
 function splitLine(line: string, delimiter: string): string[] {
@@ -45,31 +63,71 @@ function detectDelimiter(firstLine: string): string {
 }
 
 function normalizeHeader(cell: string): string {
-  return cell.toLowerCase().replace(/[^a-zäöüß ]/g, '').trim();
+  return cell
+    .toLowerCase()
+    .replace(/[^a-zäöüß]+/g, ' ')
+    .trim();
 }
 
-/** Text einer CSV-Datei bzw. eingefügter Excel-Zellen → Personen (leere Zeilen werden übersprungen). */
-export function parsePeopleTable(text: string): ImportedPerson[] {
+/** Spalte zu einem Feld: zuerst exakte Überschrift, dann „enthält das Wort“; bereits vergebene Spalten werden übersprungen. */
+function findColumn(headers: string[], key: keyof ImportedPerson, taken: Set<number>): number {
+  const aliases = ALIASES[key];
+  const exact = headers.findIndex((h, i) => !taken.has(i) && aliases.includes(h));
+  if (exact >= 0) return exact;
+  return headers.findIndex((h, i) => !taken.has(i) && aliases.some((a) => h.split(' ').includes(a) || (a.length > 4 && h.includes(a))));
+}
+
+/** Text einer CSV-Datei bzw. eingefügter Excel-Zellen zerlegen und die Spalten erkennen. */
+export function analyzePeopleTable(text: string): PeopleTable {
   const lines = text.replace(/^\uFEFF/, '').split(/\r\n|\n|\r/).filter((l) => l.trim() !== '');
-  if (lines.length === 0) return [];
+  if (lines.length === 0) return { headers: [], hasHeader: false, columns: { lastName: -1, firstName: -1, kind: -1 }, rows: [] };
   const delimiter = detectDelimiter(lines[0]!);
   const rows = lines.map((l) => splitLine(l, delimiter));
-  const header = rows[0]!.map(normalizeHeader);
-  const column = (key: keyof ImportedPerson) => header.findIndex((h) => ALIASES[key].includes(h));
-  const columns = { lastName: column('lastName'), firstName: column('firstName'), kind: column('kind') };
-  const hasHeader = columns.lastName >= 0 || columns.firstName >= 0;
-  const data = hasHeader ? rows.slice(1) : rows;
-  const index = hasHeader ? columns : { lastName: 0, firstName: 1, kind: 2 };
+  const width = Math.max(...rows.map((r) => r.length));
+  const normalized = rows[0]!.map(normalizeHeader);
+  // Vorname zuerst, damit „Name“ nicht in „Vorname“ gefunden wird
+  const taken = new Set<number>();
+  const firstName = findColumn(normalized, 'firstName', taken);
+  if (firstName >= 0) taken.add(firstName);
+  const lastName = findColumn(normalized, 'lastName', taken);
+  if (lastName >= 0) taken.add(lastName);
+  const hasHeader = firstName >= 0 || lastName >= 0;
+  if (!hasHeader) {
+    return {
+      headers: Array.from({ length: width }, (_, i) => `Spalte ${i + 1}`),
+      hasHeader: false,
+      columns: { lastName: 0, firstName: width > 1 ? 1 : -1, kind: width > 2 ? 2 : -1 },
+      rows,
+    };
+  }
+  let kind = findColumn(normalized, 'kind', taken);
+  const data = rows.slice(1);
+  if (kind < 0) {
+    // genau eine weitere Spalte mit Inhalt → Art
+    const rest = Array.from({ length: width }, (_, i) => i).filter((i) => !taken.has(i) && data.some((r) => (r[i] ?? '').trim()));
+    if (rest.length === 1) kind = rest[0]!;
+  }
+  return {
+    headers: Array.from({ length: width }, (_, i) => rows[0]![i] || `Spalte ${i + 1}`),
+    hasHeader: true,
+    columns: { lastName, firstName, kind },
+    rows: data,
+  };
+}
+
+/** Personen aus der zerlegten Tabelle mit einer (ggf. von Hand geänderten) Zuordnung. */
+export function peopleFromTable(table: Pick<PeopleTable, 'rows'>, columns: PeopleColumns): ImportedPerson[] {
+  const cell = (cells: string[], i: number) => (i >= 0 ? (cells[i] ?? '').trim() : '');
   const result: ImportedPerson[] = [];
-  for (const cells of data) {
-    let lastName = index.lastName >= 0 ? (cells[index.lastName] ?? '') : '';
-    let firstName = index.firstName >= 0 ? (cells[index.firstName] ?? '') : '';
-    const kind = index.kind >= 0 ? (cells[index.kind] ?? '') : '';
-    // eine Spalte mit dem ganzen Namen: „Muster, Anna“ oder „Anna Muster“
-    if (!hasHeader && cells.length === 1 && lastName) {
+  for (const cells of table.rows) {
+    let lastName = cell(cells, columns.lastName);
+    let firstName = cell(cells, columns.firstName);
+    const kind = cell(cells, columns.kind);
+    // ganzer Name in einer Spalte: „Muster, Anna“ oder „Anna Muster“
+    if (lastName && columns.firstName < 0) {
       const comma = lastName.split(',').map((x) => x.trim());
       if (comma.length === 2) [lastName, firstName] = [comma[0]!, comma[1]!];
-      else {
+      else if (lastName.includes(' ')) {
         const parts = lastName.split(/\s+/);
         lastName = parts.pop() ?? '';
         firstName = parts.join(' ');
@@ -79,6 +137,12 @@ export function parsePeopleTable(text: string): ImportedPerson[] {
     result.push({ lastName: lastName.slice(0, 80), firstName: firstName.slice(0, 80), kind: kind.slice(0, 80) });
   }
   return result;
+}
+
+/** Text einer CSV-Datei bzw. eingefügter Excel-Zellen → Personen (mit erkannter Zuordnung). */
+export function parsePeopleTable(text: string): ImportedPerson[] {
+  const table = analyzePeopleTable(text);
+  return peopleFromTable(table, table.columns);
 }
 
 export type ImportStatus = 'new' | 'existing' | 'completeKind' | 'duplicate';

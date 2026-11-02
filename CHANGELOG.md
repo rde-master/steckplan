@@ -7,6 +7,12 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.13.1] - 2026-11-02
+
+### Behoben
+
+- Personen-Import: Die Spalte „Art“ wurde bei vielen Überschriften nicht erkannt. Jetzt reicht es, wenn die Überschrift ein passendes Wort enthält (z. B. „Art der Person“, „Funktion/Rolle“, „Instrument“, „Bereich“); eine einzelne weitere Spalte gilt als Art. Zusätzlich lassen sich die Spalten für Name, Vorname und Art in der Vorschau von Hand zuordnen
+
 ## [0.13.0] - 2026-11-02
 
 Meilenstein M10 – Strom (dazu Personen-Import und neue Symbole).
@@ -245,7 +251,8 @@ Meilenstein M0 – Projektgerüst.
 - Docker-Image mit Datenvolume `/data` und Beispiel-`docker-compose.yml`
 - GitHub Actions: Tests und Smoke-Test bei jedem Push, Installer als Artefakte, Docker-Image `:develop`, Release-Workflow für Tags `vX.Y.Z`
 
-[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.13.0...develop
+[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.13.1...develop
+[0.13.1]: https://github.com/rde-master/steckplan/compare/v0.13.0...v0.13.1
 [0.13.0]: https://github.com/rde-master/steckplan/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/rde-master/steckplan/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/rde-master/steckplan/compare/v0.10.0...v0.11.0

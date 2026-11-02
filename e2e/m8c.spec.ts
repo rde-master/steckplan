@@ -95,12 +95,15 @@ test('M8c: Stammdaten direkt anlegen, Vorlage kopieren, Personen, Gruppen, T-Bar
   // Personen importieren (aus Excel eingefügt): vorhandene werden übersprungen
   await page.getByRole('button', { name: 'Importieren …', exact: true }).click();
   const importDialog = page.getByRole('dialog', { name: 'Personen importieren' });
-  await importDialog.getByLabel('Personen (aus Excel eingefügt oder CSV)').fill('Name\tVorname\tArt\nMuster\tAnna\tSängerin\nBeispiel\tBert\tGitarre\nNeu\tNina\tBass');
+  await importDialog.getByLabel('Personen (aus Excel eingefügt oder CSV)').fill('Vorname\tNachname\tInstrument / Rolle\nAnna\tMuster\tSängerin\nBert\tBeispiel\tGitarre\nNina\tNeu\tBass');
   await expect(importDialog.getByTestId('import-preview')).toContainText('schon vorhanden – übersprungen');
+  await expect(importDialog.getByLabel('Spalte für „Art“')).toHaveValue('2');
+  await expect(importDialog.getByTestId('import-preview')).toContainText('Gitarre');
   await importDialog.getByRole('button', { name: '2 Personen anlegen' }).click();
   await expect(importDialog.getByText('2 Änderungen übernommen')).toBeVisible();
   await importDialog.getByRole('button', { name: 'Schließen' }).last().click();
   await expect(page.getByTestId('people-table').locator('tbody tr')).toHaveCount(3);
+  await expect(page.getByLabel('Art: Neu')).toHaveValue('Bass');
 
   // ---------- Signalfluss: Person zuordnen, Name im Kasten, Lagerwarnung, Gruppe ----------
   await page.getByRole('tab', { name: 'Signalfluss' }).click();
