@@ -51,7 +51,7 @@ export function DesktopStartPage({ desktop }: { desktop: DesktopBridge }) {
     <div className="flex min-h-full flex-col bg-slate-50 dark:bg-slate-950">
       <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 p-6">
         <div className="flex items-center gap-3">
-          <img src="/icon.svg" alt="" className="h-12 w-12" />
+          <img src="/icon.png" alt="" className="h-12 w-12" />
           <div>
             <h1 className="text-xl font-semibold">{texts.app.name}</h1>
             <p className="text-sm text-slate-500 dark:text-slate-400">{texts.app.tagline}</p>
@@ -123,7 +123,7 @@ function NamePrompt({ desktop, onSaved }: { desktop: DesktopBridge; onSaved: (na
     <div className="flex min-h-full items-center justify-center bg-slate-100 p-4 dark:bg-slate-950">
       <form onSubmit={submit} className="w-full max-w-md space-y-4 rounded-lg bg-white p-6 shadow dark:bg-slate-900">
         <div className="flex items-center gap-3">
-          <img src="/icon.svg" alt="" className="h-10 w-10" />
+          <img src="/icon.png" alt="" className="h-10 w-10" />
           <h1 className="text-lg font-semibold">{texts.desktop.welcome}</h1>
         </div>
         <p className="text-sm text-slate-600 dark:text-slate-300">{texts.desktop.askName}</p>

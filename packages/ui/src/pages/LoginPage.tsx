@@ -45,7 +45,7 @@ export function LoginPage({ next }: { next: string }) {
     <div className="flex min-h-full items-center justify-center bg-slate-100 p-4 dark:bg-slate-950">
       <form onSubmit={submit} className="w-full max-w-sm space-y-4 rounded-lg bg-white p-6 shadow dark:bg-slate-900">
         <div className="flex items-center gap-3">
-          <img src="/icon.svg" alt="" className="h-10 w-10" />
+          <img src="/icon.png" alt="" className="h-10 w-10" />
           <div>
             <h1 className="text-lg font-semibold">{texts.app.name}</h1>
             <p className="text-sm text-slate-500 dark:text-slate-400">{texts.login.title}</p>
