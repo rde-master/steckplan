@@ -198,11 +198,15 @@ export function signalFlowSvg(
     );
   }
   for (const l of lines) {
+    const style = `fill="none" stroke="${l.issue === 'error' || l.issue === 'warning' ? '#dc2626' : l.color}" stroke-width="1.5"${l.cable.direct ? ' stroke-dasharray="5 3"' : ''} opacity="${l.dimmed ? DIMMED : 1}"`;
+    if (l.curved) {
+      const [x0, y0, c1x, c1y, c2x, c2y, x1, y1] = l.points.map(n);
+      out.push(`<path d="M ${x0} ${y0} C ${c1x} ${c1y} ${c2x} ${c2y} ${x1} ${y1}" ${style}/>`);
+      continue;
+    }
     const pts: string[] = [];
     for (let k = 0; k < l.points.length; k += 2) pts.push(`${n(l.points[k]!)},${n(l.points[k + 1]!)}`);
-    out.push(
-      `<polyline points="${pts.join(' ')}" fill="none" stroke="${l.issue === 'error' || l.issue === 'warning' ? '#dc2626' : l.color}" stroke-width="1.5"${l.cable.direct ? ' stroke-dasharray="5 3"' : ''} opacity="${l.dimmed ? DIMMED : 1}"/>`,
-    );
+    out.push(`<polyline points="${pts.join(' ')}" ${style}/>`);
   }
   for (const b of boxes) {
     const g: string[] = [];

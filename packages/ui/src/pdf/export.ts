@@ -484,7 +484,7 @@ export async function buildExportDoc(opts: ExportOptions, input: ExportInput): P
         const boxes = buildBoxes(devices, library, false, { colorMode: input.colorMode, filter, people: data.people });
         shownIds.push(...boxes.map((b) => b.device.id));
         const frames = buildGroupFrames(data.groups, boxes);
-        const lines = buildCableLines(data.cables, boxes, library, input.issues, filter);
+        const lines = buildCableLines(data.cables, boxes, library, input.issues, filter, data.settings.cableStyle ?? 'square');
         const refs = crossPageRefs(data.devices, data.cables, allPages).filter((r) => devices.some((d) => d.id === r.deviceId));
         const boxBounds = signalFlowBounds(boxes);
         const base = boxBounds && frames.length ? boundsOf([boxBounds, ...frames], 0)! : (boxBounds ?? { x: 0, y: 0, width: 800, height: 500 });

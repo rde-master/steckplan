@@ -31,6 +31,8 @@ export interface CanvasProps {
   /** Kabel zu Geräten auf anderen Seiten: Verweis am Anschluss */
   pageRefs?: CrossPageRef[];
   onPageRef?: (ref: CrossPageRef) => void;
+  /** Kasten am Griff rechts unten größer/kleiner ziehen; undefined = automatische Größe */
+  onResize?: (id: string, size: { width: number; height: number } | undefined, final: boolean) => void;
 }
 
 export interface GroupFrame {
@@ -45,6 +47,8 @@ export interface GroupFrame {
 }
 
 const GRID = 10;
+/** schraffierter Griff rechts unten zum Ändern der Größe */
+const HANDLE = 14;
 const snap = (v: number) => Math.round(v / GRID) * GRID;
 const MIN_ZOOM = 0.15;
 const MAX_ZOOM = 3;
@@ -55,7 +59,7 @@ declare global {
   }
 }
 
-export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onConnect, onDropTemplate, onInvalidConnection, showDmx = false, groups = [], pageRefs = [], onPageRef }: CanvasProps) {
+export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onConnect, onDropTemplate, onInvalidConnection, showDmx = false, groups = [], pageRefs = [], onPageRef, onResize }: CanvasProps) {
   const container = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
   const [size, setSize] = useState({ width: 800, height: 600 });
@@ -274,6 +278,17 @@ export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onC
     }
   }
 
+  // ---------- Größe ändern (Griff rechts unten) ----------
+
+  function handleResize(box: DeviceBox, node: Konva.Node, final: boolean) {
+    const raw = { width: node.x() + HANDLE, height: node.y() + HANDLE };
+    const width = Math.max(box.layout.minWidth, final ? snap(raw.width) : Math.round(raw.width));
+    const height = Math.max(box.layout.minHeight, final ? snap(raw.height) : Math.round(raw.height));
+    onResize?.(box.device.id, { width, height }, final);
+    // Griff bleibt an der (begrenzten) Ecke
+    node.position({ x: width - HANDLE, y: height - HANDLE });
+  }
+
   // ---------- Gruppenrahmen ziehen: alle Mitglieder mit ----------
 
   const groupDrag = useRef<{ x: number; y: number; members: { id: string; x: number; y: number }[] } | null>(null);
@@ -397,6 +412,7 @@ export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onC
                 name="cable"
                 id={`cable-${line.cable.id}`}
                 points={line.points}
+                bezier={line.curved}
                 stroke={stroke}
                 strokeWidth={selected ? 4 : 2}
                 opacity={line.dimmed && !selected ? DIMMED_OPACITY : 1}
@@ -479,6 +495,51 @@ export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onC
                     <Text text={ends.a} x={8} y={28} fontSize={10} fill={box.text} opacity={0.75} />
                     <Text text={ends.b} x={8} y={28} width={width - 16} align="right" fontSize={10} fill={box.text} opacity={0.75} />
                   </>
+                )}
+                {editable && onResize && (
+                  <Group
+                    name="resize-handle"
+                    id={`resize-${box.device.id}`}
+                    x={width - HANDLE}
+                    y={height - HANDLE}
+                    draggable
+                    onMouseEnter={(e) => {
+                      const stage = e.target.getStage();
+                      if (stage) stage.container().style.cursor = 'nwse-resize';
+                    }}
+                    onMouseLeave={(e) => {
+                      const stage = e.target.getStage();
+                      if (stage) stage.container().style.cursor = '';
+                    }}
+                    onMouseDown={(e) => {
+                      e.cancelBubble = true;
+                    }}
+                    onDragStart={(e) => {
+                      e.cancelBubble = true;
+                      select({ devices: [box.device.id] });
+                    }}
+                    onDragMove={(e) => {
+                      e.cancelBubble = true;
+                      handleResize(box, e.target, false);
+                    }}
+                    onDragEnd={(e) => {
+                      e.cancelBubble = true;
+                      handleResize(box, e.target, true);
+                    }}
+                    onDblClick={(e) => {
+                      e.cancelBubble = true;
+                      onResize(box.device.id, undefined, true);
+                    }}
+                    onDblTap={(e) => {
+                      e.cancelBubble = true;
+                      onResize(box.device.id, undefined, true);
+                    }}
+                  >
+                    <Rect width={HANDLE} height={HANDLE} fill="rgba(255,255,255,0.01)" />
+                    {[4, 8, 12].map((d) => (
+                      <Line key={d} points={[HANDLE - d, HANDLE - 2, HANDLE - 2, HANDLE - d]} stroke={box.text} strokeWidth={1.2} opacity={0.55} listening={false} />
+                    ))}
+                  </Group>
                 )}
                 {box.layout.anchors.map(({ port, x, y }) => {
                   const label = box.labels.get(port.id) ?? port.label;

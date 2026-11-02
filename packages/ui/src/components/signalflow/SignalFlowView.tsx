@@ -16,6 +16,8 @@ import {
   removeCables,
   removeDevices,
   updateDevices,
+  updateSettings,
+  type DeviceInstance,
   type Issue,
   type Library,
   type Template,
@@ -88,7 +90,8 @@ export function SignalFlowView({ doc, data, library, editable, undo }: { doc: Y.
     [pageDevices, library, showStageObjects, colorMode, filter, data.people, display.peopleOnBoxes, display.ownerOnBoxes, stageboxInfo, mixerRows],
   );
   const groupFrames = useMemo(() => buildGroupFrames(data.groups, boxes), [data.groups, boxes]);
-  const lines = useMemo(() => buildCableLines(data.cables, boxes, library, issues, filter), [data.cables, boxes, library, issues, filter]);
+  const cableStyle = data.settings.cableStyle ?? 'square';
+  const lines = useMemo(() => buildCableLines(data.cables, boxes, library, issues, filter, cableStyle), [data.cables, boxes, library, issues, filter, cableStyle]);
   const occupied = useMemo(() => new Set(data.cables.flatMap((c) => [`${c.from.deviceId}/${c.from.portId}`, `${c.to.deviceId}/${c.to.portId}`])), [data.cables]);
   const templates = useMemo(() => new Map((library?.templates ?? []).map((t) => [t.id, t])), [library]);
 
@@ -229,8 +232,20 @@ export function SignalFlowView({ doc, data, library, editable, undo }: { doc: Y.
     move(moves, true);
   }
 
+  const flowOf = (id: string): DeviceInstance['signalFlow'] => data.devices.find((d) => d.id === id)?.signalFlow;
+
   function move(moves: { id: string; x: number; y: number }[], final: boolean) {
-    updateDevices(doc, moves.map((m) => ({ id: m.id, patch: { signalFlow: { position: { x: m.x, y: m.y } } } })), undo.origin);
+    // Seite und Größe bleiben erhalten
+    updateDevices(doc, moves.map((m) => ({ id: m.id, patch: { signalFlow: { ...flowOf(m.id), position: { x: m.x, y: m.y } } } })), undo.origin);
+    if (final) undo.stop();
+  }
+
+  function resize(id: string, size: { width: number; height: number } | undefined, final: boolean) {
+    const current = flowOf(id);
+    const box = boxes.find((b) => b.device.id === id);
+    if (!box) return;
+    const { width: _w, height: _h, ...rest } = current ?? { position: { x: box.x, y: box.y } };
+    updateDevices(doc, [{ id, patch: { signalFlow: { ...rest, position: rest.position ?? { x: box.x, y: box.y }, ...(size ?? {}) } } }], undo.origin);
     if (final) undo.stop();
   }
 
@@ -354,6 +369,23 @@ export function SignalFlowView({ doc, data, library, editable, undo }: { doc: Y.
               <input type="checkbox" checked={display.channelsOnBoxes} onChange={(e) => setDisplay({ channelsOnBoxes: e.target.checked })} />
               {s.showChannels}
             </label>
+            <span className="ml-2 text-slate-500">{s.cableStyle}:</span>
+            <span className="flex overflow-hidden rounded border border-slate-300 dark:border-slate-600" role="radiogroup" aria-label={s.cableStyle}>
+              {(['square', 'curved'] as const).map((style) => (
+                <button
+                  key={style}
+                  type="button"
+                  role="radio"
+                  aria-checked={cableStyle === style}
+                  disabled={!editable}
+                  title={editable ? undefined : s.cableStyleReadOnly}
+                  onClick={() => updateSettings(doc, { cableStyle: style === 'square' ? undefined : style }, undo.origin)}
+                  className={`px-2 py-0.5 ${cableStyle === style ? 'bg-sky-600 text-white' : ''}`}
+                >
+                  {s.cableStyles[style]}
+                </button>
+              ))}
+            </span>
           </span>
         }
       />
@@ -393,6 +425,7 @@ export function SignalFlowView({ doc, data, library, editable, undo }: { doc: Y.
             groups={groupFrames}
             pageRefs={pageRefs}
             onPageRef={(ref) => jumpToDevice(ref.targetDeviceId)}
+            onResize={resize}
           />
           <Minimap boxes={boxes} viewport={viewport} />
           {message && (
