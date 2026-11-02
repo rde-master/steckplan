@@ -50,9 +50,9 @@ test('Desktop: Name beim ersten Start, Datei öffnen, Autosave, Sperrdatei', asy
     // Datei im alten Format 1 wurde beim Speichern auf das aktuelle Format angehoben
     expect(JSON.parse(readFileSync(file, 'utf8')).schemaVersion).toBe(4);
 
-    // Bibliothek in eigenem Fenster (Menü/Startfenster)
+    // Bibliothek in eigenem Fenster (Knopf im Projektfenster)
     const libraryWindowPromise = app.waitForEvent('window');
-    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.webContents.executeJavaScript('window.steckplanDesktop.openLibrary()'));
+    await project.getByRole('button', { name: 'Bibliothek', exact: true }).click();
     const libraryWindow = await libraryWindowPromise;
     await expect(libraryWindow.getByRole('heading', { name: 'Bibliothek' })).toBeVisible();
     await expect(libraryWindow.getByRole('button', { name: /Neu: Gerät/ })).toBeVisible();
