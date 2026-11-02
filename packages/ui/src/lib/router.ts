@@ -27,6 +27,7 @@ export type Route =
   | { page: 'login'; next: string }
   | { page: 'project'; id: string }
   | { page: 'library'; section: string }
+  | { page: 'settings' }
   | { page: 'notFound' };
 
 export function matchRoute(pathWithQuery: string): Route {
@@ -39,6 +40,7 @@ export function matchRoute(pathWithQuery: string): Route {
   if (path === '/bibliothek' || path === '/bibliothek/') {
     return { page: 'library', section: new URLSearchParams(query).get('bereich') ?? 'device' };
   }
+  if (path === '/einstellungen') return { page: 'settings' };
   const project = /^\/projekt\/([^/]+)\/?$/.exec(path);
   if (project) return { page: 'project', id: decodeURIComponent(project[1]!) };
   return { page: 'notFound' };
