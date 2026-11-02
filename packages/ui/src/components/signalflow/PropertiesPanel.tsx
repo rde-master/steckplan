@@ -101,6 +101,22 @@ function Logistics({
   );
 }
 
+/** Zahl mit „Vorgabe der Vorlage wiederherstellen“ (z. B. Leistung in W) */
+function MeterlessNumber({ label, value, overridden, disabled, onChange, resetLabel }: { label: string; value: number | undefined; overridden: boolean; disabled: boolean; onChange: (v: number | undefined) => void; resetLabel: string }) {
+  return (
+    <Field label={label}>
+      <div className="flex items-center gap-1">
+        <TextInput type="number" min={0} step={1} value={value ?? ''} disabled={disabled} onChange={(e) => onChange(e.target.value === '' ? undefined : Math.max(0, Math.round(Number(e.target.value))))} />
+        {overridden && !disabled && (
+          <Button variant="ghost" title={resetLabel} aria-label={resetLabel} onClick={() => onChange(undefined)}>
+            ↺
+          </Button>
+        )}
+      </div>
+    </Field>
+  );
+}
+
 /** „Zuletzt geändert von … am …“ (vom Server gestempelt) */
 function LastModified({ value }: { value?: { at: string; by: string } }) {
   if (!value) return null;
@@ -145,6 +161,18 @@ function DeviceProperties({ doc, origin, library, data, device, editable, issues
         <TextInput value={device.label} onChange={(e) => update({ label: e.target.value })} disabled={!editable} />
       </Field>
       <PersonSection doc={doc} origin={origin} library={library} data={data} device={device} editable={editable} />
+      {template?.kind === 'device' && (
+        <div>
+          <MeterlessNumber
+            label={s.powerW}
+            value={device.powerW ?? template.powerW}
+            overridden={device.powerW !== undefined}
+            disabled={!editable}
+            onChange={(powerW) => update({ powerW })}
+            resetLabel={s.resetPower(template.powerW)}
+          />
+        </div>
+      )}
       <GroupSection doc={doc} origin={origin} data={data} devices={[device]} editable={editable} />
       {deviceExtra?.(device)}
       <TBarSection doc={doc} origin={origin} library={library} data={data} device={device} editable={editable} />

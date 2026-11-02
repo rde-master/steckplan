@@ -80,6 +80,12 @@ export const PortDefSchema = z.object({
   direction: z.enum(['in', 'out', 'bi']),
   signal: z.string(),
   isNetwork: z.boolean().optional(),
+  /** Stromanschluss (Eingang = Versorgung, Ausgang = Abgang eines Verteilers) (seit Format 4) */
+  isPower: z.boolean().optional(),
+  /** Absicherung in Ampere (Abgang bzw. Zuleitung eines Verteilers) */
+  fuseA: z.number().positive().optional(),
+  /** Phase: L1/L2/L3 oder Drehstrom (3P) */
+  phase: z.enum(['L1', 'L2', 'L3', '3P']).optional(),
 });
 export type PortDef = z.infer<typeof PortDefSchema>;
 
@@ -199,6 +205,8 @@ export const DeviceInstanceSchema = z.object({
       }),
     )
     .optional(),
+  /** Leistung in Watt, überschreibt die Vorlage (seit Format 4) */
+  powerW: z.number().nonnegative().optional(),
   /** Benutzt von Mensch: überschreibt die Vorgabe der Vorlage (seit Format 4) */
   usedByPerson: z.boolean().optional(),
   personId: id.optional(),

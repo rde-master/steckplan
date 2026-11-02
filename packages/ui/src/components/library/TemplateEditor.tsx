@@ -330,9 +330,10 @@ export function TemplateEditor({
         <>
           <section className="space-y-2">
             <h3 className="text-sm font-semibold">{t.ports}</h3>
+            <p className="text-xs text-slate-500">{t.powerHint}</p>
             {ports.length > 0 && (
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[44rem] text-sm">
+                <table className="w-full min-w-[56rem] text-sm">
                   <thead>
                     <tr className="text-left text-xs text-slate-500">
                       <th className="pb-1 font-medium">{t.portLabel}</th>
@@ -340,6 +341,7 @@ export function TemplateEditor({
                       <th className="pb-1 font-medium">{t.portDirection}</th>
                       <th className="pb-1 font-medium">{t.portSignal}</th>
                       <th className="pb-1 font-medium">{t.portNetwork}</th>
+                      <th className="pb-1 font-medium">{t.portPower}</th>
                       <th />
                     </tr>
                   </thead>
@@ -349,7 +351,7 @@ export function TemplateEditor({
                     return (
                       <tbody key={direction} data-testid={`ports-${direction}`}>
                         <tr>
-                          <th colSpan={6} scope="rowgroup" className="pt-3 pb-1 text-left">
+                          <th colSpan={7} scope="rowgroup" className="pt-3 pb-1 text-left">
                             <span className={`inline-flex items-center gap-2 rounded-full px-2.5 py-0.5 text-xs font-semibold ${badge}`}>
                               {label} <span className="font-normal opacity-80">({rows.length})</span>
                             </span>
@@ -384,6 +386,48 @@ export function TemplateEditor({
                                 onChange={(e) => setPort(index, { isNetwork: e.target.checked || undefined })}
                                 disabled={disabled}
                               />
+                            </td>
+                            <td className="pr-2 pb-2">
+                              <div className="flex items-center gap-1">
+                                <input
+                                  type="checkbox"
+                                  aria-label={`${t.portPower} ${index + 1}`}
+                                  className="mt-1 h-4 w-4"
+                                  checked={port.isPower ?? false}
+                                  onChange={(e) => setPort(index, e.target.checked ? { isPower: true } : { isPower: undefined, fuseA: undefined, phase: undefined })}
+                                  disabled={disabled}
+                                />
+                                {port.isPower && (
+                                  <>
+                                    <input
+                                      type="number"
+                                      min={1}
+                                      step={1}
+                                      aria-label={`${t.portFuse} ${index + 1}`}
+                                      title={t.portFuse}
+                                      placeholder="A"
+                                      className="w-16 rounded-md border border-slate-300 px-1 py-1 text-sm dark:border-slate-600 dark:bg-slate-800"
+                                      value={port.fuseA ?? ''}
+                                      onChange={(e) => setPort(index, { fuseA: e.target.value ? Math.max(1, Number(e.target.value)) : undefined })}
+                                      disabled={disabled}
+                                    />
+                                    <select
+                                      aria-label={`${t.portPhase} ${index + 1}`}
+                                      title={t.portPhase}
+                                      className="rounded-md border border-slate-300 px-1 py-1 text-sm dark:border-slate-600 dark:bg-slate-800"
+                                      value={port.phase ?? ''}
+                                      onChange={(e) => setPort(index, { phase: (e.target.value || undefined) as PortDef['phase'] })}
+                                      disabled={disabled}
+                                    >
+                                      <option value="">–</option>
+                                      <option value="L1">L1</option>
+                                      <option value="L2">L2</option>
+                                      <option value="L3">L3</option>
+                                      <option value="3P">{t.threePhase}</option>
+                                    </select>
+                                  </>
+                                )}
+                              </div>
                             </td>
                             <td className="whitespace-nowrap pb-2">
                               {!disabled && (

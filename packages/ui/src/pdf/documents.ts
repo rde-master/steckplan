@@ -248,10 +248,16 @@ export interface PatchSection {
 }
 
 export function patchDoc(sections: PatchSection[], ctx: DocContext): DocDefinition {
+  return sectionsDoc('Input-/Output-Liste', sections, ctx, 'Kein Mischpult im Projekt.', true);
+}
+
+/** Mehrere Tabellen mit Überschrift (z. B. je Pult oder je Verteiler); optional jede auf neuer Seite. */
+export function sectionsDoc(title: string, sections: PatchSection[], ctx: DocContext, emptyText: string, pageBreaks: boolean, intro?: string): DocDefinition {
   const content: Content[] = [];
-  if (sections.length === 0) content.push({ text: 'Input-/Output-Liste', style: 'title' }, { text: 'Kein Mischpult im Projekt.', italics: true, color: '#64748b' });
+  if (intro) content.push({ text: title, style: 'title' }, { text: pdfText(intro), margin: [0, 0, 0, 8] });
+  if (sections.length === 0) content.push({ text: title, style: 'title' }, { text: emptyText, italics: true, color: '#64748b' });
   sections.forEach((section, index) => {
-    content.push({ text: pdfText(section.title), style: 'title', ...(index > 0 ? { pageBreak: 'before' } : {}) });
+    content.push({ text: pdfText(section.title), style: pageBreaks ? 'title' : 'group', ...(index > 0 && pageBreaks ? { pageBreak: 'before' } : {}) });
     if (section.subtitle) content.push({ text: pdfText(section.subtitle), style: 'small', margin: [0, 0, 0, 6] });
     content.push({
       table: {
@@ -266,7 +272,7 @@ export function patchDoc(sections: PatchSection[], ctx: DocContext): DocDefiniti
       layout: { hLineWidth: () => 0.4, vLineWidth: () => 0, hLineColor: () => '#cbd5e1', fillColor: (i: number) => (i > 0 && i % 2 === 0 ? '#f8fafc' : null), paddingTop: () => 4, paddingBottom: () => 4 },
     });
   });
-  return base(ctx, 'Input-/Output-Liste', content);
+  return base(ctx, title, content);
 }
 
 // ---------- Tabellen-Listen (Kabel, Stück, DMX, Geräte, Netzwerk) ----------

@@ -646,6 +646,8 @@ Jeder Meilenstein endet mit grünen Tests, lauffähigem Build (Desktop **und** D
   - Gruppen im Signalfluss: benannt mit Farbe, jedes Gerät in höchstens einer Gruppe, Rahmen wird automatisch berechnet; im Bühnenplan ein-/ausblendbar
 - Desktop mit Server verbunden (M8b, 02.11.2026): je Server ein eigenes Fenster mit der Oberfläche des Servers (passt immer zur Server-Version); lokale Projekte bleiben in eigenen Fenstern. Der Desktop-Zugangsschlüssel wird mit Electron `safeStorage` verschlüsselt (macOS Keychain, Windows DPAPI) in den Einstellungen gespeichert. Server-Adressen mit `http://` sind erlaubt, außerhalb des eigenen Rechners mit deutlicher Warnung.
 - Reihenfolge: Release 1.0 kommt nach Ton-Patch und Strom; die Meilensteine sind entsprechend umbenannt: M9 = Ton-Patch, M10 = Strom, M11 = Release 1.0 (bisher M10, M11, M9). Ton-Patch und Strom erhöhen vorher noch MINOR (02.11.2026)
+- Ton-Patch (M9, 02.11.2026): Input-/Output-Liste automatisch aus dem Signalfluss (Kabel und Multicore-Adern werden verfolgt); Mischpult per Häkchen in der Vorlage; Kanalname, 48 V, Stativ, Bemerkung direkt in der Liste bearbeitbar (je Pult-Anschluss gespeichert); dazu Output-Liste
+- Strom (M10, 02.11.2026): Zuordnung über Stromkabel im Signalfluss (Anschlüsse mit „Strom“, Abgänge mit Absicherung und Phase L1/L2/L3/Drehstrom); Leistung aus der Vorlage, je Gerät änderbar, volle Nennleistung bei 230 V; Warnung ab 80 %, Überlast ab 100 % der Absicherung; Schieflast bei mehr als 30 % Unterschied (mindestens 5 A)
 
 ---
 

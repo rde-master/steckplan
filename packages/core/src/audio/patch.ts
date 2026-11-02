@@ -151,7 +151,7 @@ export function buildPatchLists(project: ProjectLike, library: Pick<Library, 'te
     .sort((a, b) => a.label.localeCompare(b.label, 'de', { numeric: true }))
     .map((mixer) => {
       const mixerTemplate = templates.get(mixer.templateId)!;
-      const ports = templatePorts(mixerTemplate).filter((p) => !p.isNetwork);
+      const ports = templatePorts(mixerTemplate).filter((p) => !p.isNetwork && !p.isPower);
       const inputs = ports.filter((p) => p.role === 'in').map((p, i) => row(mixer, p, i + 1));
       const outputs = ports.filter((p) => p.role === 'out').map((p, i) => row(mixer, p, i + 1));
       return { mixer, mixerTemplate, inputs, outputs };

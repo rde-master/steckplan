@@ -14,6 +14,9 @@ export interface EffectivePort {
   role: PortRole;
   side: PortSide;
   isNetwork?: boolean;
+  isPower?: boolean;
+  fuseA?: number;
+  phase?: 'L1' | 'L2' | 'L3' | '3P';
 }
 
 export function isMulticore(template: Template | undefined): boolean {
@@ -47,6 +50,9 @@ function devicePort(port: PortDef): EffectivePort {
     role: port.direction,
     side: port.direction === 'in' ? 'left' : 'right',
     ...(port.isNetwork ? { isNetwork: true } : {}),
+    ...(port.isPower ? { isPower: true } : {}),
+    ...(port.fuseA ? { fuseA: port.fuseA } : {}),
+    ...(port.phase ? { phase: port.phase } : {}),
   };
 }
 

@@ -6,6 +6,7 @@ import { buildNetworkList } from '../network/network';
 import { effectiveHeight } from '../stageplan/heights';
 import { formatCableLength, formatMeters } from './format';
 import { buildPatchLists, viaText } from '../audio/patch';
+import { buildPowerReport, formatAmps, totalW } from '../power/power';
 import { devicePerson, personName, buildPeopleList } from '../people/people';
 import { buildCableList, buildCaseLists, effectiveTrailerId, packItems, type PackItem } from './lists';
 
@@ -116,7 +117,7 @@ export function toCsv(headers: string[], rows: unknown[][]): string {
   return '﻿' + [headers, ...rows].map((row) => row.map(csvField).join(';')).join('\r\n') + '\r\n';
 }
 
-export type CsvKind = 'cables' | 'packing' | 'bom' | 'devices' | 'network' | 'people' | 'cases' | 'patch';
+export type CsvKind = 'cables' | 'packing' | 'bom' | 'devices' | 'network' | 'people' | 'cases' | 'patch' | 'power';
 
 /** CSV einer Liste (Pack- und Stückliste aus den übergebenen Exemplaren, damit Filter gelten). */
 export function listCsv(kind: CsvKind, project: ProjectLike, library: Library, items?: PackItem[]): string {
@@ -168,6 +169,18 @@ export function listCsv(kind: CsvKind, project: ProjectLike, library: Library, i
         ['Kennung', 'Vorlage', 'Art', 'Kategorie', 'Besitzer', 'Anhänger', 'Case', 'Person', 'Gruppe', 'Inventarnummer', 'Stativ/Traverse/Podest', 'Höhe', 'DMX', 'IP'],
         buildDeviceList(project, library).map((r) => [r.label, r.template, r.kind, r.category, r.owner, r.trailer, r.case, r.person, r.group, r.inventoryNo, r.carrier, r.height, r.dmx, r.ip]),
       );
+    case 'power': {
+      const report = buildPowerReport(project, library);
+      const rows: unknown[][] = [];
+      for (const d of report.distributors) {
+        rows.push([d.device.label, d.fedFrom ?? 'Einspeisung', 'Zuleitung', d.feed, d.inputFuseA ?? '', '', Math.round(totalW(d.load)), formatAmps(Math.max(d.currentA.L1, d.currentA.L2, d.currentA.L3)), d.usage !== undefined ? `${Math.round(d.usage * 100)} %` : '']);
+        for (const o of d.outlets) {
+          rows.push([d.device.label, '', o.label, o.phase, o.fuseA ?? '', o.devices.map((x) => x.label).join(', '), Math.round(totalW(o.load)), formatAmps(o.currentA), o.usage !== undefined ? `${Math.round(o.usage * 100)} %` : '']);
+        }
+      }
+      for (const u of report.unconnected) rows.push(['(ohne Stromanschluss)', '', '', '', '', u.device.label, Math.round(u.powerW), '', '']);
+      return toCsv(['Verteiler', 'Versorgt von', 'Abgang', 'Phase', 'Absicherung (A)', 'Geräte', 'Leistung (W)', 'Strom', 'Auslastung'], rows);
+    }
     case 'patch':
       return toCsv(
         ['Pult', 'Richtung', 'Kanal', 'Anschluss', 'Name', 'Quelle/Ziel', 'Vorlage', 'Person', 'Über', '48 V', 'Stativ', 'Bemerkung'],
