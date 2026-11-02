@@ -1,0 +1,12 @@
+# Caddy als Reverse-Proxy für Steckplan (zu docker-compose.https.yml).
+# Die Domain kommt aus der Umgebungsvariable STECKPLAN_DOMAIN; das Zertifikat holt Caddy automatisch.
+{$STECKPLAN_DOMAIN} {
+	encode zstd gzip
+	# leitet auch WebSockets (Live-Verbindung) weiter
+	reverse_proxy steckplan:8080
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "same-origin"
+	}
+}

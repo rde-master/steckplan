@@ -1,0 +1,49 @@
+# Steckplan mit HTTPS über Caddy – für Zugriff aus dem Internet.
+#
+# Voraussetzungen: eine Domain (z. B. steckplan.example.de), deren DNS-Eintrag auf diesen Server zeigt,
+# und offene Ports 80 und 443. Caddy holt das Zertifikat automatisch (Let's Encrypt) und erneuert es.
+#
+#   1. Diese Datei, Caddyfile und .env.example in einen Ordner legen
+#   2. .env.example nach .env kopieren: Passwörter und STECKPLAN_DOMAIN eintragen
+#   3. docker compose -f docker-compose.https.yml up -d
+#   4. Im Browser https://<STECKPLAN_DOMAIN> öffnen
+#
+# Steckplan selbst ist dabei nicht direkt erreichbar, nur über Caddy (auch die Live-Verbindung per WebSocket).
+
+services:
+  steckplan:
+    image: ghcr.io/rde-master/steckplan:${STECKPLAN_VERSION:-latest}
+    container_name: steckplan
+    restart: unless-stopped
+    environment:
+      STECKPLAN_EDIT_PASSWORD: ${STECKPLAN_EDIT_PASSWORD:?Bitte STECKPLAN_EDIT_PASSWORD in .env setzen}
+      STECKPLAN_READ_PASSWORD: ${STECKPLAN_READ_PASSWORD:?Bitte STECKPLAN_READ_PASSWORD in .env setzen}
+      # hinter dem Reverse-Proxy: echte Client-IP (Sperre bei Fehlversuchen) und sichere Cookies
+      STECKPLAN_TRUST_PROXY: "true"
+      TZ: ${TZ:-Europe/Berlin}
+    volumes:
+      - steckplan-data:/data
+    expose:
+      - "8080"
+
+  caddy:
+    image: caddy:2
+    container_name: steckplan-caddy
+    restart: unless-stopped
+    depends_on:
+      - steckplan
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      STECKPLAN_DOMAIN: ${STECKPLAN_DOMAIN:?Bitte STECKPLAN_DOMAIN in .env setzen}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  steckplan-data:
+  caddy-data:
+  caddy-config:

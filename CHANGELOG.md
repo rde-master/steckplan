@@ -7,6 +7,10 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+### Hinzugefügt
+
+- Docker-Compose-Beispiele: `docker-compose.yml` (eigenes Netz) und `docker-compose.https.yml` mit Caddy (HTTPS mit automatischem Zertifikat), Passwörter aus `.env` (Vorlage `.env.example`); Docker-Anleitung um Compose, HTTPS, Sichern/Wiederherstellen und Desktop-Verbindung ergänzt
+
 ### Geändert
 
 - Signalfluss, Netzwerk-Kanäle: An der Stagebox steht je Eingang die Quelle mit Person und der Pult-Kanal („In 1 · Mikro 1 (Anna Muster) → 7“); am Mischpult stehen rechts die belegten Netzwerk-Kanäle mit Name, Gerät und Stagebox-Eingang („7 · Mikro 1 (Anna Muster) ← S16 · In 1“); ein-/ausblendbar über „In Kästen: Kanäle“; Kästen dürfen breiter werden, damit weniger abgeschnitten wird
