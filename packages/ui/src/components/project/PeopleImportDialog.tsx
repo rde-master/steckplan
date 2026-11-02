@@ -1,7 +1,8 @@
 // Personen importieren: CSV-Datei wählen oder Zellen aus Excel einfügen, Vorschau, übernehmen.
 import { useMemo, useState } from 'react';
 import type * as Y from 'yjs';
-import { applyPeopleImport, parsePeopleTable, planPeopleImport, type ImportStatus, type Person } from '@steckplan/core';
+import { analyzePeopleTable, applyPeopleImport, peopleFromTable, planPeopleImport, type ImportStatus, type PeopleColumns, type Person } from '@steckplan/core';
+import { selectClass } from '../library/fields';
 import { texts } from '../../texts';
 import { Banner, Button, Modal, TextArea } from '../ui';
 
@@ -18,7 +19,11 @@ export function PeopleImportDialog({ doc, origin, people, onClose }: { doc: Y.Do
   const [text, setText] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<number | null>(null);
-  const plan = useMemo(() => planPeopleImport(parsePeopleTable(text), people), [text, people]);
+  const table = useMemo(() => analyzePeopleTable(text), [text]);
+  // Zuordnung der Spalten: erkannt, von Hand änderbar (bei neuem Text wieder die erkannte)
+  const [manual, setManual] = useState<{ text: string; columns: PeopleColumns } | null>(null);
+  const columns = manual && manual.text === text ? manual.columns : table.columns;
+  const plan = useMemo(() => planPeopleImport(peopleFromTable(table, columns), people), [table, columns, people]);
   const changes = plan.toAdd.length + plan.toComplete.length;
 
   async function readFile(file: File) {
@@ -57,6 +62,28 @@ export function PeopleImportDialog({ doc, origin, people, onClose }: { doc: Y.Do
         </div>
         <TextArea aria-label={t.pasteLabel} placeholder={t.placeholder} value={text} onChange={(e) => setText(e.target.value)} className="min-h-28 font-mono text-xs" />
         {error && <Banner tone="error">{error}</Banner>}
+        {table.headers.length > 0 && (
+          <div className="grid gap-2 sm:grid-cols-3" data-testid="import-columns">
+            {(['lastName', 'firstName', 'kind'] as const).map((field) => (
+              <label key={field} className="text-sm">
+                <span className="mb-1 block text-xs text-slate-500">{t.columnFor(texts.people[field])}</span>
+                <select
+                  className={selectClass}
+                  aria-label={t.columnFor(texts.people[field])}
+                  value={columns[field]}
+                  onChange={(e) => setManual({ text, columns: { ...columns, [field]: Number(e.target.value) } })}
+                >
+                  <option value={-1}>{t.noColumn}</option>
+                  {table.headers.map((h, i) => (
+                    <option key={i} value={i}>
+                      {h}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ))}
+          </div>
+        )}
         {plan.rows.length > 0 && (
           <div className="max-h-64 overflow-auto rounded-md border border-slate-200 dark:border-slate-700">
             <table className="w-full text-sm" data-testid="import-preview">
