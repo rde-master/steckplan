@@ -191,6 +191,12 @@ export function TemplateEditor({
               {t.mixer}
             </label>
             <p className="pl-6 text-xs text-slate-500">{t.mixerHint}</p>
+            {draft.mixer && (
+              <div className="mt-2 max-w-xs pl-6">
+                <NumberField label={t.networkChannels} value={draft.networkChannels} onChange={(networkChannels) => set({ networkChannels: networkChannels || undefined })} disabled={disabled} />
+                <p className="mt-1 text-xs text-slate-500">{t.networkChannelsHint}</p>
+              </div>
+            )}
             <label className="mt-2 flex items-center gap-2 text-sm font-medium">
               <input type="checkbox" checked={draft.phantomPower ?? false} disabled={disabled} onChange={(e) => set({ phantomPower: e.target.checked || undefined })} />
               {t.phantomPower}

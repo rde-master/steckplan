@@ -76,6 +76,8 @@ export interface DisplayOptions {
   showPeople?: boolean;
   /** Besitzer in den Kästen zeigen (Standard: nein) */
   showOwner?: boolean;
+  /** Pult-Kanäle an Stagebox-Eingängen: „Gerät/Anschluss“ → „FOH 12“ (leer = nicht zeigen) */
+  channelLabels?: Map<string, string>;
 }
 
 const DEFAULT_DISPLAY: DisplayOptions = { colorMode: 'device', filter: EMPTY_FILTER };
@@ -90,7 +92,11 @@ export function buildBoxes(devices: DeviceInstance[], library: Library | null, s
     const multicore = isMulticore(template);
     const ports = templatePorts(template);
     const labels = new Map<string, string>();
-    for (const port of ports) labels.set(port.id, multicore ? port.label.replace(/ \([^)]*\)$/, '') : port.label);
+    for (const port of ports) {
+      const base = multicore ? port.label.replace(/ \([^)]*\)$/, '') : port.label;
+      const channel = display.channelLabels?.get(`${device.id}/${port.id}`);
+      labels.set(port.id, channel ? `${base} → ${channel}` : base);
+    }
     const displayPorts: EffectivePort[] = ports.map((p) => ({ ...p, label: labels.get(p.id) ?? p.label }));
     const person = display.showPeople === false ? '' : personName(devicePerson(device, template, display.people ?? []));
     const owner = display.showOwner && device.ownerId ? (library?.masterData.owners.find((o) => o.id === device.ownerId)?.name ?? '') : '';

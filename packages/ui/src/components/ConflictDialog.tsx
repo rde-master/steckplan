@@ -32,6 +32,7 @@ const FIELD_LABELS: Record<string, string> = {
   tBarLengthMm: f.tBarLength,
   mixer: f.mixer,
   phantomPower: f.phantomPower,
+  networkChannels: f.networkChannels,
   shape: `${f.form} / Maße`,
   ports: f.ports,
   dmxModes: f.dmxModes,

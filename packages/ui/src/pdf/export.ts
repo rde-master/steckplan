@@ -317,6 +317,17 @@ export async function buildExportDoc(opts: ExportOptions, input: ExportInput): P
             widths: [30, 50, '*', '*', '*', 28, 70, '*'],
             rows: list.inputs.map((r) => [r.channel, r.port, r.name, target(r), viaText(r), r.phantom ? '48 V' : '', r.stand, r.notes]),
           },
+          ...(list.network.length
+            ? [
+                {
+                  title: `Netzwerk-Kanäle – ${list.mixer.label}`,
+                  subtitle: `${list.network.length} Kanäle über das Netzwerk, ${list.network.filter((r) => r.device).length} belegt`,
+                  headers: ['Kanal', 'Anschluss', 'Name', 'Quelle', 'Über', '48 V', 'Stativ', 'Bemerkung'],
+                  widths: [30, 50, '*', '*', '*', 28, 70, '*'],
+                  rows: list.network.map((r) => [r.channel, r.port, r.name, target(r), viaText(r), r.phantom ? '48 V' : '', r.stand, r.notes]),
+                },
+              ]
+            : []),
           ...(list.outputs.length
             ? [
                 {

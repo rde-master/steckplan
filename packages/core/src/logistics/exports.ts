@@ -185,10 +185,10 @@ export function listCsv(kind: CsvKind, project: ProjectLike, library: Library, i
       return toCsv(
         ['Pult', 'Richtung', 'Kanal', 'Anschluss', 'Name', 'Quelle/Ziel', 'Vorlage', 'Person', 'Über', '48 V', 'Stativ', 'Bemerkung'],
         buildPatchLists(project, library).flatMap((list) =>
-          (['inputs', 'outputs'] as const).flatMap((dir) =>
+          (['inputs', 'network', 'outputs'] as const).flatMap((dir) =>
             list[dir].map((r) => [
               list.mixer.label,
-              dir === 'inputs' ? 'Eingang' : 'Ausgang',
+              dir === 'inputs' ? 'Eingang' : dir === 'network' ? 'Netzwerk' : 'Ausgang',
               r.channel,
               r.port,
               r.name,
@@ -196,8 +196,8 @@ export function listCsv(kind: CsvKind, project: ProjectLike, library: Library, i
               r.deviceTemplate ?? '',
               r.person ?? '',
               viaText(r),
-              dir === 'inputs' && r.phantom ? 'ja' : '',
-              dir === 'inputs' ? r.stand : '',
+              dir !== 'outputs' && r.phantom ? 'ja' : '',
+              dir !== 'outputs' ? r.stand : '',
               r.notes,
             ]),
           ),

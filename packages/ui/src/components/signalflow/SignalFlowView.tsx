@@ -7,6 +7,7 @@ import {
   assignGroup,
   autoCableType,
   createGroup,
+  stageboxChannelLabels,
   duplicateDevices,
   isMulticore,
   removeCables,
@@ -55,9 +56,18 @@ export function SignalFlowView({ doc, data, library, editable, undo }: { doc: Y.
   const issues = useIssues(data, library);
   const display = useEditor((st) => st.display);
   const setDisplay = useEditor((st) => st.setDisplay);
+  const channelLabels = useMemo(() => (library && display.channelsOnBoxes ? stageboxChannelLabels(data, library) : undefined), [data, library, display.channelsOnBoxes]);
   const boxes = useMemo(
-    () => buildBoxes(data.devices, library, showStageObjects, { colorMode, filter, people: data.people, showPeople: display.peopleOnBoxes, showOwner: display.ownerOnBoxes }),
-    [data.devices, library, showStageObjects, colorMode, filter, data.people, display.peopleOnBoxes, display.ownerOnBoxes],
+    () =>
+      buildBoxes(data.devices, library, showStageObjects, {
+        colorMode,
+        filter,
+        people: data.people,
+        showPeople: display.peopleOnBoxes,
+        showOwner: display.ownerOnBoxes,
+        ...(channelLabels ? { channelLabels } : {}),
+      }),
+    [data.devices, library, showStageObjects, colorMode, filter, data.people, display.peopleOnBoxes, display.ownerOnBoxes, channelLabels],
   );
   const groupFrames = useMemo(() => buildGroupFrames(data.groups, boxes), [data.groups, boxes]);
   const lines = useMemo(() => buildCableLines(data.cables, boxes, library, issues, filter), [data.cables, boxes, library, issues, filter]);
@@ -311,6 +321,10 @@ export function SignalFlowView({ doc, data, library, editable, undo }: { doc: Y.
             <label className="flex items-center gap-1">
               <input type="checkbox" checked={display.peopleOnBoxes} onChange={(e) => setDisplay({ peopleOnBoxes: e.target.checked })} />
               {s.showPeople}
+            </label>
+            <label className="flex items-center gap-1">
+              <input type="checkbox" checked={display.channelsOnBoxes} onChange={(e) => setDisplay({ channelsOnBoxes: e.target.checked })} />
+              {s.showChannels}
             </label>
           </span>
         }

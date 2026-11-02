@@ -70,10 +70,12 @@ export interface SignalFlowDisplay {
   ownerInLibrary: boolean;
   ownerOnBoxes: boolean;
   peopleOnBoxes: boolean;
+  /** Pult-Kanal an den Eingängen digitaler Stageboxen („→ FOH 12“) */
+  channelsOnBoxes: boolean;
 }
 
 const DISPLAY_KEY = 'steckplan.signalflowDisplay';
-const DEFAULT_DISPLAY: SignalFlowDisplay = { ownerInLibrary: false, ownerOnBoxes: false, peopleOnBoxes: true };
+const DEFAULT_DISPLAY: SignalFlowDisplay = { ownerInLibrary: false, ownerOnBoxes: false, peopleOnBoxes: true, channelsOnBoxes: true };
 
 function loadDisplay(): SignalFlowDisplay {
   try {

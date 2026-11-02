@@ -23,7 +23,7 @@ import { isMulticore } from '@steckplan/core';
 import { CableLengthSection, MulticoreLengthSection } from './LengthSection';
 import { DmxSection, NetworkSection } from './DeviceTechSections';
 import { deviceColor } from './model';
-import { GroupSection, MountSideSection, PersonSection, TBarSection } from './PersonGroupSections';
+import { GroupSection, MixerChannelSection, MountSideSection, PersonSection, TBarSection } from './PersonGroupSections';
 
 const s = texts.signalflow;
 const f = texts.library.fields;
@@ -175,6 +175,17 @@ function DeviceProperties({ doc, origin, library, data, device, editable, issues
           />
         </div>
       )}
+      {template?.mixer && (
+        <MeterlessNumber
+          label={f.networkChannels}
+          value={device.networkChannels ?? template.networkChannels}
+          overridden={device.networkChannels !== undefined}
+          disabled={!editable}
+          onChange={(networkChannels) => update({ networkChannels })}
+          resetLabel={s.resetNetworkChannels(template.networkChannels)}
+        />
+      )}
+      <MixerChannelSection doc={doc} origin={origin} library={library} data={data} device={device} editable={editable} />
       <GroupSection doc={doc} origin={origin} data={data} devices={[device]} editable={editable} />
       {deviceExtra?.(device)}
       <TBarSection doc={doc} origin={origin} library={library} data={data} device={device} editable={editable} />
