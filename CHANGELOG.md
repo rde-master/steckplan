@@ -7,6 +7,18 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-11-02
+
+### Hinzugefügt
+
+- Netzwerk-Kanäle je Ausgang: Geräte mit mehreren Ausgängen (z. B. Keyboard L/R, Funkempfänger) lassen sich mit jedem Ausgang einem eigenen Pult-Kanal zuordnen („Out L → Pult-Kanal (Netzwerk)“); Stagebox, Pult und Input-Liste zeigen den Anschluss („Keys · Out L“)
+- Ton-Patch: „Nur belegte Kanäle“ (Vorgabe an) blendet freie Kanäle aus; ohne belegte Kanäle erklärt ein Hinweis, wie Kanäle auf das Pult kommen
+
+### Geändert
+
+- Ton-Patch: Netzwerk-Kanäle stehen oben, die Anschlüsse am Pult darunter
+- Projektformat 6: Zuordnungen zum Pult-Kanal gelten je Ausgang; bestehende Projekte werden beim Öffnen umgestellt (die bisherige Zuordnung gilt für den ersten Ausgang mit durchgehender Kette). Ältere Steckplan-Versionen können Projekte im Format 6 nicht öffnen
+
 ## [0.14.2] - 2026-11-02
 
 ### Hinzugefügt
@@ -315,7 +327,8 @@ Meilenstein M0 – Projektgerüst.
 - Docker-Image mit Datenvolume `/data` und Beispiel-`docker-compose.yml`
 - GitHub Actions: Tests und Smoke-Test bei jedem Push, Installer als Artefakte, Docker-Image `:develop`, Release-Workflow für Tags `vX.Y.Z`
 
-[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.14.2...develop
+[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.15.0...develop
+[0.15.0]: https://github.com/rde-master/steckplan/compare/v0.14.2...v0.15.0
 [0.14.2]: https://github.com/rde-master/steckplan/compare/v0.14.1...v0.14.2
 [0.14.1]: https://github.com/rde-master/steckplan/compare/v0.14.0...v0.14.1
 [0.14.0]: https://github.com/rde-master/steckplan/compare/v0.13.4...v0.14.0
