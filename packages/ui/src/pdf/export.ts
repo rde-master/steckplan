@@ -120,7 +120,7 @@ export const SORT_COLUMNS: Partial<Record<ExportKind, string[]>> = {
   devices: ['Kennung', 'Vorlage', 'Art', 'Kategorie', 'Besitzer', 'Anhänger', 'Case', 'Person', 'Inv.-Nr.', 'Stativ/Podest', 'Höhe', 'DMX', 'IP'],
   network: ['Gerät', 'Anschluss', 'IP-Adresse', 'Subnetz', 'Hostname'],
   people: ['Person', 'Art', 'Gerät', 'Vorlage'],
-  patch: ['Kanal', 'Name', 'Quelle', 'Über', '48 V', 'Stativ', 'Bemerkung'],
+  patch: ['Kanal', 'Name', 'Quelle', 'Über', '48 V', 'Bemerkung'],
   power: ['Abgang', 'Phase', 'Absicherung', 'Angeschlossen', 'Leistung', 'Strom', 'Auslastung'],
 };
 export const MAX_SORT_LEVELS = 3;
@@ -339,18 +339,18 @@ export async function buildExportDoc(opts: ExportOptions, input: ExportInput): P
           {
             title: `Input-Liste – ${list.mixer.label}`,
             subtitle: `${list.mixerTemplate.name} · ${list.inputs.length} Eingänge, ${list.inputs.filter((r) => r.device).length} belegt`,
-            headers: ['Kanal', 'Anschluss', 'Name', 'Quelle', 'Über', '48 V', 'Stativ', 'Bemerkung'],
-            widths: [30, 50, '*', '*', '*', 28, 70, '*'],
-            rows: list.inputs.map((r) => [r.channel, r.port, r.name, target(r), viaText(r), r.phantom ? '48 V' : '', r.stand, r.notes]),
+            headers: ['Kanal', 'Anschluss', 'Name', 'Quelle', 'Über', '48 V', 'Bemerkung'],
+            widths: [30, 50, '*', '*', '*', 28, '*'],
+            rows: list.inputs.map((r) => [r.channel, r.port, r.name, target(r), viaText(r), r.phantom ? '48 V' : '', r.notes]),
           },
           ...(list.network.length
             ? [
                 {
                   title: `Netzwerk-Kanäle – ${list.mixer.label}`,
                   subtitle: `${list.network.length} Kanäle über das Netzwerk, ${list.network.filter((r) => r.device).length} belegt`,
-                  headers: ['Kanal', 'Anschluss', 'Name', 'Quelle', 'Über', '48 V', 'Stativ', 'Bemerkung'],
-                  widths: [30, 50, '*', '*', '*', 28, 70, '*'],
-                  rows: list.network.map((r) => [r.channel, r.port, r.name, target(r), viaText(r), r.phantom ? '48 V' : '', r.stand, r.notes]),
+                  headers: ['Kanal', 'Anschluss', 'Name', 'Quelle', 'Über', '48 V', 'Bemerkung'],
+                  widths: [30, 50, '*', '*', '*', 28, '*'],
+                  rows: list.network.map((r) => [r.channel, r.port, r.name, target(r), viaText(r), r.phantom ? '48 V' : '', r.notes]),
                 },
               ]
             : []),
