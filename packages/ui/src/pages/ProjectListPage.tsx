@@ -1,3 +1,5 @@
+import { Plus, Trash2, Upload } from 'lucide-react';
+import { ICON } from '../components/icons';
 import { useCallback, useRef, useState } from 'react';
 import { can } from '@steckplan/core';
 import { api, errorMessage, type ProjectSummary } from '../lib/api';
@@ -43,10 +45,10 @@ export function ProjectListPage() {
         {canManage && (
           <div className="flex flex-wrap gap-2">
             <Button variant="primary" onClick={() => setCreating(true)}>
-              ＋ {texts.projects.create}
+              <Plus {...ICON} /> {texts.projects.create}
             </Button>
             <Button onClick={() => fileInput.current?.click()} title={texts.projects.uploadHint}>
-              ⇪ {texts.projects.upload}
+              <Upload {...ICON} /> {texts.projects.upload}
             </Button>
             <input
               ref={fileInput}
@@ -61,7 +63,7 @@ export function ProjectListPage() {
             />
             <div className="flex-1" />
             <Button variant="ghost" onClick={() => setShowTrash(true)}>
-              🗑 {texts.projects.trash}
+              <Trash2 {...ICON} /> {texts.projects.trash}
             </Button>
           </div>
         )}

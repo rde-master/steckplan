@@ -649,6 +649,7 @@ Jeder Meilenstein endet mit grünen Tests, lauffähigem Build (Desktop **und** D
 - Ton-Patch (M9, 02.11.2026): Input-/Output-Liste automatisch aus dem Signalfluss (Kabel und Multicore-Adern werden verfolgt); Mischpult per Häkchen in der Vorlage; Kanalname, 48 V, Stativ, Bemerkung direkt in der Liste bearbeitbar (je Pult-Anschluss gespeichert); dazu Output-Liste
 - Strom (M10, 02.11.2026): Zuordnung über Stromkabel im Signalfluss (Anschlüsse mit „Strom“, Abgänge mit Absicherung und Phase L1/L2/L3/Drehstrom); Leistung aus der Vorlage, je Gerät änderbar, volle Nennleistung bei 230 V; Warnung ab 80 %, Überlast ab 100 % der Absicherung; Schieflast bei mehr als 30 % Unterschied (mindestens 5 A)
 - Personen-Import (02.11.2026): CSV-Datei oder aus Excel eingefügte Zellen (keine .xlsx-Bibliothek); gleiche Personen (Name + Vorname) werden übersprungen, fehlende Art wird ergänzt
+- Symbole (02.11.2026): Lucide (`lucide-react`, ISC-Lizenz, GPL-kompatibel) statt Unicode-Zeichen; Größe/Strichstärke zentral in `packages/ui/src/components/icons.ts`
 
 ---
 

@@ -353,6 +353,7 @@ export const texts = {
     thenBy: 'dann nach',
     groups: { category: 'Kategorie', trailer: 'Anhänger', owner: 'Besitzer', case: 'Case' },
     inCase: 'im',
+    okLabel: 'in Ordnung',
     sortBy: 'Sortieren nach',
     sort: { name: 'Bezeichnung', case: 'Case' },
     noCases: 'Noch nichts in Cases – Geräten und Kabeln in den Eigenschaften ein Case zuordnen.',

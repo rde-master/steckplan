@@ -1,4 +1,6 @@
 // Eigenschaften der Auswahl: Gerät, Kabel oder Mehrfachauswahl.
+import { RotateCcw } from 'lucide-react';
+import { ICON } from '../icons';
 import type { ReactNode } from 'react';
 import type * as Y from 'yjs';
 import {
@@ -109,7 +111,7 @@ function MeterlessNumber({ label, value, overridden, disabled, onChange, resetLa
         <TextInput type="number" min={0} step={1} value={value ?? ''} disabled={disabled} onChange={(e) => onChange(e.target.value === '' ? undefined : Math.max(0, Math.round(Number(e.target.value))))} />
         {overridden && !disabled && (
           <Button variant="ghost" title={resetLabel} aria-label={resetLabel} onClick={() => onChange(undefined)}>
-            ↺
+            <RotateCcw {...ICON} />
           </Button>
         )}
       </div>
@@ -183,7 +185,7 @@ function DeviceProperties({ doc, origin, library, data, device, editable, issues
       <ColorField label={s.color} value={deviceColor(device, template)} onChange={(color) => update({ colorOverride: color && color !== template?.defaultColor ? color : undefined })} disabled={!editable} />
       {device.colorOverride && editable && (
         <Button variant="ghost" onClick={() => update({ colorOverride: undefined })}>
-          ↺ {s.resetColor}
+          <RotateCcw {...ICON} /> {s.resetColor}
         </Button>
       )}
       <MasterSelect
@@ -197,7 +199,7 @@ function DeviceProperties({ doc, origin, library, data, device, editable, issues
       />
       {device.categoryOverride !== undefined && editable && (
         <Button variant="ghost" onClick={() => update({ categoryOverride: undefined })}>
-          ↺ {s.resetCategory}
+          <RotateCcw {...ICON} /> {s.resetCategory}
         </Button>
       )}
       <Logistics library={library} value={device} editable={editable} onChange={update} />

@@ -1,4 +1,6 @@
 // Editor für eine Vorlage (Gerät, Kabeltyp, Bühnenelement, Traverse, Stativ).
+import { Copy, Plus, X } from 'lucide-react';
+import { ICON } from '../icons';
 import { useState } from 'react';
 import { formatCableLength, TEMPLATE_KIND_LABELS, type Library, type PortDef, type Template, type TemplateKind } from '@steckplan/core';
 import { api, ApiError, errorMessage } from '../../lib/api';
@@ -433,10 +435,10 @@ export function TemplateEditor({
                               {!disabled && (
                                 <>
                                   <Button variant="ghost" title={t.duplicatePort} aria-label={`${t.duplicatePort} ${index + 1}`} onClick={() => set({ ports: [...ports.slice(0, index + 1), { ...port, id: portId(), label: port.label }, ...ports.slice(index + 1)] })}>
-                                    ⧉
+                                    <Copy {...ICON} />
                                   </Button>
                                   <Button variant="ghost" title={t.remove} aria-label={`${t.remove} ${index + 1}`} onClick={() => set({ ports: ports.filter((_, i) => i !== index) })}>
-                                    ✕
+                                    <X {...ICON} />
                                   </Button>
                                 </>
                               )}
@@ -451,7 +453,7 @@ export function TemplateEditor({
             )}
             {!disabled && (
               <div className="flex flex-wrap items-center gap-2">
-                <Button onClick={() => set({ ports: [...ports, { id: portId(), label: '', connector: '', direction: 'in', signal: '' }] })}>＋ {t.addPort}</Button>
+                <Button onClick={() => set({ ports: [...ports, { id: portId(), label: '', connector: '', direction: 'in', signal: '' }] })}><Plus {...ICON} /> {t.addPort}</Button>
                 {!showBulk && <Button onClick={() => setShowBulk(true)}>⊞ {texts.library.bulk.open}</Button>}
                 <div className="flex-1" />
                 {ports.length > 1 &&
@@ -495,12 +497,12 @@ export function TemplateEditor({
                 </div>
                 {!disabled && (
                   <Button variant="ghost" aria-label={`${t.remove} ${t.dmxName} ${index + 1}`} onClick={() => set({ dmxModes: dmxModes.filter((_, i) => i !== index) })}>
-                    ✕
+                    <X {...ICON} />
                   </Button>
                 )}
               </div>
             ))}
-            {!disabled && <Button onClick={() => set({ dmxModes: [...dmxModes, { name: '', channels: 1 }] })}>＋ {t.addDmxMode}</Button>}
+            {!disabled && <Button onClick={() => set({ dmxModes: [...dmxModes, { name: '', channels: 1 }] })}><Plus {...ICON} /> {t.addDmxMode}</Button>}
           </section>
 
           <div className="grid gap-3 sm:grid-cols-3">
@@ -539,7 +541,7 @@ export function TemplateEditor({
           <Button onClick={onCancel}>{texts.common.cancel}</Button>
           {!isNew && current && onCopy && (
             <Button variant="ghost" onClick={() => onCopy(copyDraft(current))}>
-              ⧉ {texts.library.copy}
+              <Copy {...ICON} /> {texts.library.copy}
             </Button>
           )}
           <div className="flex-1" />

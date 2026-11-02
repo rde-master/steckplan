@@ -1,5 +1,7 @@
 // Bühnenplan-Ansicht: Werkzeuge, Seitenleisten, maßstäbliche Zeichenfläche, Eigenschaften, Prüfungen.
 import { useEffect, useMemo, useState } from 'react';
+import { BrickWall, Copy, Maximize, MousePointer2, Redo2, RotateCw, Ruler, Trash2, Type, Undo2, ZoomIn, ZoomOut, type LucideIcon } from 'lucide-react';
+import { ICON, TOOL_ICON } from '../icons';
 import type * as Y from 'yjs';
 import {
   addDevice,
@@ -431,9 +433,9 @@ export function StagePlanView({ doc, data, library, editable, undo }: { doc: Y.D
     />
   );
 
-  const toolButton = (key: StageTool, label: string, symbol: string) => (
-    <Button key={key} variant={tool === key ? 'primary' : 'ghost'} className="min-h-9 px-2" aria-pressed={tool === key} title={label} onClick={() => setTool(tool === key ? 'select' : key)}>
-      {symbol} <span className="hidden lg:inline">{label}</span>
+  const toolButton = (key: StageTool, label: string, Icon: LucideIcon) => (
+    <Button key={key} variant={tool === key ? 'primary' : 'ghost'} className="min-h-9 px-2" aria-pressed={tool === key} aria-label={label} title={label} onClick={() => setTool(tool === key ? 'select' : key)}>
+      <Icon {...TOOL_ICON} /> <span className="hidden lg:inline">{label}</span>
     </Button>
   );
 
@@ -442,25 +444,25 @@ export function StagePlanView({ doc, data, library, editable, undo }: { doc: Y.D
       <div className="flex flex-wrap items-center gap-0.5 border-b border-slate-200 bg-white px-2 py-1 dark:border-slate-700 dark:bg-slate-900" role="toolbar" aria-label={texts.signalflow.toolbar}>
         {editable && (
           <>
-            {toolButton('select', s.tools.select, '↖')}
-            {toolButton('wall', s.tools.wall, '▬')}
-            {toolButton('text', s.tools.text, 'T')}
-            {toolButton('dimension', s.tools.dimension, '↔')}
+            {toolButton('select', s.tools.select, MousePointer2)}
+            {toolButton('wall', s.tools.wall, BrickWall)}
+            {toolButton('text', s.tools.text, Type)}
+            {toolButton('dimension', s.tools.dimension, Ruler)}
             <span className="mx-1 h-5 w-px bg-slate-200 dark:bg-slate-700" />
             <Button variant="ghost" className="min-h-9 px-2" aria-label={texts.signalflow.undo} title={texts.signalflow.undo} onClick={undo.undo} disabled={!undo.canUndo}>
-              ↶
+              <Undo2 {...TOOL_ICON} />
             </Button>
             <Button variant="ghost" className="min-h-9 px-2" aria-label={texts.signalflow.redo} title={texts.signalflow.redo} onClick={undo.redo} disabled={!undo.canRedo}>
-              ↷
+              <Redo2 {...TOOL_ICON} />
             </Button>
             <Button variant="ghost" className="min-h-9 px-2" aria-label={s.rotate90} title={s.rotate90} onClick={rotateSelection90} disabled={count === 0}>
-              ⟳
+              <RotateCw {...TOOL_ICON} />
             </Button>
             <Button variant="ghost" className="min-h-9 px-2" aria-label={texts.signalflow.duplicate} title={texts.signalflow.duplicate} onClick={duplicate} disabled={count === 0}>
-              ⧉
+              <Copy {...TOOL_ICON} />
             </Button>
             <Button variant="ghost" className="min-h-9 px-2" aria-label={texts.signalflow.delete} title={texts.signalflow.delete} onClick={deleteSelection} disabled={count === 0}>
-              🗑
+              <Trash2 {...TOOL_ICON} />
             </Button>
             <span className="mx-1 h-5 w-px bg-slate-200 dark:bg-slate-700" />
             <label className="flex items-center gap-1 text-xs">
@@ -496,13 +498,13 @@ export function StagePlanView({ doc, data, library, editable, undo }: { doc: Y.D
         )}
         <div className="flex-1" />
         <Button variant="ghost" className="min-h-9 px-2" aria-label={texts.signalflow.zoomOut} onClick={() => zoomBy(1 / 1.25)}>
-          −
+          <ZoomOut {...TOOL_ICON} />
         </Button>
         <Button variant="ghost" className="min-h-9 px-2" aria-label={texts.signalflow.zoomIn} onClick={() => zoomBy(1.25)}>
-          +
+          <ZoomIn {...TOOL_ICON} />
         </Button>
         <Button variant="ghost" className="min-h-9 px-2 text-xs" onClick={fit}>
-          {texts.signalflow.fit}
+          <Maximize {...ICON} /> {texts.signalflow.fit}
         </Button>
       </div>
       <FilterBar library={library} data={data} />

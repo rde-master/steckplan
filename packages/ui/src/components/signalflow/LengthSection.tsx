@@ -1,4 +1,6 @@
 // Längenaufschlüsselung für Kabel und Multicores (immer frisch berechnet).
+import { RotateCcw } from 'lucide-react';
+import { ICON } from '../icons';
 import type * as Y from 'yjs';
 import {
   computeCableLength,
@@ -78,7 +80,7 @@ export function CableLengthSection({ doc, origin, library, data, cable, editable
       <MeterField label={l.manual} value={cable.manualLengthMm} disabled={!editable} onChange={(manualLengthMm) => update({ manualLengthMm })} />
       {editable && cable.waypoints.length > 0 && (
         <Button variant="ghost" onClick={() => update({ waypoints: [] })}>
-          ↺ {l.clearWaypoints(cable.waypoints.length)}
+          <RotateCcw {...ICON} /> {l.clearWaypoints(cable.waypoints.length)}
         </Button>
       )}
     </section>
@@ -100,7 +102,7 @@ export function MulticoreLengthSection({ doc, origin, library, data, device, edi
       <MeterField label={l.manual} value={device.manualLengthMm} disabled={!editable} onChange={(manualLengthMm) => update({ manualLengthMm })} />
       {editable && stage?.waypoints && stage.waypoints.length > 0 && (
         <Button variant="ghost" onClick={() => update({ stagePlan: { ...stage, waypoints: [] } })}>
-          ↺ {l.clearWaypoints(stage.waypoints.length)}
+          <RotateCcw {...ICON} /> {l.clearWaypoints(stage.waypoints.length)}
         </Button>
       )}
     </section>

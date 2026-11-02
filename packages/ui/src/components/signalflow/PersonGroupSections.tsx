@@ -1,4 +1,6 @@
 // Eigenschaften (seit Format 4): benutzt von Mensch + Person, Gruppe, T-Bar am Stativ.
+import { RotateCcw } from 'lucide-react';
+import { ICON } from '../icons';
 import { useState } from 'react';
 import type * as Y from 'yjs';
 import {
@@ -166,7 +168,7 @@ export function TBarSection({ doc, origin, library, data, device, editable }: Se
       <MeterField label={st.tBarLength} value={tBarLength(device, template)} onChange={apply} disabled={!editable} />
       {device.tBarLengthMm !== undefined && editable && (
         <Button variant="ghost" onClick={() => apply(undefined)}>
-          ↺ {st.resetTBar}
+          <RotateCcw {...ICON} /> {st.resetTBar}
         </Button>
       )}
     </div>

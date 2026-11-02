@@ -15,6 +15,7 @@
   "dependencies": {
     "@steckplan/core": "workspace:*",
     "konva": "^10.9.1",
+    "lucide-react": "^0.469.0",
     "pdfjs-dist": "^6.4.299",
     "pdfmake": "^0.3.13",
     "react": "^19.3.1",

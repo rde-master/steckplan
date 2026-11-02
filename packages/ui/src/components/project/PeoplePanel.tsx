@@ -1,4 +1,6 @@
 // Personen im Projekt (Name, Vorname, Art) – Geräte „benutzt von Mensch“ werden ihnen zugeordnet.
+import { Plus, Trash2, Upload } from 'lucide-react';
+import { ICON } from '../icons';
 import { useState, type FormEvent } from 'react';
 import type * as Y from 'yjs';
 import { addPerson, personKinds, removePerson, updatePerson, usesPerson, type Library, type Person } from '@steckplan/core';
@@ -21,7 +23,7 @@ export function PeoplePanel({ doc, origin, data, library, editable }: { doc: Y.D
         <h2 className="flex-1 text-sm font-semibold uppercase tracking-wide text-slate-500">{t.title}</h2>
         {editable && (
           <Button variant="ghost" onClick={() => setImporting(true)}>
-            ⇪ {texts.peopleImport.open}
+            <Upload {...ICON} /> {texts.peopleImport.open}
           </Button>
         )}
       </div>
@@ -62,7 +64,7 @@ export function PeoplePanel({ doc, origin, data, library, editable }: { doc: Y.D
                   <td className="pb-2">
                     {editable && (
                       <Button variant="ghost" aria-label={`${texts.common.delete}: ${person.firstName} ${person.lastName}`} onClick={() => removePerson(doc, person.id, origin)}>
-                        🗑
+                        <Trash2 {...ICON} />
                       </Button>
                     )}
                   </td>
@@ -93,7 +95,7 @@ export function AddPerson({ onAdd, compact = false }: { onAdd: (person: Omit<Per
       <TextInput aria-label={t.newFirstName} placeholder={t.firstName} value={person.firstName} onChange={(e) => setPerson({ ...person, firstName: e.target.value })} />
       <TextInput aria-label={t.newKind} placeholder={t.kind} list="steckplan-person-kinds" value={person.kind} onChange={(e) => setPerson({ ...person, kind: e.target.value })} />
       <Button type="submit" variant="primary" disabled={!valid}>
-        ＋ {t.add}
+        <Plus {...ICON} /> {t.add}
       </Button>
     </form>
   );
