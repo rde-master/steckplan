@@ -7,6 +7,8 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.13.4] - 2026-11-02
+
 ### Geändert
 
 - Bibliothek: Die Liste links ist nach Kategorien gegliedert (einklappbar, mit Anzahl; „ohne Kategorie“ am Ende) – in allen Bereichen, auch beim Suchen
@@ -279,7 +281,8 @@ Meilenstein M0 – Projektgerüst.
 - Docker-Image mit Datenvolume `/data` und Beispiel-`docker-compose.yml`
 - GitHub Actions: Tests und Smoke-Test bei jedem Push, Installer als Artefakte, Docker-Image `:develop`, Release-Workflow für Tags `vX.Y.Z`
 
-[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.13.3...develop
+[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.13.4...develop
+[0.13.4]: https://github.com/rde-master/steckplan/compare/v0.13.3...v0.13.4
 [0.13.3]: https://github.com/rde-master/steckplan/compare/v0.13.2...v0.13.3
 [0.13.2]: https://github.com/rde-master/steckplan/compare/v0.13.1...v0.13.2
 [0.13.1]: https://github.com/rde-master/steckplan/compare/v0.13.0...v0.13.1
