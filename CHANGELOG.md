@@ -22,7 +22,7 @@ Meilenstein M8b – Desktop ↔ Server-Verbindung.
 
 ### Geändert
 
-- Meilenstein-Reihenfolge: Release 1.0 (M9) kommt nach Ton-Patch (M10) und Strom (M11)
+- Meilenstein-Reihenfolge: Release 1.0 kommt nach Ton-Patch und Strom; neu nummeriert: M9 Ton-Patch, M10 Strom, M11 Release 1.0
 
 ## [0.10.0] - 2026-11-01
 
