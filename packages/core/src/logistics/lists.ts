@@ -209,6 +209,29 @@ export interface PackingList {
 export interface PackingOptions {
   groupBy: GroupBy[];
   mode: 'aggregated' | 'single';
+  /** Reihenfolge der Zeilen: nach Bezeichnung (Standard) oder zuerst nach Case */
+  sortBy?: 'name' | 'case';
+}
+
+type RowOrder = (a: PackRow, b: PackRow) => number;
+
+function byName(a: PackRow, b: PackRow): number {
+  return a.name.localeCompare(b.name, 'de') || (a.lengthMm ?? 0) - (b.lengthMm ?? 0) || (a.items[0]?.label ?? '').localeCompare(b.items[0]?.label ?? '', 'de', { numeric: true });
+}
+
+/** Nach Case (Name), Inhalt ohne Case am Ende, dann nach Bezeichnung */
+function byCase(library: Pick<Library, 'masterData'>): RowOrder {
+  const name = (row: PackRow) => {
+    const id = row.items[0]?.caseId;
+    return id ? (library.masterData.cases?.find((c) => c.id === id)?.name ?? '?') : null;
+  };
+  return (a, b) => {
+    const na = name(a);
+    const nb = name(b);
+    if (na === null && nb !== null) return 1;
+    if (nb === null && na !== null) return -1;
+    return (na ?? '').localeCompare(nb ?? '', 'de', { numeric: true }) || byName(a, b);
+  };
 }
 
 function isChecked(mark: CheckMark | undefined): boolean {
@@ -220,7 +243,7 @@ export function aggregationKey(item: PackItem): string {
   return [item.kind, item.templateId, item.lengthMm ?? '', item.ownerId ?? '', item.categoryId ?? '', item.trailerId ?? '', item.caseId ?? ''].join('|');
 }
 
-function buildRows(items: PackItem[], mode: PackingOptions['mode']): PackRow[] {
+function buildRows(items: PackItem[], mode: PackingOptions['mode'], order: RowOrder = byName): PackRow[] {
   const rows = new Map<string, PackRow>();
   for (const item of items) {
     const key = mode === 'aggregated' ? aggregationKey(item) : item.id;
@@ -234,10 +257,10 @@ function buildRows(items: PackItem[], mode: PackingOptions['mode']): PackRow[] {
     if (isChecked(item.check?.in)) row.checkedIn++;
   }
   for (const row of rows.values()) row.items.sort((a, b) => a.label.localeCompare(b.label, 'de', { numeric: true }));
-  return [...rows.values()].sort((a, b) => a.name.localeCompare(b.name, 'de') || (a.lengthMm ?? 0) - (b.lengthMm ?? 0) || (a.items[0]?.label ?? '').localeCompare(b.items[0]?.label ?? '', 'de', { numeric: true }));
+  return [...rows.values()].sort(order);
 }
 
-function group(items: PackItem[], levels: GroupBy[], library: Pick<Library, 'masterData'>, mode: PackingOptions['mode']): PackGroup[] {
+function group(items: PackItem[], levels: GroupBy[], library: Pick<Library, 'masterData'>, mode: PackingOptions['mode'], order: RowOrder): PackGroup[] {
   const [level, ...rest] = levels;
   if (!level) return [];
   const field = GROUP_FIELD[level];
@@ -254,8 +277,8 @@ function group(items: PackItem[], levels: GroupBy[], library: Pick<Library, 'mas
       label: key ? (entry?.name ?? '(unbekannt)') : UNASSIGNED_LABEL[level],
       ...(entry?.color ? { color: entry.color } : {}),
       unassigned: !key,
-      rows: rest.length ? [] : buildRows(list, mode),
-      groups: rest.length ? group(list, rest, library, mode) : [],
+      rows: rest.length ? [] : buildRows(list, mode, order),
+      groups: rest.length ? group(list, rest, library, mode, order) : [],
     };
   });
   // „nicht zugeordnet“ ans Ende
@@ -264,9 +287,10 @@ function group(items: PackItem[], levels: GroupBy[], library: Pick<Library, 'mas
 
 export function buildPackingList(items: PackItem[], library: Pick<Library, 'masterData'>, options: PackingOptions): PackingList {
   const levels = [...new Set(options.groupBy)].slice(0, 2);
+  const order = options.sortBy === 'case' ? byCase(library) : byName;
   const groups = levels.length
-    ? group(items, levels, library, options.mode)
-    : [{ key: 'all', label: 'Alle', unassigned: false, rows: buildRows(items, options.mode), groups: [] }];
+    ? group(items, levels, library, options.mode, order)
+    : [{ key: 'all', label: 'Alle', unassigned: false, rows: buildRows(items, options.mode, order), groups: [] }];
   const problems: PackingList['problems'] = [];
   for (const item of items) {
     for (const direction of ['out', 'in'] as const) {
@@ -275,6 +299,48 @@ export function buildPackingList(items: PackItem[], library: Pick<Library, 'mast
     }
   }
   return { groups, problems, total: items.length };
+}
+
+// ---------- Case-Listen ----------
+
+export interface CaseList {
+  caseId: string;
+  name: string;
+  color?: string;
+  notes?: string;
+  /** Anhänger des Cases (Projekt-Zuordnung, sonst Standard) */
+  trailerId?: string;
+  rows: PackRow[];
+  total: number;
+  checkedOut: number;
+  checkedIn: number;
+}
+
+/** Je Case: was hinein muss (zusammengefasst oder einzeln), nach Bezeichnung. Leere Cases werden weggelassen. */
+export function buildCaseLists(
+  items: PackItem[],
+  library: Pick<Library, 'masterData'>,
+  options: { mode: PackingOptions['mode']; caseTrailers?: CaseTrailer[] },
+): CaseList[] {
+  const byCaseId = new Map<string, PackItem[]>();
+  for (const item of items) if (item.caseId) byCaseId.set(item.caseId, [...(byCaseId.get(item.caseId) ?? []), item]);
+  return [...byCaseId.entries()]
+    .map(([caseId, list]) => {
+      const entry = library.masterData.cases?.find((c) => c.id === caseId);
+      const rows = buildRows(list, options.mode);
+      return {
+        caseId,
+        name: entry?.name ?? '(unbekanntes Case)',
+        ...(entry?.color ? { color: entry.color } : {}),
+        ...(entry?.notes ? { notes: entry.notes } : {}),
+        ...(caseTrailerId(caseId, options.caseTrailers, library.masterData.cases) ? { trailerId: caseTrailerId(caseId, options.caseTrailers, library.masterData.cases) } : {}),
+        rows,
+        total: list.length,
+        checkedOut: list.filter((i) => i.check?.out).length,
+        checkedIn: list.filter((i) => i.check?.in).length,
+      };
+    })
+    .sort((a, b) => a.name.localeCompare(b.name, 'de', { numeric: true }));
 }
 
 /** Nächstes noch nicht abgehaktes Exemplar einer Zeile (für „Antippen hakt das nächste ab“). */

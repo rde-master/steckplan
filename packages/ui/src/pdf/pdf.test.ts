@@ -39,6 +39,7 @@ function setup(): { data: ProjectData; library: Library } {
     templates: [
       t({ id: 'mic', kind: 'device', name: 'Funkmikro', usedByPerson: true, ports: [{ id: 'o', label: 'Out', connector: 'XLR', direction: 'out', signal: 'Audio' }] }),
       t({ id: 'spot', kind: 'device', name: 'Spot Ü', categoryId: 'licht', defaultColor: '#f59e0b', shape: { form: 'rect', widthMm: 400, depthMm: 400 }, ports: [{ id: 'o', label: 'Out', connector: 'XLR', direction: 'out', signal: 'DMX' }, { id: 'i', label: 'In', connector: 'XLR', direction: 'in', signal: 'DMX' }], dmxModes: [{ name: '16ch', channels: 16 }] }),
+      t({ id: 'pultT', kind: 'device', name: 'Digitalpult', mixer: true, ports: [{ id: 'i1', label: 'In 1', connector: 'XLR', direction: 'in', signal: 'Audio' }, { id: 'i2', label: 'In 2', connector: 'XLR', direction: 'in', signal: 'Audio' }, { id: 'o1', label: 'Mix 1', connector: 'XLR', direction: 'out', signal: 'Audio' }] }),
       t({ id: 'stand', kind: 'stand', name: 'Stativ', shape: { form: 'circle', widthMm: 1200, depthMm: 1200, heightMm: 3000 } }),
       t({ id: 'xlr', kind: 'cableType', name: 'XLR', connectorA: 'XLR', connectorB: 'XLR', availableLengthsMm: [5000, 10000, 20000, 50000] }),
     ],
@@ -61,10 +62,11 @@ function setup(): { data: ProjectData; library: Library } {
     { id: 'm2', templateId: 'mic', layerId: project.layers[0]!.id, label: 'Mikro 2' },
   ];
   const data: ProjectData = {
-    devices: [...devices, ...mics, { id: 's', templateId: 'stand', layerId: project.layers[0]!.id, label: 'Stativ 1', stagePlan: { position: { x: 0, y: 14000 }, rotationDeg: 0 } }],
+    devices: [...devices, ...mics, { id: 'pult', templateId: 'pultT', layerId: project.layers[0]!.id, label: 'FOH' }, { id: 's', templateId: 'stand', layerId: project.layers[0]!.id, label: 'Stativ 1', stagePlan: { position: { x: 0, y: 14000 }, rotationDeg: 0 } }],
     cables: [
       ...devices.slice(0, 20).map((d, i) => ({ id: `c${i}`, templateId: 'xlr', from: { deviceId: d.id, portId: 'o' }, to: { deviceId: devices[i + 1]!.id, portId: 'i' }, waypoints: [], ...(i === 0 ? { check: { in: { at: T0, by: 'Anna', status: 'damaged' as const, note: 'Knick' } } } : {}), ...(i === 1 ? { caseId: 'k' } : {}) })),
       { id: 'cm', templateId: 'xlr', from: { deviceId: 'm1', portId: 'o' }, to: { deviceId: 'd5', portId: 'i' }, waypoints: [], manualLengthMm: 10000, label: 'A5' },
+      { id: 'cp', templateId: 'xlr', from: { deviceId: 'm2', portId: 'o' }, to: { deviceId: 'pult', portId: 'i1' }, waypoints: [], manualLengthMm: 5000 },
     ],
     layers: project.layers,
     shapes: [{ id: 'w', kind: 'wall', layerId: project.layers[0]!.id, points: [{ x: -1000, y: -1000 }, { x: 20000, y: -1000 }], rotationDeg: 0, strokeWidthMm: 200 }],
@@ -74,6 +76,7 @@ function setup(): { data: ProjectData; library: Library } {
     people: [{ id: 'anna', lastName: 'Muster', firstName: 'Anna', kind: 'Sängerin' }],
     groups: [],
     caseTrailers: [],
+    patch: [{ id: 'pult:i1', name: 'Lead Vox' }],
   };
   return { data, library };
 }
@@ -139,7 +142,7 @@ describe('PDF-Export', () => {
 
   it('Listen: Kabel, Stück, DMX, Geräte, Netzwerk', async () => {
     const cables = (await render(await exportDoc({ kind: 'cables' }))).text;
-    expect(cables).toContain('18 × XLR 5 m');
+    expect(cables).toContain('19 × XLR 5 m'); // 18 Spot-Kabel + Mikro zum Pult
     expect(cables).toContain('2 × XLR 50 m');
     expect(cables.indexOf('Spot 2 · Out')).toBeLessThan(cables.indexOf('Spot 10 · Out')); // natürliche Sortierung
     expect((await render(await exportDoc({ kind: 'bom' }))).text).toContain('Spot Ü');
@@ -160,6 +163,27 @@ describe('PDF-Export', () => {
     expect(labels.text).toContain('Anna Muster');
     expect(labels.text).toContain('Out –> Spot 6 · In (XLR 10 m, A5)');
     expect(labels.text).toContain('Person nicht zugeordnet');
+  });
+
+  it('Input-/Output-Liste je Mischpult', async () => {
+    const { pages, text } = await render(await exportDoc({ kind: 'patch' }));
+    expect(pages).toBe(2);
+    expect(text).toContain('Input-Liste – FOH');
+    expect(text).toContain('Lead Vox');
+    expect(text).toContain('Mikro 2');
+    expect(text).toContain('offen');
+    expect(text).toContain('Output-Liste – FOH');
+  });
+
+  it('Case-Listen: je Case eine Seite mit Inhalt und Anhänger', async () => {
+    const { pages, text } = await render(await exportDoc({ kind: 'cases', orientation: 'portrait' }));
+    expect(pages).toBe(1);
+    expect(text).toContain('Kabelcase 1');
+    expect(text).toContain('Anhänger: Hänger 1');
+    expect(text).toContain('XLR');
+    expect(text).toContain('Gepackt (Hin)');
+    const sorted = (await render(await exportDoc({ kind: 'packing', groupBy: 'trailer', sortBy: 'case' }))).text;
+    expect(sorted).toContain('sortiert nach Case');
   });
 
   it('Packliste mit Case-Spalte und Gruppierung nach Case', async () => {

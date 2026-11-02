@@ -146,6 +146,10 @@ export const TemplateSchema = z.object({
   stockByLength: z.array(z.object({ lengthMm: mm, count: z.number().int().nonnegative() })).optional(),
   /** Stativ: Länge der T-Bar (seit Format 4) */
   tBarLengthMm: mm.nonnegative().optional(),
+  /** Mischpult: Eingänge/Ausgänge bilden Input-/Output-Liste (seit Format 4) */
+  mixer: z.boolean().optional(),
+  /** Quelle braucht 48 V Phantomspeisung (Vorschlag in der Input-Liste) (seit Format 4) */
+  phantomPower: z.boolean().optional(),
 });
 export type Template = z.infer<typeof TemplateSchema>;
 
@@ -258,6 +262,16 @@ export type Group = z.infer<typeof GroupSchema>;
 export const CaseTrailerSchema = z.object({ id, trailerId: id.optional() });
 export type CaseTrailer = z.infer<typeof CaseTrailerSchema>;
 
+/** Angaben je Pult-Anschluss in Input-/Output-Liste (id = „Pult-Geräte-id:Anschluss-id“) (seit Format 4) */
+export const PatchEntrySchema = z.object({
+  id,
+  name: z.string().optional(),
+  phantom: z.boolean().optional(),
+  stand: z.string().optional(),
+  notes: z.string().optional(),
+});
+export type PatchEntry = z.infer<typeof PatchEntrySchema>;
+
 // ---------- Netzwerk ----------
 
 export const SubnetSchema = z.object({
@@ -357,6 +371,7 @@ export const ProjectSchema = z.object({
   people: z.array(PersonSchema).default([]),
   groups: z.array(GroupSchema).default([]),
   caseTrailers: z.array(CaseTrailerSchema).default([]),
+  patch: z.array(PatchEntrySchema).default([]),
   network: z
     .object({
       subnets: z.array(SubnetSchema).default([]),

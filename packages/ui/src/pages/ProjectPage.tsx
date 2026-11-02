@@ -205,6 +205,9 @@ export function ProjectPage({ id }: { id: string }) {
           library={library}
           canCheck={online && !state?.readOnlyReason && !!session && can(session.access, 'checkItems')}
           canReset={editable && !!session && can(session.access, 'resetChecks')}
+          doc={project.doc}
+          origin={undo.origin}
+          editable={editable}
         />
       ) : (
         <main className="mx-auto w-full max-w-3xl flex-1 space-y-4 overflow-y-auto p-4">

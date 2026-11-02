@@ -7,6 +7,22 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-11-02
+
+Meilenstein M9 – Ton-Patch (dazu Case-Listen).
+
+### Hinzugefügt
+
+- Ton-Patch: Input- und Output-Liste je Mischpult (Vorlage „Mischpult“), automatisch aus dem Signalfluss – Kabel und Multicore-Adern werden bis zur Quelle bzw. zum Ziel verfolgt, die Stagebox-Seite der Ader wird genannt; offene Kanäle sind sichtbar
+- Input-Liste bearbeitbar: Kanalname, 48 V, Stativ, Bemerkung – mit Vorschlägen (Gerät und Person, „Braucht 48 V“ aus der Vorlage, Stativ, an dem die Quelle hängt)
+- Output-Liste mit Ziel und Person (z. B. In-Ear-Wege)
+- Input-/Output-Liste als PDF (je Pult) und CSV
+- Case-Listen: je Case, was hineingehört (zusammengefasst oder einzeln, mit Anhänger) – auf dem Bildschirm unter Listen → Cases zum Abhaken, als PDF (eine Seite je Case mit Unterschrift) und als CSV
+
+### Geändert
+
+- Packliste lässt sich nach Case sortieren (Bildschirm und PDF), zusätzlich zum Gruppieren nach Case
+
 ## [0.11.0] - 2026-11-02
 
 Meilenstein M8b – Desktop ↔ Server-Verbindung.
@@ -210,7 +226,8 @@ Meilenstein M0 – Projektgerüst.
 - Docker-Image mit Datenvolume `/data` und Beispiel-`docker-compose.yml`
 - GitHub Actions: Tests und Smoke-Test bei jedem Push, Installer als Artefakte, Docker-Image `:develop`, Release-Workflow für Tags `vX.Y.Z`
 
-[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.11.0...develop
+[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.12.0...develop
+[0.12.0]: https://github.com/rde-master/steckplan/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/rde-master/steckplan/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/rde-master/steckplan/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/rde-master/steckplan/compare/v0.8.0...v0.9.0

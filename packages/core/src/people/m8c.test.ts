@@ -5,7 +5,7 @@ import type { Cable, DeviceInstance, Person, Project, Template } from '../model/
 import { createYDocFromProject, readProjectFromYDoc } from '../model/ydoc';
 import { checkStock, stockUsage } from '../logistics/checks';
 import { listCsv } from '../logistics/exports';
-import { buildPackingList, caseTrailerId, packItems } from '../logistics/lists';
+import { buildCaseLists, buildPackingList, caseTrailerId, packItems } from '../logistics/lists';
 import { assignGroup, boundsOf, createGroup, readGroups, removeGroup } from '../signalflow/groups';
 import { standLayout, tBarLength } from '../stageplan/docking';
 import { buildProjectUsageLibrary } from './test-helpers';
@@ -153,5 +153,26 @@ describe('Lagerbestand', () => {
     expect(checkStock(p, library).map((i) => i.message)).toEqual(['Funkmikro: 4 verwendet, aber nur 2 im Lager.', 'XLR 5 m: 2 verwendet, aber nur 1 im Lager.']);
     // ohne Bestandsangabe keine Warnung
     expect(stockUsage(p, library).some((u) => u.templateId === 'box')).toBe(false);
+  });
+});
+
+describe('Case-Listen und Sortieren nach Case', () => {
+  it('je Case der Inhalt mit Anhänger; Packliste nach Case sortierbar', () => {
+    const p = project({
+      caseTrailers: [{ id: 'k1', trailerId: 'a2' }],
+      cables: [...project().cables, cable('k3', 'Mikro 3', 'Box', 'in6', { caseId: 'k1' })],
+      devices: project().devices.map((d) => (d.id === 'Mikro 1' ? { ...d, caseId: 'k1', check: { out: { at: T0, by: 'A', status: 'ok' as const } } } : d)),
+    });
+    const items = packItems(p, library);
+    const lists = buildCaseLists(items, library, { mode: 'aggregated', caseTrailers: p.caseTrailers });
+    expect(lists).toHaveLength(1);
+    expect(lists[0]).toMatchObject({ name: 'Kabelcase 1', trailerId: 'a2', total: 3, checkedOut: 1 });
+    expect(lists[0]!.rows.map((r) => `${r.items.length}× ${r.name}`)).toEqual(['1× Funkmikro', '2× XLR']);
+    expect(listCsv('cases', p, library)).toContain('Kabelcase 1;Anhänger 2;2;XLR;5 m');
+
+    const sorted = buildPackingList(items, library, { groupBy: [], mode: 'aggregated', sortBy: 'case' });
+    const names = sorted.groups[0]!.rows.map((r) => `${r.items[0]!.caseId ?? '-'}:${r.name}`);
+    expect(names.slice(0, 2)).toEqual(['k1:Funkmikro', 'k1:XLR']);
+    expect(names.at(-1)!.startsWith('-')).toBe(true);
   });
 });

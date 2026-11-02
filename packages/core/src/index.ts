@@ -9,3 +9,4 @@ export * from './dmx';
 export * from './network';
 export * from './sync';
 export * from './people';
+export * from './audio';

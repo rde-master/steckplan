@@ -1,6 +1,7 @@
 // Packliste zum Abhaken (Desktop, Browser, Handy): Hin/Zurück, fehlt/defekt, Zähler bei zusammengefassten Zeilen.
 import { createContext, useContext, useMemo, useState } from 'react';
 import {
+  buildCaseLists,
   buildPackingList,
   formatCableLength,
   nextUnchecked,
@@ -47,10 +48,13 @@ interface Props {
   library: Library | null;
   canCheck: boolean;
   canReset: boolean;
+  /** packing = Packliste (Standard), cases = je Case was hinein muss */
+  view?: 'packing' | 'cases';
 }
 
-export function PackingListView({ projectId, data, library, canCheck, canReset }: Props) {
+export function PackingListView({ projectId, data, library, canCheck, canReset, view = 'packing' }: Props) {
   const [groupBy, setGroupBy] = useState<GroupBy>('category');
+  const [sortBy, setSortBy] = useState<'name' | 'case'>('name');
   const [thenBy, setThenBy] = useState<GroupBy | ''>('');
   const [mode, setMode] = useState<'aggregated' | 'single'>('aggregated');
   const [error, setError] = useState<string | null>(null);
@@ -95,7 +99,11 @@ export function PackingListView({ projectId, data, library, canCheck, canReset }
     [library],
   );
 
-  const list = useMemo(() => (library ? buildPackingList(items, library, { groupBy: thenBy ? [groupBy, thenBy] : [groupBy], mode }) : null), [items, library, groupBy, thenBy, mode]);
+  const list = useMemo(
+    () => (library ? buildPackingList(items, library, { groupBy: thenBy ? [groupBy, thenBy] : [groupBy], mode, sortBy }) : null),
+    [items, library, groupBy, thenBy, mode, sortBy],
+  );
+  const caseLists = useMemo(() => (library ? buildCaseLists(items, library, { mode, caseTrailers: data.caseTrailers }) : []), [items, library, mode, data.caseTrailers]);
 
   async function check(item: PackItem, direction: Direction, status: CheckMark['status'] | null, note?: string) {
     setError(null);
@@ -108,6 +116,51 @@ export function PackingListView({ projectId, data, library, canCheck, canReset }
 
   if (!list) return null;
   const done = { out: items.filter((i) => i.check?.out).length, in: items.filter((i) => i.check?.in).length };
+
+  if (view === 'cases') {
+    return (
+      <InfoContext.Provider value={info}>
+        <div className="mx-auto w-full max-w-4xl space-y-3 p-3" data-testid="case-lists">
+          <div className="flex flex-wrap items-end gap-2">
+            <div className="flex rounded-md border border-slate-300 dark:border-slate-600" role="radiogroup" aria-label={p.view}>
+              {(['aggregated', 'single'] as const).map((m) => (
+                <button key={m} type="button" role="radio" aria-checked={mode === m} onClick={() => setMode(m)} className={`px-3 py-2 text-sm ${mode === m ? 'bg-sky-600 text-white' : ''}`}>
+                  {p.modes[m]}
+                </button>
+              ))}
+            </div>
+          </div>
+          {!canCheck && <Banner tone="info">{p.cannotCheck}</Banner>}
+          {error && <Banner tone="error">{error}</Banner>}
+          {caseLists.length === 0 && <p className="py-8 text-center text-sm text-slate-500">{p.noCases}</p>}
+          {caseLists.map((c) => (
+            <section key={c.caseId} className="rounded-lg border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900" aria-label={c.name}>
+              <header className="flex flex-wrap items-center gap-2 border-b border-slate-100 px-3 py-2 dark:border-slate-800">
+                {c.color && <span className="h-3 w-3 rounded-sm" style={{ backgroundColor: c.color }} />}
+                <h3 className="font-semibold">{c.name}</h3>
+                <span className="text-sm text-slate-500">
+                  {c.trailerId ? `→ ${masterLabel(library!, 'trailers', c.trailerId)}` : p.groupsUnassigned.trailer}
+                  {c.notes ? ` · ${c.notes}` : ''}
+                </span>
+                <span className="ml-auto text-xs text-slate-500 tabular-nums" data-testid="case-progress">
+                  {p.progress(c.checkedOut, c.checkedIn, c.total)}
+                </span>
+              </header>
+              <ul className="divide-y divide-slate-100 dark:divide-slate-800">
+                {c.rows.map((row) =>
+                  mode === 'aggregated' ? (
+                    <AggregatedRow key={row.key} row={row} canCheck={canCheck} onCheck={check} />
+                  ) : (
+                    <ItemRow key={row.key} item={row.items[0]!} title canCheck={canCheck} onCheck={check} />
+                  ),
+                )}
+              </ul>
+            </section>
+          ))}
+        </div>
+      </InfoContext.Provider>
+    );
+  }
 
   return (
     <InfoContext.Provider value={info}>
@@ -134,6 +187,13 @@ export function PackingListView({ projectId, data, library, canCheck, canReset }
                   {p.groups[g]}
                 </option>
               ))}
+          </select>
+        </label>
+        <label className="text-sm">
+          <span className="block text-xs text-slate-500">{p.sortBy}</span>
+          <select className={`${selectClass} w-auto`} value={sortBy} onChange={(e) => setSortBy(e.target.value as 'name' | 'case')} aria-label={p.sortBy}>
+            <option value="name">{p.sort.name}</option>
+            <option value="case">{p.sort.case}</option>
           </select>
         </label>
         <div className="flex rounded-md border border-slate-300 dark:border-slate-600" role="radiogroup" aria-label={p.view}>
