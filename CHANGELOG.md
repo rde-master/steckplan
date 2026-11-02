@@ -7,6 +7,16 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.14.2] - 2026-11-02
+
+### Hinzugefügt
+
+- Docker-Compose-Beispiele: `docker-compose.yml` (eigenes Netz) und `docker-compose.https.yml` mit Caddy (HTTPS mit automatischem Zertifikat), Passwörter aus `.env` (Vorlage `.env.example`); Docker-Anleitung um Compose, HTTPS, Sichern/Wiederherstellen und Desktop-Verbindung ergänzt
+
+### Geändert
+
+- Signalfluss, Netzwerk-Kanäle: An der Stagebox steht je Eingang die Quelle mit Person und der Pult-Kanal („In 1 · Mikro 1 (Anna Muster) → 7“); am Mischpult stehen rechts die belegten Netzwerk-Kanäle mit Name, Gerät und Stagebox-Eingang („7 · Mikro 1 (Anna Muster) ← S16 · In 1“); ein-/ausblendbar über „In Kästen: Kanäle“; Kästen dürfen breiter werden, damit weniger abgeschnitten wird
+
 ## [0.14.1] - 2026-11-02
 
 ### Hinzugefügt
@@ -305,7 +315,8 @@ Meilenstein M0 – Projektgerüst.
 - Docker-Image mit Datenvolume `/data` und Beispiel-`docker-compose.yml`
 - GitHub Actions: Tests und Smoke-Test bei jedem Push, Installer als Artefakte, Docker-Image `:develop`, Release-Workflow für Tags `vX.Y.Z`
 
-[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.14.1...develop
+[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.14.2...develop
+[0.14.2]: https://github.com/rde-master/steckplan/compare/v0.14.1...v0.14.2
 [0.14.1]: https://github.com/rde-master/steckplan/compare/v0.14.0...v0.14.1
 [0.14.0]: https://github.com/rde-master/steckplan/compare/v0.13.4...v0.14.0
 [0.13.4]: https://github.com/rde-master/steckplan/compare/v0.13.3...v0.13.4

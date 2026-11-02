@@ -4,7 +4,7 @@ import type { Cable, DeviceInstance, Project, Template } from '../model/schema';
 import { createYDocFromProject, readProjectFromYDoc } from '../model/ydoc';
 import { createEmptyLibrary } from '../library/library';
 import { listCsv } from '../logistics/exports';
-import { buildPatchLists, checkNetworkChannels, networkRoutes, patchId, readPatch, stageboxChannelLabels, updatePatchEntry, validAssignments, viaText } from './patch';
+import { buildPatchLists, checkNetworkChannels, mixerNetworkRows, stageboxInputInfo, networkRoutes, patchId, readPatch, stageboxChannelLabels, updatePatchEntry, validAssignments, viaText } from './patch';
 
 const T0 = '2026-01-01T00:00:00.000Z';
 const t = (x: Partial<Template> & Pick<Template, 'id' | 'kind' | 'name'>): Template => ({ version: 1, updatedAt: T0, ...x });
@@ -195,6 +195,10 @@ describe('Netzwerk-Kanäle: Kette mit Multicore davor und zweiter Stagebox dazwi
     const list = buildPatchLists(project1, { templates: tpl }).find((l) => l.mixer.id === 'Pult')!;
     expect(viaText(list.network[11]!)).toBe('MC · Send 1 (FOH) → SB1 · In 5 (Netzwerk) → SB2');
     expect([...stageboxChannelLabels(project1, { templates: tpl })]).toEqual([['SB1/i5', 'Pult 12']]);
+    // Anzeige: an der Stagebox Quelle mit Person und Kanal (ein Pult → nur Nummer), am Pult die belegten Kanäle
+    const withPerson = { ...project1, devices: project1.devices.map((d) => (d.id === 'Mikro' ? { ...d, usedByPerson: true, personId: 'anna' } : d)) };
+    expect([...stageboxInputInfo(withPerson, { templates: tpl })]).toEqual([['SB1/i5', { source: 'Mikro (Anna Muster)', channel: '12' }]]);
+    expect(mixerNetworkRows(withPerson, { templates: tpl }).get('Pult')).toEqual([{ channel: 12, name: 'Mikro (Anna Muster)', source: 'Mikro', stagebox: 'SB1', stageboxPort: 'In 5' }]);
     expect(checkNetworkChannels(project1, { templates: tpl })).toEqual([]);
   });
 

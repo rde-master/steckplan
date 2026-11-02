@@ -481,17 +481,39 @@ export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onC
                   </>
                 )}
                 {box.layout.anchors.map(({ port, x, y }) => {
+                  const label = box.labels.get(port.id) ?? port.label;
+                  // linke Spalte bekommt den Platz, den die rechte nicht braucht
+                  const rightChars = Math.max(0, ...box.layout.anchors.filter((a) => a.port.side === 'right').map((a) => (box.labels.get(a.port.id) ?? a.port.label).length));
+                  const leftWidth = Math.max(width / 3, width - rightChars * 6.6 - 34);
+                  if (port.virtual) {
+                    return (
+                      <Text
+                        key={port.id}
+                        name="mixer-channel"
+                        text={label}
+                        x={leftWidth}
+                        y={y - 6}
+                        width={width - leftWidth - 10}
+                        align="right"
+                        fontSize={11}
+                        fill={box.text}
+                        opacity={0.85}
+                        ellipsis
+                        wrap="none"
+                        listening={false}
+                      />
+                    );
+                  }
                   const state = candidateState(box.device.id, port);
                   const isOccupied = occupied.has(`${box.device.id}/${port.id}`);
                   const color = ROLE_COLORS[port.role];
-                  const label = box.labels.get(port.id) ?? port.label;
                   return (
                     <Group key={port.id}>
                       <Text
                         text={label}
                         x={port.side === 'left' ? 10 : 0}
                         y={y - 6}
-                        width={port.side === 'left' ? width / 2 - 10 : width - 10}
+                        width={port.side === 'left' ? leftWidth - 10 : width - 10}
                         align={port.side === 'left' ? 'left' : 'right'}
                         fontSize={11}
                         fill={box.text}
