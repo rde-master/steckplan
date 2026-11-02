@@ -9,6 +9,8 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Hinzugefügt
 
+- Übersicht „Personen ohne Gerät“: oben in Listen → Personen (mit Umschalter „nur Personen ohne Gerät“), hervorgehobene Gerätezahl unter Projektdaten → Personen, Hinweis in den Prüfungen; Personenliste als PDF/CSV enthält jetzt auch Personen ohne Gerät
+- Markieren: Wird der Rahmen an den Rand der Zeichenfläche gezogen (oder darüber hinaus), scrollt die Ansicht in diese Richtung – je näher am Rand, desto schneller; der Rahmen wächst mit (Signalfluss und Bühnenplan). Loslassen außerhalb der Zeichenfläche schließt den Rahmen ab
 - Knopf „Bibliothek“ im Projekt (vor „Exportieren“): öffnet am Desktop das Bibliotheksfenster, im Browser einen neuen Tab – das Projekt bleibt offen
 
 ## [0.13.2] - 2026-11-02

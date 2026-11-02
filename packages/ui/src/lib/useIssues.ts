@@ -1,6 +1,6 @@
 // Alle Prüfungen (Signalfluss + Bühnenplan), immer frisch berechnet.
 import { useMemo } from 'react';
-import { checkDmx, checkLogistics, checkNetwork, checkPower, checkSignalFlow, checkStagePlan, type Issue, type Library } from '@steckplan/core';
+import { checkDmx, checkLogistics, checkNetwork, checkPeople, checkPower, checkSignalFlow, checkStagePlan, type Issue, type Library } from '@steckplan/core';
 import type { ProjectData } from './useProjectData';
 
 export function useIssues(data: ProjectData, library: Library | null): Issue[] {
@@ -15,6 +15,7 @@ export function useIssues(data: ProjectData, library: Library | null): Issue[] {
       ...checkDmx(data, templates),
       ...checkNetwork(data, templates),
       ...checkPower(data, library),
+      ...checkPeople(data, library),
     ];
   }, [data, library]);
 }

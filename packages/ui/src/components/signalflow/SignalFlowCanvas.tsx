@@ -1,10 +1,11 @@
 // Signalfluss-Ansicht: frei platzierbare Kästen, Anschlüsse, Kabel ziehen (Konva).
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Circle, Group, Layer, Line, Rect, Stage, Text } from 'react-konva';
 import type Konva from 'konva';
 import { orientConnection, type EffectivePort } from '@steckplan/core';
 import { useEditor } from '../../lib/editor';
 import { useLongPress } from '../../lib/useLongPress';
+import { useEdgeScroll } from '../../lib/useEdgeScroll';
 import { DIMMED_OPACITY } from '../../lib/display';
 import { anchorOf, bounds, ROLE_COLORS, type CableLine, type DeviceBox } from './model';
 
@@ -67,6 +68,10 @@ export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onC
   const [connecting, setConnecting] = useState<{ from: PortRef; pointer: { x: number; y: number } } | null>(null);
   const [band, setBand] = useState<{ x1: number; y1: number; x2: number; y2: number; additive: boolean } | null>(null);
   const flowMode = useEditor((s) => s.flowMode);
+  // Am Rand beim Markieren automatisch scrollen; der Rahmen wächst mit
+  const getPanView = useCallback(() => useEditor.getState().view, []);
+  const growBand = useCallback((p: { x: number; y: number }) => setBand((b) => (b ? { ...b, x2: p.x, y2: p.y } : b)), []);
+  useEdgeScroll({ active: band !== null, container, getView: getPanView, setView, onPointerWorld: growBand, onRelease: () => finishBand() });
   const dragStart = useRef<{ id: string; x: number; y: number; others: { id: string; x: number; y: number }[] } | null>(null);
   const pinch = useRef<{ distance: number; zoom: number } | null>(null);
   const selectedDevices = useMemo(() => new Set(selection.devices), [selection.devices]);
@@ -192,24 +197,29 @@ export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onC
     if (band) setBand({ ...band, x2: p.x, y2: p.y });
   }
 
+  /** Rahmen abschließen: Geräte darin (und Kabel zwischen ihnen) auswählen */
+  function finishBand(): boolean {
+    const b = band;
+    if (!b) return false;
+    const x1 = Math.min(b.x1, b.x2);
+    const x2 = Math.max(b.x1, b.x2);
+    const y1 = Math.min(b.y1, b.y2);
+    const y2 = Math.max(b.y1, b.y2);
+    const inside = boxes.filter((bx) => bx.x >= x1 && bx.y >= y1 && bx.x + bx.layout.width <= x2 && bx.y + bx.layout.height <= y2).map((bx) => bx.device.id);
+    const insideSet = new Set([...(b.additive ? selection.devices : []), ...inside]);
+    // Kabel zwischen zwei markierten Geräten gleich mit (z. B. zum Löschen)
+    const cables = lines.filter((l) => insideSet.has(l.cable.from.deviceId) && insideSet.has(l.cable.to.deviceId)).map((l) => l.cable.id);
+    if (b.additive) select({ devices: inside, cables }, true);
+    else select({ devices: inside, cables });
+    setBand(null);
+    stageMoved.current = true;
+    setTimeout(() => (stageMoved.current = false), 0);
+    return true;
+  }
+
   function handleStageUp(e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) {
     if (connecting) finishConnect();
-    if (band) {
-      const x1 = Math.min(band.x1, band.x2);
-      const x2 = Math.max(band.x1, band.x2);
-      const y1 = Math.min(band.y1, band.y2);
-      const y2 = Math.max(band.y1, band.y2);
-      const inside = boxes.filter((b) => b.x >= x1 && b.y >= y1 && b.x + b.layout.width <= x2 && b.y + b.layout.height <= y2).map((b) => b.device.id);
-      const insideSet = new Set([...(band.additive ? selection.devices : []), ...inside]);
-      // Kabel zwischen zwei markierten Geräten gleich mit (z. B. zum Löschen)
-      const cables = lines.filter((l) => insideSet.has(l.cable.from.deviceId) && insideSet.has(l.cable.to.deviceId)).map((l) => l.cable.id);
-      if (band.additive) select({ devices: inside, cables }, true);
-      else select({ devices: inside, cables });
-      setBand(null);
-      stageMoved.current = true;
-      setTimeout(() => (stageMoved.current = false), 0);
-      return;
-    }
+    if (finishBand()) return;
     if (e.target === stageRef.current && !stageMoved.current) clearSelection();
   }
 

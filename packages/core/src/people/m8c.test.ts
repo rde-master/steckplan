@@ -9,7 +9,7 @@ import { buildCaseLists, buildPackingList, caseTrailerId, packItems } from '../l
 import { assignGroup, boundsOf, createGroup, readGroups, removeGroup } from '../signalflow/groups';
 import { standLayout, tBarLength } from '../stageplan/docking';
 import { buildProjectUsageLibrary } from './test-helpers';
-import { addPerson, buildDeviceLabels, buildPeopleList, devicePerson, personKinds, personName, readPeople, removePerson, usesPerson } from './people';
+import { addPerson, buildDeviceLabels, buildPeopleList, checkPeople, devicePerson, peopleWithoutDevice, personKinds, personName, readPeople, removePerson, usesPerson } from './people';
 
 const T0 = '2026-01-01T00:00:00.000Z';
 const t = (x: Partial<Template> & Pick<Template, 'id' | 'kind' | 'name'>): Template => ({ version: 1, updatedAt: T0, ...x });
@@ -69,6 +69,18 @@ describe('Personen und „benutzt von Mensch“', () => {
     expect(labels[0]).toMatchObject({ title: 'Mikro 1', person: 'Anna Muster', personKind: 'Sängerin', lines: ['Out → Box · Kanal 5 (XLR 5 m, A5)'] });
     expect(buildDeviceLabels(project(), library, ['Mikro 2']).map((l) => l.title)).toEqual(['Mikro 2']);
     expect(listCsv('people', project(), library)).toContain('Muster;Anna;Sängerin;Mikro 1;Funkmikro;Out;Box · Kanal 5;XLR 5 m');
+  });
+
+  it('Personen ohne Gerät: Übersicht, Hinweis, CSV', () => {
+    const bert = { id: 'bert', lastName: 'Beispiel', firstName: 'Bert', kind: 'Redner' };
+    const p = project({ people: [anna, bert] });
+    expect(peopleWithoutDevice(p, library).map((x) => x.id)).toEqual(['bert']);
+    // Zuordnung zählt nur, wenn „benutzt von Mensch“ aktiv ist
+    const off = project({ people: [anna, bert], devices: project().devices.map((d) => (d.id === 'Mikro 1' ? { ...d, usedByPerson: false } : d)) });
+    expect(peopleWithoutDevice(off, library).map((x) => x.id)).toEqual(['bert', 'anna']);
+    expect(checkPeople(p, library)).toEqual([{ id: 'people-without-device', severity: 'info', message: '1 Person hat kein Gerät (Bert Beispiel).', objectIds: [] }]);
+    expect(checkPeople(project(), library)).toEqual([]);
+    expect(listCsv('people', p, library)).toContain('Beispiel;Bert;Redner;(kein Gerät);;;;');
   });
 
   it('Person anlegen/löschen im Live-Dokument; Geräte verlieren die Zuordnung', () => {

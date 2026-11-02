@@ -60,7 +60,9 @@ export function PeoplePanel({ doc, origin, data, library, editable }: { doc: Y.D
                   <td className="pr-2 pb-2">
                     <TextInput aria-label={`${t.kind}: ${person.lastName}`} list="steckplan-person-kinds" value={person.kind} disabled={!editable} onChange={(e) => updatePerson(doc, person.id, { kind: e.target.value }, origin)} />
                   </td>
-                  <td className="pr-2 pb-2 text-center tabular-nums">{deviceCount(person)}</td>
+                  <td className={`pr-2 pb-2 text-center tabular-nums ${deviceCount(person) === 0 ? 'font-semibold text-amber-700 dark:text-amber-300' : ''}`} title={deviceCount(person) === 0 ? t.noDevice : undefined}>
+                    {deviceCount(person)}
+                  </td>
                   <td className="pb-2">
                     {editable && (
                       <Button variant="ghost" aria-label={`${texts.common.delete}: ${person.firstName} ${person.lastName}`} onClick={() => removePerson(doc, person.id, origin)}>
