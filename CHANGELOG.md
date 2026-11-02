@@ -19,6 +19,7 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 ### Behoben
 
 - Signalfluss: Beim Verschieben eines Kastens ging seine Seitenzuordnung verloren (er landete auf der ersten Seite)
+- Server: Wurde ein Projekt direkt nach dem Schließen wegen Leerlaufs wieder geöffnet, konnte es den Stand vor dem letzten Speichern laden; jetzt wird erst nach dem Speichern neu geladen
 
 ## [0.15.0] - 2026-11-02
 

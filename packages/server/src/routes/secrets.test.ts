@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { createEmptyProject, type Project, type SyncClient } from '@steckplan/core';
 import { isManagedStore } from '../storage/types';
-import { connect, login, sleep, startTestServer, type TestServer } from '../test-utils';
+import { connect, login, startTestServer, waitFor, type TestServer } from '../test-utils';
 
 let server: TestServer | undefined;
 const clients: SyncClient[] = [];
@@ -42,8 +42,7 @@ describe('WLAN-Passwörter im geschützten Bereich', () => {
     expect((await server.app.inject({ method: 'PUT', url: `/api/projects/${id}/secrets/wifi/w1`, headers: { cookie: edit }, payload: { password: 'x'.repeat(64) } })).statusCode).toBe(400);
     expect((await server.app.inject({ method: 'PUT', url: `/api/projects/${id}/secrets/wifi/weg`, headers: { cookie: edit }, payload: { password: 'x' } })).statusCode).toBe(404);
     expect((await server.app.inject({ method: 'PUT', url: `/api/projects/${id}/secrets/wifi/w1`, headers: { cookie: edit }, payload: { password: 'neu;geheim' } })).statusCode).toBe(200);
-    await sleep(100);
-    expect((await server.store.load(id)).secrets.wifiPasswords).toEqual([{ wifiId: 'w1', password: 'neu;geheim' }]);
+    await waitFor(async () => JSON.stringify((await server.store.load(id)).secrets.wifiPasswords) === JSON.stringify([{ wifiId: 'w1', password: 'neu;geheim' }]));
   });
 
   it('QR-Code kommt vom Server, auch für Lese-Zugang', async () => {
@@ -62,7 +61,6 @@ describe('WLAN-Passwörter im geschützten Bereich', () => {
     clients.push(editor);
     await editor.whenSynced();
     editor.doc.getMap('wifi').delete('w1');
-    await sleep(150);
-    expect((await server.store.load(id)).secrets.wifiPasswords).toEqual([]);
+    await waitFor(async () => (await server.store.load(id)).secrets.wifiPasswords.length === 0);
   });
 });
