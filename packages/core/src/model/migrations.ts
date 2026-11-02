@@ -13,6 +13,8 @@ export const migrations: MigrationRegistry = {
   2: (p) => ({ ...p, schemaVersion: 3 }),
   // 3 → 4: Personen, Gruppen, Cases, Lagerbestand, T-Bar, Ton-Patch (Mischpult, Input-/Output-Liste), Strom (Stromanschlüsse, Absicherung, Phase, Leistung je Gerät) – alles optional bzw. leere Listen; vorhandene Daten bleiben unverändert.
   3: (p) => ({ ...p, schemaVersion: 4 }),
+  // 4 → 5: Netzwerk-Kanäle am Mischpult und Zuordnung Quelle → Pult-Kanal, Seiten im Signalfluss – optional; vorhandene Daten bleiben unverändert.
+  4: (p) => ({ ...p, schemaVersion: 5 }),
 };
 
 export class ProjectFormatError extends Error {

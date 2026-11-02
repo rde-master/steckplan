@@ -3,7 +3,7 @@
 // Jede Änderung hier, die bestehende Dateien betrifft, braucht: schemaVersion erhöhen + Migration + Test.
 import { z } from 'zod';
 
-export const CURRENT_SCHEMA_VERSION = 4;
+export const CURRENT_SCHEMA_VERSION = 5;
 
 const id = z.string().min(1);
 const isoDate = z.string();
@@ -156,6 +156,8 @@ export const TemplateSchema = z.object({
   mixer: z.boolean().optional(),
   /** Quelle braucht 48 V Phantomspeisung (Vorschlag in der Input-Liste) (seit Format 4) */
   phantomPower: z.boolean().optional(),
+  /** Mischpult: Anzahl Kanäle, die über das Netzwerk (z. B. von einer digitalen Stagebox) kommen (seit Format 5) */
+  networkChannels: z.number().int().nonnegative().max(512).optional(),
 });
 export type Template = z.infer<typeof TemplateSchema>;
 
@@ -185,7 +187,8 @@ export const DeviceInstanceSchema = z.object({
     .optional(),
   /** Multicore: Länge von Hand statt berechnet (seit Format 3) */
   manualLengthMm: mm.optional(),
-  signalFlow: z.object({ position: PointSchema }).optional(),
+  /** Signalfluss: Position und Seite (seit Format 5; ohne Seite = erste Seite) */
+  signalFlow: z.object({ position: PointSchema, pageId: id.optional() }).optional(),
   mountedOnId: id.optional(),
   dmx: z
     .object({
@@ -205,6 +208,10 @@ export const DeviceInstanceSchema = z.object({
       }),
     )
     .optional(),
+  /** Mischpult: Anzahl Netzwerk-Kanäle, überschreibt die Vorlage (seit Format 5) */
+  networkChannels: z.number().int().nonnegative().max(512).optional(),
+  /** Quelle: liegt auf diesem Kanal eines Mischpults (über eine digitale Stagebox) (seit Format 5) */
+  mixerChannel: z.object({ mixerId: id, channel: z.number().int().positive() }).optional(),
   /** Leistung in Watt, überschreibt die Vorlage (seit Format 4) */
   powerW: z.number().nonnegative().optional(),
   /** Benutzt von Mensch: überschreibt die Vorgabe der Vorlage (seit Format 4) */
@@ -279,6 +286,10 @@ export const PatchEntrySchema = z.object({
   notes: z.string().optional(),
 });
 export type PatchEntry = z.infer<typeof PatchEntrySchema>;
+
+/** Seite im Signalfluss, z. B. „Licht“, „Ton“ (seit Format 5) */
+export const FlowPageSchema = z.object({ id, name: z.string(), order: z.number().default(0) });
+export type FlowPage = z.infer<typeof FlowPageSchema>;
 
 // ---------- Netzwerk ----------
 
@@ -380,6 +391,7 @@ export const ProjectSchema = z.object({
   groups: z.array(GroupSchema).default([]),
   caseTrailers: z.array(CaseTrailerSchema).default([]),
   patch: z.array(PatchEntrySchema).default([]),
+  flowPages: z.array(FlowPageSchema).default([]),
   network: z
     .object({
       subnets: z.array(SubnetSchema).default([]),

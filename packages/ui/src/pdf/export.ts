@@ -13,6 +13,8 @@ import {
   buildPatchLists,
   buildPowerReport,
   cableMatches,
+  crossPageRefs,
+  devicePageId,
   deviceMatches,
   dmxCsv,
   formatCableLength,
@@ -25,6 +27,7 @@ import {
   masterLabel,
   packItems,
   peopleWithoutDevice,
+  sortPages,
   totalW,
   viaText,
   type Filter,
@@ -102,6 +105,8 @@ export interface ExportOptions {
   cutLines: boolean;
   /** Bühnenplan: Gruppenrahmen einzeichnen */
   showGroups: boolean;
+  /** Signalfluss: welche Seiten (leer = alle) */
+  flowPageIds: string[];
 }
 
 export const DEFAULT_OPTIONS: ExportOptions = {
@@ -121,6 +126,7 @@ export const DEFAULT_OPTIONS: ExportOptions = {
   labelFormat: LABEL_FORMATS[0]!.id,
   cutLines: false,
   showGroups: true,
+  flowPageIds: [],
 };
 
 export interface ExportInput {
@@ -317,6 +323,17 @@ export async function buildExportDoc(opts: ExportOptions, input: ExportInput): P
             widths: [30, 50, '*', '*', '*', 28, 70, '*'],
             rows: list.inputs.map((r) => [r.channel, r.port, r.name, target(r), viaText(r), r.phantom ? '48 V' : '', r.stand, r.notes]),
           },
+          ...(list.network.length
+            ? [
+                {
+                  title: `Netzwerk-Kanäle – ${list.mixer.label}`,
+                  subtitle: `${list.network.length} Kanäle über das Netzwerk, ${list.network.filter((r) => r.device).length} belegt`,
+                  headers: ['Kanal', 'Anschluss', 'Name', 'Quelle', 'Über', '48 V', 'Stativ', 'Bemerkung'],
+                  widths: [30, 50, '*', '*', '*', 28, 70, '*'],
+                  rows: list.network.map((r) => [r.channel, r.port, r.name, target(r), viaText(r), r.phantom ? '48 V' : '', r.stand, r.notes]),
+                },
+              ]
+            : []),
           ...(list.outputs.length
             ? [
                 {
@@ -436,20 +453,36 @@ export async function buildExportDoc(opts: ExportOptions, input: ExportInput): P
       );
     }
     case 'signalflow': {
-      const boxes = buildBoxes(data.devices, library, false, { colorMode: input.colorMode, filter, people: data.people });
-      const frames = buildGroupFrames(data.groups, boxes);
-      const lines = buildCableLines(data.cables, boxes, library, input.issues, filter);
-      const boxBounds = signalFlowBounds(boxes);
-      const bounds = boxBounds && frames.length ? boundsOf([boxBounds, ...frames], 0)! : (boxBounds ?? { x: 0, y: 0, width: 800, height: 500 });
+      // je Seite ein Blatt (ohne Seiten: ein Blatt); Auswahl in den Optionen
+      const allPages = sortPages(data.flowPages);
+      const pages = allPages.length ? allPages.filter((p) => opts.flowPageIds.length === 0 || opts.flowPageIds.includes(p.id)) : [{ id: '', name: '', order: 0 }];
       const area = drawableArea(ctx);
-      const worldPerPt = Math.max(bounds.width / area.width, bounds.height / area.height, 0.5);
-      const view = { x: bounds.x - (area.width * worldPerPt - bounds.width) / 2, y: bounds.y - (area.height * worldPerPt - bounds.height) / 2, width: area.width * worldPerPt, height: area.height * worldPerPt };
+      const tiles: PlanTile[] = [];
+      const shownIds: string[] = [];
+      pages.forEach((page, index) => {
+        const devices = data.devices.filter((d) => devicePageId(d, allPages) === page.id);
+        const boxes = buildBoxes(devices, library, false, { colorMode: input.colorMode, filter, people: data.people });
+        shownIds.push(...boxes.map((b) => b.device.id));
+        const frames = buildGroupFrames(data.groups, boxes);
+        const lines = buildCableLines(data.cables, boxes, library, input.issues, filter);
+        const refs = crossPageRefs(data.devices, data.cables, allPages).filter((r) => devices.some((d) => d.id === r.deviceId));
+        const boxBounds = signalFlowBounds(boxes);
+        const base = boxBounds && frames.length ? boundsOf([boxBounds, ...frames], 0)! : (boxBounds ?? { x: 0, y: 0, width: 800, height: 500 });
+        // Platz für die Verweise links und rechts
+        const bounds = refs.length ? { ...base, x: base.x - 160, width: base.width + 320 } : base;
+        const worldPerPt = Math.max(bounds.width / area.width, bounds.height / area.height, 0.5);
+        const view = { x: bounds.x - (area.width * worldPerPt - bounds.width) / 2, y: bounds.y - (area.height * worldPerPt - bounds.height) / 2, width: area.width * worldPerPt, height: area.height * worldPerPt };
+        tiles.push({
+          svg: signalFlowSvg(boxes, lines, view, area.width, area.height, frames, refs),
+          label: page.name ? `${page.name} (${index + 1} von ${pages.length})` : `${index + 1} von ${pages.length}`,
+        });
+      });
       return planDoc(
-        [{ svg: signalFlowSvg(boxes, lines, view, area.width, area.height, frames), label: '1 von 1' }],
+        tiles,
         {
           title: 'Signalfluss',
           scaleText: 'ohne Maßstab',
-          legend: usedCategories(boxes.map((b) => b.device.id), data, library),
+          legend: usedCategories(shownIds, data, library),
           lineLegend: [
             { name: 'Kabel', color: '#475569' },
             { name: 'direkt gesteckt', color: '#64748b', dashed: true },

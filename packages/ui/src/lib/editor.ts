@@ -38,6 +38,9 @@ interface EditorState {
   setDisplay(patch: Partial<SignalFlowDisplay>): void;
   flowMode: FlowMode;
   setFlowMode(mode: FlowMode): void;
+  /** aktuelle Seite im Signalfluss ('' = erste) */
+  flowPage: string;
+  setFlowPage(id: string): void;
   setFilter(filter: Filter): void;
   setColorMode(mode: ColorMode): void;
   setShowCables(show: boolean): void;
@@ -70,10 +73,12 @@ export interface SignalFlowDisplay {
   ownerInLibrary: boolean;
   ownerOnBoxes: boolean;
   peopleOnBoxes: boolean;
+  /** Pult-Kanal an den Eingängen digitaler Stageboxen („→ FOH 12“) */
+  channelsOnBoxes: boolean;
 }
 
 const DISPLAY_KEY = 'steckplan.signalflowDisplay';
-const DEFAULT_DISPLAY: SignalFlowDisplay = { ownerInLibrary: false, ownerOnBoxes: false, peopleOnBoxes: true };
+const DEFAULT_DISPLAY: SignalFlowDisplay = { ownerInLibrary: false, ownerOnBoxes: false, peopleOnBoxes: true, channelsOnBoxes: true };
 
 function loadDisplay(): SignalFlowDisplay {
   try {
@@ -108,6 +113,7 @@ const initial = {
   showDmx: false,
   showStageGroups: true,
   flowMode: 'select' as FlowMode,
+  flowPage: '',
 };
 
 export const useEditor = create<EditorState>((set) => ({
@@ -164,6 +170,9 @@ export const useEditor = create<EditorState>((set) => ({
   },
   setFlowMode(flowMode) {
     set({ flowMode });
+  },
+  setFlowPage(flowPage) {
+    set({ flowPage, selection: { devices: [], cables: [], shapes: [] } });
   },
   display: loadDisplay(),
   setDisplay(patch) {

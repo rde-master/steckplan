@@ -4,7 +4,9 @@ import { ICON } from '../icons';
 import type { ReactNode } from 'react';
 import type * as Y from 'yjs';
 import {
+  devicePageId,
   findPort,
+  moveDevicesToPage,
   rankCableTypes,
   updateCables,
   updateDevices,
@@ -23,7 +25,7 @@ import { isMulticore } from '@steckplan/core';
 import { CableLengthSection, MulticoreLengthSection } from './LengthSection';
 import { DmxSection, NetworkSection } from './DeviceTechSections';
 import { deviceColor } from './model';
-import { GroupSection, MountSideSection, PersonSection, TBarSection } from './PersonGroupSections';
+import { GroupSection, MixerChannelSection, MountSideSection, PersonSection, TBarSection } from './PersonGroupSections';
 
 const s = texts.signalflow;
 const f = texts.library.fields;
@@ -103,6 +105,24 @@ function Logistics({
   );
 }
 
+/** Seite im Signalfluss (nur wenn es mehrere Seiten gibt) */
+function PageSelect({ doc, origin, data, devices, editable }: { doc: Y.Doc; origin: object; data: ProjectData; devices: DeviceInstance[]; editable: boolean }) {
+  if (data.flowPages.length < 2) return null;
+  const ids = new Set(devices.map((d) => devicePageId(d, data.flowPages)));
+  return (
+    <Field label={texts.flowPages.page}>
+      <select className={selectClass} value={ids.size === 1 ? [...ids][0] : ''} disabled={!editable} onChange={(e) => e.target.value && moveDevicesToPage(doc, devices.map((d) => d.id), e.target.value, origin)}>
+        {ids.size !== 1 && <option value="">–</option>}
+        {data.flowPages.map((p) => (
+          <option key={p.id} value={p.id}>
+            {p.name}
+          </option>
+        ))}
+      </select>
+    </Field>
+  );
+}
+
 /** Zahl mit „Vorgabe der Vorlage wiederherstellen“ (z. B. Leistung in W) */
 function MeterlessNumber({ label, value, overridden, disabled, onChange, resetLabel }: { label: string; value: number | undefined; overridden: boolean; disabled: boolean; onChange: (v: number | undefined) => void; resetLabel: string }) {
   return (
@@ -175,6 +195,18 @@ function DeviceProperties({ doc, origin, library, data, device, editable, issues
           />
         </div>
       )}
+      {template?.mixer && (
+        <MeterlessNumber
+          label={f.networkChannels}
+          value={device.networkChannels ?? template.networkChannels}
+          overridden={device.networkChannels !== undefined}
+          disabled={!editable}
+          onChange={(networkChannels) => update({ networkChannels })}
+          resetLabel={s.resetNetworkChannels(template.networkChannels)}
+        />
+      )}
+      <MixerChannelSection doc={doc} origin={origin} library={library} data={data} device={device} editable={editable} />
+      <PageSelect doc={doc} origin={origin} data={data} devices={[device]} editable={editable} />
       <GroupSection doc={doc} origin={origin} data={data} devices={[device]} editable={editable} />
       {deviceExtra?.(device)}
       <TBarSection doc={doc} origin={origin} library={library} data={data} device={device} editable={editable} />
@@ -293,6 +325,7 @@ function MultiProperties({ doc, origin, library, data, devices, cables, editable
       <MasterSelect label={s.trailer} emptyLabel={f.none} entries={library?.masterData.trailers ?? []} value={common('trailerId')} onChange={(trailerId) => setAll({ trailerId })} disabled={!editable} />
       <MasterSelect label={texts.cases.case} emptyLabel={texts.cases.noCase} entries={library?.masterData.cases ?? []} value={common('caseId')} onChange={(caseId) => setAll({ caseId })} disabled={!editable} createKind="cases" />
       {devices.length > 1 && <GroupSection doc={doc} origin={origin} data={data} devices={devices} editable={editable} />}
+      {devices.length > 0 && <PageSelect doc={doc} origin={origin} data={data} devices={devices} editable={editable} />}
       {devices.length > 0 && (
         <MasterSelect
           label={s.category}

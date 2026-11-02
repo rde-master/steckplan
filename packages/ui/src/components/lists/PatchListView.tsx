@@ -55,6 +55,18 @@ export function PatchListView({ doc, origin, data, library, editable }: { doc: Y
                   <Row key={row.id} row={row} inputs={direction === 'inputs'} editable={editable} onChange={(patch) => set(row.id, patch)} />
                 ))}
               </tbody>
+              {direction === 'inputs' && list.network.length > 0 && (
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800" data-testid="patch-network">
+                  <tr>
+                    <th colSpan={7} scope="rowgroup" className="bg-slate-50 px-2 py-1 text-left text-xs font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                      {texts.netChannels.section} ({list.network.filter((r) => r.device).length}/{list.network.length})
+                    </th>
+                  </tr>
+                  {list.network.map((row) => (
+                    <Row key={row.id} row={row} inputs editable={editable} onChange={(patch) => set(row.id, patch)} />
+                  ))}
+                </tbody>
+              )}
             </table>
           </div>
         </section>

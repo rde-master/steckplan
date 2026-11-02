@@ -7,6 +7,9 @@ import {
   assignGroup,
   autoCableType,
   createGroup,
+  crossPageRefs,
+  devicePageId,
+  stageboxChannelLabels,
   duplicateDevices,
   isMulticore,
   removeCables,
@@ -25,6 +28,7 @@ import { texts } from '../../texts';
 import { Banner, Button } from '../ui';
 import { CableTypeChooser, type CableChoice } from './CableTypeChooser';
 import { FilterBar } from '../FilterBar';
+import { FlowPagesBar } from './FlowPages';
 import { ChecksPanel } from './ChecksPanel';
 import { LibrarySidebar } from './LibrarySidebar';
 import { Minimap } from './Minimap';
@@ -53,11 +57,32 @@ export function SignalFlowView({ doc, data, library, editable, undo }: { doc: Y.
   const [viewport, setViewport] = useState({ width: 800, height: 600 });
 
   const issues = useIssues(data, library);
+  // Seiten: nur die Geräte der aktuellen Seite zeigen
+  const flowPage = useEditor((st) => st.flowPage);
+  const setFlowPage = useEditor((st) => st.setFlowPage);
+  const pages = data.flowPages;
+  const currentPage = pages.some((p) => p.id === flowPage) ? flowPage : (pages[0]?.id ?? '');
+  const pageDevices = useMemo(() => data.devices.filter((d) => devicePageId(d, pages) === currentPage), [data.devices, pages, currentPage]);
+  const pageCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const d of data.devices) if (d.signalFlow) counts.set(devicePageId(d, pages), (counts.get(devicePageId(d, pages)) ?? 0) + 1);
+    return counts;
+  }, [data.devices, pages]);
+  const pageRefs = useMemo(() => crossPageRefs(data.devices, data.cables, pages).filter((r) => pageDevices.some((d) => d.id === r.deviceId)), [data.devices, data.cables, pages, pageDevices]);
   const display = useEditor((st) => st.display);
   const setDisplay = useEditor((st) => st.setDisplay);
+  const channelLabels = useMemo(() => (library && display.channelsOnBoxes ? stageboxChannelLabels(data, library) : undefined), [data, library, display.channelsOnBoxes]);
   const boxes = useMemo(
-    () => buildBoxes(data.devices, library, showStageObjects, { colorMode, filter, people: data.people, showPeople: display.peopleOnBoxes, showOwner: display.ownerOnBoxes }),
-    [data.devices, library, showStageObjects, colorMode, filter, data.people, display.peopleOnBoxes, display.ownerOnBoxes],
+    () =>
+      buildBoxes(pageDevices, library, showStageObjects, {
+        colorMode,
+        filter,
+        people: data.people,
+        showPeople: display.peopleOnBoxes,
+        showOwner: display.ownerOnBoxes,
+        ...(channelLabels ? { channelLabels } : {}),
+      }),
+    [pageDevices, library, showStageObjects, colorMode, filter, data.people, display.peopleOnBoxes, display.ownerOnBoxes, channelLabels],
   );
   const groupFrames = useMemo(() => buildGroupFrames(data.groups, boxes), [data.groups, boxes]);
   const lines = useMemo(() => buildCableLines(data.cables, boxes, library, issues, filter), [data.cables, boxes, library, issues, filter]);
@@ -94,7 +119,7 @@ export function SignalFlowView({ doc, data, library, editable, undo }: { doc: Y.
   function add(template: Template, at?: { x: number; y: number }) {
     if (!editable) return;
     const position = at ?? viewCenter();
-    const device = addDevice(doc, template, position, undo.origin);
+    const device = addDevice(doc, template, position, undo.origin, currentPage ? { pageId: currentPage } : {});
     undo.stop();
     select({ devices: [device.id] });
     if (narrow) setPanel('none');
@@ -223,14 +248,24 @@ export function SignalFlowView({ doc, data, library, editable, undo }: { doc: Y.
     setView({ zoom, x: cx - ((cx - view.x) / view.zoom) * zoom, y: cy - ((cy - view.y) / view.zoom) * zoom });
   }
 
+  /** Zu einem Gerät springen – bei Bedarf auf seine Seite wechseln */
+  function jumpToDevice(deviceId: string, extra: { devices?: string[]; cables?: string[] } = {}) {
+    const device = data.devices.find((d) => d.id === deviceId);
+    const page = device ? devicePageId(device, pages) : currentPage;
+    if (page !== currentPage) setFlowPage(page);
+    select({ devices: extra.devices ?? [deviceId], cables: extra.cables ?? [] });
+    const box = boxes.find((b) => b.device.id === deviceId);
+    const pos = box ? { x: box.x + box.layout.width / 2, y: box.y + box.layout.height / 2 } : device?.signalFlow ? { x: device.signalFlow.position.x + 90, y: device.signalFlow.position.y + 40 } : null;
+    if (pos) focus(pos);
+  }
+
   function jump(issue: Issue) {
     const deviceIds = issue.objectIds.filter((id) => data.devices.some((d) => d.id === id));
     const cableIds = issue.objectIds.filter((id) => data.cables.some((c) => c.id === id));
-    select({ devices: deviceIds, cables: cableIds });
     const cable = data.cables.find((c) => cableIds.includes(c.id));
     const targetId = deviceIds[0] ?? cable?.from.deviceId;
-    const box = boxes.find((b) => b.device.id === targetId);
-    if (box) focus({ x: box.x + box.layout.width / 2, y: box.y + box.layout.height / 2 });
+    if (targetId) jumpToDevice(targetId, { devices: deviceIds, cables: cableIds });
+    else select({ devices: deviceIds, cables: cableIds });
   }
 
   // Tastenkürzel
@@ -312,6 +347,10 @@ export function SignalFlowView({ doc, data, library, editable, undo }: { doc: Y.
               <input type="checkbox" checked={display.peopleOnBoxes} onChange={(e) => setDisplay({ peopleOnBoxes: e.target.checked })} />
               {s.showPeople}
             </label>
+            <label className="flex items-center gap-1">
+              <input type="checkbox" checked={display.channelsOnBoxes} onChange={(e) => setDisplay({ channelsOnBoxes: e.target.checked })} />
+              {s.showChannels}
+            </label>
           </span>
         }
       />
@@ -326,6 +365,7 @@ export function SignalFlowView({ doc, data, library, editable, undo }: { doc: Y.
           </Button>
         </div>
       )}
+      <FlowPagesBar doc={doc} origin={undo.origin} pages={pages} current={currentPage} counts={pageCounts} editable={editable} onSelect={setFlowPage} />
       <div className="relative flex min-h-0 flex-1">
         {!narrow && <div className="w-60 shrink-0 border-r border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-900">{sidebar}</div>}
         <div
@@ -348,6 +388,8 @@ export function SignalFlowView({ doc, data, library, editable, undo }: { doc: Y.
             onInvalidConnection={setMessage}
             showDmx={showDmx}
             groups={groupFrames}
+            pageRefs={pageRefs}
+            onPageRef={(ref) => jumpToDevice(ref.targetDeviceId)}
           />
           <Minimap boxes={boxes} viewport={viewport} />
           {message && (

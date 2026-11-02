@@ -4,7 +4,7 @@ import type { Cable, DeviceInstance, Project, Template } from '../model/schema';
 import { createYDocFromProject, readProjectFromYDoc } from '../model/ydoc';
 import { createEmptyLibrary } from '../library/library';
 import { listCsv } from '../logistics/exports';
-import { buildPatchLists, patchId, readPatch, updatePatchEntry, viaText } from './patch';
+import { buildPatchLists, checkNetworkChannels, networkRoutes, patchId, readPatch, stageboxChannelLabels, updatePatchEntry, validAssignments, viaText } from './patch';
 
 const T0 = '2026-01-01T00:00:00.000Z';
 const t = (x: Partial<Template> & Pick<Template, 'id' | 'kind' | 'name'>): Template => ({ version: 1, updatedAt: T0, ...x });
@@ -112,5 +112,55 @@ describe('Ton-Patch: Input- und Output-Liste', () => {
     updatePatchEntry(doc, patchId('FOH', 'in1'), { name: undefined }, null);
     expect(readPatch(doc)).toEqual([]);
     expect(readProjectFromYDoc(doc).ok).toBe(true);
+  });
+});
+
+describe('Netzwerk-Kanäle (digitale Stagebox)', () => {
+  const net = (id: string) => ({ id, label: 'Netz', connector: 'RJ45', direction: 'bi' as const, signal: 'Dante', isNetwork: true });
+  const tpl = [
+    ...templates,
+    t({ id: 'dstage', kind: 'device', name: 'Digitale Stagebox', ports: [audio('i1', 'In 1', 'in'), audio('i2', 'In 2', 'in'), net('n')] }),
+    t({ id: 'dpult', kind: 'device', name: 'Digitalpult', mixer: true, networkChannels: 32, ports: [net('n'), audio('l1', 'Local 1', 'in')] }),
+  ];
+  const base = (extra: Partial<Project> = {}) =>
+    project({
+      devices: [dev('Gesang', 'kondensator'), dev('Snare', 'dyn'), dev('Box', 'dstage'), dev('DFOH', 'dpult'), dev('St1', 'stand')],
+      cables: [cable('a', ['Gesang', 'out'], ['Box', 'i1']), cable('b', ['Box', 'i2'], ['Snare', 'out']), cable('n', ['Box', 'n'], ['DFOH', 'n'])],
+      ...extra,
+    });
+
+  it('Kette Quelle → Stagebox → Netzwerkkabel → Pult wird erkannt; ohne Netzwerkkabel keine Zuordnung möglich', () => {
+    const p = base();
+    const routes = networkRoutes(p.devices[0]!, p, { templates: tpl });
+    expect(routes.map((r) => [r.mixer.id, r.stagebox.id, r.stageboxPort, r.sourcePort])).toEqual([['DFOH', 'Box', 'In 1', 'Out']]);
+    const noNet = base({ cables: base().cables.filter((c) => c.id !== 'n') });
+    expect(networkRoutes(noNet.devices[0]!, noNet, { templates: tpl })).toEqual([]);
+  });
+
+  it('Zuordnung erscheint als Netzwerk-Kanal in der Input-Liste und an der Stagebox', () => {
+    const p = base({ devices: base().devices.map((d) => (d.id === 'Gesang' ? { ...d, mixerChannel: { mixerId: 'DFOH', channel: 12 } } : d)) });
+    const list = buildPatchLists(p, { templates: tpl }).find((l) => l.mixer.id === 'DFOH')!;
+    expect(list.network).toHaveLength(32);
+    expect(list.network[11]).toMatchObject({ channel: 12, port: 'Netz 12', name: 'Gesang', phantom: true, devicePort: 'Out' });
+    expect(viaText(list.network[11]!)).toBe('Box · In 1 (Netzwerk)');
+    expect(list.network[0]!.device).toBeUndefined();
+    expect(list.inputs.map((r) => r.port)).toEqual(['Local 1']);
+    expect([...stageboxChannelLabels(p, { templates: tpl })]).toEqual([['Box/i1', 'DFOH 12']]);
+    expect(checkNetworkChannels(p, { templates: tpl })).toEqual([]);
+  });
+
+  it('Prüfungen: Kette unterbrochen, Kanal fehlt, Kanal doppelt; Anzahl je Pult änderbar', () => {
+    const assigned = base({
+      devices: base().devices.map((d) =>
+        d.id === 'Gesang' ? { ...d, mixerChannel: { mixerId: 'DFOH', channel: 5 } } : d.id === 'Snare' ? { ...d, mixerChannel: { mixerId: 'DFOH', channel: 5 } } : d.id === 'DFOH' ? { ...d, networkChannels: 8 } : d,
+      ),
+    });
+    expect(checkNetworkChannels(assigned, { templates: tpl }).map((i) => i.message)).toEqual(['DFOH Kanal 5 ist doppelt belegt (Gesang, Snare).']);
+    expect(buildPatchLists(assigned, { templates: tpl }).find((l) => l.mixer.id === 'DFOH')!.network).toHaveLength(8);
+    const broken = { ...assigned, cables: assigned.cables.filter((c) => c.id !== 'n') };
+    expect(checkNetworkChannels(broken, { templates: tpl }).map((i) => i.message)).toContain('Gesang: Kanal 5 auf DFOH – keine durchgehende Kette (Quelle → Stagebox → Netzwerkkabel → Pult).');
+    expect(validAssignments(broken, { templates: tpl })).toEqual([]);
+    const outOfRange = { ...assigned, devices: assigned.devices.map((d) => (d.id === 'Gesang' ? { ...d, mixerChannel: { mixerId: 'DFOH', channel: 20 } } : d)) };
+    expect(checkNetworkChannels(outOfRange, { templates: tpl }).map((i) => i.message)).toContain('Gesang: DFOH hat keinen Kanal 20.');
   });
 });

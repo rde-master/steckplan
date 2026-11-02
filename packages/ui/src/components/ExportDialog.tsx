@@ -2,7 +2,8 @@
 import { Download } from 'lucide-react';
 import { ICON } from './icons';
 import { useState } from 'react';
-import { can, formatAppTitle, isFilterActive, VERSION, type GroupBy, type Issue, type Library, type ProjectMeta } from '@steckplan/core';
+import { ExportPreview } from './ExportPreview';
+import { can, formatAppTitle, isFilterActive, sortPages, VERSION, type GroupBy, type Issue, type Library, type ProjectMeta } from '@steckplan/core';
 import { api, errorMessage } from '../lib/api';
 import { useEditor } from '../lib/editor';
 import { useSession } from '../lib/session';
@@ -67,23 +68,28 @@ export function ExportDialog({
   const canSeeSecrets = !!session && can(session.access, 'viewSecrets');
   const set = (patch: Partial<ExportOptions>) => setOpts((o) => ({ ...o, ...patch }));
 
+  /** PDF-Definition wie beim Herunterladen (auch für die Vorschau) */
+  async function makeDoc() {
+    const passwords = opts.kind === 'wifi' && canSeeSecrets && opts.printPassword ? Object.fromEntries((await api.getSecrets(projectId)).wifiPasswords.map((w) => [w.wifiId, w.password])) : undefined;
+    return buildExportDoc(opts, {
+      data,
+      library,
+      meta,
+      filter,
+      colorMode,
+      issues,
+      appTitle: formatAppTitle(VERSION),
+      by: session?.name ?? '',
+      fetchQr: async (wifiId) => (await fetch(api.wifiQrUrl(projectId, wifiId, String(Date.now())))).text(),
+      ...(passwords ? { passwords } : {}),
+    });
+  }
+
   async function createPdf() {
     setBusy(true);
     setError(null);
     try {
-      const passwords = opts.kind === 'wifi' && canSeeSecrets && opts.printPassword ? Object.fromEntries((await api.getSecrets(projectId)).wifiPasswords.map((w) => [w.wifiId, w.password])) : undefined;
-      const doc = await buildExportDoc(opts, {
-        data,
-        library,
-        meta,
-        filter,
-        colorMode,
-        issues,
-        appTitle: formatAppTitle(VERSION),
-        by: session?.name ?? '',
-        fetchQr: async (wifiId) => (await fetch(api.wifiQrUrl(projectId, wifiId, String(Date.now())))).text(),
-        ...(passwords ? { passwords } : {}),
-      });
+      const doc = await makeDoc();
       const { createPdfBlob } = await import('../pdf/generate');
       download(await createPdfBlob(doc), exportFileName(meta, opts.kind, 'pdf'));
       onClose();
@@ -111,6 +117,7 @@ export function ExportDialog({
     <Modal
       title={e.title}
       onClose={onClose}
+      wide
       footer={
         <>
           <Button onClick={onClose}>{texts.common.cancel}</Button>
@@ -121,6 +128,7 @@ export function ExportDialog({
         </>
       }
     >
+      <div className="grid gap-4 lg:grid-cols-[22rem_1fr]">
       <div className="space-y-3">
         {field(
           e.document,
@@ -284,8 +292,35 @@ export function ExportDialog({
           </div>
         )}
 
+        {opts.kind === 'signalflow' && data.flowPages.length > 1 && (
+          <div className="space-y-1" role="group" aria-label={e.flowPages}>
+            <div className="text-xs text-slate-500">{e.flowPages}</div>
+            {sortPages(data.flowPages).map((p) => (
+              <label key={p.id} className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={opts.flowPageIds.length === 0 || opts.flowPageIds.includes(p.id)}
+                  onChange={(ev) => {
+                    const all = sortPages(data.flowPages).map((x) => x.id);
+                    const current = opts.flowPageIds.length === 0 ? all : opts.flowPageIds;
+                    const next = ev.target.checked ? [...current, p.id] : current.filter((x) => x !== p.id);
+                    set({ flowPageIds: next.length === all.length ? [] : next.length === 0 ? current : all.filter((x) => next.includes(x)) });
+                  }}
+                />
+                {p.name}
+              </label>
+            ))}
+          </div>
+        )}
+
         {isFilterActive(filter) && opts.kind !== 'wifi' && <Banner tone="info">{e.filterActive}</Banner>}
         {error && <Banner tone="error">{error}</Banner>}
+      </div>
+      <ExportPreview
+        makeDoc={makeDoc}
+        {...(CSV_KINDS.includes(opts.kind) ? { makeCsv: () => buildCsv(opts.kind, data, library, filter) } : {})}
+        version={JSON.stringify({ opts, filter, colorMode, n: data.devices.length + data.cables.length })}
+      />
       </div>
     </Modal>
   );

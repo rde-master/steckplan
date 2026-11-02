@@ -6,6 +6,8 @@ import type * as Y from 'yjs';
 import {
   addPerson,
   assignGroup,
+  networkChannelCount,
+  networkRoutes,
   createGroup,
   personName,
   removeGroup,
@@ -200,6 +202,63 @@ export function MountSideSection({ doc, origin, library, data, device, editable 
           </label>
         ))}
       </div>
+    </div>
+  );
+}
+
+/** Quelle → Kanal eines Mischpults über eine digitale Stagebox (nur bei durchgehender Kette). */
+export function MixerChannelSection({ doc, origin, library, data, device, editable }: SectionProps) {
+  const t = texts.netChannels;
+  if (!library) return null;
+  const routes = networkRoutes(device, data, library);
+  const current = device.mixerChannel;
+  if (routes.length === 0 && !current) return null;
+  const templates = new Map(library.templates.map((x) => [x.id, x]));
+  const value = current ? `${current.mixerId}:${current.channel}` : '';
+  const routeOk = !current || routes.some((r) => r.mixer.id === current.mixerId);
+  const occupiedBy = (mixerId: string, channel: number) =>
+    data.devices.find((d) => d.id !== device.id && d.mixerChannel?.mixerId === mixerId && d.mixerChannel.channel === channel)?.label;
+  return (
+    <div className="space-y-1 rounded-md border border-slate-200 p-2 dark:border-slate-700" data-testid="mixer-channel-section">
+      <Field label={t.label}>
+        <select
+          className={selectClass}
+          value={routeOk ? value : ''}
+          disabled={!editable || routes.length === 0}
+          onChange={(e) => {
+            const v = e.target.value;
+            if (!v) return updateDevices(doc, [{ id: device.id, patch: { mixerChannel: undefined } }], origin);
+            const [mixerId, channel] = [v.slice(0, v.lastIndexOf(':')), Number(v.slice(v.lastIndexOf(':') + 1))];
+            updateDevices(doc, [{ id: device.id, patch: { mixerChannel: { mixerId, channel } } }], origin);
+          }}
+        >
+          <option value="">{t.none}</option>
+          {routes.map((r) => (
+            <optgroup key={r.mixer.id} label={t.group(r.mixer.label, r.stagebox.label, r.stageboxPort)}>
+              {Array.from({ length: networkChannelCount(r.mixer, templates.get(r.mixer.templateId)) }, (_, i) => i + 1).map((ch) => {
+                const busy = occupiedBy(r.mixer.id, ch);
+                return (
+                  <option key={ch} value={`${r.mixer.id}:${ch}`}>
+                    {t.option(r.mixer.label, ch)}
+                    {busy ? ` (${t.busy(busy)})` : ''}
+                  </option>
+                );
+              })}
+            </optgroup>
+          ))}
+        </select>
+      </Field>
+      {routes.length > 0 && <p className="text-xs text-slate-500">{t.hint}</p>}
+      {!routeOk && current && (
+        <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-amber-700 dark:text-amber-300">
+          {t.broken(data.devices.find((d) => d.id === current.mixerId)?.label ?? '?', current.channel)}
+          {editable && (
+            <Button variant="ghost" className="min-h-7 px-2 text-xs" onClick={() => updateDevices(doc, [{ id: device.id, patch: { mixerChannel: undefined } }], origin)}>
+              {t.remove}
+            </Button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

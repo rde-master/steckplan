@@ -45,7 +45,7 @@ export function addDevice(
   template: Template,
   position: { x: number; y: number },
   origin: unknown,
-  options: { view?: 'signalFlow' | 'stagePlan'; layerId?: string; dock?: Partial<DeviceInstance> } = {},
+  options: { view?: 'signalFlow' | 'stagePlan'; layerId?: string; dock?: Partial<DeviceInstance>; pageId?: string } = {},
 ): DeviceInstance {
   const layers = readLayers(doc);
   const pos = { x: Math.round(position.x), y: Math.round(position.y) };
@@ -54,7 +54,7 @@ export function addDevice(
     templateId: template.id,
     layerId: options.layerId ?? layers[0]?.id ?? 'layer',
     label: nextLabel(template.name, readDevices(doc)),
-    ...(options.view === 'stagePlan' ? { stagePlan: { position: pos, rotationDeg: 0, ...(options.dock?.stagePlan ?? {}) } } : { signalFlow: { position: pos } }),
+    ...(options.view === 'stagePlan' ? { stagePlan: { position: pos, rotationDeg: 0, ...(options.dock?.stagePlan ?? {}) } } : { signalFlow: { position: pos, ...(options.pageId ? { pageId: options.pageId } : {}) } }),
     ...(options.dock?.mountedOnId ? { mountedOnId: options.dock.mountedOnId } : {}),
     ...(template.defaultOwnerId ? { ownerId: template.defaultOwnerId } : {}),
     ...(template.defaultTrailerId ? { trailerId: template.defaultTrailerId } : {}),
@@ -107,7 +107,7 @@ export function duplicateDevices(
       ...device,
       id: newId(),
       label: nextLabel(base, [...all, ...created]),
-      signalFlow: device.signalFlow && { position: { x: device.signalFlow.position.x + offset.x, y: device.signalFlow.position.y + offset.y } },
+      signalFlow: device.signalFlow && { ...device.signalFlow, position: { x: device.signalFlow.position.x + offset.x, y: device.signalFlow.position.y + offset.y } },
       stagePlan: device.stagePlan && {
         ...device.stagePlan,
         position: { x: device.stagePlan.position.x + stageOffset.x, y: device.stagePlan.position.y + stageOffset.y },

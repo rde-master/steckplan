@@ -20,6 +20,7 @@ export const Y_COLLECTIONS = {
   groups: ['groups'],
   caseTrailers: ['caseTrailers'],
   patch: ['patch'],
+  flowPages: ['flowPages'],
   subnets: ['network', 'subnets'],
   wifi: ['network', 'wifi'],
 } as const satisfies Record<string, CollectionPath>;
@@ -94,7 +95,7 @@ export function readRawProjectFromYDoc(doc: Y.Doc): Json {
     const items = Object.values(doc.getMap(name).toJSON() as Record<string, Json>);
     // Stabile Reihenfolge in der Datei: Ebenen nach `order`, alles andere nach id
     items.sort((a, b) =>
-      name === 'layers'
+      name === 'layers' || name === 'flowPages'
         ? Number(a.order ?? 0) - Number(b.order ?? 0)
         : String(a.id).localeCompare(String(b.id)),
     );

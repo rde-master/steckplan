@@ -74,7 +74,7 @@ export function AccessBadge({ access }: { access: Access }) {
   return <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${tone}`}>{accessText(access)}</span>;
 }
 
-export function Modal({ title, onClose, children, footer }: { title: string; onClose: () => void; children: ReactNode; footer?: ReactNode }) {
+export function Modal({ title, onClose, children, footer, wide = false }: { title: string; onClose: () => void; children: ReactNode; footer?: ReactNode; wide?: boolean }) {
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
   useEffect(() => {
@@ -87,7 +87,7 @@ export function Modal({ title, onClose, children, footer }: { title: string; onC
       aria-labelledby={titleId}
       onClose={onClose}
       onCancel={onClose}
-      className="m-auto w-[min(40rem,calc(100vw-2rem))] rounded-lg bg-white p-0 text-slate-900 shadow-xl backdrop:bg-slate-900/50 dark:bg-slate-800 dark:text-slate-100"
+      className={`m-auto ${wide ? 'w-[min(84rem,calc(100vw-2rem))]' : 'w-[min(40rem,calc(100vw-2rem))]'} rounded-lg bg-white p-0 text-slate-900 shadow-xl backdrop:bg-slate-900/50 dark:bg-slate-800 dark:text-slate-100`}
     >
       <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-slate-700">
         <h2 id={titleId} className="text-base font-semibold">{title}</h2>
@@ -95,7 +95,7 @@ export function Modal({ title, onClose, children, footer }: { title: string; onC
           <X {...ICON} />
         </Button>
       </div>
-      <div className="max-h-[70vh] overflow-y-auto px-4 py-3">{children}</div>
+      <div className={`${wide ? 'max-h-[80vh]' : 'max-h-[70vh]'} overflow-y-auto px-4 py-3`}>{children}</div>
       {footer && <div className="flex flex-wrap justify-end gap-2 border-t border-slate-200 px-4 py-3 dark:border-slate-700">{footer}</div>}
     </dialog>
   );
