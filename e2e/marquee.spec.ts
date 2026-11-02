@@ -38,6 +38,15 @@ test('Markieren: Rahmen ziehen, mehrere Objekte auswählen und gemeinsam verschi
     })
   ).json();
 
+  // Knopf „Bibliothek“ im Projekt öffnet die Bibliothek in einem neuen Tab, das Projekt bleibt offen
+  await page.goto(`/projekt/${id}`);
+  const popupPromise = page.context().waitForEvent('page');
+  await page.getByRole('button', { name: 'Bibliothek', exact: true }).click();
+  const popup = await popupPromise;
+  await expect(popup).toHaveURL(/\/bibliothek$/);
+  await expect(popup.getByRole('heading', { name: 'Bibliothek' })).toBeVisible();
+  await popup.close();
+
   // ---------- Signalfluss ----------
   await page.goto(`/projekt/${id}`);
   await expect.poll(() => page.evaluate(() => window.__steckplanStage?.find('.device').length ?? 0)).toBe(3);

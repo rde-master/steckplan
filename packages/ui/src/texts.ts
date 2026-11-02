@@ -55,6 +55,8 @@ export const texts = {
   },
   project: {
     meta: 'Projektdaten',
+    library: 'Bibliothek',
+    libraryTitle: 'Bibliothek öffnen (Vorlagen und Stammdaten) – das Projekt bleibt offen',
     fields: {
       name: 'Projektname',
       venue: 'Ort / Veranstaltungsstätte',

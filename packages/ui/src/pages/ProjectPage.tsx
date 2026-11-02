@@ -1,4 +1,4 @@
-import { ArrowLeft, Copy } from 'lucide-react';
+import { ArrowLeft, Copy, LibraryBig } from 'lucide-react';
 import { ICON } from '../components/icons';
 import { useEffect, useState } from 'react';
 import type * as Y from 'yjs';
@@ -123,6 +123,18 @@ export function ProjectPage({ id }: { id: string }) {
                 {texts.project.readOnly}
               </span>
             )}
+            <Button
+              variant="ghost"
+              title={texts.project.libraryTitle}
+              onClick={() => {
+                // Desktop: eigenes Fenster; Browser/Server-Fenster: neuer Tab, das Projekt bleibt offen
+                const desktop = getDesktop();
+                if (desktop) void desktop.openLibrary();
+                else window.open('/bibliothek', '_blank', 'noopener');
+              }}
+            >
+              <LibraryBig {...ICON} /> {texts.project.library}
+            </Button>
             <Button variant="ghost" onClick={() => setShowExport(true)} disabled={!library || !project}>
               {texts.exportDialog.open}
             </Button>
