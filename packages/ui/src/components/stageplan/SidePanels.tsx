@@ -1,9 +1,9 @@
 // Seitenleisten des Bühnenplans: Nicht platziert, Ebenen, Hintergrund.
-import { Check, Eye, EyeOff, Lock, LockOpen, Plus, Ruler, X } from 'lucide-react';
+import { Check, Eye, EyeOff, Lock, LockOpen, Plus, Ruler, User, Warehouse, X } from 'lucide-react';
 import { ICON } from '../icons';
 import { useRef, useState } from 'react';
 import type * as Y from 'yjs';
-import { addLayer, backgroundScale, isMulticore, removeLayer, setBackground, updateLayer, type Background, type DeviceInstance, type Library } from '@steckplan/core';
+import { addLayer, backgroundScale, devicePerson, isMulticore, personName, removeLayer, setBackground, updateLayer, type Background, type DeviceInstance, type Library, type Person } from '@steckplan/core';
 import { imageToBackground, isPdf, loadPdf, type LoadedPdf } from '../../lib/background';
 import { useEditor } from '../../lib/editor';
 import type { ProjectData } from '../../lib/useProjectData';
@@ -12,7 +12,7 @@ import { Banner, Button, Field, TextInput } from '../ui';
 
 const s = texts.stageplan;
 
-export function UnplacedPanel({ devices, library, editable, onPlace }: { devices: DeviceInstance[]; library: Library | null; editable: boolean; onPlace: (id: string) => void }) {
+export function UnplacedPanel({ devices, people = [], library, editable, onPlace }: { devices: DeviceInstance[]; people?: Person[]; library: Library | null; editable: boolean; onPlace: (id: string) => void }) {
   const templates = new Map((library?.templates ?? []).map((t) => [t.id, t]));
   const unplaced = devices
     .filter((d) => !d.stagePlan && (templates.get(d.templateId)?.kind !== 'cableType' || isMulticore(templates.get(d.templateId))))
@@ -26,6 +26,8 @@ export function UnplacedPanel({ devices, library, editable, onPlace }: { devices
         <ul className="space-y-1" data-testid="unplaced-list">
           {unplaced.map((d) => {
             const t = templates.get(d.templateId);
+            const person = personName(devicePerson(d, t, people));
+            const owner = d.ownerId ? library?.masterData.owners.find((o) => o.id === d.ownerId)?.name : undefined;
             return (
               <li
                 key={d.id}
@@ -37,7 +39,23 @@ export function UnplacedPanel({ devices, library, editable, onPlace }: { devices
                 className={`flex items-center gap-2 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 ${editable ? 'cursor-grab' : ''}`}
               >
                 <span className="h-3.5 w-3.5 shrink-0 rounded border border-slate-300" style={{ backgroundColor: d.colorOverride ?? t?.defaultColor ?? '#cbd5e1' }} />
-                <span className="min-w-0 flex-1 truncate">{d.label}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate">{d.label}</span>
+                  {(person || owner) && (
+                    <span className="flex flex-wrap gap-x-2 text-xs text-slate-500 dark:text-slate-400">
+                      {person && (
+                        <span className="inline-flex min-w-0 items-center gap-0.5 text-sky-700 dark:text-sky-300" data-testid="unplaced-person" title={s.unplacedPerson}>
+                          <User size={12} aria-hidden /> <span className="truncate">{person}</span>
+                        </span>
+                      )}
+                      {owner && (
+                        <span className="inline-flex min-w-0 items-center gap-0.5" data-testid="unplaced-owner" title={s.unplacedOwner}>
+                          <Warehouse size={12} aria-hidden /> <span className="truncate">{owner}</span>
+                        </span>
+                      )}
+                    </span>
+                  )}
+                </span>
                 {editable && (
                   <button type="button" className="rounded px-1.5 text-base leading-none text-slate-500 hover:bg-slate-200" aria-label={`${s.place}: ${d.label}`} onClick={() => onPlace(d.id)}>
                     <Plus {...ICON} />

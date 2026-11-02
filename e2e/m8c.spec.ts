@@ -43,6 +43,8 @@ test('M8c: Stammdaten direkt anlegen, Vorlage kopieren, Personen, Gruppen, T-Bar
   await page.getByRole('combobox', { name: 'Standard-Case' }).selectOption({ label: '+ Case neu anlegen …' });
   await page.getByLabel('Name (Case)').fill('Mikrocase M8c');
   await page.getByRole('button', { name: 'Anlegen', exact: true }).click();
+  // erst speichern, wenn der neue Case angelegt und ausgewählt ist (Antwort des Servers abwarten)
+  await expect(page.getByRole('combobox', { name: 'Standard-Case' })).toHaveValue(/.+/);
   await page.getByLabel('Benutzt von Mensch').check();
   await page.getByLabel('Im Lager (Stück)').fill('1');
   await page.getByRole('button', { name: 'Speichern' }).click();
