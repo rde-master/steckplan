@@ -96,6 +96,10 @@ export function StagePlanCanvas(props: StageCanvasProps) {
   const toggleShape = useEditor((s) => s.toggleShape);
   const clearSelection = useEditor((s) => s.clearSelection);
   const tool = useEditor((s) => s.tool);
+  /** Auswählen und Markieren: Objekte lassen sich anklicken und ziehen */
+  const pointerTool = tool === 'select' || tool === 'marquee';
+  const [band, setBand] = useState<{ x1: number; y1: number; x2: number; y2: number; additive: boolean } | null>(null);
+  const bandEnded = useRef(false);
   const setTool = useEditor((s) => s.setTool);
   const moveBackground = useEditor((s) => s.moveBackground);
   const focusRequest = useEditor((s) => s.focusRequest);
@@ -140,10 +144,10 @@ export function StagePlanCanvas(props: StageCanvasProps) {
     const stage = stageRef.current;
     if (!tr || !stage) return;
     const only = selection.devices.length === 1 && selection.shapes.length === 0 ? items.find((i) => i.device.id === selection.devices[0]) : undefined;
-    const node = editable && only && !only.locked && tool === 'select' ? stage.findOne(`#stage-device-${only.device.id}`) : undefined;
+    const node = editable && only && !only.locked && pointerTool ? stage.findOne(`#stage-device-${only.device.id}`) : undefined;
     tr.nodes(node ? [node] : []);
     tr.getLayer()?.batchDraw();
-  }, [selection, items, editable, tool]);
+  }, [selection, items, editable, pointerTool]);
 
   // Esc / Enter für Zeichenwerkzeuge
   useEffect(() => {
@@ -185,7 +189,9 @@ export function StagePlanCanvas(props: StageCanvasProps) {
   function handleTouchMove(e: Konva.KonvaEventObject<TouchEvent>) {
     const touches = e.evt.touches;
     if (touches.length !== 2) {
-      setPointer(world());
+      const p = world();
+      setPointer(p);
+      if (band && p) setBand({ ...band, x2: p.x, y2: p.y });
       return;
     }
     e.evt.preventDefault();
@@ -196,6 +202,39 @@ export function StagePlanCanvas(props: StageCanvasProps) {
     const center = { x: (t1.clientX + t2.clientX) / 2 - rect.left, y: (t1.clientY + t2.clientY) / 2 - rect.top };
     if (!pinch.current) pinch.current = { distance, zoom: view.zoom };
     zoomAt(center, pinch.current.zoom * (distance / pinch.current.distance));
+  }
+
+  // ---------- Markieren: Rahmen aufziehen ----------
+
+  function startBand(e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) {
+    if (tool !== 'marquee') return;
+    const target = e.target;
+    // nur auf leerer Fläche (oder dem nicht verschiebbaren Hintergrundbild)
+    if (target !== stageRef.current && target.name() !== 'background') return;
+    const p = world();
+    if (!p) return;
+    const additive = 'shiftKey' in e.evt && (e.evt.shiftKey || e.evt.ctrlKey || e.evt.metaKey);
+    setBand({ x1: p.x, y1: p.y, x2: p.x, y2: p.y, additive });
+  }
+
+  function finishBand() {
+    if (!band) return;
+    const x1 = Math.min(band.x1, band.x2);
+    const x2 = Math.max(band.x1, band.x2);
+    const y1 = Math.min(band.y1, band.y2);
+    const y2 = Math.max(band.y1, band.y2);
+    const inRect = (p: StagePt) => p.x >= x1 && p.x <= x2 && p.y >= y1 && p.y <= y2;
+    setBand(null);
+    bandEnded.current = true;
+    if (x2 - x1 < 1 && y2 - y1 < 1) {
+      bandEnded.current = false;
+      return; // nur geklickt
+    }
+    // Geräte/Träger: Mittelpunkt im Rahmen; Wände, Texte, Maßlinien: alle Punkte im Rahmen
+    const deviceIds = items.filter((i) => !i.locked && inRect({ x: i.x, y: i.y })).map((i) => i.device.id);
+    const shapeIds = shapes.filter((sh) => !lockedLayers.has(sh.layerId) && sh.points.length > 0 && sh.points.every(inRect)).map((sh) => sh.id);
+    if (band.additive) select({ devices: deviceIds, shapes: shapeIds }, true);
+    else select({ devices: deviceIds, shapes: shapeIds, cables: [] });
   }
 
   function finishWall() {
@@ -337,18 +376,32 @@ export function StagePlanCanvas(props: StageCanvasProps) {
             zoomAt(pos, view.zoom * Math.exp(-e.evt.deltaY * 0.0025));
           } else setView({ ...view, x: view.x - e.evt.deltaX, y: view.y - e.evt.deltaY });
         }}
-        onMouseMove={() => setPointer(world())}
+        onMouseDown={(e) => startBand(e)}
+        onTouchStart={(e) => startBand(e)}
+        onMouseMove={() => {
+          const p = world();
+          setPointer(p);
+          if (band && p) setBand({ ...band, x2: p.x, y2: p.y });
+        }}
+        onMouseUp={() => finishBand()}
         onTouchMove={handleTouchMove}
-        onTouchEnd={() => (pinch.current = null)}
+        onTouchEnd={() => {
+          pinch.current = null;
+          finishBand();
+        }}
         onClick={(e) => {
-          if (tool !== 'select') {
+          if (!pointerTool) {
             handleToolClick(e);
+            return;
+          }
+          if (bandEnded.current) {
+            bandEnded.current = false;
             return;
           }
           if (e.target === stageRef.current) clearSelection();
         }}
         onTap={(e) => {
-          if (tool !== 'select') handleToolClick(e);
+          if (!pointerTool) handleToolClick(e);
           else if (e.target === stageRef.current) clearSelection();
         }}
       >
@@ -362,8 +415,8 @@ export function StagePlanCanvas(props: StageCanvasProps) {
               scaleX={bgScale}
               scaleY={bgScale}
               opacity={background.opacity ?? 0.5}
-              draggable={editable && moveBackground && tool === 'select'}
-              listening={moveBackground && tool === 'select'}
+              draggable={editable && moveBackground && pointerTool}
+              listening={moveBackground && pointerTool}
               onDragEnd={(e) => {
                 e.cancelBubble = true;
                 props.onBackgroundMove({ x: Math.round(e.target.x()), y: Math.round(e.target.y()) });
@@ -376,7 +429,7 @@ export function StagePlanCanvas(props: StageCanvasProps) {
           {shapes
             .filter((s) => s.kind === 'wall')
             .map((shape) => (
-              <ShapeNode key={shape.id} shape={shape} selected={selectedShapes.has(shape.id)} locked={lockedLayers.has(shape.layerId)} editable={editable && tool === 'select'} fontPx={fontPx} px={px} onSelect={(add) => (add ? toggleShape(shape.id) : select({ shapes: [shape.id] }))} onUpdate={(patch) => props.onUpdateShape(shape.id, patch)} snap={(p) => snapped(p)} />
+              <ShapeNode key={shape.id} shape={shape} selected={selectedShapes.has(shape.id)} locked={lockedLayers.has(shape.layerId)} editable={editable && pointerTool} fontPx={fontPx} px={px} onSelect={(add) => (add ? toggleShape(shape.id) : select({ shapes: [shape.id] }))} onUpdate={(patch) => props.onUpdateShape(shape.id, patch)} snap={(p) => snapped(p)} />
             ))}
 
           {/* Gruppenrahmen (nur Anzeige) */}
@@ -412,8 +465,8 @@ export function StagePlanCanvas(props: StageCanvasProps) {
                 y={item.y}
                 rotation={item.rotation}
                 opacity={item.dimmed && !selected ? DIMMED_OPACITY : 1}
-                draggable={editable && !item.locked && tool === 'select'}
-                listening={!item.locked && tool === 'select'}
+                draggable={editable && !item.locked && pointerTool}
+                listening={!item.locked && pointerTool}
                 onDragStart={(e) => {
                   e.cancelBubble = true;
                   handleDragStart(item);
@@ -495,7 +548,7 @@ export function StagePlanCanvas(props: StageCanvasProps) {
           {multicores.map((route) => {
             const selected = selectedDevices.has(route.device.id);
             const pts = [route.a, ...route.waypoints, ...(route.b ? [route.b] : [])];
-            const canEdit = editable && !route.locked && tool === 'select';
+            const canEdit = editable && !route.locked && pointerTool;
             const ends = { a: route.template.endALabel || 'A', b: route.template.endBLabel || 'B' };
             const marker = (key: 'a' | 'b', p: StagePt) => (
               <Group
@@ -574,7 +627,7 @@ export function StagePlanCanvas(props: StageCanvasProps) {
                     strokeWidth={px(selected ? 4 : 2)}
                     lineJoin="round"
                     hitStrokeWidth={px(12)}
-                    listening={tool === 'select'}
+                    listening={pointerTool}
                     onClick={(e) => {
                       e.cancelBubble = true;
                       if (e.evt.shiftKey || e.evt.metaKey || e.evt.ctrlKey) toggleCable(line.cable.id);
@@ -585,7 +638,7 @@ export function StagePlanCanvas(props: StageCanvasProps) {
                       select({ cables: [line.cable.id] });
                     }}
                   />
-                  {selected && editable && tool === 'select' && <RouteHandles points={pts} px={px} snap={snapped} onChange={(waypoints) => props.onCableWaypoints(line.cable.id, waypoints)} />}
+                  {selected && editable && pointerTool && <RouteHandles points={pts} px={px} snap={snapped} onChange={(waypoints) => props.onCableWaypoints(line.cable.id, waypoints)} />}
                   {selected && props.lengthLabel(line.cable.id) && <LengthTag points={pts} text={props.lengthLabel(line.cable.id)!} px={px} fontPx={fontPx} />}
                 </Group>
               );
@@ -595,8 +648,24 @@ export function StagePlanCanvas(props: StageCanvasProps) {
           {shapes
             .filter((s) => s.kind !== 'wall')
             .map((shape) => (
-              <ShapeNode key={shape.id} shape={shape} selected={selectedShapes.has(shape.id)} locked={lockedLayers.has(shape.layerId)} editable={editable && tool === 'select'} fontPx={fontPx} px={px} onSelect={(add) => (add ? toggleShape(shape.id) : select({ shapes: [shape.id] }))} onUpdate={(patch) => props.onUpdateShape(shape.id, patch)} snap={(p) => snapped(p)} />
+              <ShapeNode key={shape.id} shape={shape} selected={selectedShapes.has(shape.id)} locked={lockedLayers.has(shape.layerId)} editable={editable && pointerTool} fontPx={fontPx} px={px} onSelect={(add) => (add ? toggleShape(shape.id) : select({ shapes: [shape.id] }))} onUpdate={(patch) => props.onUpdateShape(shape.id, patch)} snap={(p) => snapped(p)} />
             ))}
+
+          {/* Markierungsrahmen */}
+          {band && (
+            <Rect
+              name="marquee"
+              x={Math.min(band.x1, band.x2)}
+              y={Math.min(band.y1, band.y2)}
+              width={Math.abs(band.x2 - band.x1)}
+              height={Math.abs(band.y2 - band.y1)}
+              fill="rgba(14,165,233,0.08)"
+              stroke="#0284c7"
+              strokeWidth={px(1)}
+              dash={[px(4), px(3)]}
+              listening={false}
+            />
+          )}
 
           {/* Zeichnen: Vorschau */}
           {draft.length > 0 && pointer && (
@@ -630,7 +699,7 @@ export function StagePlanCanvas(props: StageCanvasProps) {
           x {formatLength(pointer.x)} · y {formatLength(pointer.y)}
         </div>
       )}
-      {tool !== 'select' && (
+      {tool !== 'select' && !band && (
         <div className="absolute top-3 left-1/2 -translate-x-1/2 rounded-md bg-sky-600 px-3 py-1.5 text-sm text-white shadow" data-testid="tool-hint">
           {TOOL_HINTS[tool]}
         </div>
@@ -645,6 +714,7 @@ export function StagePlanCanvas(props: StageCanvasProps) {
 }
 
 const TOOL_HINTS: Record<string, string> = {
+  marquee: 'Markieren: Rahmen um Objekte ziehen (Umschalt/Strg = hinzufügen); markierte Objekte gemeinsam verschieben',
   wall: 'Wand: Punkte anklicken, Doppelklick oder Enter beendet (Umschalt = rechtwinklig, Esc = abbrechen)',
   text: 'Text: Stelle anklicken',
   dimension: 'Maßlinie: Anfang und Ende anklicken',

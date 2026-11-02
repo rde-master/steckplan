@@ -11,7 +11,9 @@ import {
   Copy,
   Group,
   Maximize,
+  MousePointer2,
   Redo2,
+  SquareDashedMousePointer,
   Trash2,
   Undo2,
   Ungroup,
@@ -19,6 +21,7 @@ import {
   ZoomOut,
   type LucideIcon,
 } from 'lucide-react';
+import { useEditor } from '../../lib/editor';
 import type { UndoApi } from '../../lib/undo';
 import { texts } from '../../texts';
 import { Button } from '../ui';
@@ -56,6 +59,13 @@ export function Toolbar({
   onFit: () => void;
   zoom: number;
 }) {
+  const mode = useEditor((st) => st.flowMode);
+  const setMode = useEditor((st) => st.setFlowMode);
+  const modeButton = (value: 'select' | 'marquee', label: string, title: string, Icon: LucideIcon) => (
+    <Button variant={mode === value ? 'primary' : 'ghost'} className="min-h-9 px-2" aria-pressed={mode === value} aria-label={label} title={title} onClick={() => setMode(value)}>
+      <Icon size={18} strokeWidth={1.75} aria-hidden /> <span className="hidden text-xs lg:inline">{label}</span>
+    </Button>
+  );
   const icon = (label: string, Icon: LucideIcon, onClick: () => void, disabled = false) => (
     <Button variant="ghost" className="min-h-9 px-2" title={label} aria-label={label} onClick={onClick} disabled={disabled}>
       <Icon size={18} strokeWidth={1.75} aria-hidden />
@@ -63,6 +73,9 @@ export function Toolbar({
   );
   return (
     <div className="flex flex-wrap items-center gap-0.5 border-b border-slate-200 bg-white px-2 py-1 dark:border-slate-700 dark:bg-slate-900" role="toolbar" aria-label={s.toolbar}>
+      {modeButton('select', s.modes.select, s.modes.selectTitle, MousePointer2)}
+      {modeButton('marquee', s.modes.marquee, s.modes.marqueeTitle, SquareDashedMousePointer)}
+      <span className="mx-1 h-5 w-px bg-slate-200 dark:bg-slate-700" />
       {editable && (
         <>
           {icon(s.undo, Undo2, undo.undo, !undo.canUndo)}

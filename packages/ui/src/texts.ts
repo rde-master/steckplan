@@ -285,6 +285,12 @@ export const texts = {
     label: 'Kennung',
     trailerFromCase: 'Kommt mit dem Case in dessen Anhänger (Projektdaten → Cases).',
     noCategory: 'ohne Kategorie',
+    modes: {
+      select: 'Auswählen',
+      selectTitle: 'Auswählen: anklicken wählt aus, leere Fläche ziehen verschiebt die Ansicht (Umschalt + ziehen = Rahmen)',
+      marquee: 'Markieren',
+      marqueeTitle: 'Markieren: Rahmen um mehrere Objekte ziehen; markierte Objekte gemeinsam verschieben (Umschalt/Strg = hinzufügen)',
+    },
     showOnBoxes: 'In Kästen',
     showOwner: 'Besitzer',
     showPeople: 'Personen',
@@ -499,7 +505,7 @@ export const texts = {
   },
   stageplan: {
     panels: { library: 'Bibliothek', unplaced: 'Nicht platziert', layers: 'Ebenen', background: 'Hintergrund' },
-    tools: { select: 'Auswählen', wall: 'Wand', text: 'Text', dimension: 'Maßlinie' },
+    tools: { select: 'Auswählen', marquee: 'Markieren', wall: 'Wand', text: 'Text', dimension: 'Maßlinie' },
     rotate90: 'Um 90° drehen (R)',
     showCables: 'Kabel',
     grid: 'Raster',
