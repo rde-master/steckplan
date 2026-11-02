@@ -1,4 +1,4 @@
-// Seiten im Signalfluss: Reiter zum Umschalten, neue Seite, Seiten verwalten (umbenennen, Reihenfolge, löschen).
+// Seiten im Signalfluss: Reiter zum Umschalten; „Seiten verwalten“ (neue Seite, umbenennen, Reihenfolge, löschen).
 import { useState, type FormEvent } from 'react';
 import { ArrowDown, ArrowUp, Plus, Settings2, Trash2 } from 'lucide-react';
 import type * as Y from 'yjs';
@@ -27,7 +27,6 @@ export function FlowPagesBar({
   editable: boolean;
   onSelect: (id: string) => void;
 }) {
-  const [adding, setAdding] = useState(false);
   const [managing, setManaging] = useState(false);
   return (
     <div className="flex items-center gap-1 overflow-x-auto border-b border-slate-200 bg-slate-50 px-2 py-1 dark:border-slate-700 dark:bg-slate-900 *:shrink-0" role="tablist" aria-label={t.title}>
@@ -41,45 +40,28 @@ export function FlowPagesBar({
         ))
       )}
       {editable && (
-        <>
-          <Button variant="ghost" className="min-h-8 py-1 text-xs" onClick={() => setAdding(true)}>
-            <Plus {...ICON} /> {t.add}
-          </Button>
-          {pages.length > 0 && (
-            <Button variant="ghost" className="min-h-8 py-1 text-xs" onClick={() => setManaging(true)}>
-              <Settings2 {...ICON} /> {t.manage}
-            </Button>
-          )}
-        </>
+        <Button variant="ghost" className="min-h-8 py-1 text-xs" onClick={() => setManaging(true)}>
+          <Settings2 {...ICON} /> {t.manage}
+        </Button>
       )}
-      {adding && (
-        <NewPageDialog
-          firstPage={pages.length === 0}
-          onClose={() => setAdding(false)}
-          onCreate={(name, existingName) => {
-            // Erste Seite: vorhandene Geräte bekommen ihre eigene Seite (Name wählbar), dann die neue
-            if (pages.length === 0 && existingName !== null) addFlowPage(doc, existingName, origin);
-            const page = addFlowPage(doc, name, origin);
-            onSelect(page.id);
-            setAdding(false);
-          }}
-        />
-      )}
-      {managing && <ManagePagesDialog doc={doc} origin={origin} pages={pages} counts={counts} onClose={() => setManaging(false)} />}
+      {managing && <ManagePagesDialog doc={doc} origin={origin} pages={pages} counts={counts} onSelect={onSelect} onClose={() => setManaging(false)} />}
     </div>
   );
 }
 
-function NewPageDialog({ firstPage, onClose, onCreate }: { firstPage: boolean; onClose: () => void; onCreate: (name: string, existingName: string | null) => void }) {
+/** Neue Seite im Dialog „Seiten verwalten“ */
+function NewPageForm({ firstPage, onCancel, onCreate }: { firstPage: boolean; onCancel: () => void; onCreate: (name: string, existingName: string | null) => void }) {
   const [name, setName] = useState('');
   const [existing, setExisting] = useState<string>(t.defaultExisting);
   function submit(event: FormEvent) {
     event.preventDefault();
     if (!name.trim()) return;
     onCreate(name.trim(), firstPage ? existing.trim() || t.defaultExisting : null);
+    setName('');
   }
   return (
-    <Modal title={t.newTitle} onClose={onClose}>
+    <section aria-label={t.newTitle} className="rounded-md border border-sky-200 bg-sky-50 p-3 dark:border-sky-900 dark:bg-sky-950">
+      <h3 className="mb-2 text-sm font-semibold">{t.newTitle}</h3>
       <form onSubmit={submit} className="space-y-3">
         <label className="block text-sm">
           <span className="mb-1 block text-xs text-slate-500">{t.name}</span>
@@ -93,21 +75,38 @@ function NewPageDialog({ firstPage, onClose, onCreate }: { firstPage: boolean; o
           </label>
         )}
         <div className="flex justify-end gap-2">
-          <Button onClick={onClose}>{texts.common.cancel}</Button>
+          <Button onClick={onCancel}>{texts.common.cancel}</Button>
           <Button type="submit" variant="primary" disabled={!name.trim()}>
             {t.create}
           </Button>
         </div>
       </form>
-    </Modal>
+    </section>
   );
 }
 
-function ManagePagesDialog({ doc, origin, pages, counts, onClose }: { doc: Y.Doc; origin: object; pages: FlowPage[]; counts: Map<string, number>; onClose: () => void }) {
+function ManagePagesDialog({
+  doc,
+  origin,
+  pages,
+  counts,
+  onSelect,
+  onClose,
+}: {
+  doc: Y.Doc;
+  origin: object;
+  pages: FlowPage[];
+  counts: Map<string, number>;
+  onSelect: (id: string) => void;
+  onClose: () => void;
+}) {
   const [deleting, setDeleting] = useState<FlowPage | null>(null);
   const [moveTo, setMoveTo] = useState('');
+  // ohne Seiten gleich das Formular zeigen
+  const [adding, setAdding] = useState(pages.length === 0);
   return (
     <Modal title={t.manageTitle} onClose={onClose}>
+      {pages.length === 0 && <p className="mb-3 text-sm text-slate-600 dark:text-slate-300">{t.single}</p>}
       <ul className="space-y-2" data-testid="flow-pages">
         {pages.map((p, i) => (
           <li key={p.id} className="flex items-center gap-1">
@@ -134,6 +133,25 @@ function ManagePagesDialog({ doc, origin, pages, counts, onClose }: { doc: Y.Doc
           </li>
         ))}
       </ul>
+      <div className="mt-3">
+        {adding ? (
+          <NewPageForm
+            firstPage={pages.length === 0}
+            onCancel={() => setAdding(false)}
+            onCreate={(name, existingName) => {
+              // Erste Seite: vorhandene Geräte bekommen ihre eigene Seite (Name wählbar), dann die neue
+              if (pages.length === 0 && existingName !== null) addFlowPage(doc, existingName, origin);
+              const page = addFlowPage(doc, name, origin);
+              onSelect(page.id);
+              setAdding(false);
+            }}
+          />
+        ) : (
+          <Button variant="ghost" onClick={() => setAdding(true)}>
+            <Plus {...ICON} /> {t.add}
+          </Button>
+        )}
+      </div>
       {deleting && (
         <div className="mt-3 space-y-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm dark:border-amber-900 dark:bg-amber-950">
           <div>{t.deleteText(deleting.name, counts.get(deleting.id) ?? 0)}</div>

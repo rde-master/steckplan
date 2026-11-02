@@ -402,7 +402,7 @@ export function StagePlanView({ doc, data, library, editable, undo }: { doc: Y.D
       </div>
       <div className="min-h-0 flex-1">
         {panel === 'library' && <LibrarySidebar mode="stageplan" library={library} editable={editable} onAdd={(t) => addFromTemplate(t)} />}
-        {panel === 'unplaced' && <UnplacedPanel devices={data.devices} library={library} editable={editable} onPlace={(id) => placeUnplaced(id)} />}
+        {panel === 'unplaced' && <UnplacedPanel devices={data.devices} people={data.people} library={library} editable={editable} onPlace={(id) => placeUnplaced(id)} />}
         {panel === 'layers' && <LayersPanel doc={doc} origin={undo.origin} data={data} editable={editable} />}
         {panel === 'background' && <BackgroundPanel doc={doc} origin={undo.origin} background={data.background} editable={editable} />}
       </div>

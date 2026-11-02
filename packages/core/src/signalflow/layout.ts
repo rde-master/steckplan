@@ -22,22 +22,36 @@ export interface PortAnchor {
 export interface BoxLayout {
   width: number;
   height: number;
+  /** automatische Größe = kleinste, auf die der Kasten gezogen werden kann */
+  minWidth: number;
+  minHeight: number;
   anchors: PortAnchor[];
 }
 
-export function boxLayout(title: string, ports: EffectivePort[]): BoxLayout {
+/** Größte von Hand gezogene Kastengröße */
+export const MAX_BOX_SIZE = 4000;
+
+/**
+ * Größe und Anschluss-Positionen; `size` = von Hand gezogene Größe (nie kleiner als die automatische).
+ * Ist der Kasten höher, verteilen sich die Anschlüsse mit mehr Abstand.
+ */
+export function boxLayout(title: string, ports: EffectivePort[], size?: { width?: number; height?: number }): BoxLayout {
   const left = ports.filter((p) => p.side === 'left');
   const right = ports.filter((p) => p.side === 'right');
   const longest = (list: EffectivePort[]) => list.reduce((max, p) => Math.max(max, p.label.length), 0);
   const labelWidth = (longest(left) + longest(right)) * BOX.charWidth + BOX.gap + 2 * (BOX.portRadius + BOX.padding);
   const titleWidth = title.length * (BOX.charWidth + 0.8) + 2 * BOX.padding;
-  const width = Math.round(Math.min(BOX.maxWidth, Math.max(BOX.minWidth, labelWidth, titleWidth)));
+  const autoWidth = Math.round(Math.min(BOX.maxWidth, Math.max(BOX.minWidth, labelWidth, titleWidth)));
   const rows = Math.max(left.length, right.length, 1);
-  const height = BOX.headerHeight + rows * BOX.portRowHeight + BOX.padding;
+  const autoHeight = BOX.headerHeight + rows * BOX.portRowHeight + BOX.padding;
+  const width = Math.round(Math.min(MAX_BOX_SIZE, Math.max(autoWidth, size?.width ?? 0)));
+  const height = Math.round(Math.min(MAX_BOX_SIZE, Math.max(autoHeight, size?.height ?? 0)));
+  const rowHeight = BOX.portRowHeight + (height - autoHeight) / rows;
+  const rowY = (i: number) => Math.round(BOX.headerHeight + i * rowHeight + rowHeight / 2);
   const anchors: PortAnchor[] = [];
-  left.forEach((port, i) => anchors.push({ port, x: 0, y: BOX.headerHeight + i * BOX.portRowHeight + BOX.portRowHeight / 2 }));
-  right.forEach((port, i) => anchors.push({ port, x: width, y: BOX.headerHeight + i * BOX.portRowHeight + BOX.portRowHeight / 2 }));
-  return { width, height, anchors };
+  left.forEach((port, i) => anchors.push({ port, x: 0, y: rowY(i) }));
+  right.forEach((port, i) => anchors.push({ port, x: width, y: rowY(i) }));
+  return { width, height, minWidth: autoWidth, minHeight: autoHeight, anchors };
 }
 
 export interface Point2 {
@@ -69,6 +83,21 @@ export function routeCable(from: Point2, fromSide: 'left' | 'right', to: Point2,
     points = [from, a, { x: a.x, y: midY }, { x: b.x, y: midY }, b, to];
   }
   return simplify(points).flatMap((p) => [p.x, p.y]);
+}
+
+/**
+ * Geschwungene Kabelführung: eine Bézierkurve, die waagerecht aus dem Anschluss herausläuft.
+ * Gibt [x0, y0, c1x, c1y, c2x, c2y, x1, y1] zurück (Start, zwei Kontrollpunkte, Ziel).
+ */
+export function curveCable(from: Point2, fromSide: 'left' | 'right', to: Point2, toSide: 'left' | 'right'): number[] {
+  const dirFrom = fromSide === 'right' ? 1 : -1;
+  const dirTo = toSide === 'right' ? 1 : -1;
+  const dx = Math.abs(to.x - from.x);
+  const dy = Math.abs(to.y - from.y);
+  // nach hinten oder auf derselben Seite: weiter ausholen
+  const backwards = (to.x - from.x) * dirFrom < 0 || dirFrom === dirTo;
+  const reach = Math.round(Math.min(300, Math.max(40, backwards ? dx / 2 + dy / 4 + 60 : dx / 2)));
+  return [from.x, from.y, from.x + dirFrom * reach, from.y, to.x + dirTo * reach, to.y, to.x, to.y];
 }
 
 function simplify(points: Point2[]): Point2[] {

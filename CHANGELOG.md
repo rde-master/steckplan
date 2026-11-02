@@ -7,6 +7,26 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-11-02
+
+### Hinzugefügt
+
+- Bühnenplan, „Nicht platziert“: je Gerät die Person (wenn es von einem Menschen benutzt wird) und der Besitzer
+- Signalfluss: Kästen lassen sich am schraffierten Griff rechts unten breiter und höher ziehen (Anschlüsse verteilen sich mit mehr Abstand; nie kleiner als automatisch; Doppelklick auf den Griff = automatische Größe); die Größe gilt auch im PDF
+- Signalfluss: Kabellinien „eckig“ oder „geschwungen“ (Umschalter „Kabel“ in der Leiste, gilt für das ganze Projekt und im PDF)
+
+### Geändert
+
+- Ton-Patch: Spalte „Stativ“ entfernt (Liste, PDF und CSV)
+- Ton-Patch, Spalte „Über“: der Weg reicht jetzt bis zum Mischpult und nennt die Anschlüsse je Gerät (Eingang / Ausgang), z. B. „MC · Send 1 (FOH) → SB1 · In 1 / Dante → SB2 · Dante A / Dante B → Wing · Dante“; bei Ausgängen beginnt der Weg am Pult (gilt auch für PDF und CSV)
+- Signalfluss-Seiten: „Neue Seite“ liegt jetzt im Dialog „Seiten verwalten“ (die Leiste zeigt nur noch die Seiten und „Seiten verwalten“)
+- Projektformat 7 (Kastengröße, Kabellinien); ältere Steckplan-Versionen können Projekte im Format 7 nicht öffnen
+
+### Behoben
+
+- Signalfluss: Beim Verschieben eines Kastens ging seine Seitenzuordnung verloren (er landete auf der ersten Seite)
+- Server: Wurde ein Projekt direkt nach dem Schließen wegen Leerlaufs wieder geöffnet, konnte es den Stand vor dem letzten Speichern laden; jetzt wird erst nach dem Speichern neu geladen
+
 ## [0.15.0] - 2026-11-02
 
 ### Hinzugefügt
@@ -327,7 +347,8 @@ Meilenstein M0 – Projektgerüst.
 - Docker-Image mit Datenvolume `/data` und Beispiel-`docker-compose.yml`
 - GitHub Actions: Tests und Smoke-Test bei jedem Push, Installer als Artefakte, Docker-Image `:develop`, Release-Workflow für Tags `vX.Y.Z`
 
-[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.15.0...develop
+[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.16.0...develop
+[0.16.0]: https://github.com/rde-master/steckplan/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/rde-master/steckplan/compare/v0.14.2...v0.15.0
 [0.14.2]: https://github.com/rde-master/steckplan/compare/v0.14.1...v0.14.2
 [0.14.1]: https://github.com/rde-master/steckplan/compare/v0.14.0...v0.14.1

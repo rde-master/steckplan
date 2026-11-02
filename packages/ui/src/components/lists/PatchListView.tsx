@@ -13,7 +13,7 @@ const c = t.columns;
 const ONLY_USED_KEY = 'steckplan.patchOnlyUsed';
 
 /** belegt = Quelle/Ziel gesteckt oder von Hand etwas eingetragen */
-const isUsed = (row: PatchRow) => !!row.device || row.edited.name || row.edited.stand || !!row.notes;
+const isUsed = (row: PatchRow) => !!row.device || row.edited.name || !!row.notes;
 
 function readOnlyUsed(): boolean {
   try {
@@ -64,7 +64,7 @@ export function PatchListView({ doc, origin, data, library, editable }: { doc: Y
         const hidden = all - shownNetwork.length - shownAnalog.length;
         const groupHeader = (label: string) => (
           <tr>
-            <th colSpan={7} scope="rowgroup" className="bg-slate-50 px-2 py-1 text-left text-xs font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+            <th colSpan={6} scope="rowgroup" className="bg-slate-50 px-2 py-1 text-left text-xs font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
               {label}
             </th>
           </tr>
@@ -90,7 +90,6 @@ export function PatchListView({ doc, origin, data, library, editable }: { doc: Y
                     <th className="px-2 py-1 font-medium">{direction === 'inputs' ? c.source : c.target}</th>
                     <th className="px-2 py-1 font-medium">{c.via}</th>
                     {direction === 'inputs' && <th className="px-2 py-1 font-medium">{c.phantom}</th>}
-                    {direction === 'inputs' && <th className="px-2 py-1 font-medium">{c.stand}</th>}
                     <th className="px-2 py-1 font-medium">{c.notes}</th>
                   </tr>
                 </thead>
@@ -176,17 +175,6 @@ function Row({ row, inputs, editable, onChange }: { row: PatchRow; inputs: boole
               <RotateCcw {...ICON} />
             </Button>
           )}
-        </td>
-      )}
-      {inputs && (
-        <td className="px-2 py-1 min-w-32">
-          <TextInput
-            aria-label={`${c.stand} ${row.port}`}
-            className={suggested(row.edited.stand)}
-            value={row.stand}
-            disabled={!editable}
-            onChange={(e) => onChange({ stand: e.target.value })}
-          />
         </td>
       )}
       <td className="px-2 py-1 min-w-40">
