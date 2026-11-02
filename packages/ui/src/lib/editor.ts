@@ -16,7 +16,9 @@ export interface Selection {
   shapes: string[];
 }
 
-export type StageTool = 'select' | 'wall' | 'text' | 'dimension' | 'calibrate';
+export type StageTool = 'select' | 'marquee' | 'wall' | 'text' | 'dimension' | 'calibrate';
+/** Signalfluss: Auswählen (leere Fläche ziehen = Ansicht verschieben) oder Markieren (Rahmen ziehen) */
+export type FlowMode = 'select' | 'marquee';
 
 interface EditorState {
   selection: Selection;
@@ -31,6 +33,11 @@ interface EditorState {
   /** Gruppenrahmen im Bühnenplan */
   showStageGroups: boolean;
   setShowStageGroups(show: boolean): void;
+  /** Anzeige im Signalfluss (je Browser gemerkt): Besitzer in der Geräteauswahl, Besitzer und Personen in den Kästen */
+  display: SignalFlowDisplay;
+  setDisplay(patch: Partial<SignalFlowDisplay>): void;
+  flowMode: FlowMode;
+  setFlowMode(mode: FlowMode): void;
   setFilter(filter: Filter): void;
   setColorMode(mode: ColorMode): void;
   setShowCables(show: boolean): void;
@@ -59,6 +66,32 @@ interface EditorState {
   reset(): void;
 }
 
+export interface SignalFlowDisplay {
+  ownerInLibrary: boolean;
+  ownerOnBoxes: boolean;
+  peopleOnBoxes: boolean;
+}
+
+const DISPLAY_KEY = 'steckplan.signalflowDisplay';
+const DEFAULT_DISPLAY: SignalFlowDisplay = { ownerInLibrary: false, ownerOnBoxes: false, peopleOnBoxes: true };
+
+function loadDisplay(): SignalFlowDisplay {
+  try {
+    const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(DISPLAY_KEY) : null;
+    return raw ? { ...DEFAULT_DISPLAY, ...(JSON.parse(raw) as Partial<SignalFlowDisplay>) } : DEFAULT_DISPLAY;
+  } catch {
+    return DEFAULT_DISPLAY;
+  }
+}
+
+function saveDisplay(display: SignalFlowDisplay): void {
+  try {
+    localStorage.setItem(DISPLAY_KEY, JSON.stringify(display));
+  } catch {
+    // z. B. privater Modus – dann nur für diese Sitzung
+  }
+}
+
 const initial = {
   selection: { devices: [], cables: [], shapes: [] } as Selection,
   view: { x: 40, y: 40, zoom: 1 } as ViewState,
@@ -74,6 +107,7 @@ const initial = {
   showCables: true,
   showDmx: false,
   showStageGroups: true,
+  flowMode: 'select' as FlowMode,
 };
 
 export const useEditor = create<EditorState>((set) => ({
@@ -127,6 +161,17 @@ export const useEditor = create<EditorState>((set) => ({
   },
   setShowStageGroups(showStageGroups) {
     set({ showStageGroups });
+  },
+  setFlowMode(flowMode) {
+    set({ flowMode });
+  },
+  display: loadDisplay(),
+  setDisplay(patch) {
+    set((st) => {
+      const display = { ...st.display, ...patch };
+      saveDisplay(display);
+      return { display };
+    });
   },
   setStageView(stageView) {
     set({ stageView });

@@ -53,7 +53,12 @@ export function SignalFlowView({ doc, data, library, editable, undo }: { doc: Y.
   const [viewport, setViewport] = useState({ width: 800, height: 600 });
 
   const issues = useIssues(data, library);
-  const boxes = useMemo(() => buildBoxes(data.devices, library, showStageObjects, { colorMode, filter, people: data.people }), [data.devices, library, showStageObjects, colorMode, filter, data.people]);
+  const display = useEditor((st) => st.display);
+  const setDisplay = useEditor((st) => st.setDisplay);
+  const boxes = useMemo(
+    () => buildBoxes(data.devices, library, showStageObjects, { colorMode, filter, people: data.people, showPeople: display.peopleOnBoxes, showOwner: display.ownerOnBoxes }),
+    [data.devices, library, showStageObjects, colorMode, filter, data.people, display.peopleOnBoxes, display.ownerOnBoxes],
+  );
   const groupFrames = useMemo(() => buildGroupFrames(data.groups, boxes), [data.groups, boxes]);
   const lines = useMemo(() => buildCableLines(data.cables, boxes, library, issues, filter), [data.cables, boxes, library, issues, filter]);
   const occupied = useMemo(() => new Set(data.cables.flatMap((c) => [`${c.from.deviceId}/${c.from.portId}`, `${c.to.deviceId}/${c.to.portId}`])), [data.cables]);
@@ -293,7 +298,23 @@ export function SignalFlowView({ doc, data, library, editable, undo }: { doc: Y.
         onFit={fit}
         zoom={view.zoom}
       />
-      <FilterBar library={library} data={data} />
+      <FilterBar
+        library={library}
+        data={data}
+        extra={
+          <span className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300" role="group" aria-label={s.showOnBoxes}>
+            <span className="text-slate-500">{s.showOnBoxes}:</span>
+            <label className="flex items-center gap-1">
+              <input type="checkbox" checked={display.ownerOnBoxes} onChange={(e) => setDisplay({ ownerOnBoxes: e.target.checked })} />
+              {s.showOwner}
+            </label>
+            <label className="flex items-center gap-1">
+              <input type="checkbox" checked={display.peopleOnBoxes} onChange={(e) => setDisplay({ peopleOnBoxes: e.target.checked })} />
+              {s.showPeople}
+            </label>
+          </span>
+        }
+      />
       {narrow && (
         <div className="flex gap-1 border-b border-slate-200 bg-white px-2 py-1 dark:border-slate-700 dark:bg-slate-900">
           <Button variant={panel === 'library' ? 'primary' : 'ghost'} onClick={() => setPanel(panel === 'library' ? 'none' : 'library')}>

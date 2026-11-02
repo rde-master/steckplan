@@ -107,6 +107,13 @@ describe('Kacheln für große Pläne', () => {
     expect(tilePlan(bounds, area, worldPerPtForScale(200))).toHaveLength(1);
   });
 
+  it('Logo im Kopf jeder Seite und im Schriftfeld der Pläne', async () => {
+    const doc = (await exportDoc({ kind: 'cables' })) as { header: () => { columns: { image?: string }[] } };
+    expect(doc.header().columns[0]!.image).toMatch(/^data:image\/png;base64,/);
+    const plan = JSON.stringify(await exportDoc({ kind: 'stageplan', scale: 'fill' }));
+    expect(plan).toContain('data:image/png;base64,');
+  });
+
   it('ersetzt fehlende Zeichen', () => expect(pdfText('A → B ✓ ☐')).toBe('A –> B x '));
 });
 
@@ -122,6 +129,8 @@ describe('PDF-Export', () => {
     expect(text).toContain('Knick');
     expect(text).toContain('Seite 1 von');
     expect(text).toContain('Stadtfest · Marktplatz · 04.07.2026');
+    // Fußzeile: Version, was exportiert wurde, Datum und Uhrzeit, von wem
+    expect(text).toMatch(/Steckplan 0\.8\.0 · Packliste · erstellt am 01\.01\.2026, \d{2}:\d{2} Uhr von Ralf/);
   });
 
   it('Bühnenplan 1:50 auf mehrere Blätter, „Seite füllen“ auf eines', async () => {

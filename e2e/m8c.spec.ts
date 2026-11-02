@@ -63,7 +63,8 @@ test('M8c: Stammdaten direkt anlegen, Vorlage kopieren, Personen, Gruppen, T-Bar
   expect(copy.id).not.toBe(mic.id);
 
   const post = async (template: object) => (await page.request.post('/api/library/templates', { data: { template } })).json();
-  const spot = await post({ kind: 'device', name: 'Spot M8c', shape: { form: 'rect', widthMm: 300, depthMm: 300 } });
+  const verleih = await (await page.request.post('/api/library/master/owners', { data: { name: 'Verleih M8c' } })).json();
+  const spot = await post({ kind: 'device', name: 'Spot M8c', defaultOwnerId: verleih.id, shape: { form: 'rect', widthMm: 300, depthMm: 300 } });
   const stand = await post({ kind: 'stand', name: 'Stativ M8c', tBarLengthMm: 1000, shape: { form: 'circle', widthMm: 1600, depthMm: 1600, heightMm: 2500 } });
 
   const { id } = await (
@@ -74,8 +75,8 @@ test('M8c: Stammdaten direkt anlegen, Vorlage kopieren, Personen, Gruppen, T-Bar
         meta: { name: 'M8c-Test' },
         layers: [{ id: 'l1', name: 'Bühne', order: 0 }],
         devices: [
-          { id: 'mic1', templateId: mic.id, layerId: 'l1', label: 'Mikro 1', caseId: box.id, signalFlow: { position: { x: 40, y: 40 } } },
-          { id: 'mic2', templateId: mic.id, layerId: 'l1', label: 'Mikro 2', caseId: box.id, signalFlow: { position: { x: 340, y: 40 } } },
+          { id: 'mic1', templateId: mic.id, layerId: 'l1', label: 'Mikro 1', caseId: box.id, ownerId: verleih.id, signalFlow: { position: { x: 40, y: 40 } } },
+          { id: 'mic2', templateId: mic.id, layerId: 'l1', label: 'Mikro 2', caseId: box.id, ownerId: verleih.id, signalFlow: { position: { x: 340, y: 40 } } },
           { id: 'st', templateId: stand.id, layerId: 'l1', label: 'Stativ 1', stagePlan: { position: { x: 5000, y: 3000 }, rotationDeg: 0 } },
           { id: 'sp1', templateId: spot.id, layerId: 'l1', label: 'Spot A', mountedOnId: 'st', stagePlan: { position: { x: 5000, y: 3000 }, rotationDeg: 0 } },
           { id: 'sp2', templateId: spot.id, layerId: 'l1', label: 'Spot B', mountedOnId: 'st', stagePlan: { position: { x: 5000, y: 3000 }, rotationDeg: 0 } },
@@ -112,6 +113,18 @@ test('M8c: Stammdaten direkt anlegen, Vorlage kopieren, Personen, Gruppen, T-Bar
   const props = page.getByRole('complementary', { name: 'Eigenschaften' });
   await props.getByRole('combobox', { name: 'Person' }).selectOption({ label: 'Anna Muster (Sängerin)' });
   await expect.poll(() => page.evaluate(() => window.__steckplanStage?.find('.person-label').length ?? 0)).toBe(1);
+
+  // Anzeige: Personen und Besitzer in den Kästen ein-/ausblenden, Besitzer in der Geräteauswahl
+  const boxes = page.getByRole('group', { name: 'In Kästen' });
+  await boxes.getByLabel('Personen').uncheck();
+  await expect.poll(() => page.evaluate(() => window.__steckplanStage?.find('.person-label').length ?? 0)).toBe(0);
+  await boxes.getByLabel('Besitzer').check();
+  await expect.poll(() => page.evaluate(() => window.__steckplanStage?.find('.owner-label').length ?? 0)).toBe(2);
+  await boxes.getByLabel('Personen').check();
+  await boxes.getByLabel('Besitzer').uncheck();
+  await expect(page.getByTestId('library-owner')).toHaveCount(0);
+  await page.getByLabel('Besitzer anzeigen').check();
+  await expect(page.getByTestId('library-owner').first()).toHaveText('Verleih M8c');
 
   await page.getByRole('button', { name: /^Prüfungen/ }).click();
   await expect(page.getByRole('region', { name: 'Prüfungen' }).getByText('Funkmikro M8c: 2 verwendet, aber nur 1 im Lager.')).toBeVisible();

@@ -1,5 +1,5 @@
 // Editor für eine Vorlage (Gerät, Kabeltyp, Bühnenelement, Traverse, Stativ).
-import { Copy, Plus, X } from 'lucide-react';
+import { Copy, ListPlus, Plus, X } from 'lucide-react';
 import { ICON } from '../icons';
 import { useState } from 'react';
 import { formatCableLength, TEMPLATE_KIND_LABELS, type Library, type PortDef, type Template, type TemplateKind } from '@steckplan/core';
@@ -342,7 +342,7 @@ export function TemplateEditor({
                       <th className="pb-1 font-medium">{t.portConnector}</th>
                       <th className="pb-1 font-medium">{t.portDirection}</th>
                       <th className="pb-1 font-medium">{t.portSignal}</th>
-                      <th className="pb-1 font-medium">{t.portNetwork}</th>
+                      <th className="pb-1 pr-2 text-center font-medium">{t.portNetwork}</th>
                       <th className="pb-1 font-medium">{t.portPower}</th>
                       <th />
                     </tr>
@@ -379,22 +379,22 @@ export function TemplateEditor({
                             <td className="pr-2 pb-2">
                               <TextInput aria-label={`${t.portSignal} ${index + 1}`} list="steckplan-signals" value={port.signal} onChange={(e) => setPort(index, { signal: e.target.value })} disabled={disabled} />
                             </td>
-                            <td className="pr-2 pb-2 text-center">
+                            <td className="pr-2 pb-2 text-center align-middle">
                               <input
                                 type="checkbox"
                                 aria-label={`${t.portNetwork} ${index + 1}`}
-                                className="mt-3 h-4 w-4"
+                                className="h-4 w-4 align-middle"
                                 checked={port.isNetwork ?? false}
                                 onChange={(e) => setPort(index, { isNetwork: e.target.checked || undefined })}
                                 disabled={disabled}
                               />
                             </td>
-                            <td className="pr-2 pb-2">
+                            <td className="pr-2 pb-2 align-middle">
                               <div className="flex items-center gap-1">
                                 <input
                                   type="checkbox"
                                   aria-label={`${t.portPower} ${index + 1}`}
-                                  className="mt-1 h-4 w-4"
+                                  className="h-4 w-4 shrink-0"
                                   checked={port.isPower ?? false}
                                   onChange={(e) => setPort(index, e.target.checked ? { isPower: true } : { isPower: undefined, fuseA: undefined, phase: undefined })}
                                   disabled={disabled}
@@ -431,7 +431,7 @@ export function TemplateEditor({
                                 )}
                               </div>
                             </td>
-                            <td className="whitespace-nowrap pb-2">
+                            <td className="whitespace-nowrap pb-2 align-middle">
                               {!disabled && (
                                 <>
                                   <Button variant="ghost" title={t.duplicatePort} aria-label={`${t.duplicatePort} ${index + 1}`} onClick={() => set({ ports: [...ports.slice(0, index + 1), { ...port, id: portId(), label: port.label }, ...ports.slice(index + 1)] })}>
@@ -454,7 +454,7 @@ export function TemplateEditor({
             {!disabled && (
               <div className="flex flex-wrap items-center gap-2">
                 <Button onClick={() => set({ ports: [...ports, { id: portId(), label: '', connector: '', direction: 'in', signal: '' }] })}><Plus {...ICON} /> {t.addPort}</Button>
-                {!showBulk && <Button onClick={() => setShowBulk(true)}>⊞ {texts.library.bulk.open}</Button>}
+                {!showBulk && <Button onClick={() => setShowBulk(true)}><ListPlus {...ICON} /> {texts.library.bulk.open}</Button>}
                 <div className="flex-1" />
                 {ports.length > 1 &&
                   (confirmClearPorts ? (

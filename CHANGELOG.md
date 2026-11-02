@@ -7,6 +7,22 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.13.2] - 2026-11-02
+
+### Hinzugefügt
+
+- Markieren-Modus in Signalfluss und Bühnenplan: Rahmen mit der Maus aufziehen, um mehrere Objekte auszuwählen (Umschalt/Strg = hinzufügen), und die markierten gemeinsam verschieben; daneben der bisherige Auswählen-Modus (leere Fläche ziehen verschiebt die Ansicht). Im Signalfluss werden Kabel zwischen markierten Geräten mit ausgewählt, im Bühnenplan auch Wände, Texte und Maßlinien
+- Signalfluss: Besitzer in der Geräteauswahl links einblendbar; in den Kästen Besitzer und Personennamen ein-/ausblendbar (wird je Browser bzw. Rechner gemerkt)
+
+### Geändert
+
+- Neues Logo: App-Symbol (macOS/Windows), Favicon und Logo in der Oberfläche
+- PDF-Exporte mit Logo im Kopf (Pläne zusätzlich im Schriftfeld, WLAN-Aushang oben) und Fußzeile mit Programmversion, Art des Exports, Datum und Uhrzeit sowie Name
+
+### Behoben
+
+- Bibliothek: Die Kästchen „Netzwerk“ und „Strom“ in der Anschlusstabelle saßen versetzt – jetzt mittig zu den Eingabefeldern; „Mehrere Anschlüsse/Adern anlegen“ mit passendem Symbol
+
 ## [0.13.1] - 2026-11-02
 
 ### Behoben
@@ -251,7 +267,8 @@ Meilenstein M0 – Projektgerüst.
 - Docker-Image mit Datenvolume `/data` und Beispiel-`docker-compose.yml`
 - GitHub Actions: Tests und Smoke-Test bei jedem Push, Installer als Artefakte, Docker-Image `:develop`, Release-Workflow für Tags `vX.Y.Z`
 
-[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.13.1...develop
+[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.13.2...develop
+[0.13.2]: https://github.com/rde-master/steckplan/compare/v0.13.1...v0.13.2
 [0.13.1]: https://github.com/rde-master/steckplan/compare/v0.13.0...v0.13.1
 [0.13.0]: https://github.com/rde-master/steckplan/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/rde-master/steckplan/compare/v0.11.0...v0.12.0

@@ -65,7 +65,8 @@ export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onC
   const clearSelection = useEditor((s) => s.clearSelection);
   const focusRequest = useEditor((s) => s.focusRequest);
   const [connecting, setConnecting] = useState<{ from: PortRef; pointer: { x: number; y: number } } | null>(null);
-  const [band, setBand] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(null);
+  const [band, setBand] = useState<{ x1: number; y1: number; x2: number; y2: number; additive: boolean } | null>(null);
+  const flowMode = useEditor((s) => s.flowMode);
   const dragStart = useRef<{ id: string; x: number; y: number; others: { id: string; x: number; y: number }[] } | null>(null);
   const pinch = useRef<{ distance: number; zoom: number } | null>(null);
   const selectedDevices = useMemo(() => new Set(selection.devices), [selection.devices]);
@@ -176,10 +177,11 @@ export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onC
 
   function handleStageDown(e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) {
     if (e.target !== stageRef.current) return;
-    const shift = 'shiftKey' in e.evt && e.evt.shiftKey;
-    if (shift) {
+    const additive = 'shiftKey' in e.evt && (e.evt.shiftKey || e.evt.ctrlKey || e.evt.metaKey);
+    // Markieren-Modus (oder Umschalt im Auswählen-Modus): Rahmen aufziehen
+    if (flowMode === 'marquee' || ('shiftKey' in e.evt && e.evt.shiftKey)) {
       const p = pointerWorld();
-      if (p) setBand({ x1: p.x, y1: p.y, x2: p.x, y2: p.y });
+      if (p) setBand({ x1: p.x, y1: p.y, x2: p.x, y2: p.y, additive });
     }
   }
 
@@ -198,8 +200,14 @@ export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onC
       const y1 = Math.min(band.y1, band.y2);
       const y2 = Math.max(band.y1, band.y2);
       const inside = boxes.filter((b) => b.x >= x1 && b.y >= y1 && b.x + b.layout.width <= x2 && b.y + b.layout.height <= y2).map((b) => b.device.id);
-      select({ devices: inside }, true);
+      const insideSet = new Set([...(band.additive ? selection.devices : []), ...inside]);
+      // Kabel zwischen zwei markierten Geräten gleich mit (z. B. zum Löschen)
+      const cables = lines.filter((l) => insideSet.has(l.cable.from.deviceId) && insideSet.has(l.cable.to.deviceId)).map((l) => l.cable.id);
+      if (band.additive) select({ devices: inside, cables }, true);
+      else select({ devices: inside, cables });
       setBand(null);
+      stageMoved.current = true;
+      setTimeout(() => (stageMoved.current = false), 0);
       return;
     }
     if (e.target === stageRef.current && !stageMoved.current) clearSelection();
@@ -284,8 +292,10 @@ export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onC
         backgroundSize: `${20 * view.zoom}px ${20 * view.zoom}px`,
         backgroundPosition: `${view.x}px ${view.y}px`,
         touchAction: 'none',
+        cursor: flowMode === 'marquee' ? 'crosshair' : undefined,
       }}
       data-testid="signalflow-canvas"
+      data-mode={flowMode}
       onDragOver={(e) => {
         if (editable && e.dataTransfer.types.includes('application/x-steckplan-template')) e.preventDefault();
       }}
@@ -305,7 +315,7 @@ export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onC
         y={view.y}
         scaleX={view.zoom}
         scaleY={view.zoom}
-        draggable={!connecting && !band}
+        draggable={flowMode === 'select' && !connecting && !band}
         onDragStart={(e) => {
           if (e.target === stageRef.current) stageMoved.current = true;
         }}
@@ -448,6 +458,7 @@ export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onC
                 {showDmx && box.dmxLabel && <Text name="dmx-label" text={box.dmxLabel} x={width - 52} y={9} width={44} align="right" fontSize={11} fontFamily="monospace" fill={box.text} />}
                 {!box.template && <Text text="Vorlage fehlt" x={8} y={30} fontSize={11} fill="#dc2626" />}
                 {box.person && <Text name="person-label" text={`👤 ${box.person}`} x={8} y={27} width={width - 16} fontSize={11} fill={box.text} opacity={0.9} ellipsis wrap="none" />}
+                {box.owner && <Text name="owner-label" text={`Besitzer: ${box.owner}`} x={8} y={box.person ? 43 : 27} width={width - 16} fontSize={11} fill={box.text} opacity={0.8} ellipsis wrap="none" />}
                 {box.unplaced && <Text name="unplaced-marker" text="⌖ nicht im Bühnenplan" x={0} y={height + 4} fontSize={10} fill="#b45309" fontStyle="italic" listening={false} />}
                 {ends && (
                   <>

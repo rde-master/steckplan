@@ -1,7 +1,7 @@
 // Filterleiste: Kategorie, Besitzer, Anhänger, Stativ/Traverse – und „Einfärben nach …“.
 import { X } from 'lucide-react';
 import { ICON } from './icons';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { EMPTY_FILTER, isFilterActive, type Filter, type Library } from '@steckplan/core';
 import { useEditor, type ColorMode } from '../lib/editor';
 import type { ProjectData } from '../lib/useProjectData';
@@ -56,7 +56,7 @@ function MultiSelect({ label, options, value, onChange }: { label: string; optio
   );
 }
 
-export function FilterBar({ library, data, showColorMode = true }: { library: Library | null; data: ProjectData; showColorMode?: boolean }) {
+export function FilterBar({ library, data, showColorMode = true, extra }: { library: Library | null; data: ProjectData; showColorMode?: boolean; extra?: ReactNode }) {
   const filter = useEditor((s) => s.filter);
   const setFilter = useEditor((s) => s.setFilter);
   const colorMode = useEditor((s) => s.colorMode);
@@ -85,8 +85,10 @@ export function FilterBar({ library, data, showColorMode = true }: { library: Li
           <X {...ICON} /> {f.reset}
         </Button>
       )}
+      <div className="ml-auto" />
+      {extra}
       {showColorMode && (
-        <label className="ml-auto flex items-center gap-1 text-xs text-slate-600 dark:text-slate-300">
+        <label className="flex items-center gap-1 text-xs text-slate-600 dark:text-slate-300">
           <input type="checkbox" checked={showDmx} onChange={(e) => setShowDmx(e.target.checked)} />
           {texts.techLists.showDmx}
         </label>
