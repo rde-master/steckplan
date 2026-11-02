@@ -88,6 +88,11 @@ test('Signalfluss-Seiten: anlegen, Geräte verschieben, Verweis anklicken, verwa
   await exportDialog.getByLabel('Dokument').selectOption({ label: 'Geräteliste' });
   await exportDialog.getByRole('radio', { name: 'CSV' }).click();
   await expect(exportDialog.getByTestId('preview-csv')).toContainText('Kennung');
+  // Sortierung: Kennung absteigend → „Vox“ steht oben
+  await exportDialog.getByLabel('Sortieren nach (1)').selectOption('Kennung');
+  await exportDialog.getByRole('button', { name: 'aufsteigend (1)' }).click();
+  await expect(exportDialog.getByTestId('preview-csv').locator('tr').nth(1)).toContainText('Vox');
+  await expect(exportDialog.getByLabel('dann nach (2)')).toBeVisible();
   await exportDialog.getByRole('button', { name: 'Abbrechen' }).click();
 
   // verwalten: umbenennen, löschen (Geräte ziehen um)

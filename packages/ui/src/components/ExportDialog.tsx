@@ -1,5 +1,5 @@
 // Dialog „Exportieren“: Dokumentart, Format, Optionen → PDF oder CSV.
-import { Download } from 'lucide-react';
+import { ArrowDownAZ, ArrowDownZA, Download } from 'lucide-react';
 import { ICON } from './icons';
 import { useState } from 'react';
 import { ExportPreview } from './ExportPreview';
@@ -9,7 +9,8 @@ import { useEditor } from '../lib/editor';
 import { useSession } from '../lib/session';
 import type { ProjectData } from '../lib/useProjectData';
 import { LABEL_FORMATS } from '../pdf/documents';
-import { buildCsv, buildExportDoc, CSV_KINDS, DEFAULT_OPTIONS, EXPORT_TITLES, exportFileName, type ExportKind, type ExportOptions } from '../pdf/export';
+import { buildCsv, buildExportDoc, CSV_KINDS, DEFAULT_OPTIONS, EXPORT_TITLES, exportFileName, MAX_SORT_LEVELS, SORT_COLUMNS, type ExportKind, type ExportOptions } from '../pdf/export';
+import type { SortKey } from '../pdf/sorting';
 import { texts } from '../texts';
 import { Banner, Button, Modal } from './ui';
 import { selectClass } from './library/fields';
@@ -101,7 +102,7 @@ export function ExportDialog({
   }
 
   function createCsv() {
-    const csv = buildCsv(opts.kind, data, library, filter);
+    const csv = buildCsv(opts.kind, data, library, filter, opts.sort);
     download(new Blob([csv], { type: 'text/csv;charset=utf-8' }), exportFileName(meta, opts.kind, 'csv'));
   }
 
@@ -132,7 +133,7 @@ export function ExportDialog({
       <div className="space-y-3">
         {field(
           e.document,
-          <select className={selectClass} aria-label={e.document} value={opts.kind} onChange={(ev) => set({ kind: ev.target.value as ExportKind, orientation: DEFAULT_ORIENTATION[ev.target.value as ExportKind] })}>
+          <select className={selectClass} aria-label={e.document} value={opts.kind} onChange={(ev) => set({ kind: ev.target.value as ExportKind, orientation: DEFAULT_ORIENTATION[ev.target.value as ExportKind], sort: [] })}>
             {kinds.map((k) => (
               <option key={k} value={k} disabled={k === 'wifi' && data.network.wifi.length === 0}>
                 {EXPORT_TITLES[k]}
@@ -313,15 +314,66 @@ export function ExportDialog({
           </div>
         )}
 
+        {SORT_COLUMNS[opts.kind] && <SortFields columns={SORT_COLUMNS[opts.kind]!} value={opts.sort} onChange={(sort) => set({ sort })} />}
+
         {isFilterActive(filter) && opts.kind !== 'wifi' && <Banner tone="info">{e.filterActive}</Banner>}
         {error && <Banner tone="error">{error}</Banner>}
       </div>
       <ExportPreview
         makeDoc={makeDoc}
-        {...(CSV_KINDS.includes(opts.kind) ? { makeCsv: () => buildCsv(opts.kind, data, library, filter) } : {})}
+        {...(CSV_KINDS.includes(opts.kind) ? { makeCsv: () => buildCsv(opts.kind, data, library, filter, opts.sort) } : {})}
         version={JSON.stringify({ opts, filter, colorMode, n: data.devices.length + data.cables.length })}
       />
       </div>
     </Modal>
+  );
+}
+
+/** Sortierung: bis zu drei Spalten, je auf- oder absteigend („Standard“ = bisherige Reihenfolge) */
+function SortFields({ columns, value, onChange }: { columns: string[]; value: SortKey[]; onChange: (sort: SortKey[]) => void }) {
+  const levels = Math.min(MAX_SORT_LEVELS, value.length + 1);
+  const setLevel = (index: number, key: SortKey | null) => {
+    const next = value.slice(0, index);
+    if (key) next.push(key, ...value.slice(index + 1).filter((k) => k.column !== key.column));
+    onChange(next);
+  };
+  return (
+    <div className="space-y-1.5" role="group" aria-label={e.sortTitle}>
+      <div className="text-xs text-slate-500">{e.sortTitle}</div>
+      {Array.from({ length: levels }, (_, i) => {
+        const key = value[i];
+        const used = new Set(value.filter((_, j) => j !== i).map((k) => k.column));
+        const label = i === 0 ? e.sortBy : e.thenBy;
+        return (
+          <div key={i} className="flex items-center gap-1">
+            <select
+              className={selectClass}
+              aria-label={`${label} (${i + 1})`}
+              value={key?.column ?? ''}
+              onChange={(ev) => setLevel(i, ev.target.value ? { column: ev.target.value, ...(key?.desc ? { desc: true } : {}) } : null)}
+            >
+              <option value="">{i === 0 ? e.sortDefault : '–'}</option>
+              {columns
+                .filter((c) => !used.has(c))
+                .map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+            </select>
+            <Button
+              variant="ghost"
+              className="px-2"
+              disabled={!key}
+              aria-label={key?.desc ? `${e.descending} (${i + 1})` : `${e.ascending} (${i + 1})`}
+              title={key?.desc ? e.descending : e.ascending}
+              onClick={() => key && setLevel(i, { column: key.column, ...(key.desc ? {} : { desc: true }) })}
+            >
+              {key?.desc ? <ArrowDownZA {...ICON} /> : <ArrowDownAZ {...ICON} />}
+            </Button>
+          </div>
+        );
+      })}
+    </div>
   );
 }

@@ -1,6 +1,7 @@
 // PDF-Dokumente als pdfmake-Definitionen (reine Daten – getestet ohne Browser).
 import type { CheckMark, PackGroup, PackingList, PackRow, ProjectMeta } from '@steckplan/core';
 import { LOGO_PNG } from './logo';
+import { sortRows, type SortKey } from './sorting';
 import { formatCableLength } from '@steckplan/core';
 import type { Rect } from './svg';
 
@@ -10,6 +11,8 @@ export type DocDefinition = Record<string, unknown>;
 type Content = unknown;
 
 export interface DocContext {
+  /** Sortierung der Tabellen (Spaltenüberschrift, auf-/absteigend) */
+  sort?: SortKey[];
   meta: Partial<ProjectMeta>;
   format: PageFormat;
   orientation: Orientation;
@@ -284,7 +287,7 @@ export function sectionsDoc(title: string, sections: PatchSection[], ctx: DocCon
         widths: section.widths,
         body: [
           section.headers.map((h) => ({ text: h, style: 'th' })),
-          ...section.rows.map((r) => r.map((cell, i) => (i === 0 ? { text: String(cell), bold: true, alignment: 'right' } : pdfText(String(cell))))),
+          ...sortRows(section.headers, section.rows, ctx.sort).map((r) => r.map((cell, i) => (i === 0 ? { text: String(cell), bold: true, alignment: 'right' } : pdfText(String(cell))))),
         ],
       },
       layout: { hLineWidth: () => 0.4, vLineWidth: () => 0, hLineColor: () => '#cbd5e1', fillColor: (i: number) => (i > 0 && i % 2 === 0 ? '#f8fafc' : null), paddingTop: () => 4, paddingBottom: () => 4 },
@@ -295,7 +298,8 @@ export function sectionsDoc(title: string, sections: PatchSection[], ctx: DocCon
 
 // ---------- Tabellen-Listen (Kabel, Stück, DMX, Geräte, Netzwerk) ----------
 
-export function tableDoc(title: string, headers: string[], rows: (string | number)[][], ctx: DocContext, options: { widths?: (number | string)[]; subtitle?: string; summary?: string[] } = {}): DocDefinition {
+export function tableDoc(title: string, headers: string[], unsorted: (string | number)[][], ctx: DocContext, options: { widths?: (number | string)[]; subtitle?: string; summary?: string[] } = {}): DocDefinition {
+  const rows = sortRows(headers, unsorted, ctx.sort);
   const content: Content[] = [{ text: title, style: 'title' }];
   if (options.subtitle) content.push({ text: pdfText(options.subtitle), style: 'small', margin: [0, 0, 0, 6] });
   if (options.summary?.length) content.push({ text: options.summary.map(pdfText).join('   ·   '), margin: [0, 0, 0, 8] });
