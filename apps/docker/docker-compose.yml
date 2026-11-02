@@ -1,22 +1,35 @@
-# Beispiel für den Betrieb von Steckplan mit Docker Compose.
-# Start: docker compose up -d   →   http://<server>:8080
+# Steckplan mit Docker Compose – Beispiel für den Betrieb im eigenen Netz.
 #
-# Für Zugriff von außerhalb des eigenen Netzes nur hinter einem
-# Reverse-Proxy mit HTTPS betreiben!
+#   1. Diese Datei und .env.example in einen Ordner legen
+#   2. .env.example nach .env kopieren und die beiden Passwörter eintragen
+#   3. docker compose up -d
+#   4. Im Browser http://<server>:8080 öffnen
+#
+# Aktualisieren:   docker compose pull && docker compose up -d   (Daten bleiben im Volume)
+# Sicherung:       docker run --rm --volumes-from steckplan -v "$PWD":/backup alpine \
+#                    tar czf /backup/steckplan-$(date +%F).tar.gz -C /data .
+#
+# Für Zugriff aus dem Internet stattdessen docker-compose.https.yml verwenden (HTTPS über Caddy).
+
 services:
   steckplan:
-    image: ghcr.io/rde-master/steckplan:latest
+    # Feste Version empfohlen (z. B. 0.14.1); „latest“ ist immer die neueste stabile Version.
+    image: ghcr.io/rde-master/steckplan:${STECKPLAN_VERSION:-latest}
     container_name: steckplan
     restart: unless-stopped
     ports:
-      - "8080:8080"
+      - "${STECKPLAN_PORT:-8080}:8080"
     environment:
-      # Pflicht – ohne diese beiden Passwörter startet der Container nicht.
-      STECKPLAN_EDIT_PASSWORD: "bitte-aendern-bearbeiten"
-      STECKPLAN_READ_PASSWORD: "bitte-aendern-lesen"
-      TZ: Europe/Berlin
+      # Pflicht – kommen aus der Datei .env; ohne sie startet der Container nicht.
+      STECKPLAN_EDIT_PASSWORD: ${STECKPLAN_EDIT_PASSWORD:?Bitte STECKPLAN_EDIT_PASSWORD in .env setzen}
+      STECKPLAN_READ_PASSWORD: ${STECKPLAN_READ_PASSWORD:?Bitte STECKPLAN_READ_PASSWORD in .env setzen}
+      TZ: ${TZ:-Europe/Berlin}
     volumes:
+      # Projekte, Bibliothek, Versionen, Desktop-Zugangsschlüssel …
       - steckplan-data:/data
+      # Alternativ ein Ordner auf dem Server (muss für UID 1000 beschreibbar sein):
+      # - ./data:/data
+    # Der Gesundheitstest ist im Image eingebaut (GET /api/health).
 
 volumes:
   steckplan-data:
