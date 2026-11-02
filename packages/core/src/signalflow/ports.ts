@@ -17,6 +17,8 @@ export interface EffectivePort {
   isPower?: boolean;
   fuseA?: number;
   phase?: 'L1' | 'L2' | 'L3' | '3P';
+  /** nur Anzeige (z. B. Netzwerk-Kanal am Pult), kein Anschluss zum Verbinden */
+  virtual?: boolean;
 }
 
 export function isMulticore(template: Template | undefined): boolean {

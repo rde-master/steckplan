@@ -1,5 +1,5 @@
 // Aufbereitung für die Zeichenfläche: Kästen mit Größe/Anschlüssen, Kabel mit Punkten.
-import { boundsOf, devicePerson, EMPTY_FILTER, formatDmx, GROUP_COLORS, personName, type Filter, type Group, type Person } from '@steckplan/core';
+import { boundsOf, devicePerson, type MixerNetworkRow, type StageboxInputInfo, EMPTY_FILTER, formatDmx, GROUP_COLORS, personName, type Filter, type Group, type Person } from '@steckplan/core';
 import type { ColorMode } from '../../lib/editor';
 import { cableVisible, deviceVisible, displayColor } from '../../lib/display';
 import {
@@ -76,8 +76,10 @@ export interface DisplayOptions {
   showPeople?: boolean;
   /** Besitzer in den Kästen zeigen (Standard: nein) */
   showOwner?: boolean;
-  /** Pult-Kanäle an Stagebox-Eingängen: „Gerät/Anschluss“ → „FOH 12“ (leer = nicht zeigen) */
-  channelLabels?: Map<string, string>;
+  /** Stagebox-Eingänge: „Gerät/Anschluss“ → Quelle und Pult-Kanal (leer = nicht zeigen) */
+  stageboxInfo?: Map<string, StageboxInputInfo>;
+  /** Pulte: belegte Netzwerk-Kanäle (rechts als Anzeige-Zeilen) */
+  mixerRows?: Map<string, MixerNetworkRow[]>;
 }
 
 const DEFAULT_DISPLAY: DisplayOptions = { colorMode: 'device', filter: EMPTY_FILTER };
@@ -94,10 +96,21 @@ export function buildBoxes(devices: DeviceInstance[], library: Library | null, s
     const labels = new Map<string, string>();
     for (const port of ports) {
       const base = multicore ? port.label.replace(/ \([^)]*\)$/, '') : port.label;
-      const channel = display.channelLabels?.get(`${device.id}/${port.id}`);
-      labels.set(port.id, channel ? `${base} → ${channel}` : base);
+      const info = display.stageboxInfo?.get(`${device.id}/${port.id}`);
+      labels.set(port.id, info ? `${base} · ${info.source} → ${info.channel}` : base);
     }
-    const displayPorts: EffectivePort[] = ports.map((p) => ({ ...p, label: labels.get(p.id) ?? p.label }));
+    // Pult: belegte Netzwerk-Kanäle rechts unter den Anschlüssen (nur Anzeige)
+    const virtualPorts: EffectivePort[] = (display.mixerRows?.get(device.id) ?? []).map((r) => ({
+      id: `net:${r.channel}`,
+      label: `${r.channel} · ${r.name} ← ${r.stagebox} · ${r.stageboxPort}`,
+      connector: '',
+      signal: '',
+      role: 'in',
+      side: 'right',
+      virtual: true,
+    }));
+    for (const v of virtualPorts) labels.set(v.id, v.label);
+    const displayPorts: EffectivePort[] = [...ports.map((p) => ({ ...p, label: labels.get(p.id) ?? p.label })), ...virtualPorts];
     const person = display.showPeople === false ? '' : personName(devicePerson(device, template, display.people ?? []));
     const owner = display.showOwner && device.ownerId ? (library?.masterData.owners.find((o) => o.id === device.ownerId)?.name ?? '') : '';
     const infoLines = [person, owner].filter(Boolean).length;

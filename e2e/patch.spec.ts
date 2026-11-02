@@ -119,11 +119,13 @@ test('Ton-Patch: Netzwerk-Kanäle – Quelle über digitale Stagebox einem Pult-
   await click('Vox');
   await props.getByRole('combobox', { name: 'Pult-Kanal (Netzwerk)' }).selectOption({ label: 'DFOH Kanal 3' });
   const labelTexts = () => page.evaluate(() => window.__steckplanStage!.find('Text').map((t) => (t as unknown as { text(): string }).text()));
-  await expect.poll(async () => (await labelTexts()).some((t) => t.includes('In 1 → DFOH 3'))).toBe(true);
+  await expect.poll(async () => (await labelTexts()).some((t) => t.includes('In 1 · Vox → 3'))).toBe(true);
+  // am Pult rechts: belegter Netzwerk-Kanal mit Name und Stagebox-Eingang
+  await expect.poll(async () => (await labelTexts()).some((t) => t === '3 · Vox ← SB · In 1')).toBe(true);
 
   // Anzeige ausblenden
   await page.getByRole('group', { name: 'In Kästen' }).getByLabel('Kanäle').uncheck();
-  await expect.poll(async () => (await labelTexts()).some((t) => t.includes('→ DFOH 3'))).toBe(false);
+  await expect.poll(async () => (await labelTexts()).some((t) => t.includes('Vox → 3') || t.startsWith('3 · Vox'))).toBe(false);
   await page.getByRole('group', { name: 'In Kästen' }).getByLabel('Kanäle').check();
 
   // Input-Liste: Netzwerk-Kanal 3 mit Quelle und Stagebox
@@ -179,7 +181,7 @@ test('Ton-Patch: Netzwerk-Kanal über Multicore → Stagebox 1 → Stagebox 2 �
   const props = page.getByRole('complementary', { name: 'Eigenschaften' });
   await props.getByRole('combobox', { name: 'Pult-Kanal (Netzwerk)' }).selectOption({ label: 'Pult Kanal 7' });
   await expect
-    .poll(() => page.evaluate(() => window.__steckplanStage!.find('Text').some((t) => (t as unknown as { text(): string }).text().includes('In 1 → Pult 7'))))
+    .poll(() => page.evaluate(() => window.__steckplanStage!.find('Text').some((t) => (t as unknown as { text(): string }).text().includes('In 1 · Mikrofon → 7'))))
     .toBe(true);
   await page.getByRole('tab', { name: 'Listen' }).click();
   await page.getByRole('tab', { name: 'Ton-Patch' }).click();

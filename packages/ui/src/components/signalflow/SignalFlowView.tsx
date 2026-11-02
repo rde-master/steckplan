@@ -9,7 +9,8 @@ import {
   createGroup,
   crossPageRefs,
   devicePageId,
-  stageboxChannelLabels,
+  mixerNetworkRows,
+  stageboxInputInfo,
   duplicateDevices,
   isMulticore,
   removeCables,
@@ -71,7 +72,8 @@ export function SignalFlowView({ doc, data, library, editable, undo }: { doc: Y.
   const pageRefs = useMemo(() => crossPageRefs(data.devices, data.cables, pages).filter((r) => pageDevices.some((d) => d.id === r.deviceId)), [data.devices, data.cables, pages, pageDevices]);
   const display = useEditor((st) => st.display);
   const setDisplay = useEditor((st) => st.setDisplay);
-  const channelLabels = useMemo(() => (library && display.channelsOnBoxes ? stageboxChannelLabels(data, library) : undefined), [data, library, display.channelsOnBoxes]);
+  const stageboxInfo = useMemo(() => (library && display.channelsOnBoxes ? stageboxInputInfo(data, library) : undefined), [data, library, display.channelsOnBoxes]);
+  const mixerRows = useMemo(() => (library && display.channelsOnBoxes ? mixerNetworkRows(data, library) : undefined), [data, library, display.channelsOnBoxes]);
   const boxes = useMemo(
     () =>
       buildBoxes(pageDevices, library, showStageObjects, {
@@ -80,9 +82,10 @@ export function SignalFlowView({ doc, data, library, editable, undo }: { doc: Y.
         people: data.people,
         showPeople: display.peopleOnBoxes,
         showOwner: display.ownerOnBoxes,
-        ...(channelLabels ? { channelLabels } : {}),
+        ...(stageboxInfo ? { stageboxInfo } : {}),
+        ...(mixerRows ? { mixerRows } : {}),
       }),
-    [pageDevices, library, showStageObjects, colorMode, filter, data.people, display.peopleOnBoxes, display.ownerOnBoxes, channelLabels],
+    [pageDevices, library, showStageObjects, colorMode, filter, data.people, display.peopleOnBoxes, display.ownerOnBoxes, stageboxInfo, mixerRows],
   );
   const groupFrames = useMemo(() => buildGroupFrames(data.groups, boxes), [data.groups, boxes]);
   const lines = useMemo(() => buildCableLines(data.cables, boxes, library, issues, filter), [data.cables, boxes, library, issues, filter]);
