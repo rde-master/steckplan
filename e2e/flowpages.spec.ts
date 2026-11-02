@@ -40,11 +40,20 @@ test('Signalfluss-Seiten: anlegen, Geräte verschieben, Verweis anklicken, verwa
   await expect.poll(() => deviceCount(page)).toBe(3);
 
   // erste Seite anlegen: vorhandene Geräte kommen auf „Licht“, neue Seite „Ton“ ist aktiv und leer
-  await page.getByRole('button', { name: 'Seite', exact: true }).click();
-  const dialog = page.getByRole('dialog', { name: 'Neue Seite im Signalfluss' });
-  await dialog.getByLabel('Name der Seite', { exact: true }).fill('Ton');
-  await dialog.getByLabel('Name der Seite für die vorhandenen Geräte').fill('Licht');
-  await dialog.getByRole('button', { name: 'Anlegen' }).click();
+  // „Neue Seite“ liegt im Dialog „Seiten verwalten“ (ohne Seiten ist das Formular gleich offen)
+  await expect(page.getByRole('button', { name: 'Neue Seite' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Seiten verwalten' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Seiten verwalten' });
+  const form = dialog.getByRole('region', { name: 'Neue Seite im Signalfluss' });
+  await form.getByLabel('Name der Seite', { exact: true }).fill('Ton');
+  await form.getByLabel('Name der Seite für die vorhandenen Geräte').fill('Licht');
+  await form.getByRole('button', { name: 'Anlegen' }).click();
+  await expect(dialog.getByTestId('flow-pages').locator('li')).toHaveCount(2);
+  // weitere Seite: Formular ohne „vorhandene Geräte“
+  await dialog.getByRole('button', { name: 'Neue Seite' }).click();
+  await expect(form.getByLabel('Name der Seite für die vorhandenen Geräte')).toHaveCount(0);
+  await form.getByRole('button', { name: 'Abbrechen' }).click();
+  await dialog.getByRole('button', { name: 'Schließen' }).click();
   const tabs = page.getByRole('tablist', { name: 'Seiten' });
   await expect(tabs.getByRole('tab', { name: /^Ton/ })).toHaveAttribute('aria-selected', 'true');
   await expect(tabs.getByRole('tab', { name: /^Licht/ })).toContainText('(3)');
