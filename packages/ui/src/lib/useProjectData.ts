@@ -6,6 +6,7 @@ import {
   readCables,
   readCaseTrailers,
   readDevices,
+  readFlowPages,
   readGroups,
   readLayers,
   readPatch,
@@ -18,6 +19,7 @@ import {
   type Cable,
   type CaseTrailer,
   type DeviceInstance,
+  type FlowPage,
   type Group,
   type PatchEntry,
   type Person,
@@ -38,6 +40,7 @@ export interface ProjectData {
   groups: Group[];
   caseTrailers: CaseTrailer[];
   patch: PatchEntry[];
+  flowPages: FlowPage[];
 }
 
 const EMPTY: ProjectData = {
@@ -52,6 +55,7 @@ const EMPTY: ProjectData = {
   groups: [],
   caseTrailers: [],
   patch: [],
+  flowPages: [],
 };
 
 function read(doc: Y.Doc): ProjectData {
@@ -67,6 +71,7 @@ function read(doc: Y.Doc): ProjectData {
     groups: readGroups(doc),
     caseTrailers: readCaseTrailers(doc),
     patch: readPatch(doc),
+    flowPages: readFlowPages(doc),
   };
 }
 

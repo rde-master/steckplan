@@ -4,6 +4,7 @@ import { Circle, Group, Layer, Line, Rect, Stage, Text } from 'react-konva';
 import type Konva from 'konva';
 import { orientConnection, type EffectivePort } from '@steckplan/core';
 import { useEditor } from '../../lib/editor';
+import type { CrossPageRef } from '@steckplan/core';
 import { useLongPress } from '../../lib/useLongPress';
 import { useEdgeScroll } from '../../lib/useEdgeScroll';
 import { DIMMED_OPACITY } from '../../lib/display';
@@ -27,6 +28,9 @@ export interface CanvasProps {
   showDmx?: boolean;
   /** Gruppenrahmen (automatisch aus den Mitgliedern berechnet) */
   groups?: GroupFrame[];
+  /** Kabel zu Geräten auf anderen Seiten: Verweis am Anschluss */
+  pageRefs?: CrossPageRef[];
+  onPageRef?: (ref: CrossPageRef) => void;
 }
 
 export interface GroupFrame {
@@ -51,7 +55,7 @@ declare global {
   }
 }
 
-export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onConnect, onDropTemplate, onInvalidConnection, showDmx = false, groups = [] }: CanvasProps) {
+export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onConnect, onDropTemplate, onInvalidConnection, showDmx = false, groups = [], pageRefs = [], onPageRef }: CanvasProps) {
   const container = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
   const [size, setSize] = useState({ width: 800, height: 600 });
@@ -533,6 +537,45 @@ export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onC
               const a = box && anchorOf(box, connecting.from.portId);
               return a ? <Line points={[a.x, a.y, connecting.pointer.x, connecting.pointer.y]} stroke="#0284c7" strokeWidth={2} dash={[6, 4]} listening={false} /> : null;
             })()}
+
+          {/* Verweise auf Kabel zu anderen Seiten */}
+          {pageRefs.map((ref) => {
+            const box = boxById.get(ref.deviceId);
+            const anchor = box ? anchorOf(box, ref.portId) : undefined;
+            if (!anchor) return null;
+            const text = `→ ${ref.targetPageName}: ${ref.targetDeviceLabel}`;
+            const left = anchor.side === 'left';
+            return (
+              <Text
+                key={`${ref.deviceId}/${ref.portId}/${ref.targetDeviceId}`}
+                name="page-ref"
+                text={text}
+                x={left ? anchor.x - 12 - 240 : anchor.x + 12}
+                y={anchor.y - 6}
+                width={240}
+                align={left ? 'right' : 'left'}
+                fontSize={11}
+                fill="#0369a1"
+                textDecoration="underline"
+                onClick={(e) => {
+                  e.cancelBubble = true;
+                  onPageRef?.(ref);
+                }}
+                onTap={(e) => {
+                  e.cancelBubble = true;
+                  onPageRef?.(ref);
+                }}
+                onMouseEnter={(e) => {
+                  const stage = e.target.getStage();
+                  if (stage) stage.container().style.cursor = 'pointer';
+                }}
+                onMouseLeave={(e) => {
+                  const stage = e.target.getStage();
+                  if (stage) stage.container().style.cursor = '';
+                }}
+              />
+            );
+          })}
 
           {band && (
             <Rect

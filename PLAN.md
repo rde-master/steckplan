@@ -651,6 +651,8 @@ Jeder Meilenstein endet mit grünen Tests, lauffähigem Build (Desktop **und** D
 - Personen-Import (02.11.2026): CSV-Datei oder aus Excel eingefügte Zellen (keine .xlsx-Bibliothek); gleiche Personen (Name + Vorname) werden übersprungen, fehlende Art wird ergänzt
 - Symbole (02.11.2026): Lucide (`lucide-react`, ISC-Lizenz, GPL-kompatibel) statt Unicode-Zeichen; Größe/Strichstärke zentral in `packages/ui/src/components/icons.ts`
 - Netzwerk-Kanäle (digitale Stagebox, 02.11.2026, Format 5): Anzahl der Netzwerk-Kanäle in der Mischpult-Vorlage, je Pult änderbar; die Quelle (z. B. Mikro) wird in ihren Eigenschaften einem Pult-Kanal zugeordnet – nur möglich, wenn sie an einer Stagebox steckt, die mit einem Netzwerkkabel direkt am Pult hängt; Anzeige „→ FOH 12“ am Stagebox-Eingang, ein-/ausblendbar
+- Signalfluss-Seiten (02.11.2026, Format 5): frei verwaltbare Seiten (z. B. Licht, Ton); jedes Gerät auf genau einer Seite (ohne Seite = erste); Kabel zwischen Seiten als anklickbarer Verweis am Anschluss; im PDF je Seite ein Blatt, Seiten wählbar
+- Export-Vorschau (02.11.2026): im Export-Dialog daneben, live bei jeder Änderung; PDF blättern/vergrößern, CSV als Tabelle
 
 ---
 
