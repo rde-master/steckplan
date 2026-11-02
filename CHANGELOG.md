@@ -7,6 +7,10 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+### Geändert
+
+- Bibliothek: Die Liste links ist nach Kategorien gegliedert (einklappbar, mit Anzahl; „ohne Kategorie“ am Ende) – in allen Bereichen, auch beim Suchen
+
 ## [0.13.3] - 2026-11-02
 
 ### Hinzugefügt
