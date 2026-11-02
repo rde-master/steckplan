@@ -7,13 +7,15 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
-### Geändert
-
-- Netzwerk-Kanäle: Die Kette wird jetzt auch durch Multicore-Adern vor der Stagebox und über weitere Geräte im Netzwerk (z. B. zweite Stagebox, Switch) erkannt – z. B. Mikrofon → Multicore → Stagebox 1 → Stagebox 2 → Pult; die Input-Liste zeigt den ganzen Weg
+## [0.14.1] - 2026-11-02
 
 ### Hinzugefügt
 
 - Export: Tabellen sortierbar – „Sortieren nach … dann nach … dann nach …“ (bis zu drei Spalten, je auf- oder absteigend) für Kabelliste, Stückliste, DMX-Patch, Geräteliste, Netzwerkliste, Personenliste, Input-/Output-Liste und Stromliste; gilt für PDF, CSV und Vorschau; „natürliche“ Reihenfolge (Spot 2 vor Spot 10), leere Zellen am Ende
+
+### Geändert
+
+- Netzwerk-Kanäle: Die Kette wird jetzt auch durch Multicore-Adern vor der Stagebox und über weitere Geräte im Netzwerk (z. B. zweite Stagebox, Switch) erkannt – z. B. Mikrofon → Multicore → Stagebox 1 → Stagebox 2 → Pult; die Input-Liste zeigt den ganzen Weg
 
 ## [0.14.0] - 2026-11-02
 
@@ -303,7 +305,8 @@ Meilenstein M0 – Projektgerüst.
 - Docker-Image mit Datenvolume `/data` und Beispiel-`docker-compose.yml`
 - GitHub Actions: Tests und Smoke-Test bei jedem Push, Installer als Artefakte, Docker-Image `:develop`, Release-Workflow für Tags `vX.Y.Z`
 
-[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.14.0...develop
+[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.14.1...develop
+[0.14.1]: https://github.com/rde-master/steckplan/compare/v0.14.0...v0.14.1
 [0.14.0]: https://github.com/rde-master/steckplan/compare/v0.13.4...v0.14.0
 [0.13.4]: https://github.com/rde-master/steckplan/compare/v0.13.3...v0.13.4
 [0.13.3]: https://github.com/rde-master/steckplan/compare/v0.13.2...v0.13.3
