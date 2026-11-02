@@ -7,6 +7,23 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-11-02
+
+Meilenstein M10 – Strom.
+
+### Hinzugefügt
+
+- Stromanschlüsse in der Bibliothek: Anschluss „Strom“ mit Absicherung (A) und Phase (L1/L2/L3/Drehstrom); Geräte mit Strom-Abgängen sind Verteiler (auch Steckdosenleisten und Unterverteiler)
+- Leistung je Gerät im Projekt änderbar (Vorgabe aus der Vorlage)
+- Last je Abgang, Verteiler und Phase aus den Stromkabeln im Signalfluss; Verteiler hinter Verteilern werden aufsummiert, Drehstrom-Geräte gleichmäßig verteilt
+- Prüfungen: Warnung ab 80 % der Absicherung, Überlast ab 100 %, Schieflast an Drehstrom-Anschlüssen, Geräte mit Leistung ohne Stromanschluss
+- Listen → Strom: je Verteiler Phasenbalken, Abgänge mit angeschlossenen Geräten, Leistung, Strom und Auslastung; Gesamtleistung
+- Stromliste als PDF und CSV
+
+### Geändert
+
+- Strom-Anschlüsse eines Mischpults erscheinen nicht in der Input-/Output-Liste
+
 ## [0.12.0] - 2026-11-02
 
 Meilenstein M9 – Ton-Patch (dazu Case-Listen).
@@ -226,7 +243,8 @@ Meilenstein M0 – Projektgerüst.
 - Docker-Image mit Datenvolume `/data` und Beispiel-`docker-compose.yml`
 - GitHub Actions: Tests und Smoke-Test bei jedem Push, Installer als Artefakte, Docker-Image `:develop`, Release-Workflow für Tags `vX.Y.Z`
 
-[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.12.0...develop
+[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.13.0...develop
+[0.13.0]: https://github.com/rde-master/steckplan/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/rde-master/steckplan/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/rde-master/steckplan/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/rde-master/steckplan/compare/v0.9.0...v0.10.0
