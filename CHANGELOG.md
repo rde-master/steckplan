@@ -7,6 +7,14 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+### Hinzugefügt
+
+- Netzwerk-Kanäle für digitale Stageboxen: Anzahl in der Mischpult-Vorlage (je Pult änderbar); in den Eigenschaften einer Quelle „Pult-Kanal (Netzwerk)“ zuordnen – nur bei durchgehender Kette (Quelle → Stagebox → Netzwerkkabel direkt zum Pult), belegte Kanäle sind gekennzeichnet; Anzeige „In 1 → FOH 12“ am Stagebox-Eingang im Signalfluss (ein-/ausblendbar unter „In Kästen: Kanäle“); eigener Abschnitt in der Input-Liste (Bildschirm, PDF, CSV); Prüfungen für unterbrochene Ketten, fehlende und doppelt belegte Kanäle
+
+### Geändert
+
+- Dateiformat 5 (ältere Dateien werden beim Öffnen automatisch angehoben)
+
 ## [0.13.4] - 2026-11-02
 
 ### Geändert

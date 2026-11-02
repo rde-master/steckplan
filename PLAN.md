@@ -650,6 +650,7 @@ Jeder Meilenstein endet mit grünen Tests, lauffähigem Build (Desktop **und** D
 - Strom (M10, 02.11.2026): Zuordnung über Stromkabel im Signalfluss (Anschlüsse mit „Strom“, Abgänge mit Absicherung und Phase L1/L2/L3/Drehstrom); Leistung aus der Vorlage, je Gerät änderbar, volle Nennleistung bei 230 V; Warnung ab 80 %, Überlast ab 100 % der Absicherung; Schieflast bei mehr als 30 % Unterschied (mindestens 5 A)
 - Personen-Import (02.11.2026): CSV-Datei oder aus Excel eingefügte Zellen (keine .xlsx-Bibliothek); gleiche Personen (Name + Vorname) werden übersprungen, fehlende Art wird ergänzt
 - Symbole (02.11.2026): Lucide (`lucide-react`, ISC-Lizenz, GPL-kompatibel) statt Unicode-Zeichen; Größe/Strichstärke zentral in `packages/ui/src/components/icons.ts`
+- Netzwerk-Kanäle (digitale Stagebox, 02.11.2026, Format 5): Anzahl der Netzwerk-Kanäle in der Mischpult-Vorlage, je Pult änderbar; die Quelle (z. B. Mikro) wird in ihren Eigenschaften einem Pult-Kanal zugeordnet – nur möglich, wenn sie an einer Stagebox steckt, die mit einem Netzwerkkabel direkt am Pult hängt; Anzeige „→ FOH 12“ am Stagebox-Eingang, ein-/ausblendbar
 
 ---
 

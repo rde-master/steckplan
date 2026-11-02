@@ -7,6 +7,7 @@ import * as Y from 'yjs';
 import type { Library } from '../library/library';
 import type { Cable, DeviceInstance, PatchEntry, Person, Project, Template } from '../model/schema';
 import { devicePerson, personName } from '../people/people';
+import type { Issue } from '../signalflow/checks';
 import { endNames, isMulticore, templatePorts, type EffectivePort } from '../signalflow/ports';
 
 export function isMixer(template: Template | undefined): boolean {
@@ -55,6 +56,8 @@ export interface PatchList {
   mixerTemplate: Template;
   inputs: PatchRow[];
   outputs: PatchRow[];
+  /** Kanäle, die über das Netzwerk kommen (digitale Stagebox), 1 … n */
+  network: PatchRow[];
 }
 
 type ProjectLike = Pick<Project, 'devices' | 'cables'> & Partial<Pick<Project, 'patch' | 'people'>>;
@@ -146,6 +149,34 @@ export function buildPatchLists(project: ProjectLike, library: Pick<Library, 'te
     };
   };
 
+  const assignments = validAssignments(project, library);
+  const networkRow = (mixer: DeviceInstance, channel: number): PatchRow => {
+    const id = patchId(mixer.id, `net:${channel}`);
+    const found = assignments.find((a) => a.mixer.id === mixer.id && a.channel === channel);
+    const device = found?.device;
+    const template = device ? templates.get(device.templateId) : undefined;
+    const carrierId = device?.mountedOnId ?? device?.stagePlan?.standsOnId;
+    const carrier = carrierId ? devices.get(carrierId) : undefined;
+    const carrierText = carrier ? (templates.get(carrier.templateId)?.name ?? carrier.label) : undefined;
+    const person = device ? personName(devicePerson(device, template, people)) : '';
+    const entry = entries.get(id);
+    return {
+      id,
+      channel,
+      port: `Netz ${channel}`,
+      ...(device ? { device, deviceTemplate: template?.name ?? '' } : {}),
+      ...(found ? { devicePort: found.route.sourcePort } : {}),
+      ...(person ? { person } : {}),
+      via: found ? [{ deviceId: found.route.stagebox.id, text: `${found.route.stagebox.label} · ${found.route.stageboxPort} (Netzwerk)` }] : [],
+      ...(carrierText ? { carrier: carrierText } : {}),
+      name: entry?.name ?? (device ? (person ? `${device.label} (${person})` : device.label) : ''),
+      phantom: entry?.phantom ?? template?.phantomPower ?? false,
+      stand: entry?.stand ?? carrierText ?? '',
+      notes: entry?.notes ?? '',
+      edited: { name: entry?.name !== undefined, phantom: entry?.phantom !== undefined, stand: entry?.stand !== undefined },
+    };
+  };
+
   return project.devices
     .filter((d) => isMixer(templates.get(d.templateId)))
     .sort((a, b) => a.label.localeCompare(b.label, 'de', { numeric: true }))
@@ -154,8 +185,119 @@ export function buildPatchLists(project: ProjectLike, library: Pick<Library, 'te
       const ports = templatePorts(mixerTemplate).filter((p) => !p.isNetwork && !p.isPower);
       const inputs = ports.filter((p) => p.role === 'in').map((p, i) => row(mixer, p, i + 1));
       const outputs = ports.filter((p) => p.role === 'out').map((p, i) => row(mixer, p, i + 1));
-      return { mixer, mixerTemplate, inputs, outputs };
+      const network = Array.from({ length: networkChannelCount(mixer, mixerTemplate) }, (_, i) => networkRow(mixer, i + 1));
+      return { mixer, mixerTemplate, inputs, outputs, network };
     });
+}
+
+// ---------- Netzwerk-Kanäle (digitale Stagebox → Pult) ----------
+
+/** Anzahl der Netzwerk-Kanäle eines Pults: im Projekt gesetzt, sonst aus der Vorlage. */
+export function networkChannelCount(mixer: DeviceInstance, template: Template | undefined): number {
+  return mixer.networkChannels ?? template?.networkChannels ?? 0;
+}
+
+export interface NetworkRoute {
+  mixer: DeviceInstance;
+  stagebox: DeviceInstance;
+  /** Eingang der Stagebox, an dem die Quelle steckt */
+  stageboxPortId: string;
+  stageboxPort: string;
+  /** Anschluss an der Quelle */
+  sourcePort: string;
+}
+
+/**
+ * Durchgehende Ketten einer Quelle zu Mischpulten mit Netzwerk-Kanälen:
+ * Quelle → Kabel → Eingang einer Stagebox; die Stagebox hängt mit einem Netzwerkkabel direkt am Netzwerk-Anschluss des Pults.
+ */
+export function networkRoutes(device: DeviceInstance, project: Pick<Project, 'devices' | 'cables'>, library: Pick<Library, 'templates'>): NetworkRoute[] {
+  const templates = new Map(library.templates.map((t) => [t.id, t]));
+  const devices = new Map(project.devices.map((d) => [d.id, d]));
+  const portOf = (deviceId: string, portId: string) => templatePorts(templates.get(devices.get(deviceId)?.templateId ?? '')).find((p) => p.id === portId);
+  const routes: NetworkRoute[] = [];
+  for (const cable of project.cables) {
+    const mine = cable.from.deviceId === device.id ? cable.from : cable.to.deviceId === device.id ? cable.to : null;
+    if (!mine) continue;
+    const other = mine === cable.from ? cable.to : cable.from;
+    const stagebox = devices.get(other.deviceId);
+    const stageboxTemplate = templates.get(stagebox?.templateId ?? '');
+    const inPort = portOf(other.deviceId, other.portId);
+    if (!stagebox || !inPort || inPort.isNetwork || inPort.isPower || isMixer(stageboxTemplate) || isMulticore(stageboxTemplate)) continue;
+    // Netzwerkkabel direkt von der Stagebox zum Netzwerk-Anschluss eines Pults
+    for (const net of project.cables) {
+      const sb = net.from.deviceId === stagebox.id ? net.from : net.to.deviceId === stagebox.id ? net.to : null;
+      if (!sb || !portOf(sb.deviceId, sb.portId)?.isNetwork) continue;
+      const far = sb === net.from ? net.to : net.from;
+      const mixer = devices.get(far.deviceId);
+      const mixerTemplate = templates.get(mixer?.templateId ?? '');
+      if (!mixer || !isMixer(mixerTemplate) || !portOf(far.deviceId, far.portId)?.isNetwork) continue;
+      if (networkChannelCount(mixer, mixerTemplate) === 0) continue;
+      if (routes.some((r) => r.mixer.id === mixer.id && r.stagebox.id === stagebox.id)) continue;
+      routes.push({ mixer, stagebox, stageboxPortId: inPort.id, stageboxPort: inPort.label, sourcePort: portOf(device.id, mine.portId)?.label ?? mine.portId });
+    }
+  }
+  return routes;
+}
+
+export interface ChannelAssignment {
+  device: DeviceInstance;
+  mixer: DeviceInstance;
+  channel: number;
+  route: NetworkRoute;
+}
+
+/** Zuordnungen mit gültiger Kette und vorhandenem Kanal. */
+export function validAssignments(project: Pick<Project, 'devices' | 'cables'>, library: Pick<Library, 'templates'>): ChannelAssignment[] {
+  const templates = new Map(library.templates.map((t) => [t.id, t]));
+  const result: ChannelAssignment[] = [];
+  for (const device of project.devices) {
+    const mc = device.mixerChannel;
+    if (!mc) continue;
+    const route = networkRoutes(device, project, library).find((r) => r.mixer.id === mc.mixerId);
+    if (!route || mc.channel > networkChannelCount(route.mixer, templates.get(route.mixer.templateId))) continue;
+    result.push({ device, mixer: route.mixer, channel: mc.channel, route });
+  }
+  return result;
+}
+
+/** Anzeige an der Stagebox: „Gerät/Anschluss“ → „→ FOH 12“ */
+export function stageboxChannelLabels(project: Pick<Project, 'devices' | 'cables'>, library: Pick<Library, 'templates'>): Map<string, string> {
+  const labels = new Map<string, string>();
+  for (const a of validAssignments(project, library)) {
+    const key = `${a.route.stagebox.id}/${a.route.stageboxPortId}`;
+    const text = `${a.mixer.label} ${a.channel}`;
+    labels.set(key, labels.has(key) ? `${labels.get(key)}, ${text}` : text);
+  }
+  return labels;
+}
+
+/** Prüfungen: Zuordnung ohne durchgehende Kette, Kanal gibt es nicht, Kanal doppelt belegt. */
+export function checkNetworkChannels(project: Pick<Project, 'devices' | 'cables'>, library: Pick<Library, 'templates'>): Issue[] {
+  const templates = new Map(library.templates.map((t) => [t.id, t]));
+  const devices = new Map(project.devices.map((d) => [d.id, d]));
+  const issues: Issue[] = [];
+  for (const device of project.devices) {
+    const mc = device.mixerChannel;
+    if (!mc) continue;
+    const mixer = devices.get(mc.mixerId);
+    const route = networkRoutes(device, project, library).find((r) => r.mixer.id === mc.mixerId);
+    if (!mixer || !route) {
+      issues.push({ id: `netchannel-chain:${device.id}`, severity: 'warning', message: `${device.label}: Kanal ${mc.channel} auf ${mixer?.label ?? 'Pult'} – keine durchgehende Kette (Quelle → Stagebox → Netzwerkkabel → Pult).`, objectIds: [device.id] });
+    } else if (mc.channel > networkChannelCount(mixer, templates.get(mixer.templateId))) {
+      issues.push({ id: `netchannel-range:${device.id}`, severity: 'warning', message: `${device.label}: ${mixer.label} hat keinen Kanal ${mc.channel}.`, objectIds: [device.id] });
+    }
+  }
+  const byChannel = new Map<string, ChannelAssignment[]>();
+  for (const a of validAssignments(project, library)) {
+    const key = `${a.mixer.id}:${a.channel}`;
+    byChannel.set(key, [...(byChannel.get(key) ?? []), a]);
+  }
+  for (const [key, list] of byChannel) {
+    if (list.length < 2) continue;
+    issues.push({ id: `netchannel-double:${key}`, severity: 'warning', message: `${list[0]!.mixer.label} Kanal ${list[0]!.channel} ist doppelt belegt (${list.map((a) => a.device.label).join(', ')}).`, objectIds: list.map((a) => a.device.id) });
+  }
+  return issues;
 }
 
 /** Text für „über“: „Multicore 1 · Send 5 (Bühne) → …“ */

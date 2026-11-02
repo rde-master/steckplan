@@ -73,3 +73,66 @@ test('Ton-Patch: Input-/Output-Liste aus dem Signalfluss, Angaben bearbeiten, PD
   expect(text).toContain('Lead Vox');
   expect(text).toContain('Output-Liste – FOH');
 });
+
+test('Ton-Patch: Netzwerk-Kanäle – Quelle über digitale Stagebox einem Pult-Kanal zuordnen', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await loginAs(page, 'edit', 'Digital-Ton');
+  const post = async (template: object) => (await page.request.post('/api/library/templates', { data: { template } })).json();
+  const audio = (id: string, label: string, direction: 'in' | 'out') => ({ id, label, connector: 'XLR NK', direction, signal: 'Audio' });
+  const net = { id: 'net', label: 'Dante', connector: 'RJ45 NK', direction: 'bi', signal: 'Dante', isNetwork: true };
+  const mic = await post({ kind: 'device', name: 'Mikro NK', phantomPower: true, ports: [audio('out', 'Out', 'out')] });
+  const stage = await post({ kind: 'device', name: 'Digitale Stagebox NK', ports: [audio('i1', 'In 1', 'in'), audio('i2', 'In 2', 'in'), net] });
+  const desk = await post({ kind: 'device', name: 'Digitalpult NK', mixer: true, networkChannels: 16, ports: [net] });
+  const d = (id: string, t: { id: string }, x: number, y = 60) => ({ id, templateId: t.id, layerId: 'l1', label: id, signalFlow: { position: { x, y } } });
+  const c = (id: string, from: [string, string], to: [string, string]) => ({ id, from: { deviceId: from[0], portId: from[1] }, to: { deviceId: to[0], portId: to[1] }, waypoints: [] });
+  const { id } = await (
+    await page.request.post('/api/projects/upload', {
+      data: {
+        schemaVersion: 5,
+        id: 'netzkanal',
+        meta: { name: 'Netzwerk-Kanäle' },
+        layers: [{ id: 'l1', name: 'Ton', order: 0 }],
+        devices: [d('Vox', mic, 20), d('Lose', mic, 20, 300), d('SB', stage, 320), d('DFOH', desk, 650)],
+        cables: [c('a', ['Vox', 'out'], ['SB', 'i1']), c('n', ['SB', 'net'], ['DFOH', 'net'])],
+      },
+    })
+  ).json();
+
+  await page.goto(`/projekt/${id}`);
+  await expect.poll(() => page.evaluate(() => window.__steckplanStage?.find('.device').length ?? 0)).toBe(4);
+  const click = async (label: string) => {
+    const pt = await page.evaluate((l) => {
+      const stage = window.__steckplanStage!;
+      const r = stage.findOne(`#device-${l}`)!.getClientRect();
+      const b = stage.container().getBoundingClientRect();
+      return { x: b.left + r.x + r.width / 2, y: b.top + r.y + 10 };
+    }, label);
+    await page.mouse.click(pt.x, pt.y);
+  };
+  const props = page.getByRole('complementary', { name: 'Eigenschaften' });
+
+  // ohne Kette (nicht an der Stagebox) keine Zuordnung möglich
+  await click('Lose');
+  await expect(props.getByTestId('mixer-channel-section')).toHaveCount(0);
+
+  // Vox → SB In 1 → Netzwerkkabel → DFOH: Kanal 3 zuordnen
+  await click('Vox');
+  await props.getByRole('combobox', { name: 'Pult-Kanal (Netzwerk)' }).selectOption({ label: 'DFOH Kanal 3' });
+  const labelTexts = () => page.evaluate(() => window.__steckplanStage!.find('Text').map((t) => (t as unknown as { text(): string }).text()));
+  await expect.poll(async () => (await labelTexts()).some((t) => t.includes('In 1 → DFOH 3'))).toBe(true);
+
+  // Anzeige ausblenden
+  await page.getByRole('group', { name: 'In Kästen' }).getByLabel('Kanäle').uncheck();
+  await expect.poll(async () => (await labelTexts()).some((t) => t.includes('→ DFOH 3'))).toBe(false);
+  await page.getByRole('group', { name: 'In Kästen' }).getByLabel('Kanäle').check();
+
+  // Input-Liste: Netzwerk-Kanal 3 mit Quelle und Stagebox
+  await page.getByRole('tab', { name: 'Listen' }).click();
+  await page.getByRole('tab', { name: 'Ton-Patch' }).click();
+  const network = page.getByTestId('patch-network');
+  await expect(network).toContainText('Netzwerk-Kanäle (1/16)');
+  const row3 = network.getByTestId('patch-row').nth(2);
+  await expect(row3).toContainText('Vox');
+  await expect(row3).toContainText('SB · In 1 (Netzwerk)');
+  await expect(row3.getByLabel('48 V Netz 3')).toBeChecked();
+});
