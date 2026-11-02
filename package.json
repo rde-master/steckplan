@@ -1,6 +1,6 @@
 {
   "name": "steckplan-monorepo",
-  "version": "0.14.2",
+  "version": "0.15.0",
   "private": true,
   "description": "Steckplan – Planung von Licht-, Ton- und Netzwerktechnik für Veranstaltungen",
   "license": "GPL-3.0-only",
