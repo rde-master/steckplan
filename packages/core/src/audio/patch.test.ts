@@ -92,9 +92,9 @@ describe('Ton-Patch: Input- und Output-Liste', () => {
 
   it('CSV mit Ein- und Ausgängen', () => {
     const csv = listCsv('patch', project(), { ...createEmptyLibrary('l'), templates });
-    expect(csv).toContain('FOH;Eingang;1;In 1;Gesang;Gesang · Out;Kondensatormikro;;MC 1 · Send 1 (Bühne);ja;Galgenstativ;');
+    expect(csv).toContain('FOH;Eingang;1;In 1;Gesang;Gesang · Out;Kondensatormikro;;MC 1 · Send 1 (Bühne);ja;');
     expect(csv).toContain('FOH;Eingang;3;In 3;;offen;');
-    expect(csv).toContain('FOH;Ausgang;1;Aux 1;IEM Anna (Anna Muster);IEM Anna · In;In-Ear-Sender;Anna Muster;MC 1 · Return 1 (Bühne);;;');
+    expect(csv).toContain('FOH;Ausgang;1;Aux 1;IEM Anna (Anna Muster);IEM Anna · In;In-Ear-Sender;Anna Muster;MC 1 · Return 1 (Bühne);;');
   });
 
   it('ohne Mischpult keine Liste; Kreise führen nicht in eine Endlosschleife', () => {

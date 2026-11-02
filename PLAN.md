@@ -654,6 +654,7 @@ Jeder Meilenstein endet mit grünen Tests, lauffähigem Build (Desktop **und** D
 - Signalfluss-Seiten (02.11.2026, Format 5): frei verwaltbare Seiten (z. B. Licht, Ton); jedes Gerät auf genau einer Seite (ohne Seite = erste); Kabel zwischen Seiten als anklickbarer Verweis am Anschluss; im PDF je Seite ein Blatt, Seiten wählbar
 - Pult-Kanal je Ausgang (02.11.2026, Format 6): Geräte mit mehreren Ausgängen (z. B. Keyboard L/R, Funkempfänger) bekommen je Ausgang mit durchgehender Kette eine eigene Kanal-Auswahl in den Eigenschaften der Quelle; bestehende Zuordnungen (eine je Gerät) werden beim Öffnen auf den ersten Ausgang mit Kette übertragen. Ton-Patch zeigt die Netzwerk-Kanäle oben und standardmäßig nur belegte Kanäle (abwählbar)
 - Kastengröße und Kabellinien im Signalfluss (02.11.2026, Format 7): Kästen per schraffiertem Griff rechts unten in Breite und Höhe änderbar (nie kleiner als automatisch, Doppelklick = automatisch), Größe je Gerät im Projekt gespeichert und im PDF übernommen; Kabellinien eckig oder geschwungen als Projekteinstellung (Umschalter in der Signalfluss-Leiste, gilt auch im PDF)
+- Ton-Patch ohne Spalte „Stativ“ (02.11.2026): in Liste, PDF und CSV entfernt; vorhandene Angaben bleiben in der Datei, werden aber nicht mehr gezeigt
 - Export-Vorschau (02.11.2026): im Export-Dialog daneben, live bei jeder Änderung; PDF blättern/vergrößern, CSV als Tabelle
 
 ---

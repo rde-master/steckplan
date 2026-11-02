@@ -183,7 +183,7 @@ export function listCsv(kind: CsvKind, project: ProjectLike, library: Library, i
     }
     case 'patch':
       return toCsv(
-        ['Pult', 'Richtung', 'Kanal', 'Anschluss', 'Name', 'Quelle/Ziel', 'Vorlage', 'Person', 'Über', '48 V', 'Stativ', 'Bemerkung'],
+        ['Pult', 'Richtung', 'Kanal', 'Anschluss', 'Name', 'Quelle/Ziel', 'Vorlage', 'Person', 'Über', '48 V', 'Bemerkung'],
         buildPatchLists(project, library).flatMap((list) =>
           (['inputs', 'network', 'outputs'] as const).flatMap((dir) =>
             list[dir].map((r) => [
@@ -197,7 +197,6 @@ export function listCsv(kind: CsvKind, project: ProjectLike, library: Library, i
               r.person ?? '',
               viaText(r),
               dir !== 'outputs' && r.phantom ? 'ja' : '',
-              dir !== 'outputs' ? r.stand : '',
               r.notes,
             ]),
           ),
