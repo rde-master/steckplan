@@ -3,7 +3,7 @@
 // Jede Änderung hier, die bestehende Dateien betrifft, braucht: schemaVersion erhöhen + Migration + Test.
 import { z } from 'zod';
 
-export const CURRENT_SCHEMA_VERSION = 6;
+export const CURRENT_SCHEMA_VERSION = 7;
 
 const id = z.string().min(1);
 const isoDate = z.string();
@@ -188,7 +188,15 @@ export const DeviceInstanceSchema = z.object({
   /** Multicore: Länge von Hand statt berechnet (seit Format 3) */
   manualLengthMm: mm.optional(),
   /** Signalfluss: Position und Seite (seit Format 5; ohne Seite = erste Seite) */
-  signalFlow: z.object({ position: PointSchema, pageId: id.optional() }).optional(),
+  signalFlow: z
+    .object({
+      position: PointSchema,
+      pageId: id.optional(),
+      /** von Hand gezogene Größe des Kastens (nie kleiner als die automatische) (seit Format 7) */
+      width: z.number().positive().max(4000).optional(),
+      height: z.number().positive().max(4000).optional(),
+    })
+    .optional(),
   mountedOnId: id.optional(),
   dmx: z
     .object({
@@ -352,6 +360,8 @@ export const ProjectSettingsSchema = z.object({
   snap: z.boolean().default(true),
   defaultReservePercent: z.number().nonnegative().default(10),
   defaultReservePerEndMm: mm.nonnegative().default(500),
+  /** Kabellinien im Signalfluss: eckig (Standard) oder geschwungen (seit Format 7) */
+  cableStyle: z.enum(['square', 'curved']).optional(),
 });
 export type ProjectSettings = z.infer<typeof ProjectSettingsSchema>;
 

@@ -7,7 +7,7 @@ import { createYDocFromProject } from '../model/ydoc';
 import { autoCableType, connectorMatch, orientConnection, rankCableTypes } from './cables';
 import { cableIssueMap, checkSignalFlow } from './checks';
 import { addCable, addDevice, duplicateDevices, nextLabel, readCables, readDevices, removeDevices, updateDevices } from './doc-ops';
-import { boxLayout, contrastText, routeCable } from './layout';
+import { boxLayout, contrastText, curveCable, routeCable } from './layout';
 import { canFlow, findPort, isPlaceableInSignalFlow, templatePorts } from './ports';
 
 const T0 = '2026-01-01T00:00:00.000Z';
@@ -96,6 +96,22 @@ describe('Kasten-Layout und Kabelführung', () => {
     expect(layout.height).toBe(30 + 2 * 20 + 8);
     expect(layout.anchors.find((a) => a.port.id === 'net')).toMatchObject({ x: layout.width, y: 40 });
     expect(layout.anchors.find((a) => a.port.id === 'in2')).toMatchObject({ x: 0, y: 60 });
+  });
+
+  it('von Hand gezogene Größe: nie kleiner als automatisch, Anschlüsse verteilen sich', () => {
+    const auto = boxLayout('Pult', templatePorts(desk));
+    expect(boxLayout('Pult', templatePorts(desk), { width: 10, height: 10 })).toMatchObject({ width: auto.width, height: auto.height });
+    const big = boxLayout('Pult', templatePorts(desk), { width: 400, height: 30 + 8 + 2 * 50 });
+    expect(big).toMatchObject({ width: 400, height: 138, minWidth: auto.width, minHeight: auto.height });
+    expect(big.anchors.find((a) => a.port.id === 'net')).toMatchObject({ x: 400, y: 55 });
+    expect(big.anchors.find((a) => a.port.id === 'in2')).toMatchObject({ x: 0, y: 105 });
+  });
+
+  it('führt Kabel geschwungen (Bézier, waagerecht aus dem Anschluss)', () => {
+    expect(curveCable({ x: 0, y: 0 }, 'right', { x: 200, y: 50 }, 'left')).toEqual([0, 0, 100, 0, 100, 50, 200, 50]);
+    const back = curveCable({ x: 200, y: 0 }, 'right', { x: 0, y: 40 }, 'left');
+    expect(back[2]!).toBeGreaterThan(200);
+    expect(back[4]!).toBeLessThan(0);
   });
 
   it('führt Kabel rechtwinklig', () => {

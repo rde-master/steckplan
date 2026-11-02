@@ -128,7 +128,20 @@ describe('Live-Sync', () => {
     a.doc.getMap('meta').set('version', '2');
     a.destroy();
     await waitFor(() => server.rooms.peek(id) === undefined);
+    await server.rooms.whenClosed(id);
     expect((await server.store.load(id)).meta.version).toBe('2');
+  });
+
+  it('neu öffnen direkt nach dem Leerlauf-Schließen lädt den gespeicherten Stand', async () => {
+    const { server, id } = await setup();
+    const a = track(connect(server, id, await login(server, 'edit')));
+    await a.whenSynced();
+    a.doc.getMap('meta').set('version', '3');
+    a.destroy();
+    await waitFor(() => server.rooms.peek(id) === undefined, 3000, 'Raum nicht geschlossen');
+    // sofort wieder öffnen, während das Speichern evtl. noch läuft
+    const room = await server.rooms.get(id);
+    expect(room.doc.getMap('meta').get('version')).toBe('3');
   });
 
   it('übernimmt Namensänderungen in die Anwesenheitsliste', async () => {

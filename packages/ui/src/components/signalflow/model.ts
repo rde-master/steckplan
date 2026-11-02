@@ -6,6 +6,7 @@ import {
   boxLayout,
   cableIssueMap,
   contrastText,
+  curveCable,
   DEFAULT_DEVICE_COLOR,
   isMulticore,
   routeCable,
@@ -53,7 +54,9 @@ export interface DeviceBox {
 
 export interface CableLine {
   cable: Cable;
+  /** eckig: Punktliste; geschwungen: [Start, Kontrollpunkt 1, Kontrollpunkt 2, Ziel] */
   points: number[];
+  curved: boolean;
   color: string;
   issue: 'error' | 'warning' | 'info' | undefined;
   dimmed: boolean;
@@ -115,11 +118,14 @@ export function buildBoxes(devices: DeviceInstance[], library: Library | null, s
     const owner = display.showOwner && device.ownerId ? (library?.masterData.owners.find((o) => o.id === device.ownerId)?.name ?? '') : '';
     const infoLines = [person, owner].filter(Boolean).length;
     const longest = [device.label, person ? `👤 ${person}` : '', owner ? `Besitzer: ${owner}` : ''].reduce((a, b) => (b.length > a.length ? b : a), '');
-    const base = boxLayout(longest, displayPorts);
     const extraHeader = multicore ? MULTICORE_END_ROW : infoLines * PERSON_ROW;
+    const sized = device.signalFlow;
+    const base = boxLayout(longest, displayPorts, { width: sized?.width, height: sized?.height !== undefined ? sized.height - extraHeader : undefined });
     const layout: BoxLayout = {
       width: base.width,
       height: base.height + extraHeader,
+      minWidth: base.minWidth,
+      minHeight: base.minHeight + extraHeader,
       anchors: base.anchors.map((a) => ({ ...a, y: a.y + extraHeader })),
     };
     const fill = displayColor(display.colorMode, device, template, library, deviceColor(device, template));
@@ -137,7 +143,9 @@ export function anchorOf(box: DeviceBox, portId: string): { x: number; y: number
   return anchor ? { x: box.x + anchor.x, y: box.y + anchor.y, side: anchor.port.side } : undefined;
 }
 
-export function buildCableLines(cables: Cable[], boxes: DeviceBox[], library: Library | null, issues: Issue[], filter: Filter = EMPTY_FILTER): CableLine[] {
+export type CableStyle = 'square' | 'curved';
+
+export function buildCableLines(cables: Cable[], boxes: DeviceBox[], library: Library | null, issues: Issue[], filter: Filter = EMPTY_FILTER, style: CableStyle = 'square'): CableLine[] {
   const byId = new Map(boxes.map((b) => [b.device.id, b]));
   const templates = new Map((library?.templates ?? []).map((t) => [t.id, t]));
   const issueMap = cableIssueMap(issues);
@@ -152,7 +160,8 @@ export function buildCableLines(cables: Cable[], boxes: DeviceBox[], library: Li
     const type = cable.templateId ? templates.get(cable.templateId) : undefined;
     lines.push({
       cable,
-      points: routeCable(a, a.side, b, b.side),
+      points: style === 'curved' ? curveCable(a, a.side, b, b.side) : routeCable(a, a.side, b, b.side),
+      curved: style === 'curved',
       color: cable.direct ? '#64748b' : (type?.defaultColor ?? '#475569'),
       issue: issueMap.get(cable.id),
       dimmed: !cableVisible(filter, cable, type),

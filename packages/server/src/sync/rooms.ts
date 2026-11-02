@@ -19,6 +19,8 @@ export class RoomManager {
   private readonly rooms = new Map<string, Room>();
   private readonly loading = new Map<string, Promise<Room>>();
   private readonly idleTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  /** Projekte, die gerade geschlossen werden (speichern noch) – neu öffnen erst danach */
+  private readonly closing = new Map<string, Promise<void>>();
 
   constructor(private readonly options: RoomManagerOptions) {
     options.sessions.onChange((session) => {
@@ -46,7 +48,9 @@ export class RoomManager {
     if (existing) return existing;
     let pending = this.loading.get(id);
     if (!pending) {
-      pending = Room.load(id, this.options).then((room) => {
+      const closing = this.closing.get(id);
+      // erst laden, wenn ein gerade schließender Raum fertig gespeichert hat (sonst alter Dateistand)
+      pending = (closing ? closing.catch(() => undefined) : Promise.resolve()).then(() => Room.load(id, this.options)).then((room) => {
         this.rooms.set(id, room);
         return room;
       });
@@ -62,7 +66,22 @@ export class RoomManager {
     const room = this.rooms.get(id) ?? (await this.loading.get(id)?.catch(() => undefined));
     if (!room) return;
     this.rooms.delete(id);
-    await room.close(CloseCode.ProjectClosed, reason);
+    await this.track(id, room.close(CloseCode.ProjectClosed, reason));
+  }
+
+  /** Wartet, bis ein gerade schließendes Projekt fertig gespeichert ist. */
+  async whenClosed(id: string): Promise<void> {
+    await this.closing.get(id)?.catch(() => undefined);
+  }
+
+  private track(id: string, closing: Promise<void>): Promise<void> {
+    this.closing.set(id, closing);
+    void closing
+      .catch(() => undefined)
+      .finally(() => {
+        if (this.closing.get(id) === closing) this.closing.delete(id);
+      });
+    return closing;
   }
 
   async flushAll(): Promise<void> {
@@ -149,7 +168,7 @@ export class RoomManager {
       this.idleTimers.delete(id);
       if (room.connections.size === 0 && this.rooms.get(id) === room) {
         this.rooms.delete(id);
-        void room.close(CloseCode.ProjectClosed, 'Leerlauf');
+        void this.track(id, room.close(CloseCode.ProjectClosed, 'Leerlauf')).catch(() => undefined);
       }
     }, this.options.idleMs ?? 30_000);
     timer.unref?.();

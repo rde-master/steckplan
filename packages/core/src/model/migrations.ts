@@ -28,6 +28,8 @@ export const migrations: MigrationRegistry = {
         })
       : p.devices,
   }),
+  // 6 → 7: Größe der Kästen im Signalfluss je Gerät, Kabellinien eckig/geschwungen – optional; vorhandene Daten bleiben unverändert.
+  6: (p) => ({ ...p, schemaVersion: 7 }),
 };
 
 export class ProjectFormatError extends Error {
