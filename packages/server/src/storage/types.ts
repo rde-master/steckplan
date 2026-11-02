@@ -29,6 +29,9 @@ export interface ProjectStore {
   readOnlyReason(id: string): string | undefined;
   /** Dauerhafte Kennung für die Nutzungsübersicht (Docker: id, lokal: Dateipfad) */
   persistentKey(id: string): string;
+  /** Änderungsprotokoll getrennt vom Projekt speichern (Docker – nicht im Export). Fehlt: Protokoll steht in der Datei. */
+  loadChangeLog?(id: string): Promise<Project['changeLog']>;
+  saveChangeLog?(id: string, entries: Project['changeLog']): Promise<void>;
 }
 
 /** Zusätzliche Funktionen des Docker-Datenordners. */

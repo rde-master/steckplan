@@ -1,10 +1,13 @@
 // Dialog „Exportieren“: Dokumentart, Format, Optionen → PDF oder CSV.
+import { Download } from 'lucide-react';
+import { ICON } from './icons';
 import { useState } from 'react';
 import { can, formatAppTitle, isFilterActive, VERSION, type GroupBy, type Issue, type Library, type ProjectMeta } from '@steckplan/core';
 import { api, errorMessage } from '../lib/api';
 import { useEditor } from '../lib/editor';
 import { useSession } from '../lib/session';
 import type { ProjectData } from '../lib/useProjectData';
+import { LABEL_FORMATS } from '../pdf/documents';
 import { buildCsv, buildExportDoc, CSV_KINDS, DEFAULT_OPTIONS, EXPORT_TITLES, exportFileName, type ExportKind, type ExportOptions } from '../pdf/export';
 import { texts } from '../texts';
 import { Banner, Button, Modal } from './ui';
@@ -27,11 +30,16 @@ const DEFAULT_ORIENTATION: Record<ExportKind, 'portrait' | 'landscape'> = {
   stageplan: 'landscape',
   signalflow: 'landscape',
   packing: 'landscape',
+  cases: 'portrait',
+  patch: 'landscape',
+  power: 'landscape',
   cables: 'landscape',
   bom: 'portrait',
   dmx: 'portrait',
   devices: 'landscape',
   network: 'portrait',
+  people: 'landscape',
+  labels: 'portrait',
   wifi: 'portrait',
 };
 
@@ -106,9 +114,9 @@ export function ExportDialog({
       footer={
         <>
           <Button onClick={onClose}>{texts.common.cancel}</Button>
-          {CSV_KINDS.includes(opts.kind) && <Button onClick={createCsv}>⇩ CSV</Button>}
+          {CSV_KINDS.includes(opts.kind) && <Button onClick={createCsv}><Download {...ICON} /> CSV</Button>}
           <Button variant="primary" onClick={() => void createPdf()} disabled={busy || (opts.kind === 'wifi' && opts.wifiIds.length === 0)}>
-            {busy ? e.busy : '⇩ PDF'}
+            {busy ? e.busy : <><Download {...ICON} /> PDF</>}
           </Button>
         </>
       }
@@ -160,6 +168,12 @@ export function ExportDialog({
               <input type="checkbox" checked={opts.showCables} onChange={(ev) => set({ showCables: ev.target.checked })} />
               {e.cables}
             </label>
+            {data.groups.length > 0 && (
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={opts.showGroups} onChange={(ev) => set({ showGroups: ev.target.checked })} />
+                {e.groups}
+              </label>
+            )}
           </div>
         )}
 
@@ -169,7 +183,7 @@ export function ExportDialog({
               {field(
                 e.groupBy,
                 <select className={selectClass} aria-label={e.groupBy} value={opts.groupBy} onChange={(ev) => set({ groupBy: ev.target.value as GroupBy, thenBy: opts.thenBy === ev.target.value ? '' : opts.thenBy })}>
-                  {(['category', 'trailer', 'owner'] as const).map((g) => (
+                  {(['category', 'trailer', 'case', 'owner'] as const).map((g) => (
                     <option key={g} value={g}>
                       {texts.packing.groups[g]}
                     </option>
@@ -180,7 +194,7 @@ export function ExportDialog({
                 e.thenBy,
                 <select className={selectClass} aria-label={e.thenBy} value={opts.thenBy} onChange={(ev) => set({ thenBy: ev.target.value as GroupBy | '' })}>
                   <option value="">–</option>
-                  {(['category', 'trailer', 'owner'] as const)
+                  {(['category', 'trailer', 'case', 'owner'] as const)
                     .filter((g) => g !== opts.groupBy)
                     .map((g) => (
                       <option key={g} value={g}>
@@ -198,10 +212,55 @@ export function ExportDialog({
                 </label>
               ))}
             </div>
+            {field(
+              texts.packing.sortBy,
+              <select className={selectClass} aria-label={texts.packing.sortBy} value={opts.sortBy} onChange={(ev) => set({ sortBy: ev.target.value as 'name' | 'case' })}>
+                <option value="name">{texts.packing.sort.name}</option>
+                <option value="case">{texts.packing.sort.case}</option>
+              </select>,
+            )}
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" checked={opts.showChecks} onChange={(ev) => set({ showChecks: ev.target.checked })} />
               {e.showChecks}
             </label>
+          </div>
+        )}
+
+        {opts.kind === 'cases' && (
+          <div className="space-y-2">
+            <div className="flex gap-4 text-sm" role="radiogroup" aria-label={e.mode}>
+              {(['aggregated', 'single'] as const).map((m) => (
+                <label key={m} className="flex items-center gap-1.5">
+                  <input type="radio" name="case-mode" checked={opts.mode === m} onChange={() => set({ mode: m })} />
+                  {m === 'aggregated' ? e.aggregated : e.single}
+                </label>
+              ))}
+            </div>
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={opts.showChecks} onChange={(ev) => set({ showChecks: ev.target.checked })} />
+              {e.showChecks}
+            </label>
+            <p className="text-xs text-slate-500">{e.casesHint}</p>
+          </div>
+        )}
+
+        {opts.kind === 'labels' && (
+          <div className="space-y-2">
+            {field(
+              e.labelFormat,
+              <select className={selectClass} aria-label={e.labelFormat} value={opts.labelFormat} onChange={(ev) => set({ labelFormat: ev.target.value })}>
+                {LABEL_FORMATS.map((f) => (
+                  <option key={f.id} value={f.id}>
+                    {f.name}
+                  </option>
+                ))}
+              </select>,
+            )}
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={opts.cutLines} onChange={(ev) => set({ cutLines: ev.target.checked })} />
+              {e.cutLines}
+            </label>
+            <p className="text-xs text-slate-500">{e.labelsHint}</p>
           </div>
         )}
 

@@ -2,6 +2,7 @@
 import { join } from 'node:path';
 import { formatAppTitle, projectUsage } from '@steckplan/core';
 import { PasswordChecker, passwordFingerprint } from './auth/passwords';
+import { DesktopKeyStore } from './auth/desktop-keys';
 import { SessionStore } from './auth/sessions';
 import { ConfigError, readStandaloneConfig } from './config';
 import { createServer } from './server';
@@ -30,6 +31,8 @@ async function main(): Promise<void> {
   const versions = new VersionStore(join(config.dataDir, 'versions'));
   const sessions = new SessionStore({ file: join(config.dataDir, 'sessions.json') });
   await sessions.load((salt) => passwordFingerprint(passwords, salt));
+  const desktopKeys = new DesktopKeyStore({ file: join(config.dataDir, 'desktop-keys.json') });
+  await desktopKeys.load();
   const library = new LibraryStore(join(config.dataDir, 'library.json'));
   await library.load();
   const usage = new UsageTracker(join(config.dataDir, 'usage.json'));
@@ -45,6 +48,7 @@ async function main(): Promise<void> {
     library,
     usage,
     passwords: new PasswordChecker(passwords),
+    desktopKeys,
     uiDir: config.uiDir,
     logger: true,
     trustProxy: config.trustProxy,

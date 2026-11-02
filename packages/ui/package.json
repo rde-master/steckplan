@@ -1,6 +1,6 @@
 {
   "name": "@steckplan/ui",
-  "version": "0.8.0",
+  "version": "0.13.0",
   "private": true,
   "description": "Steckplan-Oberfläche (Desktop, Browser, Handy)",
   "license": "GPL-3.0-only",
@@ -15,6 +15,7 @@
   "dependencies": {
     "@steckplan/core": "workspace:*",
     "konva": "^10.9.1",
+    "lucide-react": "^0.469.0",
     "pdfjs-dist": "^6.4.299",
     "pdfmake": "^0.3.13",
     "react": "^19.3.1",

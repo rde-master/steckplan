@@ -1,3 +1,5 @@
+import { Copy, Download, Plus, Upload } from 'lucide-react';
+import { ICON } from '../components/icons';
 import { useRef, useState } from 'react';
 import { can, TEMPLATE_KIND_LABELS, TEMPLATE_KINDS, type Conflict, type Template, type TemplateKind } from '@steckplan/core';
 import { api, errorMessage } from '../lib/api';
@@ -8,7 +10,7 @@ import { texts } from '../texts';
 import { AppHeader, MainNav } from '../components/AppHeader';
 import { ConflictDialog } from '../components/ConflictDialog';
 import { MasterDataPanel } from '../components/library/MasterDataPanel';
-import { newDraft, TemplateEditor, type Draft } from '../components/library/TemplateEditor';
+import { copyDraft, newDraft, TemplateEditor, type Draft } from '../components/library/TemplateEditor';
 import { Banner, Button, Spinner, TextInput } from '../components/ui';
 
 type Section = TemplateKind | 'master';
@@ -72,12 +74,12 @@ export function LibraryPage({ section: rawSection }: { section: string }) {
         </Button>
         <div className="flex-1" />
         <a className="rounded-md px-3 py-2 text-sm text-slate-600 hover:bg-slate-200 dark:text-slate-300 dark:hover:bg-slate-700" href={api.exportLibraryUrl}>
-          ⇩ {texts.library.export}
+          <Download {...ICON} /> {texts.library.export}
         </a>
         {canEdit && (
           <>
             <Button variant="ghost" onClick={() => fileInput.current?.click()}>
-              ⇧ {texts.library.import}
+              <Upload {...ICON} /> {texts.library.import}
             </Button>
             <input
               ref={fileInput}
@@ -113,7 +115,7 @@ export function LibraryPage({ section: rawSection }: { section: string }) {
             <aside className="space-y-2">
               {canEdit && (
                 <Button variant="primary" className="w-full" onClick={() => select(newDraft(section))}>
-                  ＋ {texts.library.new(TEMPLATE_KIND_LABELS[section].singular)}
+                  <Plus {...ICON} /> {texts.library.new(TEMPLATE_KIND_LABELS[section].singular)}
                 </Button>
               )}
               <TextInput type="search" placeholder={texts.library.search} aria-label={texts.library.search} value={query} onChange={(e) => setQuery(e.target.value)} />
@@ -122,11 +124,11 @@ export function LibraryPage({ section: rawSection }: { section: string }) {
               ) : (
                 <ul className="divide-y divide-slate-200 overflow-hidden rounded-lg border border-slate-200 bg-white dark:divide-slate-700 dark:border-slate-700 dark:bg-slate-900">
                   {templates.map((template) => (
-                    <li key={template.id}>
+                    <li key={template.id} className="flex items-stretch">
                       <button
                         type="button"
                         onClick={() => select(template)}
-                        className={`flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-slate-100 dark:hover:bg-slate-800 ${selected?.id === template.id ? 'bg-sky-50 dark:bg-sky-950' : ''}`}
+                        className={`flex min-w-0 flex-1 items-center gap-2 px-3 py-2 text-left hover:bg-slate-100 dark:hover:bg-slate-800 ${selected?.id === template.id ? 'bg-sky-50 dark:bg-sky-950' : ''}`}
                       >
                         <span className="h-4 w-4 shrink-0 rounded border border-slate-300 dark:border-slate-600" style={{ backgroundColor: template.defaultColor ?? 'transparent' }} />
                         <span className="min-w-0 flex-1">
@@ -142,6 +144,17 @@ export function LibraryPage({ section: rawSection }: { section: string }) {
                           </span>
                         </span>
                       </button>
+                      {canEdit && (
+                        <button
+                          type="button"
+                          title={texts.library.copy}
+                          aria-label={`${texts.library.copy}: ${template.name}`}
+                          onClick={() => select(copyDraft(template))}
+                          className="shrink-0 px-3 text-slate-500 hover:bg-slate-100 hover:text-slate-800 dark:hover:bg-slate-800 dark:hover:text-slate-100"
+                        >
+                          <Copy {...ICON} />
+                        </button>
+                      )}
                     </li>
                   ))}
                 </ul>
@@ -163,6 +176,10 @@ export function LibraryPage({ section: rawSection }: { section: string }) {
                     setMessage(texts.library.deleted);
                   }}
                   onCancel={() => select(selected.id ? (library.templates.find((t) => t.id === selected.id) ?? null) : null)}
+                  onCopy={(draft) => {
+                    select(draft);
+                    setMessage(texts.library.copied);
+                  }}
                 />
               ) : (
                 <p className="py-8 text-center text-sm text-slate-500">{texts.library.select}</p>

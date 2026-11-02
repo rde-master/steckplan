@@ -3,7 +3,7 @@
 // Jede Änderung hier, die bestehende Dateien betrifft, braucht: schemaVersion erhöhen + Migration + Test.
 import { z } from 'zod';
 
-export const CURRENT_SCHEMA_VERSION = 3;
+export const CURRENT_SCHEMA_VERSION = 4;
 
 const id = z.string().min(1);
 const isoDate = z.string();
@@ -59,11 +59,15 @@ export const TrailerSchema = z.object({ ...masterEntry, notes: z.string().option
 export type Category = z.infer<typeof CategorySchema>;
 export type Owner = z.infer<typeof OwnerSchema>;
 export type Trailer = z.infer<typeof TrailerSchema>;
+/** Case (Kiste): kommt mit seinem Inhalt in einen Anhänger (seit Format 4) */
+export const CaseSchema = z.object({ ...masterEntry, defaultTrailerId: id.optional(), notes: z.string().optional() });
+export type Case = z.infer<typeof CaseSchema>;
 
 export const MasterDataSchema = z.object({
   categories: z.array(CategorySchema).default([]),
   owners: z.array(OwnerSchema).default([]),
   trailers: z.array(TrailerSchema).default([]),
+  cases: z.array(CaseSchema).default([]),
 });
 export type MasterData = z.infer<typeof MasterDataSchema>;
 
@@ -76,6 +80,12 @@ export const PortDefSchema = z.object({
   direction: z.enum(['in', 'out', 'bi']),
   signal: z.string(),
   isNetwork: z.boolean().optional(),
+  /** Stromanschluss (Eingang = Versorgung, Ausgang = Abgang eines Verteilers) (seit Format 4) */
+  isPower: z.boolean().optional(),
+  /** Absicherung in Ampere (Abgang bzw. Zuleitung eines Verteilers) */
+  fuseA: z.number().positive().optional(),
+  /** Phase: L1/L2/L3 oder Drehstrom (3P) */
+  phase: z.enum(['L1', 'L2', 'L3', '3P']).optional(),
 });
 export type PortDef = z.infer<typeof PortDefSchema>;
 
@@ -107,6 +117,8 @@ export const TemplateSchema = z.object({
   defaultColor: z.string().optional(),
   defaultOwnerId: id.optional(),
   defaultTrailerId: id.optional(),
+  /** Standard-Case (seit Format 4) */
+  defaultCaseId: id.optional(),
   shape: z
     .object({
       form: z.enum(['rect', 'circle', 'rounded']),
@@ -133,6 +145,17 @@ export const TemplateSchema = z.object({
   /** Multicore: Namen der Enden, z. B. „Bühne“ und „FOH“ (seit Format 3) */
   endALabel: z.string().optional(),
   endBLabel: z.string().optional(),
+  /** Gerät wird von einer Person benutzt (Vorgabe, je Gerät änderbar) (seit Format 4) */
+  usedByPerson: z.boolean().optional(),
+  /** Lagerbestand (Stück); bei Kabeltypen mit festen Längen stattdessen stockByLength (seit Format 4) */
+  stock: z.number().int().nonnegative().optional(),
+  stockByLength: z.array(z.object({ lengthMm: mm, count: z.number().int().nonnegative() })).optional(),
+  /** Stativ: Länge der T-Bar (seit Format 4) */
+  tBarLengthMm: mm.nonnegative().optional(),
+  /** Mischpult: Eingänge/Ausgänge bilden Input-/Output-Liste (seit Format 4) */
+  mixer: z.boolean().optional(),
+  /** Quelle braucht 48 V Phantomspeisung (Vorschlag in der Input-Liste) (seit Format 4) */
+  phantomPower: z.boolean().optional(),
 });
 export type Template = z.infer<typeof TemplateSchema>;
 
@@ -182,6 +205,18 @@ export const DeviceInstanceSchema = z.object({
       }),
     )
     .optional(),
+  /** Leistung in Watt, überschreibt die Vorlage (seit Format 4) */
+  powerW: z.number().nonnegative().optional(),
+  /** Benutzt von Mensch: überschreibt die Vorgabe der Vorlage (seit Format 4) */
+  usedByPerson: z.boolean().optional(),
+  personId: id.optional(),
+  /** Gruppe im Signalfluss (seit Format 4) */
+  groupId: id.optional(),
+  caseId: id.optional(),
+  /** Stativ: Länge der T-Bar, überschreibt die Vorlage (seit Format 4) */
+  tBarLengthMm: mm.nonnegative().optional(),
+  /** Am Stativ: hängt unten (Standard) oder steht oben auf der T-Bar (seit Format 4) */
+  mountSide: z.enum(['bottom', 'top']).optional(),
   check: CheckSchema.optional(),
   lastModified: LastModifiedSchema.optional(),
 });
@@ -200,6 +235,8 @@ export const CableSchema = z.object({
   trailerId: id.optional(),
   inventoryNo: z.string().optional(),
   categoryOverride: id.optional(),
+  /** Case, in das das Kabel gepackt wird (seit Format 4) */
+  caseId: id.optional(),
   /** Notiz (seit Format 3) */
   notes: z.string().optional(),
   from: cableEnd,
@@ -214,6 +251,34 @@ export const CableSchema = z.object({
   lastModified: LastModifiedSchema.optional(),
 });
 export type Cable = z.infer<typeof CableSchema>;
+
+// ---------- Personen, Gruppen, Cases im Projekt (seit Format 4) ----------
+
+export const PersonSchema = z.object({
+  id,
+  lastName: z.string().default(''),
+  firstName: z.string().default(''),
+  /** Art, z. B. Musiker, Moderator, Redner (Freitext) */
+  kind: z.string().default(''),
+});
+export type Person = z.infer<typeof PersonSchema>;
+
+export const GroupSchema = z.object({ id, name: z.string(), color: z.string().optional() });
+export type Group = z.infer<typeof GroupSchema>;
+
+/** Case → Anhänger in diesem Projekt (id = Case-id); ohne Eintrag gilt der Standard-Anhänger des Cases */
+export const CaseTrailerSchema = z.object({ id, trailerId: id.optional() });
+export type CaseTrailer = z.infer<typeof CaseTrailerSchema>;
+
+/** Angaben je Pult-Anschluss in Input-/Output-Liste (id = „Pult-Geräte-id:Anschluss-id“) (seit Format 4) */
+export const PatchEntrySchema = z.object({
+  id,
+  name: z.string().optional(),
+  phantom: z.boolean().optional(),
+  stand: z.string().optional(),
+  notes: z.string().optional(),
+});
+export type PatchEntry = z.infer<typeof PatchEntrySchema>;
 
 // ---------- Netzwerk ----------
 
@@ -311,6 +376,10 @@ export const ProjectSchema = z.object({
   shapes: z.array(ShapeSchema).default([]),
   devices: z.array(DeviceInstanceSchema).default([]),
   cables: z.array(CableSchema).default([]),
+  people: z.array(PersonSchema).default([]),
+  groups: z.array(GroupSchema).default([]),
+  caseTrailers: z.array(CaseTrailerSchema).default([]),
+  patch: z.array(PatchEntrySchema).default([]),
   network: z
     .object({
       subnets: z.array(SubnetSchema).default([]),
@@ -319,7 +388,7 @@ export const ProjectSchema = z.object({
     .default({ subnets: [], wifi: [] }),
   secrets: SecretsSchema.default({ wifiPasswords: [] }),
   templateSnapshot: z.array(TemplateSchema).default([]),
-  masterDataSnapshot: MasterDataSchema.default({ categories: [], owners: [], trailers: [] }),
+  masterDataSnapshot: MasterDataSchema.default({ categories: [], owners: [], trailers: [], cases: [] }),
   views: ProjectViewsSchema.default(ProjectViewsSchema.parse({})),
   background: BackgroundSchema.optional(),
   /** Nur im lokalen Modus in der Datei; auf dem Server getrennt gespeichert. */

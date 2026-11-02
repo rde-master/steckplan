@@ -1,4 +1,6 @@
 // Bühnenplan-Abschnitt im Eigenschaften-Panel (Ebene, Höhe, Drehung, Andocken) und Eigenschaften von Formen.
+import { RotateCcw } from 'lucide-react';
+import { ICON } from '../icons';
 import type * as Y from 'yjs';
 import {
   canDock,
@@ -63,7 +65,7 @@ export function StageDeviceSection({ doc, origin, library, data, device, editabl
           />
           {stage.heightMm !== undefined && editable && !carrier && (
             <Button variant="ghost" onClick={() => update({ stagePlan: { ...stage, heightMm: undefined } })}>
-              ↺ {s.resetHeight}
+              <RotateCcw {...ICON} /> {s.resetHeight}
             </Button>
           )}
           <div className="grid grid-cols-2 gap-2">

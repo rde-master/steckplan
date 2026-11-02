@@ -1,11 +1,13 @@
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { app, BrowserWindow, dialog, ipcMain, session } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, safeStorage, session } from 'electron';
 import { normalizeName, SESSION_COOKIE } from '@steckplan/server';
 import { startEmbeddedServer, type EmbeddedServer } from './embedded-server';
 import { buildMenu } from './menu';
 import { filesFromArgv, ProjectActions } from './projects';
 import { SettingsStore } from './settings';
+import { ServerConnections } from './servers';
+import { WebAccess } from './web-access';
 import { preloadPath, WindowManager } from './windows';
 
 const isSmokeTest = process.env.STECKPLAN_SMOKE_TEST === '1';
@@ -24,6 +26,8 @@ let server: EmbeddedServer;
 let settings: SettingsStore;
 let windows: WindowManager;
 let projects: ProjectActions;
+let webAccess: WebAccess | undefined;
+let servers: ServerConnections;
 
 function refreshMenu(): void {
   buildMenu({
@@ -44,6 +48,13 @@ function refreshMenu(): void {
     exportDocument: () => BrowserWindow.getFocusedWindow()?.webContents.send('menu:command', 'export'),
     showStart: () => windows.showStart(),
     showLibrary: () => windows.showLibrary(),
+    connectServer: () => {
+      // bestehendes Startfenster: Befehl senden; neues: Wunsch in der Adresse (Nachricht käme vor dem Laden an)
+      if (windows.start) windows.showStart().webContents.send('menu:command', 'connectServer');
+      else windows.showStart('?verbinden=1');
+    },
+    uploadToServer: () => BrowserWindow.getFocusedWindow()?.webContents.send('menu:command', 'uploadToServer'),
+    showWebAccess: () => (BrowserWindow.getFocusedWindow() ?? windows.showStart()).webContents.send('menu:command', 'webAccess'),
     copyAsNew: () => {
       const win = BrowserWindow.getFocusedWindow();
       const id = windows.projectOf(win);
@@ -52,6 +63,10 @@ function refreshMenu(): void {
     isProjectWindow: (win) => windows.projectOf(win) !== undefined,
     recent: () => settings.recent(),
   });
+}
+
+function broadcast(channel: string): void {
+  for (const win of BrowserWindow.getAllWindows()) win.webContents.send(channel);
 }
 
 function broadcastRecentChanged(): void {
@@ -96,6 +111,46 @@ function registerIpc(): void {
   });
   ipcMain.handle('library:open', () => {
     windows.showLibrary();
+  });
+  ipcMain.handle('servers:list', () => servers.list());
+  ipcMain.handle('servers:add', async (_event, input: unknown) => {
+    const added = await servers.add(input);
+    broadcast('servers:changed');
+    return added;
+  });
+  ipcMain.handle('servers:remove', async (_event, id: unknown) => {
+    await servers.remove(id);
+    broadcast('servers:changed');
+  });
+  ipcMain.handle('servers:open', (_event, id: unknown) => {
+    servers.open(id);
+  });
+  ipcMain.handle('project:uploadToServer', async (_event, projectId: unknown, serverId: unknown) => {
+    if (typeof projectId !== 'string') throw new Error('Projekt fehlt.');
+    // aktuellen Stand über den eingebetteten Server holen (wie „Herunterladen“)
+    const res = await fetch(`${server.baseUrl}/api/projects/${encodeURIComponent(projectId)}/download`, {
+      headers: { cookie: `${SESSION_COOKIE}=${server.localToken}` },
+    });
+    if (!res.ok) throw new Error('Das Projekt konnte nicht gelesen werden.');
+    return servers.upload(serverId, await res.text());
+  });
+  ipcMain.handle('web:status', () => webAccess!.status());
+  ipcMain.handle('web:start', (_event, address: unknown) => webAccess!.start(address));
+  ipcMain.handle('web:stop', async () => {
+    await webAccess!.stop();
+    return webAccess!.status();
+  });
+  ipcMain.handle('web:setPasswords', async (_event, input: unknown) => {
+    await webAccess!.setPasswords(input);
+    return webAccess!.status();
+  });
+  ipcMain.handle('web:setPort', async (_event, port: unknown) => {
+    await webAccess!.setPort(port);
+    return webAccess!.status();
+  });
+  ipcMain.handle('web:disconnect', (_event, sessionId: unknown) => {
+    webAccess!.disconnect(sessionId);
+    return webAccess!.status();
   });
 }
 
@@ -149,11 +204,21 @@ if (!app.requestSingleInstanceLock()) {
   });
 
   app.whenReady().then(async () => {
+    // Nur für automatische Tests unter Linux ohne Schlüsselbund (CI): Schlüssel mit Ersatz-Passwort im Speicher verschlüsseln
+    if (process.platform === 'linux' && process.env.STECKPLAN_TEST_PLAINTEXT_KEYS === '1' && process.env.STECKPLAN_USER_DATA) {
+      safeStorage.setUsePlainTextEncryption(true);
+    }
     settings = new SettingsStore(app.getPath('userData'));
     await settings.load();
 
     try {
-      server = await startEmbeddedServer({ userDataDir: app.getPath('userData'), uiDir: join(__dirname, 'ui'), userName: settings.name });
+      server = await startEmbeddedServer({
+        userDataDir: app.getPath('userData'),
+        uiDir: join(__dirname, 'ui'),
+        userName: settings.name,
+        passwords: () => webAccess?.passwords() ?? null,
+      });
+      webAccess = new WebAccess(server, settings);
     } catch (error) {
       dialog.showErrorBox('Steckplan kann nicht starten', `Der eingebettete Server konnte nicht starten:\n${(error as Error).message}`);
       app.exit(1);
@@ -180,10 +245,18 @@ if (!app.requestSingleInstanceLock()) {
       show: !isSmokeTest,
       onProjectClosed: (projectId) => {
         void projects.close(projectId).then(() => {
-          if (windows.projectCount === 0 && !quitting && process.platform !== 'darwin') windows.showStart();
+          if (windows.projectCount === 0 && servers.windowCount === 0 && !quitting && process.platform !== 'darwin') windows.showStart();
         });
       },
       onFocusChanged: () => refreshMenu(),
+    });
+    servers = new ServerConnections({
+      settings,
+      userName: () => settings.name,
+      show: !isSmokeTest,
+      onWindowClosed: () => {
+        if (windows.projectCount === 0 && servers.windowCount === 0 && !quitting && process.platform !== 'darwin') windows.showStart();
+      },
     });
     projects = new ProjectActions({
       server,
@@ -221,6 +294,7 @@ if (!app.requestSingleInstanceLock()) {
     quitting = true;
     void (async () => {
       try {
+        await webAccess?.stop();
         await server.rooms.closeAll('Steckplan wird beendet.');
         await server.store.closeAll();
         await server.app.close();

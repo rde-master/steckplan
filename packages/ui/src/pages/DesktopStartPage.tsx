@@ -5,12 +5,25 @@ import type { DesktopBridge, RecentFile } from '../lib/desktop';
 import { useSession } from '../lib/session';
 import { texts } from '../texts';
 import { Banner, Button, Field, Spinner, TextInput } from '../components/ui';
+import { WebAccessDialog } from '../components/WebAccessDialog';
+import { ServersSection } from '../components/ServerDialogs';
 
 export function DesktopStartPage({ desktop }: { desktop: DesktopBridge }) {
   const [name, setName] = useState<string | null>(null);
   const [recent, setRecent] = useState<RecentFile[]>([]);
   const [version, setVersion] = useState<string>();
   const [error, setError] = useState<string | null>(null);
+  const [showWeb, setShowWeb] = useState(false);
+
+  const [connectRequest, setConnectRequest] = useState(() => (new URLSearchParams(window.location.search).get('verbinden') ? 1 : 0));
+  useEffect(
+    () =>
+      desktop.onMenuCommand((command) => {
+        if (command === 'webAccess') setShowWeb(true);
+        if (command === 'connectServer') setConnectRequest((n) => n + 1);
+      }),
+    [desktop],
+  );
 
   useEffect(() => {
     desktop.getSettings().then((s) => setName(s.name), (err: unknown) => setError(errorMessage(err)));
@@ -52,7 +65,11 @@ export function DesktopStartPage({ desktop }: { desktop: DesktopBridge }) {
           <Button variant="ghost" onClick={() => void run(() => desktop.openLibrary())}>
             {texts.desktop.library}
           </Button>
+          <Button variant="ghost" onClick={() => setShowWeb(true)}>
+            {texts.webAccess.title}
+          </Button>
         </div>
+        {showWeb && <WebAccessDialog desktop={desktop} onClose={() => setShowWeb(false)} />}
         {error && <Banner tone="error">{error}</Banner>}
         <section>
           <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">{texts.desktop.recent}</h2>
@@ -78,6 +95,7 @@ export function DesktopStartPage({ desktop }: { desktop: DesktopBridge }) {
             </ul>
           )}
         </section>
+        <ServersSection desktop={desktop} connectRequest={connectRequest} />
         <SettingsSection desktop={desktop} name={name} onSaved={setName} />
       </main>
       <footer className="px-6 py-2 text-right text-xs text-slate-400">{version && formatAppTitle(version)}</footer>

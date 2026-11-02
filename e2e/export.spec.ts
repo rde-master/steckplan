@@ -19,7 +19,7 @@ async function exportPdf(page: Page, document: string, configure?: () => Promise
   await dialog.getByLabel('Dokument').selectOption({ label: document });
   await configure?.();
   const downloadPromise = page.waitForEvent('download');
-  await dialog.getByRole('button', { name: '⇩ PDF' }).click();
+  await dialog.getByRole('button', { name: 'PDF', exact: true }).click();
   const download = await downloadPromise;
   const path = await download.path();
   return { name: download.suggestedFilename(), ...(await pdfText(path)) };
@@ -70,11 +70,11 @@ test('Export: Packliste als PDF und CSV, Bühnenplan, WLAN-Aushang (Lese-Zugang 
   await page.getByRole('button', { name: 'Exportieren' }).click();
   await page.getByRole('dialog').getByLabel('Dokument').selectOption({ label: 'Packliste' });
   const csvPromise = page.waitForEvent('download');
-  await page.getByRole('dialog').getByRole('button', { name: '⇩ CSV' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'CSV', exact: true }).click();
   const csv = readFileSync(await (await csvPromise).path(), 'utf8');
   expect(csv.charCodeAt(0)).toBe(0xfeff);
   expect(csv).toContain('Bezeichnung;Typ;Länge;Kategorie;Besitzer;Anhänger');
-  expect(csv).toContain('Spot 6;Spot M7;;;;;;;;fehlt;nicht zurück');
+  expect(csv).toContain('Spot 6;Spot M7;;;;;;;;;;fehlt;nicht zurück');
   await page.getByRole('dialog').getByRole('button', { name: 'Abbrechen' }).click();
 
   // Bühnenplan 1:50 auf A4 → mehrere Blätter

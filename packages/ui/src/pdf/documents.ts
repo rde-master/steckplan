@@ -96,7 +96,7 @@ export interface PackingDocOptions {
   mode: 'aggregated' | 'single';
   /** aktuellen Stand der Häkchen eindrucken */
   showChecks: boolean;
-  names: { category: (id?: string) => string; owner: (id?: string) => string; trailer: (id?: string) => string };
+  names: { category: (id?: string) => string; owner: (id?: string) => string; trailer: (id?: string) => string; case: (id?: string) => string };
   groupTitle: string;
 }
 
@@ -109,22 +109,24 @@ function packRowCells(row: PackRow, opts: PackingDocOptions): Content[] {
   const name = aggregated
     ? [{ text: pdfText(row.name), bold: true }, row.items.length > 1 && row.items.some((i) => i.label) ? { text: `\n${pdfText(unique(row.items.map((i) => i.label)))}`, style: 'small' } : '']
     : [{ text: pdfText(first.label || first.name), bold: true }, first.inventoryNo ? { text: `  ${pdfText(first.inventoryNo)}`, style: 'small' } : ''];
+  const people = unique(row.items.map((i) => i.person));
   return [
     checkbox(allOut ? first.check?.out : undefined, opts.showChecks && allOut),
     checkbox(allIn ? first.check?.in : undefined, opts.showChecks && allIn),
     { text: String(row.items.length), alignment: 'right', bold: true },
-    { text: name },
+    { text: [...name, people ? { text: `\n${pdfText(people)}`, style: 'small', color: '#0369a1' } : ''] },
     pdfText([aggregated ? '' : row.name, row.lengthMm ? formatCableLength(row.lengthMm) : ''].filter(Boolean).join(' ')),
     pdfText(opts.names.category(first.categoryId)),
     pdfText(opts.names.owner(first.ownerId)),
     pdfText(opts.names.trailer(first.trailerId)),
+    pdfText(opts.names.case(first.caseId)),
     pdfText(unique(row.items.map((i) => i.carrier ?? i.route))),
     pdfText(unique(row.items.map((i) => i.notes))),
   ];
 }
 
-const PACK_HEADERS = ['Hin', 'Zur.', 'Anz.', 'Bezeichnung', 'Typ/Länge', 'Kategorie', 'Besitzer', 'Anhänger', 'Stativ/Position', 'Notiz'];
-const PACK_WIDTHS = [16, 16, 20, '*', 62, 52, 52, 52, 70, '*'];
+const PACK_HEADERS = ['Hin', 'Zur.', 'Anz.', 'Bezeichnung', 'Typ/Länge', 'Kategorie', 'Besitzer', 'Anhänger', 'Case', 'Stativ/Position', 'Notiz'];
+const PACK_WIDTHS = [16, 16, 20, '*', 58, 48, 48, 48, 48, 64, '*'];
 
 function signature(): Content {
   return {
@@ -193,6 +195,86 @@ export function packingListDoc(list: PackingList, opts: PackingDocOptions, ctx: 
   return base(ctx, 'Packliste', content);
 }
 
+// ---------- Case-Listen: je Case eine Seite ----------
+
+export interface CaseListDoc {
+  name: string;
+  trailer: string;
+  notes?: string;
+  color?: string;
+  total: number;
+  rows: PackRow[];
+}
+
+/** Ohne Spalten Anhänger und Case (stehen im Kopf der Seite) */
+const CASE_DROP = new Set([7, 8]);
+
+export function caseListsDoc(lists: CaseListDoc[], opts: PackingDocOptions, ctx: DocContext): DocDefinition {
+  const content: Content[] = [];
+  if (lists.length === 0) content.push({ text: 'Case-Listen', style: 'title' }, { text: 'Noch nichts in Cases.', italics: true, color: '#64748b' });
+  lists.forEach((c, index) => {
+    content.push({
+      columns: [colorSquare(c.color), { text: pdfText(c.name), style: 'title' }],
+      columnGap: 6,
+      ...(index > 0 ? { pageBreak: 'before' } : {}),
+    });
+    content.push({
+      text: `${pdfText(c.trailer ? `Anhänger: ${c.trailer}` : 'ohne Anhänger')} · ${c.total} ${c.total === 1 ? 'Teil' : 'Teile'} · ${opts.mode === 'aggregated' ? 'zusammengefasst' : 'einzeln'}${c.notes ? ` · ${pdfText(c.notes)}` : ''}`,
+      style: 'small',
+      margin: [0, 0, 0, 6],
+    });
+    content.push({
+      table: {
+        headerRows: 1,
+        dontBreakRows: true,
+        widths: PACK_WIDTHS.filter((_, i) => !CASE_DROP.has(i)),
+        body: [PACK_HEADERS.filter((_, i) => !CASE_DROP.has(i)).map((h) => ({ text: h, style: 'th' })), ...c.rows.map((r) => packRowCells(r, opts).filter((_, i) => !CASE_DROP.has(i)))],
+      },
+      layout: { hLineWidth: () => 0.4, vLineWidth: () => 0, hLineColor: () => '#cbd5e1', paddingTop: () => 3, paddingBottom: () => 3 },
+    });
+    content.push(signature());
+  });
+  return base(ctx, 'Case-Listen', content);
+}
+
+// ---------- Ton-Patch: Input-/Output-Liste je Mischpult ----------
+
+export interface PatchSection {
+  title: string;
+  subtitle?: string;
+  headers: string[];
+  widths: (number | string)[];
+  rows: (string | number)[][];
+}
+
+export function patchDoc(sections: PatchSection[], ctx: DocContext): DocDefinition {
+  return sectionsDoc('Input-/Output-Liste', sections, ctx, 'Kein Mischpult im Projekt.', true);
+}
+
+/** Mehrere Tabellen mit Überschrift (z. B. je Pult oder je Verteiler); optional jede auf neuer Seite. */
+export function sectionsDoc(title: string, sections: PatchSection[], ctx: DocContext, emptyText: string, pageBreaks: boolean, intro?: string): DocDefinition {
+  const content: Content[] = [];
+  if (intro) content.push({ text: title, style: 'title' }, { text: pdfText(intro), margin: [0, 0, 0, 8] });
+  if (sections.length === 0) content.push({ text: title, style: 'title' }, { text: emptyText, italics: true, color: '#64748b' });
+  sections.forEach((section, index) => {
+    content.push({ text: pdfText(section.title), style: pageBreaks ? 'title' : 'group', ...(index > 0 && pageBreaks ? { pageBreak: 'before' } : {}) });
+    if (section.subtitle) content.push({ text: pdfText(section.subtitle), style: 'small', margin: [0, 0, 0, 6] });
+    content.push({
+      table: {
+        headerRows: 1,
+        dontBreakRows: true,
+        widths: section.widths,
+        body: [
+          section.headers.map((h) => ({ text: h, style: 'th' })),
+          ...section.rows.map((r) => r.map((cell, i) => (i === 0 ? { text: String(cell), bold: true, alignment: 'right' } : pdfText(String(cell))))),
+        ],
+      },
+      layout: { hLineWidth: () => 0.4, vLineWidth: () => 0, hLineColor: () => '#cbd5e1', fillColor: (i: number) => (i > 0 && i % 2 === 0 ? '#f8fafc' : null), paddingTop: () => 4, paddingBottom: () => 4 },
+    });
+  });
+  return base(ctx, title, content);
+}
+
 // ---------- Tabellen-Listen (Kabel, Stück, DMX, Geräte, Netzwerk) ----------
 
 export function tableDoc(title: string, headers: string[], rows: (string | number)[][], ctx: DocContext, options: { widths?: (number | string)[]; subtitle?: string; summary?: string[] } = {}): DocDefinition {
@@ -210,6 +292,89 @@ export function tableDoc(title: string, headers: string[], rows: (string | numbe
       layout: { hLineWidth: () => 0.4, vLineWidth: () => 0, hLineColor: () => '#cbd5e1', fillColor: (i: number) => (i > 0 && i % 2 === 0 ? '#f8fafc' : null) },
     });
   return base(ctx, title, content);
+}
+
+// ---------- Geräte-Etiketten (A4-Bögen) ----------
+
+export interface LabelFormat {
+  id: string;
+  name: string;
+  cols: number;
+  rows: number;
+  widthMm: number;
+  heightMm: number;
+  marginLeftMm: number;
+  marginTopMm: number;
+  gapXMm: number;
+  gapYMm: number;
+}
+
+/** Gängige Klebe-Etiketten-Bögen (A4) */
+export const LABEL_FORMATS: LabelFormat[] = [
+  { id: '70x37', name: '70 × 37 mm (3 × 8, z. B. Avery 3474)', cols: 3, rows: 8, widthMm: 70, heightMm: 37.125, marginLeftMm: 0, marginTopMm: 0, gapXMm: 0, gapYMm: 0 },
+  { id: '63x38', name: '63,5 × 38,1 mm (3 × 7, z. B. Avery L7160)', cols: 3, rows: 7, widthMm: 63.5, heightMm: 38.1, marginLeftMm: 7.2, marginTopMm: 15.15, gapXMm: 2.5, gapYMm: 0 },
+  { id: '105x48', name: '105 × 48 mm (2 × 6, z. B. Avery 3424)', cols: 2, rows: 6, widthMm: 105, heightMm: 48, marginLeftMm: 0, marginTopMm: 4.5, gapXMm: 0, gapYMm: 0 },
+  { id: '105x74', name: '105 × 74 mm (2 × 4, A7)', cols: 2, rows: 4, widthMm: 105, heightMm: 74.25, marginLeftMm: 0, marginTopMm: 0, gapXMm: 0, gapYMm: 0 },
+];
+
+export interface LabelContent {
+  title: string;
+  person: string;
+  personKind: string;
+  templateName: string;
+  lines: string[];
+}
+
+/** Etiketten auf A4: je Etikett Gerät, Person und wo es mit welchem Kabel eingesteckt wird. Optional Schnittlinien. */
+export function labelsDoc(labels: LabelContent[], format: LabelFormat, ctx: Pick<DocContext, 'meta' | 'appTitle'>, options: { cutLines: boolean }): DocDefinition {
+  const perPage = format.cols * format.rows;
+  const w = format.widthMm * PT_PER_MM;
+  const h = format.heightMm * PT_PER_MM;
+  const pad = 2.5 * PT_PER_MM;
+  const scale = Math.min(1.4, Math.max(0.8, h / (37 * PT_PER_MM)));
+  const titleSize = 11 * scale;
+  const lineSize = 7 * scale;
+  // so viele Verbindungszeilen, wie sicher auf das Etikett passen
+  const maxLines = Math.max(1, Math.floor((h - 2 * pad - titleSize * 1.3 - lineSize * 2.6) / (lineSize * 1.2)));
+  const content: Content[] = [];
+  labels.forEach((label, index) => {
+    const slot = index % perPage;
+    if (slot === 0 && index > 0) content.push({ text: '', pageBreak: 'before' });
+    const col = slot % format.cols;
+    const row = Math.floor(slot / format.cols);
+    const x = (format.marginLeftMm + col * (format.widthMm + format.gapXMm)) * PT_PER_MM;
+    const y = (format.marginTopMm + row * (format.heightMm + format.gapYMm)) * PT_PER_MM;
+    if (options.cutLines) {
+      content.push({ canvas: [{ type: 'rect', x: 0, y: 0, w, h, lineWidth: 0.3, lineColor: '#94a3b8', dash: { length: 2 } }], absolutePosition: { x, y } });
+    }
+    const lines = label.lines.length > maxLines ? [...label.lines.slice(0, maxLines - 1), `… und ${label.lines.length - maxLines + 1} weitere`] : label.lines;
+    content.push({
+      absolutePosition: { x: x + pad, y: y + pad },
+      stack: [
+        { text: pdfText(label.title), bold: true, fontSize: titleSize, noWrap: true },
+        {
+          text: [
+            { text: pdfText(label.person || 'Person nicht zugeordnet'), bold: true, color: label.person ? '#0369a1' : '#b91c1c' },
+            label.personKind ? { text: `  ${pdfText(label.personKind)}`, color: '#64748b' } : '',
+          ],
+          fontSize: lineSize * 1.15,
+          noWrap: true,
+        },
+        { text: pdfText(label.templateName), fontSize: lineSize, color: '#64748b', noWrap: true, margin: [0, 0, 0, 1.5] },
+        ...lines.map((line) => ({ text: pdfText(line), fontSize: lineSize, noWrap: true })),
+      ],
+      width: w - 2 * pad,
+    });
+  });
+  if (labels.length === 0) content.push({ text: 'Keine Geräte „benutzt von Mensch“ vorhanden.', margin: [40, 40, 40, 0] });
+  return {
+    info: { title: `${pdfText(ctx.meta.name)} – Geräte-Etiketten`, creator: ctx.appTitle, producer: ctx.appTitle },
+    pageSize: 'A4',
+    pageOrientation: 'portrait',
+    pageMargins: [0, 0, 0, 0],
+    defaultStyle: { font: 'Roboto', fontSize: 8, lineHeight: 1.05 },
+    content,
+  };
 }
 
 // ---------- WLAN-Aushang ----------

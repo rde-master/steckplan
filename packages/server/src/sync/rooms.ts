@@ -74,12 +74,22 @@ export class RoomManager {
   }
 
   /** Trennt alle Verbindungen einer Sitzung (z. B. nach dem Abmelden). */
-  disconnectSession(sessionId: string): void {
+  disconnectSession(sessionId: string, reason = 'Abgemeldet'): void {
     for (const room of this.rooms.values()) {
       for (const connection of room.connections) {
-        if (connection.session.id === sessionId) connection.socket.close(CloseCode.Unauthorized, 'Abgemeldet');
+        if (connection.session.id === sessionId) connection.socket.close(CloseCode.Unauthorized, reason);
       }
     }
+  }
+
+  /** Sitzungen mit offener Projektverbindung (für „wer ist verbunden“). */
+  connectedSessions(): { sessionId: string; project: string }[] {
+    const result: { sessionId: string; project: string }[] = [];
+    for (const room of this.rooms.values()) {
+      const name = String(room.doc.getMap('meta').get('name') ?? '');
+      for (const connection of room.connections) result.push({ sessionId: connection.session.id, project: name });
+    }
+    return result;
   }
 
   handleConnection(socket: WebSocket, request: FastifyRequest, id: string): void {

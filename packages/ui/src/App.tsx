@@ -10,11 +10,12 @@ import { LibraryPage } from './pages/LibraryPage';
 import { LoginPage } from './pages/LoginPage';
 import { ProjectListPage } from './pages/ProjectListPage';
 import { ProjectPage } from './pages/ProjectPage';
+import { SettingsPage } from './pages/SettingsPage';
 
 export function App() {
   const path = usePath();
   const route = matchRoute(path);
-  const { status, loginAvailable, error, refresh } = useSession();
+  const { status, loginAvailable, keyRejected, error, refresh } = useSession();
   const desktop = getDesktop();
 
   useEffect(() => {
@@ -24,13 +25,21 @@ export function App() {
   // Bibliothek laden und bei Änderungen (auch von anderen) live aktualisieren
   useLibraryEvents(status === 'authenticated');
 
-  // Nicht angemeldet → zur Anmeldeseite (mit Rücksprung)
+  // Nicht angemeldet → zur Anmeldeseite (mit Rücksprung); nicht bei abgelehntem Desktop-Zugangsschlüssel
   useEffect(() => {
-    if (status === 'anonymous' && loginAvailable && route.page !== 'login') {
+    if (status === 'anonymous' && loginAvailable && !keyRejected && route.page !== 'login') {
       navigate(`/anmelden?weiter=${encodeURIComponent(path)}`, { replace: true });
     }
-  }, [status, loginAvailable, route.page, path]);
+  }, [status, loginAvailable, keyRejected, route.page, path]);
 
+  if (keyRejected && status === 'anonymous') {
+    return (
+      <div className="mx-auto max-w-md space-y-3 p-6">
+        <Banner tone="error">{texts.keyRejected[keyRejected]}</Banner>
+        <Button onClick={() => void refresh()}>{texts.common.retry}</Button>
+      </div>
+    );
+  }
   if (route.page === 'login') return <LoginPage next={route.next} />;
   if (status === 'loading') return <Spinner />;
   if (status === 'error') {
@@ -52,6 +61,8 @@ export function App() {
       return <ProjectPage key={route.id} id={route.id} />;
     case 'library':
       return <LibraryPage section={route.section} />;
+    case 'settings':
+      return <SettingsPage />;
     default:
       return (
         <div className="p-6">

@@ -15,7 +15,7 @@ const library: Library = {
     t({ id: 'stand', kind: 'stand', name: 'Stativ', shape: { form: 'circle', widthMm: 1000, depthMm: 1000, heightMm: 2500 } }),
     t({ id: 'xlr', kind: 'cableType', name: 'XLR', availableLengthsMm: [5000, 10000] }),
   ],
-  masterData: { categories: [{ id: 'licht', name: 'Licht' }], owners: [{ id: 'r', name: 'Ralf; Verleih' }], trailers: [] },
+  masterData: { categories: [{ id: 'licht', name: 'Licht' }], owners: [{ id: 'r', name: 'Ralf; Verleih' }], trailers: [], cases: [] },
 };
 
 function project(): Pick<Project, 'devices' | 'cables' | 'settings' | 'network'> {
@@ -62,10 +62,10 @@ describe('CSV', () => {
     const p = project();
     expect(listCsv('cables', p, library).split('\r\n')[1]).toContain('XLR;;Spot 1 · Netz;Spot 2 · Netz;4,00;2,50;0,00;6,50;10 m;;;'); // Höhe: Spot 1 hängt auf 2,50 m
     const packing = listCsv('packing', p, library);
-    expect(packing).toContain('Spot 2;Spot;;Licht;;;;;fehlt;;nicht da');
+    expect(packing).toContain('Spot 2;Spot;;Licht;;;;;;;fehlt;;nicht da');
     expect(packing).toContain('"Ralf; Verleih"');
     expect(listCsv('bom', p, library)).toContain('2;XLR;Kabel;10 m;');
-    expect(listCsv('devices', p, library)).toContain('Spot 1;Spot;Gerät;Licht;"Ralf; Verleih";;;Stativ 1;2,50 m;1.001 (16ch);10.0.0.5');
+    expect(listCsv('devices', p, library)).toContain('Spot 1;Spot;Gerät;Licht;"Ralf; Verleih";;;;;;Stativ 1;2,50 m;1.001 (16ch);10.0.0.5');
     expect(listCsv('network', p, library)).toContain('Spot 1;Netz;10.0.0.5;;');
     expect(dmxCsv([{ universe: 1, address: 1, end: 16, label: 'Spot 1', templateName: 'Spot', modeName: '16ch', channels: 16 }])).toContain('1;1;16;Spot 1;Spot;16ch;16;');
   });

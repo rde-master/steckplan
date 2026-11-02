@@ -54,6 +54,7 @@ function checkReferences(library: Library, template: Template, previous?: Templa
     ['categories', template.categoryId, previous?.categoryId],
     ['owners', template.defaultOwnerId, previous?.defaultOwnerId],
     ['trailers', template.defaultTrailerId, previous?.defaultTrailerId],
+    ['cases', template.defaultCaseId, previous?.defaultCaseId],
   ];
   for (const [kind, id, before] of refs) {
     if (!id) continue;
@@ -173,15 +174,28 @@ export function registerLibraryRoutes(app: FastifyInstance, deps: { library: Lib
     const raw: Record<string, unknown> = { id, name: cleanName(input.name) };
     if (typeof input.color === 'string' && input.color) raw.color = input.color.toLowerCase();
     if (kind === 'owners' && typeof input.contact === 'string' && input.contact.trim()) raw.contact = input.contact.trim();
-    if (kind === 'trailers' && typeof input.notes === 'string' && input.notes.trim()) raw.notes = input.notes.trim();
+    if ((kind === 'trailers' || kind === 'cases') && typeof input.notes === 'string' && input.notes.trim()) raw.notes = input.notes.trim();
+    if (kind === 'cases' && typeof input.defaultTrailerId === 'string' && input.defaultTrailerId) raw.defaultTrailerId = input.defaultTrailerId;
     if (archived) raw.archived = true;
     return MASTER_ENTRY_SCHEMAS[kind].parse(raw);
   }
 
+  /** Case: Standard-Anhänger muss existieren (archivierte nur, wenn schon vorher gesetzt). */
+  function checkCaseTrailer(lib: Library, entry: MasterEntry, previous?: MasterEntry): void {
+    const trailerId = (entry as { defaultTrailerId?: string }).defaultTrailerId;
+    if (!trailerId) return;
+    const trailer = lib.masterData.trailers.find((t) => t.id === trailerId);
+    if (!trailer) throw new LibraryError(400, 'Anhänger existiert nicht (mehr).');
+    if (trailer.archived && trailerId !== (previous as { defaultTrailerId?: string } | undefined)?.defaultTrailerId) {
+      throw new LibraryError(400, `Anhänger „${trailer.name}“ ist archiviert und kann nicht neu zugeordnet werden.`);
+    }
+  }
+
   function masterUsage(lib: Library, kind: MasterKind, id: string): string[] {
-    const field = kind === 'categories' ? 'categoryId' : kind === 'owners' ? 'defaultOwnerId' : 'defaultTrailerId';
-    const templates = lib.templates.filter((t) => t[field] === id).map((t) => `Vorlage „${t.name}“`);
-    return [...templates, ...usage.find(kind, id).map((name) => `Projekt „${name}“`)];
+    const field = kind === 'categories' ? 'categoryId' : kind === 'owners' ? 'defaultOwnerId' : kind === 'trailers' ? 'defaultTrailerId' : 'defaultCaseId';
+    const templates = field ? lib.templates.filter((t) => t[field] === id).map((t) => `Vorlage „${t.name}“`) : [];
+    const cases = kind === 'trailers' ? lib.masterData.cases.filter((c) => c.defaultTrailerId === id).map((c) => `Case „${c.name}“`) : [];
+    return [...templates, ...cases, ...usage.find(kind, id).map((name) => `Projekt „${name}“`)];
   }
 
   app.post<{ Params: { kind: string }; Body: Record<string, unknown> }>('/api/library/master/:kind', async (request, reply) => {
@@ -191,6 +205,7 @@ export function registerLibraryRoutes(app: FastifyInstance, deps: { library: Lib
     try {
       const entry = await library.mutate((lib) => {
         const created = buildEntry(kind, request.body ?? {}, newId());
+        checkCaseTrailer(lib, created);
         return {
           library: { ...lib, masterData: { ...lib.masterData, [kind]: [...lib.masterData[kind], created] } },
           result: created,
@@ -215,6 +230,7 @@ export function registerLibraryRoutes(app: FastifyInstance, deps: { library: Lib
         const body = request.body ?? {};
         const archived = typeof body.archived === 'boolean' ? body.archived : current.archived;
         const updated = buildEntry(kind, { ...current, ...body }, current.id, archived);
+        checkCaseTrailer(lib, updated, current);
         return {
           library: { ...lib, masterData: { ...lib.masterData, [kind]: list.map((e) => (e.id === current.id ? updated : e)) } },
           result: updated,

@@ -75,7 +75,7 @@ test('DMX: Auto-Adressierung entlang der Kette, Überlappung, Patchliste; Netzwe
 
   // Netzwerk: Subnetz anlegen, nächste freie IP übernehmen
   await page.getByRole('tab', { name: 'Netzwerk' }).first().click();
-  await page.getByRole('button', { name: /＋ Subnetz/ }).click();
+  await page.getByRole('button', { name: 'Subnetz', exact: true }).click();
   const subnet = page.getByTestId('subnet');
   await subnet.getByLabel('Name').fill('Lichtnetz');
   await subnet.getByLabel(/^Netz/).fill('10.0.0.0/24');
@@ -85,7 +85,7 @@ test('DMX: Auto-Adressierung entlang der Kette, Überlappung, Patchliste; Netzwe
   await expect(page.getByLabel('IP-Adresse Node 1')).toHaveValue('10.0.0.2');
 
   // WLAN mit Passwort und QR-Code
-  await page.getByRole('button', { name: /＋ WLAN-Netz/ }).click();
+  await page.getByRole('button', { name: 'WLAN-Netz', exact: true }).click();
   const wifi = page.getByTestId('wifi');
   await wifi.getByLabel('SSID', { exact: true }).fill('Crew-Netz');
   await wifi.getByLabel('Passwort Crew-Netz').fill('ge;heim');

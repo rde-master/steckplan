@@ -18,7 +18,13 @@ export function AppHeader({ title, left, nav, right }: { title?: ReactNode; left
       </div>
       {nav && <div className="flex min-w-0 flex-1 items-center">{nav}</div>}
       {right}
-      {session && session.via !== 'desktop' && (
+      {session && session.via === 'desktopKey' && (
+        <div className="flex items-center gap-2 text-sm">
+          <span className="hidden text-slate-600 sm:inline dark:text-slate-300">{session.name}</span>
+          <AccessBadge access={session.access} />
+        </div>
+      )}
+      {session && session.via === 'browser' && (
         <div className="flex items-center gap-2 text-sm">
           <span className="hidden text-slate-600 sm:inline dark:text-slate-300">{session.name}</span>
           <AccessBadge access={session.access} />
@@ -38,9 +44,12 @@ export function AppHeader({ title, left, nav, right }: { title?: ReactNode; left
 }
 
 /** Umschalter Projekte / Bibliothek (nur im Browser; am Desktop gibt es eigene Fenster). */
-export function MainNav({ active }: { active: 'projects' | 'library' }) {
+export function MainNav({ active }: { active: 'projects' | 'library' | 'settings' }) {
+  const session = useSession((s) => s.session);
+  const mode = useSession((s) => s.mode);
   if (getDesktop()) return null;
-  const item = (key: 'projects' | 'library', href: string, label: string) => (
+  const showSettings = mode === 'standalone' && !!session && session.access !== 'read';
+  const item = (key: 'projects' | 'library' | 'settings', href: string, label: string) => (
     <a
       href={href}
       aria-current={active === key ? 'page' : undefined}
@@ -57,6 +66,7 @@ export function MainNav({ active }: { active: 'projects' | 'library' }) {
     <nav className="flex gap-1 sm:ml-4" aria-label="Hauptnavigation">
       {item('projects', '/', texts.nav.projects)}
       {item('library', '/bibliothek', texts.nav.library)}
+      {showSettings && item('settings', '/einstellungen', texts.nav.settings)}
     </nav>
   );
 }

@@ -21,11 +21,27 @@ export class DataDirProjectStore implements ManagedProjectStore {
   readonly kind = 'dataDir' as const;
   private readonly projectsDir: string;
   private readonly trashDir: string;
+  private readonly logDir: string;
   private summaryCache = new Map<string, { mtimeMs: number; summary: ProjectSummary }>();
 
   constructor(dataDir: string) {
     this.projectsDir = join(dataDir, 'projects');
     this.trashDir = join(dataDir, 'trash');
+    this.logDir = join(dataDir, 'changelog');
+  }
+
+  async loadChangeLog(id: string): Promise<Project['changeLog']> {
+    try {
+      if (!SAFE_ID.test(id)) return [];
+      return JSON.parse(await readFile(join(this.logDir, `${id}.json`), 'utf8')) as Project['changeLog'];
+    } catch {
+      return [];
+    }
+  }
+
+  async saveChangeLog(id: string, entries: Project['changeLog']): Promise<void> {
+    if (!SAFE_ID.test(id)) return;
+    await writeFileAtomic(join(this.logDir, `${id}.json`), JSON.stringify(entries));
   }
 
   async init(): Promise<void> {

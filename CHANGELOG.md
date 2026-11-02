@@ -7,6 +7,99 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-11-02
+
+Meilenstein M10 – Strom (dazu Personen-Import und neue Symbole).
+
+### Hinzugefügt
+
+- Stromanschlüsse in der Bibliothek: Anschluss „Strom“ mit Absicherung (A) und Phase (L1/L2/L3/Drehstrom); Geräte mit Strom-Abgängen sind Verteiler (auch Steckdosenleisten und Unterverteiler)
+- Leistung je Gerät im Projekt änderbar (Vorgabe aus der Vorlage)
+- Last je Abgang, Verteiler und Phase aus den Stromkabeln im Signalfluss; Verteiler hinter Verteilern werden aufsummiert, Drehstrom-Geräte gleichmäßig verteilt
+- Prüfungen: Warnung ab 80 % der Absicherung, Überlast ab 100 %, Schieflast an Drehstrom-Anschlüssen, Geräte mit Leistung ohne Stromanschluss
+- Listen → Strom: je Verteiler Phasenbalken, Abgänge mit angeschlossenen Geräten, Leistung, Strom und Auslastung; Gesamtleistung
+- Stromliste als PDF und CSV
+- Personen importieren (Projektdaten → Personen → Importieren …): CSV-Datei (Semikolon, Komma oder Tabulator, UTF-8 oder Windows-Zeichensatz) oder aus Excel kopierte Zellen; Spalten Name, Vorname, Art werden an den Überschriften erkannt; Vorschau; vorhandene Personen werden übersprungen, eine fehlende Art wird ergänzt; als ein Rückgängig-Schritt
+
+### Geändert
+
+- Strom-Anschlüsse eines Mischpults erscheinen nicht in der Input-/Output-Liste
+- Einheitliche Symbole aus der Bibliothek Lucide (ISC-Lizenz) in den Werkzeugleisten von Signalfluss und Bühnenplan sowie bei Hinzufügen, Entfernen, Kopieren, Löschen, Zurücksetzen, Export/Import, Ebenen (sichtbar/gesperrt)
+
+## [0.12.0] - 2026-11-02
+
+Meilenstein M9 – Ton-Patch (dazu Case-Listen).
+
+### Hinzugefügt
+
+- Ton-Patch: Input- und Output-Liste je Mischpult (Vorlage „Mischpult“), automatisch aus dem Signalfluss – Kabel und Multicore-Adern werden bis zur Quelle bzw. zum Ziel verfolgt, die Stagebox-Seite der Ader wird genannt; offene Kanäle sind sichtbar
+- Input-Liste bearbeitbar: Kanalname, 48 V, Stativ, Bemerkung – mit Vorschlägen (Gerät und Person, „Braucht 48 V“ aus der Vorlage, Stativ, an dem die Quelle hängt)
+- Output-Liste mit Ziel und Person (z. B. In-Ear-Wege)
+- Input-/Output-Liste als PDF (je Pult) und CSV
+- Case-Listen: je Case, was hineingehört (zusammengefasst oder einzeln, mit Anhänger) – auf dem Bildschirm unter Listen → Cases zum Abhaken, als PDF (eine Seite je Case mit Unterschrift) und als CSV
+
+### Geändert
+
+- Packliste lässt sich nach Case sortieren (Bildschirm und PDF), zusätzlich zum Gruppieren nach Case
+
+## [0.11.0] - 2026-11-02
+
+Meilenstein M8b – Desktop ↔ Server-Verbindung.
+
+### Hinzugefügt
+
+- Server-Einstellungen (Docker, nur Bearbeiten-Zugang): Desktop-Zugangsschlüssel mit Bezeichnung und Zugangsstufe erzeugen (wird nur einmal angezeigt, nur als Hash gespeichert), „zuletzt benutzt“, widerrufen (trennt sofort), widerrufene entfernen
+- Desktop: „Mit Server verbinden …“ – Adresse und Zugangsschlüssel, mehrere Server speicherbar; der Schlüssel liegt verschlüsselt im Schlüsselbund-geschützten Speicher des Systems
+- Je Server ein eigenes Fenster mit der Oberfläche des Servers: live auf Projekten, Bibliothek und Stammdaten; Häkchen und Änderungen mit dem Namen aus den Desktop-Einstellungen; bei Verbindungsabbruch ist Bearbeiten gesperrt, Ansehen bleibt möglich
+- „Auf Server hochladen …“ für lokale Projekte (Vorlagen-Abgleich beim Öffnen auf dem Server); Server-Projekte lassen sich als Datei herunterladen (Speichern-Dialog)
+- Warnung bei Server-Adressen mit http:// (unverschlüsselt) außerhalb des eigenen Rechners
+- Hinweis statt Anmeldeseite, wenn der Zugangsschlüssel ungültig ist oder widerrufen wurde
+
+### Geändert
+
+- Meilenstein-Reihenfolge: Release 1.0 kommt nach Ton-Patch und Strom; neu nummeriert: M9 Ton-Patch, M10 Strom, M11 Release 1.0
+
+## [0.10.0] - 2026-11-01
+
+Meilenstein M8c – Personen, Gruppen, Cases, Lager (Dateiformat 4; ältere Dateien werden beim Öffnen automatisch angehoben).
+
+### Hinzugefügt
+
+- Personen je Projekt (Name, Vorname, Art mit Vorschlägen) unter Projektdaten
+- „Benutzt von Mensch“ für Geräte: Vorgabe in der Vorlage, je Gerät änderbar; Person zuordnen (auch direkt neu anlegen). Der Name erscheint im Signalfluss, im Bühnenplan, in den Listen und in den PDFs
+- Personenliste (Listen → Personen, PDF und CSV) mit Anschlüssen und Kabeln je Gerät
+- Geräte-Etiketten als PDF auf A4-Bögen (70 × 37, 63,5 × 38,1, 105 × 48, 105 × 74 mm; optional Schnittlinien): Gerät, Person und wo es mit welchem Kabel eingesteckt wird
+- Gruppen im Signalfluss (Gruppieren-Knopf oder Strg/⌘+G): Name und Farbe, Rahmen mit schattiertem Hintergrund wird automatisch berechnet; Ziehen am Rahmen verschiebt die Gruppe. Im Bühnenplan und im PDF ein-/ausblendbar
+- Stative mit T-Bar: Länge in der Vorlage, je Stativ änderbar; angedockte Geräte liegen nebeneinander statt übereinander; Gerät hängt unten oder steht oben
+- Cases (Kisten) als Stammdaten mit Standard-Anhänger; Geräte und Kabel kommen in ein Case, Cases je Projekt in einen Anhänger (Projektdaten → Cases); Standard-Case in der Vorlage
+- Lagerbestand je Vorlage (Kabeltypen mit festen Längen je Länge) mit Warnung, wenn ein Projekt mehr verwendet
+- Bibliothek: Geräte/Kabel kopieren (in der Liste und im Editor); Kategorien, Besitzer, Anhänger und Cases direkt im Auswahlfeld neu anlegen
+- Änderungsprotokoll erfasst auch Personen, Gruppen und Case-Zuordnungen
+
+### Geändert
+
+- Packliste zeigt Kategorie, Besitzer, Anhänger, Case und Person; Gruppieren auch nach Case; Inhalt eines Cases steht im Anhänger des Cases
+- Kabel-, Geräte- und Packliste (Bildschirm, PDF, CSV) mit Spalte „Case“, Geräteliste zusätzlich mit Person und Gruppe
+- Gerätewahl im Signalfluss nach Kategorien unterteilt (einklappbar)
+- Anhänger-Filter findet auch den Inhalt von Cases, die in diesem Anhänger stehen
+
+## [0.9.0] - 2026-11-01
+
+Meilenstein M8 – Weboberfläche per QR & Handy.
+
+### Hinzugefügt
+
+- Desktop: „Weboberfläche (QR & Handy)“ (Menü Datei, Startfenster, Projektfenster) – macht die am Desktop geöffneten Projekte im lokalen Netz erreichbar; QR-Code mit der Adresse, Netzwerkkarte wählbar, Port 8080 (einstellbar; ist er belegt, wird der nächste freie genommen), Hinweis zur Firewall
+- Bearbeiten- und Lese-Passwort für die Weboberfläche in den Einstellungen (nur als Hash gespeichert); neue Passwörter oder Beenden melden alle Browser ab
+- Liste der verbundenen Personen mit Zugang und geöffneten Projekten, einzeln trennbar
+- Handy: Packliste als Startansicht, waagrecht scrollende Reiter, Zwei-Finger-Zoom auch im Bühnenplan, langes Drücken öffnet die Eigenschaften des Objekts
+- „Zuletzt geändert von … am …“ bei Geräten und Kabeln (vom Server mit dem Namen aus der Anmeldung gestempelt)
+- Änderungsprotokoll je Projekt (Listen → Änderungen): je Person und Minute zusammengefasst, eigene Einträge für Häkchen zurücksetzen, Version wiederhergestellt und Vorlagen-Abgleich; im Docker-Betrieb getrennt von der Projektdatei gespeichert
+
+### Geändert
+
+- Dialoge haben einen zugänglichen Namen (Screenreader)
+
 ## [0.8.0] - 2026-11-01
 
 Meilenstein M7 – PDF & CSV.
@@ -152,7 +245,12 @@ Meilenstein M0 – Projektgerüst.
 - Docker-Image mit Datenvolume `/data` und Beispiel-`docker-compose.yml`
 - GitHub Actions: Tests und Smoke-Test bei jedem Push, Installer als Artefakte, Docker-Image `:develop`, Release-Workflow für Tags `vX.Y.Z`
 
-[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.8.0...develop
+[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.13.0...develop
+[0.13.0]: https://github.com/rde-master/steckplan/compare/v0.12.0...v0.13.0
+[0.12.0]: https://github.com/rde-master/steckplan/compare/v0.11.0...v0.12.0
+[0.11.0]: https://github.com/rde-master/steckplan/compare/v0.10.0...v0.11.0
+[0.10.0]: https://github.com/rde-master/steckplan/compare/v0.9.0...v0.10.0
+[0.9.0]: https://github.com/rde-master/steckplan/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/rde-master/steckplan/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/rde-master/steckplan/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/rde-master/steckplan/compare/v0.5.0...v0.6.0

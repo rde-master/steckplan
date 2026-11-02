@@ -77,6 +77,8 @@ jobs:
       - run: pnpm build
       - name: Smoke-Test Desktop
         run: pnpm --filter @steckplan/desktop smoke
+      - name: Playwright-Browser installieren (Handy-Seite im Desktop-Test)
+        run: pnpm exec playwright install chromium --only-shell
       - name: E2E-Test Desktop
         run: pnpm exec playwright test --project electron
       - name: Installer bauen

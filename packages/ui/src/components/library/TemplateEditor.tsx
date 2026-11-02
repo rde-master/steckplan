@@ -1,6 +1,8 @@
 // Editor für eine Vorlage (Gerät, Kabeltyp, Bühnenelement, Traverse, Stativ).
+import { Copy, Plus, X } from 'lucide-react';
+import { ICON } from '../icons';
 import { useState } from 'react';
-import { TEMPLATE_KIND_LABELS, type Library, type PortDef, type Template, type TemplateKind } from '@steckplan/core';
+import { formatCableLength, TEMPLATE_KIND_LABELS, type Library, type PortDef, type Template, type TemplateKind } from '@steckplan/core';
 import { api, ApiError, errorMessage } from '../../lib/api';
 import { formatDateTime } from '../../lib/format';
 import { suggestions } from '../../lib/library';
@@ -14,6 +16,12 @@ import { ColorField, MasterSelect, MeterField, NumberField, selectClass, SelectF
 const t = texts.library.fields;
 
 export type Draft = Omit<Template, 'id' | 'version' | 'updatedAt'> & Partial<Pick<Template, 'id' | 'version' | 'updatedAt'>>;
+
+/** Kopie einer Vorlage als neuer, noch nicht gespeicherter Entwurf. */
+export function copyDraft(template: Template): Draft {
+  const { id: _id, version: _version, updatedAt: _updatedAt, updatedBy: _updatedBy, ...rest } = template;
+  return { ...rest, name: `${template.name}${texts.library.copySuffix}` };
+}
 
 export function newDraft(kind: TemplateKind): Draft {
   switch (kind) {
@@ -48,6 +56,7 @@ export function TemplateEditor({
   onSaved,
   onDeleted,
   onCancel,
+  onCopy,
 }: {
   library: Library;
   draft: Draft;
@@ -55,6 +64,7 @@ export function TemplateEditor({
   onSaved: (template: Template) => void;
   onDeleted: () => void;
   onCancel: () => void;
+  onCopy?: (draft: Draft) => void;
 }) {
   const [draft, setDraft] = useState<Draft>(initial);
   const [error, setError] = useState<string | null>(null);
@@ -165,9 +175,28 @@ export function TemplateEditor({
         <Field label={t.manufacturer}>
           <TextInput value={draft.manufacturer ?? ''} onChange={(e) => set({ manufacturer: e.target.value })} disabled={disabled} />
         </Field>
-        <MasterSelect label={t.category} emptyLabel={t.noCategory} entries={library.masterData.categories} value={draft.categoryId} onChange={(categoryId) => set({ categoryId })} disabled={disabled} />
-        <MasterSelect label={t.owner} emptyLabel={t.none} entries={library.masterData.owners} value={draft.defaultOwnerId} onChange={(defaultOwnerId) => set({ defaultOwnerId })} disabled={disabled} />
-        <MasterSelect label={t.trailer} emptyLabel={t.none} entries={library.masterData.trailers} value={draft.defaultTrailerId} onChange={(defaultTrailerId) => set({ defaultTrailerId })} disabled={disabled} />
+        <MasterSelect label={t.category} emptyLabel={t.noCategory} entries={library.masterData.categories} value={draft.categoryId} onChange={(categoryId) => set({ categoryId })} disabled={disabled} createKind="categories" />
+        <MasterSelect label={t.owner} emptyLabel={t.none} entries={library.masterData.owners} value={draft.defaultOwnerId} onChange={(defaultOwnerId) => set({ defaultOwnerId })} disabled={disabled} createKind="owners" />
+        <MasterSelect label={t.trailer} emptyLabel={t.none} entries={library.masterData.trailers} value={draft.defaultTrailerId} onChange={(defaultTrailerId) => set({ defaultTrailerId })} disabled={disabled} createKind="trailers" />
+        <MasterSelect label={t.case} emptyLabel={t.none} entries={library.masterData.cases} value={draft.defaultCaseId} onChange={(defaultCaseId) => set({ defaultCaseId })} disabled={disabled} createKind="cases" />
+        {kind === 'device' && (
+          <div className="sm:col-span-2">
+            <label className="flex items-center gap-2 text-sm font-medium">
+              <input type="checkbox" checked={draft.usedByPerson ?? false} disabled={disabled} onChange={(e) => set({ usedByPerson: e.target.checked || undefined })} />
+              {t.usedByPerson}
+            </label>
+            <p className="pl-6 text-xs text-slate-500">{t.usedByPersonHint}</p>
+            <label className="mt-2 flex items-center gap-2 text-sm font-medium">
+              <input type="checkbox" checked={draft.mixer ?? false} disabled={disabled} onChange={(e) => set({ mixer: e.target.checked || undefined })} />
+              {t.mixer}
+            </label>
+            <p className="pl-6 text-xs text-slate-500">{t.mixerHint}</p>
+            <label className="mt-2 flex items-center gap-2 text-sm font-medium">
+              <input type="checkbox" checked={draft.phantomPower ?? false} disabled={disabled} onChange={(e) => set({ phantomPower: e.target.checked || undefined })} />
+              {t.phantomPower}
+            </label>
+          </div>
+        )}
         <div className="sm:col-span-2">
           <ColorField label={t.color} value={draft.defaultColor} onChange={(defaultColor) => set({ defaultColor })} disabled={disabled} />
         </div>
@@ -204,6 +233,12 @@ export function TemplateEditor({
       {(kind === 'truss' || kind === 'stand') && (
         <div className="grid gap-3 sm:grid-cols-3">
           <NumberField label={t.maxMounted} value={draft.maxMountedDevices} onChange={(maxMountedDevices) => set({ maxMountedDevices })} disabled={disabled} />
+          {kind === 'stand' && (
+            <div className="sm:col-span-2">
+              <MeterField label={t.tBarLength} value={draft.tBarLengthMm} onChange={(tBarLengthMm) => set({ tBarLengthMm })} disabled={disabled} />
+              <p className="mt-1 text-xs text-slate-500">{t.tBarHint}</p>
+            </div>
+          )}
         </div>
       )}
 
@@ -289,14 +324,18 @@ export function TemplateEditor({
         </fieldset>
       )}
 
+      {/* Lagerbestand */}
+      <StockFields draft={draft} disabled={disabled} onChange={set} />
+
       {/* Gerät: Anschlüsse, DMX, Leistung */}
       {kind === 'device' && (
         <>
           <section className="space-y-2">
             <h3 className="text-sm font-semibold">{t.ports}</h3>
+            <p className="text-xs text-slate-500">{t.powerHint}</p>
             {ports.length > 0 && (
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[44rem] text-sm">
+                <table className="w-full min-w-[56rem] text-sm">
                   <thead>
                     <tr className="text-left text-xs text-slate-500">
                       <th className="pb-1 font-medium">{t.portLabel}</th>
@@ -304,6 +343,7 @@ export function TemplateEditor({
                       <th className="pb-1 font-medium">{t.portDirection}</th>
                       <th className="pb-1 font-medium">{t.portSignal}</th>
                       <th className="pb-1 font-medium">{t.portNetwork}</th>
+                      <th className="pb-1 font-medium">{t.portPower}</th>
                       <th />
                     </tr>
                   </thead>
@@ -313,7 +353,7 @@ export function TemplateEditor({
                     return (
                       <tbody key={direction} data-testid={`ports-${direction}`}>
                         <tr>
-                          <th colSpan={6} scope="rowgroup" className="pt-3 pb-1 text-left">
+                          <th colSpan={7} scope="rowgroup" className="pt-3 pb-1 text-left">
                             <span className={`inline-flex items-center gap-2 rounded-full px-2.5 py-0.5 text-xs font-semibold ${badge}`}>
                               {label} <span className="font-normal opacity-80">({rows.length})</span>
                             </span>
@@ -349,14 +389,56 @@ export function TemplateEditor({
                                 disabled={disabled}
                               />
                             </td>
+                            <td className="pr-2 pb-2">
+                              <div className="flex items-center gap-1">
+                                <input
+                                  type="checkbox"
+                                  aria-label={`${t.portPower} ${index + 1}`}
+                                  className="mt-1 h-4 w-4"
+                                  checked={port.isPower ?? false}
+                                  onChange={(e) => setPort(index, e.target.checked ? { isPower: true } : { isPower: undefined, fuseA: undefined, phase: undefined })}
+                                  disabled={disabled}
+                                />
+                                {port.isPower && (
+                                  <>
+                                    <input
+                                      type="number"
+                                      min={1}
+                                      step={1}
+                                      aria-label={`${t.portFuse} ${index + 1}`}
+                                      title={t.portFuse}
+                                      placeholder="A"
+                                      className="w-16 rounded-md border border-slate-300 px-1 py-1 text-sm dark:border-slate-600 dark:bg-slate-800"
+                                      value={port.fuseA ?? ''}
+                                      onChange={(e) => setPort(index, { fuseA: e.target.value ? Math.max(1, Number(e.target.value)) : undefined })}
+                                      disabled={disabled}
+                                    />
+                                    <select
+                                      aria-label={`${t.portPhase} ${index + 1}`}
+                                      title={t.portPhase}
+                                      className="rounded-md border border-slate-300 px-1 py-1 text-sm dark:border-slate-600 dark:bg-slate-800"
+                                      value={port.phase ?? ''}
+                                      onChange={(e) => setPort(index, { phase: (e.target.value || undefined) as PortDef['phase'] })}
+                                      disabled={disabled}
+                                    >
+                                      <option value="">–</option>
+                                      <option value="L1">L1</option>
+                                      <option value="L2">L2</option>
+                                      <option value="L3">L3</option>
+                                      <option value="3P">{t.threePhase}</option>
+                                    </select>
+                                  </>
+                                )}
+                              </div>
+                            </td>
                             <td className="whitespace-nowrap pb-2">
                               {!disabled && (
                                 <>
                                   <Button variant="ghost" title={t.duplicatePort} aria-label={`${t.duplicatePort} ${index + 1}`} onClick={() => set({ ports: [...ports.slice(0, index + 1), { ...port, id: portId(), label: port.label }, ...ports.slice(index + 1)] })}>
-                                    ⧉
+                                    <Copy {...ICON} />
                                   </Button>
                                   <Button variant="ghost" title={t.remove} aria-label={`${t.remove} ${index + 1}`} onClick={() => set({ ports: ports.filter((_, i) => i !== index) })}>
-                                    ✕
+                                    <X {...ICON} />
                                   </Button>
                                 </>
                               )}
@@ -371,7 +453,7 @@ export function TemplateEditor({
             )}
             {!disabled && (
               <div className="flex flex-wrap items-center gap-2">
-                <Button onClick={() => set({ ports: [...ports, { id: portId(), label: '', connector: '', direction: 'in', signal: '' }] })}>＋ {t.addPort}</Button>
+                <Button onClick={() => set({ ports: [...ports, { id: portId(), label: '', connector: '', direction: 'in', signal: '' }] })}><Plus {...ICON} /> {t.addPort}</Button>
                 {!showBulk && <Button onClick={() => setShowBulk(true)}>⊞ {texts.library.bulk.open}</Button>}
                 <div className="flex-1" />
                 {ports.length > 1 &&
@@ -415,12 +497,12 @@ export function TemplateEditor({
                 </div>
                 {!disabled && (
                   <Button variant="ghost" aria-label={`${t.remove} ${t.dmxName} ${index + 1}`} onClick={() => set({ dmxModes: dmxModes.filter((_, i) => i !== index) })}>
-                    ✕
+                    <X {...ICON} />
                   </Button>
                 )}
               </div>
             ))}
-            {!disabled && <Button onClick={() => set({ dmxModes: [...dmxModes, { name: '', channels: 1 }] })}>＋ {t.addDmxMode}</Button>}
+            {!disabled && <Button onClick={() => set({ dmxModes: [...dmxModes, { name: '', channels: 1 }] })}><Plus {...ICON} /> {t.addDmxMode}</Button>}
           </section>
 
           <div className="grid gap-3 sm:grid-cols-3">
@@ -457,6 +539,11 @@ export function TemplateEditor({
             {texts.common.save}
           </Button>
           <Button onClick={onCancel}>{texts.common.cancel}</Button>
+          {!isNew && current && onCopy && (
+            <Button variant="ghost" onClick={() => onCopy(copyDraft(current))}>
+              <Copy {...ICON} /> {texts.library.copy}
+            </Button>
+          )}
           <div className="flex-1" />
           {!isNew &&
             (confirmDelete ? (
@@ -475,5 +562,38 @@ export function TemplateEditor({
         </div>
       )}
     </form>
+  );
+}
+
+/** Lagerbestand: Stückzahl, bei Kabeltypen mit festen Längen je Länge. */
+function StockFields({ draft, disabled, onChange }: { draft: Draft; disabled: boolean; onChange: (patch: Partial<Draft>) => void }) {
+  const lengths = draft.kind === 'cableType' ? (draft.availableLengthsMm ?? []) : [];
+  if (lengths.length === 0) {
+    return (
+      <div className="grid gap-3 sm:grid-cols-3">
+        <div>
+          <NumberField label={t.stock} value={draft.stock} onChange={(stock) => onChange({ stock, stockByLength: undefined })} disabled={disabled} />
+          <p className="mt-1 text-xs text-slate-500">{t.stockHint}</p>
+        </div>
+      </div>
+    );
+  }
+  const byLength = new Map((draft.stockByLength ?? []).map((s) => [s.lengthMm, s.count]));
+  const setCount = (lengthMm: number, count: number | undefined) => {
+    const next = lengths
+      .map((l) => ({ lengthMm: l, count: l === lengthMm ? count : byLength.get(l) }))
+      .filter((s): s is { lengthMm: number; count: number } => s.count !== undefined);
+    onChange({ stockByLength: next.length ? next : undefined, stock: undefined });
+  };
+  return (
+    <fieldset className="space-y-2 rounded-md border border-slate-200 p-3 dark:border-slate-700" data-testid="stock-by-length">
+      <legend className="px-1 text-sm font-medium">{t.stockByLength}</legend>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {lengths.map((l) => (
+          <NumberField key={l} label={formatCableLength(l)} value={byLength.get(l)} onChange={(count) => setCount(l, count)} disabled={disabled} />
+        ))}
+      </div>
+      <p className="text-xs text-slate-500">{t.stockByLengthHint}</p>
+    </fieldset>
   );
 }

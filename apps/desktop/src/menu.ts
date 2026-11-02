@@ -12,6 +12,9 @@ export interface MenuActions {
   exportDocument(): void;
   showStart(): void;
   showLibrary(): void;
+  showWebAccess(): void;
+  connectServer(): void;
+  uploadToServer(): void;
   copyAsNew(): void;
   isProjectWindow(win: BrowserWindow | null): boolean;
   recent(): RecentFile[];
@@ -42,6 +45,9 @@ export function buildMenu(actions: MenuActions): void {
       { label: 'Neues Projekt aus diesem …', enabled: projectFocused, click: () => actions.copyAsNew() },
       { type: 'separator' },
       { label: 'Bibliothek …', accelerator: 'Shift+CmdOrCtrl+B', click: () => actions.showLibrary() },
+      { label: 'Mit Server verbinden …', click: () => actions.connectServer() },
+      { label: 'Auf Server hochladen …', enabled: projectFocused, click: () => actions.uploadToServer() },
+      { label: 'Weboberfläche (QR & Handy) …', click: () => actions.showWebAccess() },
       { label: 'Startfenster', click: () => actions.showStart() },
       ...(isMac ? [] : ([{ type: 'separator' }, { label: 'Einstellungen …', click: () => actions.showStart() }] as MenuItemConstructorOptions[])),
       { type: 'separator' },

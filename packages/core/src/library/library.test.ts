@@ -25,7 +25,7 @@ function library(templates: Template[] = [spot()], libraryId = 'meine'): Library
   return {
     ...createEmptyLibrary(libraryId),
     templates,
-    masterData: { categories: [{ id: 'licht', name: 'Licht', color: '#f59e0b' }], owners: [{ id: 'ralf', name: 'Ralf' }], trailers: [] },
+    masterData: { categories: [{ id: 'licht', name: 'Licht', color: '#f59e0b' }], owners: [{ id: 'ralf', name: 'Ralf' }], trailers: [], cases: [] },
   };
 }
 
@@ -36,7 +36,7 @@ function projectWith(snapshot: Template[], libraryId: string, extra: Partial<Pro
     libraryId,
     devices: [{ id: 'd1', templateId: 'spot', layerId: base.layers[0]!.id, label: 'Spot 1', ownerId: 'ralf' }],
     templateSnapshot: snapshot,
-    masterDataSnapshot: { categories: [{ id: 'licht', name: 'Licht', color: '#f59e0b' }], owners: [{ id: 'ralf', name: 'Ralf' }], trailers: [] },
+    masterDataSnapshot: { categories: [{ id: 'licht', name: 'Licht', color: '#f59e0b' }], owners: [{ id: 'ralf', name: 'Ralf' }], trailers: [], cases: [] },
     ...extra,
   };
 }
@@ -120,7 +120,7 @@ describe('Abgleich beim Öffnen', () => {
   it('Stammdaten: Konflikt und Kopie schreiben Instanzen und Vorlagen um', () => {
     const lib = library([]);
     const project = projectWith([spot()], 'fremd', {
-      masterDataSnapshot: { categories: [{ id: 'licht', name: 'Beleuchtung' }], owners: [{ id: 'ralf', name: 'Ralf (Verein)' }], trailers: [] },
+      masterDataSnapshot: { categories: [{ id: 'licht', name: 'Beleuchtung' }], owners: [{ id: 'ralf', name: 'Ralf (Verein)' }], trailers: [], cases: [] },
     });
     const analysis = analyzeProject(project, lib);
     expect(analysis.conflicts.map((c) => c.key).sort()).toEqual([conflictKey('categories', 'licht'), conflictKey('owners', 'ralf')]);

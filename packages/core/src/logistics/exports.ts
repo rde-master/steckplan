@@ -5,9 +5,12 @@ import type { CheckMark, Project, Template } from '../model/schema';
 import { buildNetworkList } from '../network/network';
 import { effectiveHeight } from '../stageplan/heights';
 import { formatCableLength, formatMeters } from './format';
-import { buildCableList, packItems, type PackItem } from './lists';
+import { buildPatchLists, viaText } from '../audio/patch';
+import { buildPowerReport, formatAmps, totalW } from '../power/power';
+import { devicePerson, personName, buildPeopleList } from '../people/people';
+import { buildCableList, buildCaseLists, effectiveTrailerId, packItems, type PackItem } from './lists';
 
-type ProjectLike = Pick<Project, 'devices' | 'cables' | 'settings' | 'network'>;
+type ProjectLike = Pick<Project, 'devices' | 'cables' | 'settings' | 'network'> & Partial<Pick<Project, 'people' | 'groups' | 'caseTrailers' | 'patch'>>;
 
 const KIND_LABEL: Record<Template['kind'], string> = {
   device: 'Gerät',
@@ -61,6 +64,9 @@ export interface DeviceRow {
   category: string;
   owner: string;
   trailer: string;
+  case: string;
+  person: string;
+  group: string;
   inventoryNo: string;
   carrier: string;
   height: string;
@@ -85,7 +91,10 @@ export function buildDeviceList(project: ProjectLike, library: Pick<Library, 'te
         kind: t ? KIND_LABEL[t.kind] : '',
         category: masterLabel(library, 'categories', d.categoryOverride ?? t?.categoryId),
         owner: masterLabel(library, 'owners', d.ownerId),
-        trailer: masterLabel(library, 'trailers', d.trailerId),
+        trailer: masterLabel(library, 'trailers', effectiveTrailerId(d, project.caseTrailers, library.masterData.cases)),
+        case: masterLabel(library, 'cases', d.caseId),
+        person: personName(devicePerson(d, t, project.people ?? [])),
+        group: project.groups?.find((g) => g.id === d.groupId)?.name ?? '',
         inventoryNo: d.inventoryNo ?? '',
         carrier: carrierId ? (byId.get(carrierId)?.label ?? '') : '',
         height: h > 0 ? formatMeters(h) : '',
@@ -108,7 +117,7 @@ export function toCsv(headers: string[], rows: unknown[][]): string {
   return '﻿' + [headers, ...rows].map((row) => row.map(csvField).join(';')).join('\r\n') + '\r\n';
 }
 
-export type CsvKind = 'cables' | 'packing' | 'bom' | 'devices' | 'network';
+export type CsvKind = 'cables' | 'packing' | 'bom' | 'devices' | 'network' | 'people' | 'cases' | 'patch' | 'power';
 
 /** CSV einer Liste (Pack- und Stückliste aus den übergebenen Exemplaren, damit Filter gelten). */
 export function listCsv(kind: CsvKind, project: ProjectLike, library: Library, items?: PackItem[]): string {
@@ -117,7 +126,7 @@ export function listCsv(kind: CsvKind, project: ProjectLike, library: Library, i
   switch (kind) {
     case 'cables':
       return toCsv(
-        ['Kabeltyp', 'Kennung', 'Von', 'Nach', 'Planlänge (m)', 'Höhe (m)', 'Reserve (m)', 'Benötigt (m)', 'Gewählt', 'Besitzer', 'Anhänger', 'Inventarnummer'],
+        ['Kabeltyp', 'Kennung', 'Von', 'Nach', 'Planlänge (m)', 'Höhe (m)', 'Reserve (m)', 'Benötigt (m)', 'Gewählt', 'Besitzer', 'Anhänger', 'Case', 'Inventarnummer'],
         buildCableList(project, library).map((r) => [
           r.typeName,
           r.label,
@@ -130,12 +139,13 @@ export function listCsv(kind: CsvKind, project: ProjectLike, library: Library, i
           r.length.status === 'open' ? 'offen' : r.length.chosenMm === null ? 'Verlängerung nötig' : formatCableLength(r.length.chosenMm),
           m('owners', r.ownerId),
           m('trailers', r.trailerId),
+          m('cases', r.caseId),
           r.inventoryNo ?? '',
         ]),
       );
     case 'packing':
       return toCsv(
-        ['Bezeichnung', 'Typ', 'Länge', 'Kategorie', 'Besitzer', 'Anhänger', 'Inventarnummer', 'Stativ/Position', 'Hin', 'Zurück', 'Notiz'],
+        ['Bezeichnung', 'Typ', 'Länge', 'Kategorie', 'Besitzer', 'Anhänger', 'Case', 'Person', 'Inventarnummer', 'Stativ/Position', 'Hin', 'Zurück', 'Notiz'],
         pack.map((i) => [
           i.label,
           i.name,
@@ -143,6 +153,8 @@ export function listCsv(kind: CsvKind, project: ProjectLike, library: Library, i
           m('categories', i.categoryId),
           m('owners', i.ownerId),
           m('trailers', i.trailerId),
+          m('cases', i.caseId),
+          i.person ?? '',
           i.inventoryNo ?? '',
           i.carrier ?? i.route ?? '',
           checkText(i.check?.out),
@@ -154,8 +166,69 @@ export function listCsv(kind: CsvKind, project: ProjectLike, library: Library, i
       return toCsv(['Anzahl', 'Bezeichnung', 'Art', 'Länge', 'Kategorie'], buildBom(pack, library).map((r) => [r.count, r.name, r.kind, r.lengthMm ? formatCableLength(r.lengthMm) : '', r.category]));
     case 'devices':
       return toCsv(
-        ['Kennung', 'Vorlage', 'Art', 'Kategorie', 'Besitzer', 'Anhänger', 'Inventarnummer', 'Stativ/Traverse/Podest', 'Höhe', 'DMX', 'IP'],
-        buildDeviceList(project, library).map((r) => [r.label, r.template, r.kind, r.category, r.owner, r.trailer, r.inventoryNo, r.carrier, r.height, r.dmx, r.ip]),
+        ['Kennung', 'Vorlage', 'Art', 'Kategorie', 'Besitzer', 'Anhänger', 'Case', 'Person', 'Gruppe', 'Inventarnummer', 'Stativ/Traverse/Podest', 'Höhe', 'DMX', 'IP'],
+        buildDeviceList(project, library).map((r) => [r.label, r.template, r.kind, r.category, r.owner, r.trailer, r.case, r.person, r.group, r.inventoryNo, r.carrier, r.height, r.dmx, r.ip]),
+      );
+    case 'power': {
+      const report = buildPowerReport(project, library);
+      const rows: unknown[][] = [];
+      for (const d of report.distributors) {
+        rows.push([d.device.label, d.fedFrom ?? 'Einspeisung', 'Zuleitung', d.feed, d.inputFuseA ?? '', '', Math.round(totalW(d.load)), formatAmps(Math.max(d.currentA.L1, d.currentA.L2, d.currentA.L3)), d.usage !== undefined ? `${Math.round(d.usage * 100)} %` : '']);
+        for (const o of d.outlets) {
+          rows.push([d.device.label, '', o.label, o.phase, o.fuseA ?? '', o.devices.map((x) => x.label).join(', '), Math.round(totalW(o.load)), formatAmps(o.currentA), o.usage !== undefined ? `${Math.round(o.usage * 100)} %` : '']);
+        }
+      }
+      for (const u of report.unconnected) rows.push(['(ohne Stromanschluss)', '', '', '', '', u.device.label, Math.round(u.powerW), '', '']);
+      return toCsv(['Verteiler', 'Versorgt von', 'Abgang', 'Phase', 'Absicherung (A)', 'Geräte', 'Leistung (W)', 'Strom', 'Auslastung'], rows);
+    }
+    case 'patch':
+      return toCsv(
+        ['Pult', 'Richtung', 'Kanal', 'Anschluss', 'Name', 'Quelle/Ziel', 'Vorlage', 'Person', 'Über', '48 V', 'Stativ', 'Bemerkung'],
+        buildPatchLists(project, library).flatMap((list) =>
+          (['inputs', 'outputs'] as const).flatMap((dir) =>
+            list[dir].map((r) => [
+              list.mixer.label,
+              dir === 'inputs' ? 'Eingang' : 'Ausgang',
+              r.channel,
+              r.port,
+              r.name,
+              r.device ? `${r.device.label}${r.devicePort ? ` · ${r.devicePort}` : ''}` : 'offen',
+              r.deviceTemplate ?? '',
+              r.person ?? '',
+              viaText(r),
+              dir === 'inputs' && r.phantom ? 'ja' : '',
+              dir === 'inputs' ? r.stand : '',
+              r.notes,
+            ]),
+          ),
+        ),
+      );
+    case 'cases':
+      return toCsv(
+        ['Case', 'Anhänger', 'Anzahl', 'Bezeichnung', 'Länge', 'Kennungen', 'Person', 'Hin', 'Zurück'],
+        buildCaseLists(pack, library, { mode: 'aggregated', caseTrailers: project.caseTrailers }).flatMap((c) =>
+          c.rows.map((r) => [
+            c.name,
+            m('trailers', c.trailerId),
+            r.items.length,
+            r.name,
+            r.lengthMm ? formatCableLength(r.lengthMm) : '',
+            r.items.map((i) => i.label).filter(Boolean).join(', '),
+            [...new Set(r.items.map((i) => i.person).filter(Boolean))].join(', '),
+            `${r.checkedOut}/${r.items.length}`,
+            `${r.checkedIn}/${r.items.length}`,
+          ]),
+        ),
+      );
+    case 'people':
+      return toCsv(
+        ['Name', 'Vorname', 'Art', 'Gerät', 'Vorlage', 'Anschluss', 'Ziel', 'Kabel'],
+        buildPeopleList({ ...project, people: project.people ?? [] }, library).flatMap((entry) =>
+          entry.devices.flatMap((d) => {
+            const base = [entry.person?.lastName ?? '(nicht zugeordnet)', entry.person?.firstName ?? '', entry.person?.kind ?? '', d.device.label, d.templateName];
+            return d.connections.length ? d.connections.map((c) => [...base, c.port, c.target, c.cable]) : [[...base, '', '', '']];
+          }),
+        ),
       );
     case 'network': {
       const templates = new Map(library.templates.map((t) => [t.id, t]));

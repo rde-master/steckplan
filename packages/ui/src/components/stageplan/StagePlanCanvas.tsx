@@ -16,8 +16,9 @@ import {
   type Template,
 } from '@steckplan/core';
 import { useEditor } from '../../lib/editor';
+import { useLongPress } from '../../lib/useLongPress';
 import { DIMMED_OPACITY } from '../../lib/display';
-import { formatLength, scaleBar, type MulticoreRoute, type StageCable, type StageItem } from './model';
+import { formatLength, scaleBar, type MulticoreRoute, type StageCable, type StageGroupFrame, type StageItem } from './model';
 
 export interface StagePt {
   x: number;
@@ -51,6 +52,8 @@ export interface StageCanvasProps {
   onDropUnplaced: (deviceId: string, at: StagePt) => void;
   onCalibrate: (p1: StagePt, p2: StagePt) => void;
   onBackgroundMove: (offset: StagePt) => void;
+  /** Gruppenrahmen (ein-/ausblendbar) */
+  groupFrames?: StageGroupFrame[];
 }
 
 declare global {
@@ -87,6 +90,8 @@ export function StagePlanCanvas(props: StageCanvasProps) {
   const setView = useEditor((s) => s.setStageView);
   const selection = useEditor((s) => s.selection);
   const select = useEditor((s) => s.select);
+  const requestProperties = useEditor((s) => s.requestProperties);
+  useLongPress(container, requestProperties);
   const toggleDevice = useEditor((s) => s.toggleDevice);
   const toggleShape = useEditor((s) => s.toggleShape);
   const clearSelection = useEditor((s) => s.clearSelection);
@@ -173,6 +178,24 @@ export function StagePlanCanvas(props: StageCanvasProps) {
     const wx = (point.x - view.x) / view.zoom;
     const wy = (point.y - view.y) / view.zoom;
     setView({ zoom, x: point.x - wx * zoom, y: point.y - wy * zoom });
+  }
+
+  // Touch: Zwei-Finger-Zoom (Geste) – Verschieben mit einem Finger übernimmt Konva (draggable)
+  const pinch = useRef<{ distance: number; zoom: number } | null>(null);
+  function handleTouchMove(e: Konva.KonvaEventObject<TouchEvent>) {
+    const touches = e.evt.touches;
+    if (touches.length !== 2) {
+      setPointer(world());
+      return;
+    }
+    e.evt.preventDefault();
+    if (stageRef.current?.isDragging()) stageRef.current.stopDrag();
+    const [t1, t2] = [touches[0]!, touches[1]!];
+    const distance = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+    const rect = container.current!.getBoundingClientRect();
+    const center = { x: (t1.clientX + t2.clientX) / 2 - rect.left, y: (t1.clientY + t2.clientY) / 2 - rect.top };
+    if (!pinch.current) pinch.current = { distance, zoom: view.zoom };
+    zoomAt(center, pinch.current.zoom * (distance / pinch.current.distance));
   }
 
   function finishWall() {
@@ -315,6 +338,8 @@ export function StagePlanCanvas(props: StageCanvasProps) {
           } else setView({ ...view, x: view.x - e.evt.deltaX, y: view.y - e.evt.deltaY });
         }}
         onMouseMove={() => setPointer(world())}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={() => (pinch.current = null)}
         onClick={(e) => {
           if (tool !== 'select') {
             handleToolClick(e);
@@ -354,6 +379,15 @@ export function StagePlanCanvas(props: StageCanvasProps) {
               <ShapeNode key={shape.id} shape={shape} selected={selectedShapes.has(shape.id)} locked={lockedLayers.has(shape.layerId)} editable={editable && tool === 'select'} fontPx={fontPx} px={px} onSelect={(add) => (add ? toggleShape(shape.id) : select({ shapes: [shape.id] }))} onUpdate={(patch) => props.onUpdateShape(shape.id, patch)} snap={(p) => snapped(p)} />
             ))}
 
+          {/* Gruppenrahmen (nur Anzeige) */}
+          {(props.groupFrames ?? []).map((frame) => (
+            <Group key={frame.id} name="stage-group-frame" x={frame.x} y={frame.y} listening={false}>
+              <Rect width={frame.width} height={frame.height} fill={frame.color} opacity={0.08} cornerRadius={px(10)} />
+              <Rect width={frame.width} height={frame.height} stroke={frame.color} strokeWidth={px(1.5)} dash={[px(8), px(4)]} cornerRadius={px(10)} />
+              <Text text={frame.name} x={px(8)} y={px(5)} fontSize={fontPx} fontStyle="bold" fill={frame.color} />
+            </Group>
+          ))}
+
           {/* Objekte */}
           {items.map((item) => {
             const selected = selectedDevices.has(item.device.id);
@@ -361,8 +395,12 @@ export function StagePlanCanvas(props: StageCanvasProps) {
             const target = dockTargetId === item.device.id;
             const stroke = target ? '#16a34a' : selected ? '#0284c7' : item.kind === 'device' ? 'rgba(15,23,42,0.6)' : '#475569';
             const strokeWidth = px(target ? 4 : selected ? 3 : 1);
-            const label = item.device.label;
-            const heightText = [item.height.heightMm > 0 ? formatLength(item.height.heightMm) : '', showDmx && item.device.dmx ? `DMX ${formatDmx(item.device.dmx.universe, item.device.dmx.address)}` : '']
+            const label = item.person ? `${item.device.label}\n👤 ${item.person}` : item.device.label;
+            const heightText = [
+              item.height.heightMm > 0 ? formatLength(item.height.heightMm) : '',
+              item.mountSide === 'top' ? 'steht oben' : '',
+              showDmx && item.device.dmx ? `DMX ${formatDmx(item.device.dmx.universe, item.device.dmx.address)}` : '',
+            ]
               .filter(Boolean)
               .join(' · ');
             return (
@@ -425,6 +463,16 @@ export function StagePlanCanvas(props: StageCanvasProps) {
                       <Line key={a} points={[0, 0, (Math.cos(((a - 90) * Math.PI) / 180) * w) / 2, (Math.sin(((a - 90) * Math.PI) / 180) * d) / 2]} stroke="#64748b" strokeWidth={px(1.5)} listening={false} />
                     ))}
                     <Circle radius={px(4)} fill="#475569" listening={false} />
+                    {(item.tBarMm ?? 0) > 0 && (
+                      <Line
+                        name="t-bar"
+                        points={[-(item.tBarMm ?? 0) / 2, 0, (item.tBarMm ?? 0) / 2, 0]}
+                        stroke="#334155"
+                        strokeWidth={Math.max(px(3), 40)}
+                        lineCap="round"
+                        listening={false}
+                      />
+                    )}
                   </>
                 )}
                 <Text

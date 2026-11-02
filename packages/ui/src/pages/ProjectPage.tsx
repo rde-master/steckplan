@@ -1,3 +1,5 @@
+import { ArrowLeft, Copy } from 'lucide-react';
+import { ICON } from '../components/icons';
 import { useEffect, useState } from 'react';
 import type * as Y from 'yjs';
 import { can, type Conflict, type PresenceUser, type ProjectMeta } from '@steckplan/core';
@@ -19,6 +21,10 @@ import { StagePlanView } from '../components/stageplan/StagePlanView';
 import { ListsView } from '../components/lists/ListsView';
 import { NetworkView } from '../components/network/NetworkView';
 import { ExportDialog } from '../components/ExportDialog';
+import { CasesPanel } from '../components/project/CasesPanel';
+import { PeoplePanel } from '../components/project/PeoplePanel';
+import { WebAccessDialog } from '../components/WebAccessDialog';
+import { UploadToServerDialog } from '../components/ServerDialogs';
 import { useIssues } from '../lib/useIssues';
 import { MeterField } from '../components/library/fields';
 import { AccessBadge, Banner, Button, Field, Spinner, TextArea, TextInput } from '../components/ui';
@@ -26,9 +32,11 @@ import { AccessBadge, Banner, Button, Field, Spinner, TextArea, TextInput } from
 type Tab = 'signalflow' | 'stageplan' | 'network' | 'lists' | 'meta';
 const TAB_PARAM: Record<Tab, string> = { signalflow: 'signalfluss', stageplan: 'buehnenplan', network: 'netzwerk', lists: 'listen', meta: 'projektdaten' };
 
+/** Ohne Angabe in der Adresse: auf schmalen Bildschirmen (Handy) die Packliste, sonst der Signalfluss. */
 function initialTab(): Tab {
   const value = new URLSearchParams(window.location.search).get('ansicht');
-  return (Object.entries(TAB_PARAM).find(([, v]) => v === value)?.[0] as Tab | undefined) ?? 'signalflow';
+  const fromUrl = Object.entries(TAB_PARAM).find(([, v]) => v === value)?.[0] as Tab | undefined;
+  return fromUrl ?? (window.innerWidth <= 640 ? 'lists' : 'signalflow');
 }
 
 export function ProjectPage({ id }: { id: string }) {
@@ -48,6 +56,8 @@ export function ProjectPage({ id }: { id: string }) {
   const refreshSession = useSession((s) => s.refresh);
   const [showVersions, setShowVersions] = useState(false);
   const [showExport, setShowExport] = useState(false);
+  const [showWeb, setShowWeb] = useState(false);
+  const [showUpload, setShowUpload] = useState(false);
   const [conflicts, setConflicts] = useState<Conflict[] | null>(null);
   const [conflictError, setConflictError] = useState<string | null>(null);
   const library = useLibrary((s) => s.library);
@@ -73,6 +83,8 @@ export function ProjectPage({ id }: { id: string }) {
       getDesktop()?.onMenuCommand((command) => {
         if (command === 'versions') setShowVersions(true);
         if (command === 'export') setShowExport(true);
+        if (command === 'webAccess') setShowWeb(true);
+        if (command === 'uploadToServer') setShowUpload(true);
       }),
     [],
   );
@@ -82,7 +94,7 @@ export function ProjectPage({ id }: { id: string }) {
 
   const backButton = !isDesktop ? (
     <Button variant="ghost" onClick={() => navigate('/')} aria-label={texts.project.toList} title={texts.project.toList}>
-      ←
+      <ArrowLeft {...ICON} />
     </Button>
   ) : null;
 
@@ -117,6 +129,11 @@ export function ProjectPage({ id }: { id: string }) {
             <Button variant="ghost" onClick={() => setShowVersions(true)}>
               {texts.project.versions}
             </Button>
+            {isDesktop && (
+              <Button variant="ghost" onClick={() => setShowWeb(true)} title={texts.webAccess.title}>
+                {texts.webAccess.open}
+              </Button>
+            )}
             {!isDesktop && (
               <a className="hidden rounded-md px-3 py-2 text-sm text-slate-600 hover:bg-slate-200 sm:inline dark:text-slate-300 dark:hover:bg-slate-700" href={api.downloadUrl(id)}>
                 {texts.project.download}
@@ -125,7 +142,7 @@ export function ProjectPage({ id }: { id: string }) {
           </div>
         }
       />
-      <div className="flex flex-wrap items-center gap-1 border-b border-slate-200 bg-white px-2 py-1 dark:border-slate-700 dark:bg-slate-900" role="tablist">
+      <div className="flex items-center gap-1 overflow-x-auto border-b *:shrink-0 border-slate-200 bg-white px-2 py-1 dark:border-slate-700 dark:bg-slate-900" role="tablist">
         {(['signalflow', 'stageplan', 'network', 'lists', 'meta'] as const).map((t) => (
           <Button key={t} role="tab" aria-selected={tab === t} variant={tab === t ? 'primary' : 'ghost'} onClick={() => setTab(t)}>
             {texts.signalflow.tabs[t]}
@@ -190,12 +207,24 @@ export function ProjectPage({ id }: { id: string }) {
           library={library}
           canCheck={online && !state?.readOnlyReason && !!session && can(session.access, 'checkItems')}
           canReset={editable && !!session && can(session.access, 'resetChecks')}
+          doc={project.doc}
+          origin={undo.origin}
+          editable={editable}
         />
       ) : (
         <main className="mx-auto w-full max-w-3xl flex-1 space-y-4 overflow-y-auto p-4">
           <MetaForm doc={project.doc} meta={meta} editable={editable} />
+          <PeoplePanel doc={project.doc} origin={undo.origin} data={data} library={library} editable={editable} />
+          <CasesPanel doc={project.doc} origin={undo.origin} data={data} library={library} editable={editable} />
           <SettingsForm doc={project.doc} settings={data.settings} editable={editable} />
           {session && can(session.access, 'manageProjects') && <CopyProject projectId={id} name={meta.name ?? ''} />}
+          {isDesktop && (
+            <section className="space-y-2 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">{texts.servers.uploadTitle}</h2>
+              <p className="text-xs text-slate-500">{texts.servers.uploadIntro}</p>
+              <Button onClick={() => setShowUpload(true)}>{texts.servers.uploadTitle} …</Button>
+            </section>
+          )}
         </main>
       )}
       {conflicts && (
@@ -219,6 +248,8 @@ export function ProjectPage({ id }: { id: string }) {
           onClose={() => setShowVersions(false)}
         />
       )}
+      {showWeb && getDesktop() && <WebAccessDialog desktop={getDesktop()!} onClose={() => setShowWeb(false)} />}
+      {showUpload && getDesktop() && <UploadToServerDialog desktop={getDesktop()!} projectId={id} onClose={() => setShowUpload(false)} />}
     </div>
   );
 }
@@ -327,7 +358,7 @@ function CopyProject({ projectId, name }: { projectId: string; name: string }) {
           }
         }}
       >
-        ⧉ {texts.project.copy}
+        <Copy {...ICON} /> {texts.project.copy}
       </Button>
       {error && <Banner tone="error">{error}</Banner>}
     </section>

@@ -551,10 +551,11 @@ Jeder Meilenstein endet mit grünen Tests, lauffähigem Build (Desktop **und** D
 | **M6** | DMX & Netzwerk | DMX-Modi/Adressen/Prüfungen/Auto-Adressierung/Patchliste; Subnetze, IPs mit Prüfungen, WLAN-Netze, WLAN-QR-Code in der App; WLAN-Passwörter im geschützten Bereich, Lese-Zugang sieht sie nicht |
 | **M7** | PDF & CSV | A4/A3 wählbar; Planzeichnung (beide Ansichten), Packliste (Kategorie/Anhänger/Besitzer, zusammengefasst/einzeln), Kabel-, Stück-, DMX-, Geräte-, Netzwerkliste, WLAN-Aushang; CSV |
 | **M8** | Weboberfläche per QR & Handy | Desktop: „Weboberfläche starten“, LAN-Freigabe, Passwörter in den Einstellungen, QR-Code, verbundene Personen; Handy-Ansicht (Packliste abhaken mit Zähler, Plan ansehen, volle Bearbeitung per Touch); „zuletzt geändert von“ und Änderungsprotokoll |
+| **M8c** | Personen, Gruppen, Cases, Lager | Personen je Projekt (Name, Vorname, Art) und Geräte „benutzt von Mensch“ mit Anzeige in allen Plänen, Personenliste und Geräte-Etiketten (PDF); Gruppen im Signalfluss (automatischer Rahmen, im Bühnenplan ein-/ausblendbar); Stative mit T-Bar (Geräte nebeneinander, hängend oder stehend); Cases als Stammdaten (Inhalt je Projekt, Case → Anhänger); Lagerbestand mit Warnung; Packliste mit Besitzer, Kategorie, Anhänger, Case; Vorlagen kopieren, Stammdaten direkt beim Anlegen erstellen, Gerätewahl nach Kategorien |
 | **M8b** | Desktop ↔ Server-Verbindung | Desktop-Zugangsschlüssel auf dem Docker-Server (erzeugen, Zugangsstufe, widerrufen); Desktop „Mit Server verbinden“ (mehrere Server, Schlüssel im OS-Schlüsselbund), Live-Arbeit auf Server-Projekten/Bibliothek/Stammdaten, Verbindungsstatus, Sperre bei Verbindungsabbruch; lokales Projekt hochladen (mit Konfliktabfrage) / Server-Projekt herunterladen |
-| **M9** | Release 1.0 | Installer (.dmg Universal ad-hoc signiert, .exe), Docker-Image (amd64/arm64) auf GHCR, Update-Hinweis (Desktop) über GitHub Releases, Benutzerhandbuch, Docker-Anleitung inkl. Aktualisieren, Beispielprojekt (nur in `docs/`, nicht in der Bibliothek), Bugfixing |
-| **M10** | Phase 2a: Ton-Patch | Stagebox-/Pult-Kanalbelegung, Input-Liste als PDF |
-| **M11** | Phase 2b: Strom | Leistung, Stromkreise, Phasen, Überlast-Warnungen, Stromliste als PDF |
+| **M9** | Phase 2a: Ton-Patch | Stagebox-/Pult-Kanalbelegung, Input-Liste als PDF |
+| **M10** | Phase 2b: Strom | Leistung, Stromkreise, Phasen, Überlast-Warnungen, Stromliste als PDF |
+| **M11** | Release 1.0 | Installer (.dmg Universal ad-hoc signiert, .exe), Docker-Image (amd64/arm64) auf GHCR, Update-Hinweis (Desktop) über GitHub Releases, Benutzerhandbuch, Docker-Anleitung inkl. Aktualisieren, Beispielprojekt (nur in `docs/`, nicht in der Bibliothek), Bugfixing |
 
 ---
 
@@ -567,7 +568,7 @@ Jeder Meilenstein endet mit grünen Tests, lauffähigem Build (Desktop **und** D
 - **Release:** Merge `develop` → `main` + Versions-Tag `vX.Y.Z` erzeugt per GitHub Actions ein GitHub-Release mit `.dmg` und `.exe` sowie das Docker-Image auf GHCR (`latest` + `X.Y.Z`).
 - **Versionierung (führt Claude Code selbständig mit):**
   - SemVer (`MAJOR.MINOR.PATCH`), **eine** Versionsnummer für das ganze Projekt: in der Root-`package.json` gepflegt und per Skript in alle Pakete, die Electron-App und das Docker-Image übernommen; in der App unter „Über Steckplan“ angezeigt.
-  - Vor 1.0: Start mit `0.1.0` (M0); jeder abgeschlossene Meilenstein erhöht MINOR (M1 → `0.2.0`, M2 → `0.3.0` …); Fehlerbehebungen dazwischen erhöhen PATCH. **M9 = `1.0.0`.** Danach: neue Funktionen MINOR, Fehlerbehebungen PATCH, inkompatible Änderungen (z. B. Dateiformat ohne Migration, API-Bruch) MAJOR.
+  - Vor 1.0: Start mit `0.1.0` (M0); jeder abgeschlossene Meilenstein erhöht MINOR (M1 → `0.2.0`, M2 → `0.3.0` …); Fehlerbehebungen dazwischen erhöhen PATCH. **M11 = `1.0.0`.** Danach: neue Funktionen MINOR, Fehlerbehebungen PATCH, inkompatible Änderungen (z. B. Dateiformat ohne Migration, API-Bruch) MAJOR.
   - `CHANGELOG.md` nach „Keep a Changelog“: Änderungen laufend unter „Unreleased“ eintragen, beim Versionssprung in einen Abschnitt mit Version und Datum überführen.
   - Unabhängig davon: `schemaVersion` des Dateiformats wird bei jeder Änderung am Projekt-Datenmodell erhöht – immer zusammen mit einer Migration und Test.
   - Git-Tags `vX.Y.Z` werden auf `main` gesetzt (siehe Release).
@@ -634,6 +635,21 @@ Jeder Meilenstein endet mit grünen Tests, lauffähigem Build (Desktop **und** D
 - Auto-Adressierung entlang der DMX-Kette: passt ein Gerät nicht mehr ins Universum, geht es im nächsten Universum ab Adresse 1 weiter (mit Hinweis) (01.11.2026)
 - WLAN-Aushang: Passwort als Text aufdrucken ist wählbar (Standard: an, nur mit Bearbeiten-Zugang); Lese-Zugang druckt SSID und QR-Code (01.11.2026)
 - Planzeichnung im festen Maßstab, die nicht auf eine Seite passt: Aufteilung auf mehrere Seiten (Kacheln mit Überlappung und Seitenangabe) (01.11.2026)
+- Weboberfläche am Desktop: fester Port 8080 (in den Einstellungen änderbar); ist er belegt, wird der nächste freie genommen und angezeigt (01.11.2026)
+- Änderungsprotokoll: ein Eintrag je Person und Minute (zusammengefasst), dazu eigene Einträge für wichtige Aktionen (Häkchen zurücksetzen, Version wiederhergestellt, Vorlagen-Abgleich) (01.11.2026)
+- Erweiterung M8c (vor M8b, Version 0.10.0, Schema 4) auf Wunsch des Eigentümers (01.11.2026):
+  - „Benutzt von Mensch“: Vorgabe in der Vorlage, je Gerät im Projekt änderbar; dort wird eine Person zugeordnet. Personen je Projekt mit Name, Vorname und Art (Freitext mit Vorschlägen bereits verwendeter Arten)
+  - Geräte-Etiketten als PDF auf A4-Bögen, Etikettgröße wählbar (gängige Klebe-Etiketten-Formate)
+  - Cases (Kisten) sind Stammdaten wie Anhänger, mit Standard-Anhänger; im Projekt kann ein Case einem anderen Anhänger zugeordnet werden. Geräte und Kabel kommen in ein Case oder direkt in einen Anhänger
+  - Lagerbestand je Vorlage; Kabeltypen mit festen Längen haben den Bestand je Länge. Warnung, wenn ein Projekt mehr verwendet als im Lager steht (je Projekt, nicht projektübergreifend)
+  - Stative haben eine T-Bar: Länge als Vorgabe in der Vorlage, je Stativ änderbar; angedockte Geräte verteilen sich nebeneinander auf der T-Bar, hängend (unten) oder stehend (oben)
+  - Gruppen im Signalfluss: benannt mit Farbe, jedes Gerät in höchstens einer Gruppe, Rahmen wird automatisch berechnet; im Bühnenplan ein-/ausblendbar
+- Desktop mit Server verbunden (M8b, 02.11.2026): je Server ein eigenes Fenster mit der Oberfläche des Servers (passt immer zur Server-Version); lokale Projekte bleiben in eigenen Fenstern. Der Desktop-Zugangsschlüssel wird mit Electron `safeStorage` verschlüsselt (macOS Keychain, Windows DPAPI) in den Einstellungen gespeichert. Server-Adressen mit `http://` sind erlaubt, außerhalb des eigenen Rechners mit deutlicher Warnung.
+- Reihenfolge: Release 1.0 kommt nach Ton-Patch und Strom; die Meilensteine sind entsprechend umbenannt: M9 = Ton-Patch, M10 = Strom, M11 = Release 1.0 (bisher M10, M11, M9). Ton-Patch und Strom erhöhen vorher noch MINOR (02.11.2026)
+- Ton-Patch (M9, 02.11.2026): Input-/Output-Liste automatisch aus dem Signalfluss (Kabel und Multicore-Adern werden verfolgt); Mischpult per Häkchen in der Vorlage; Kanalname, 48 V, Stativ, Bemerkung direkt in der Liste bearbeitbar (je Pult-Anschluss gespeichert); dazu Output-Liste
+- Strom (M10, 02.11.2026): Zuordnung über Stromkabel im Signalfluss (Anschlüsse mit „Strom“, Abgänge mit Absicherung und Phase L1/L2/L3/Drehstrom); Leistung aus der Vorlage, je Gerät änderbar, volle Nennleistung bei 230 V; Warnung ab 80 %, Überlast ab 100 % der Absicherung; Schieflast bei mehr als 30 % Unterschied (mindestens 5 A)
+- Personen-Import (02.11.2026): CSV-Datei oder aus Excel eingefügte Zellen (keine .xlsx-Bibliothek); gleiche Personen (Name + Vorname) werden übersprungen, fehlende Art wird ergänzt
+- Symbole (02.11.2026): Lucide (`lucide-react`, ISC-Lizenz, GPL-kompatibel) statt Unicode-Zeichen; Größe/Strichstärke zentral in `packages/ui/src/components/icons.ts`
 
 ---
 

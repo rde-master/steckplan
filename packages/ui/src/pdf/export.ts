@@ -1,21 +1,31 @@
 // Export: aus Projektdaten PDF-Definitionen bzw. CSV erzeugen (dieselben Listen wie auf dem Bildschirm).
 import {
+  boundsOf,
   buildBom,
   buildCableList,
+  buildCaseLists,
+  buildDeviceLabels,
+  buildPeopleList,
   buildDeviceList,
   buildDmxPatch,
   buildNetworkList,
   buildPackingList,
+  buildPatchLists,
+  buildPowerReport,
   cableMatches,
   deviceMatches,
   dmxCsv,
   formatCableLength,
+  formatAmps,
   formatDmx,
   formatMeters,
+  formatWatts,
   isFilterActive,
   listCsv,
   masterLabel,
   packItems,
+  totalW,
+  viaText,
   type Filter,
   type GroupBy,
   type Issue,
@@ -25,12 +35,17 @@ import {
 } from '@steckplan/core';
 import type { ColorMode } from '../lib/editor';
 import type { ProjectData } from '../lib/useProjectData';
-import { buildBoxes, buildCableLines } from '../components/signalflow/model';
-import { buildMulticoreRoutes, buildStageCables, buildStageItems } from '../components/stageplan/model';
+import { buildBoxes, buildCableLines, buildGroupFrames } from '../components/signalflow/model';
+import { buildMulticoreRoutes, buildStageCables, buildStageGroupFrames, buildStageItems } from '../components/stageplan/model';
 import {
+  caseListsDoc,
   drawableArea,
+  LABEL_FORMATS,
+  labelsDoc,
   packingListDoc,
+  patchDoc,
   planDoc,
+  sectionsDoc,
   PT_PER_MM,
   tableDoc,
   tilePlan,
@@ -44,19 +59,24 @@ import {
 } from './documents';
 import { signalFlowBounds, signalFlowSvg, stageBounds, stagePlanSvg, usedCategories, type StageDrawing } from './svg';
 
-export type ExportKind = 'stageplan' | 'signalflow' | 'packing' | 'cables' | 'bom' | 'dmx' | 'devices' | 'network' | 'wifi';
+export type ExportKind = 'stageplan' | 'signalflow' | 'packing' | 'cases' | 'cables' | 'bom' | 'dmx' | 'devices' | 'network' | 'people' | 'patch' | 'power' | 'labels' | 'wifi';
 
-export const CSV_KINDS: ExportKind[] = ['packing', 'cables', 'bom', 'dmx', 'devices', 'network'];
+export const CSV_KINDS: ExportKind[] = ['packing', 'cases', 'cables', 'bom', 'dmx', 'devices', 'network', 'people', 'patch', 'power'];
 
 export const EXPORT_TITLES: Record<ExportKind, string> = {
   stageplan: 'Bühnenplan',
   signalflow: 'Signalfluss',
   packing: 'Packliste',
+  cases: 'Case-Listen',
   cables: 'Kabelliste',
   bom: 'Stückliste',
   dmx: 'DMX-Patch',
   devices: 'Geräteliste',
   network: 'Netzwerkliste',
+  people: 'Personenliste',
+  patch: 'Input-/Output-Liste',
+  power: 'Stromliste',
+  labels: 'Geräte-Etiketten',
   wifi: 'WLAN-Aushang',
 };
 
@@ -71,9 +91,16 @@ export interface ExportOptions {
   groupBy: GroupBy;
   thenBy: GroupBy | '';
   mode: 'aggregated' | 'single';
+  /** Packliste: Zeilen nach Bezeichnung oder zuerst nach Case */
+  sortBy: 'name' | 'case';
   showChecks: boolean;
   wifiIds: string[];
   printPassword: boolean;
+  /** Etiketten: Bogenformat und Schnittlinien (für Normalpapier) */
+  labelFormat: string;
+  cutLines: boolean;
+  /** Bühnenplan: Gruppenrahmen einzeichnen */
+  showGroups: boolean;
 }
 
 export const DEFAULT_OPTIONS: ExportOptions = {
@@ -86,9 +113,13 @@ export const DEFAULT_OPTIONS: ExportOptions = {
   groupBy: 'category',
   thenBy: '',
   mode: 'aggregated',
+  sortBy: 'name',
   showChecks: false,
   wifiIds: [],
   printPassword: true,
+  labelFormat: LABEL_FORMATS[0]!.id,
+  cutLines: false,
+  showGroups: true,
 };
 
 export interface ExportInput {
@@ -112,7 +143,16 @@ function settings(data: ProjectData) {
 }
 
 function projectLike(data: ProjectData) {
-  return { devices: data.devices, cables: data.cables, settings: settings(data), network: data.network };
+  return {
+    devices: data.devices,
+    cables: data.cables,
+    settings: settings(data),
+    network: data.network,
+    people: data.people,
+    groups: data.groups,
+    caseTrailers: data.caseTrailers,
+    patch: data.patch,
+  };
 }
 
 /** Exemplare der Packliste, gefiltert wie auf dem Bildschirm. */
@@ -120,20 +160,21 @@ export function filteredPackItems(data: ProjectData, library: Library, filter: F
   const templates = new Map(library.templates.map((t) => [t.id, t]));
   const devices = new Map(data.devices.map((d) => [d.id, d]));
   const cables = new Map(data.cables.map((c) => [c.id, c]));
+  const ctx = { caseTrailers: data.caseTrailers, cases: library.masterData.cases };
   return packItems(projectLike(data), library).filter((item) => {
     const d = devices.get(item.id);
-    if (d) return deviceMatches(filter, d, templates.get(d.templateId));
+    if (d) return deviceMatches(filter, d, templates.get(d.templateId), ctx);
     const c = cables.get(item.id);
-    return c ? cableMatches(filter, c, templates.get(c.templateId ?? '')) : true;
+    return c ? cableMatches(filter, c, templates.get(c.templateId ?? ''), ctx) : true;
   });
 }
 
 function visibleDevices(data: ProjectData, library: Library, filter: Filter) {
   const templates = new Map(library.templates.map((t) => [t.id, t]));
-  return data.devices.filter((d) => deviceMatches(filter, d, templates.get(d.templateId)));
+  return data.devices.filter((d) => deviceMatches(filter, d, templates.get(d.templateId), { caseTrailers: data.caseTrailers, cases: library.masterData.cases }));
 }
 
-const GROUP_TITLE: Record<GroupBy, string> = { category: 'Kategorie', trailer: 'Anhänger', owner: 'Besitzer' };
+const GROUP_TITLE: Record<GroupBy, string> = { category: 'Kategorie', trailer: 'Anhänger', owner: 'Besitzer', case: 'Case' };
 
 export async function buildExportDoc(opts: ExportOptions, input: ExportInput): Promise<DocDefinition> {
   const { data, library, filter } = input;
@@ -147,18 +188,38 @@ export async function buildExportDoc(opts: ExportOptions, input: ExportInput): P
     ...(isFilterActive(filter) ? { filterNote: 'Filter aktiv' } : {}),
   };
   const templates = new Map(library.templates.map((t) => [t.id, t]));
-  const name = (kind: 'categories' | 'owners' | 'trailers') => (id?: string) => masterLabel(library, kind, id);
+  const name = (kind: 'categories' | 'owners' | 'trailers' | 'cases') => (id?: string) => masterLabel(library, kind, id);
 
   switch (opts.kind) {
     case 'packing': {
-      const list = buildPackingList(filteredPackItems(data, library, filter), library, { groupBy: opts.thenBy ? [opts.groupBy, opts.thenBy] : [opts.groupBy], mode: opts.mode });
+      const list = buildPackingList(filteredPackItems(data, library, filter), library, { groupBy: opts.thenBy ? [opts.groupBy, opts.thenBy] : [opts.groupBy], mode: opts.mode, sortBy: opts.sortBy });
       return packingListDoc(
         list,
         {
           mode: opts.mode,
           showChecks: opts.showChecks,
-          names: { category: name('categories'), owner: name('owners'), trailer: name('trailers') },
-          groupTitle: `gruppiert nach ${GROUP_TITLE[opts.groupBy]}${opts.thenBy ? `, dann ${GROUP_TITLE[opts.thenBy]}` : ''}`,
+          names: { category: name('categories'), owner: name('owners'), trailer: name('trailers'), case: name('cases') },
+          groupTitle: `gruppiert nach ${GROUP_TITLE[opts.groupBy]}${opts.thenBy ? `, dann ${GROUP_TITLE[opts.thenBy]}` : ''}${opts.sortBy === 'case' ? ', sortiert nach Case' : ''}`,
+        },
+        ctx,
+      );
+    }
+    case 'cases': {
+      const lists = buildCaseLists(filteredPackItems(data, library, filter), library, { mode: opts.mode, caseTrailers: data.caseTrailers });
+      return caseListsDoc(
+        lists.map((c) => ({
+          name: c.name,
+          trailer: masterLabel(library, 'trailers', c.trailerId),
+          total: c.total,
+          rows: c.rows,
+          ...(c.notes ? { notes: c.notes } : {}),
+          ...(c.color ? { color: c.color } : {}),
+        })),
+        {
+          mode: opts.mode,
+          showChecks: opts.showChecks,
+          names: { category: name('categories'), owner: name('owners'), trailer: name('trailers'), case: name('cases') },
+          groupTitle: '',
         },
         ctx,
       );
@@ -174,7 +235,7 @@ export async function buildExportDoc(opts: ExportOptions, input: ExportInput): P
       }
       return tableDoc(
         'Kabelliste',
-        ['Kabeltyp', 'Kennung', 'Von', 'Nach', 'Plan', 'Höhe', 'Benötigt', 'Gewählt', 'Besitzer', 'Anhänger', 'Inv.-Nr.'],
+        ['Kabeltyp', 'Kennung', 'Von', 'Nach', 'Plan', 'Höhe', 'Benötigt', 'Gewählt', 'Besitzer', 'Anhänger', 'Case', 'Inv.-Nr.'],
         rows.map((r) => [
           r.typeName,
           r.label,
@@ -186,10 +247,11 @@ export async function buildExportDoc(opts: ExportOptions, input: ExportInput): P
           r.length.status === 'open' ? 'offen' : r.length.chosenMm === null ? 'Verlängerung!' : formatCableLength(r.length.chosenMm),
           masterLabel(library, 'owners', r.ownerId),
           masterLabel(library, 'trailers', r.trailerId),
+          masterLabel(library, 'cases', r.caseId),
           r.inventoryNo ?? '',
         ]),
         ctx,
-        { widths: [62, 40, '*', '*', 38, 34, 42, 46, 50, 50, 42], summary: [...summary].map(([k, v]) => `${v} × ${k}`) },
+        { widths: [58, 38, '*', '*', 34, 32, 40, 44, 46, 46, 46, 40], summary: [...summary].map(([k, v]) => `${v} × ${k}`) },
       );
     }
     case 'bom': {
@@ -213,11 +275,101 @@ export async function buildExportDoc(opts: ExportOptions, input: ExportInput): P
       const rows = buildDeviceList(projectLike(data), library).filter((r) => ids.has(r.id));
       return tableDoc(
         'Geräteliste',
-        ['Kennung', 'Vorlage', 'Art', 'Kategorie', 'Besitzer', 'Anhänger', 'Inv.-Nr.', 'Stativ/Podest', 'Höhe', 'DMX', 'IP'],
-        rows.map((r) => [r.label, r.template, r.kind, r.category, r.owner, r.trailer, r.inventoryNo, r.carrier, r.height, r.dmx, r.ip]),
+        ['Kennung', 'Vorlage', 'Art', 'Kategorie', 'Besitzer', 'Anhänger', 'Case', 'Person', 'Inv.-Nr.', 'Stativ/Podest', 'Höhe', 'DMX', 'IP'],
+        rows.map((r) => [r.label, r.template, r.kind, r.category, r.owner, r.trailer, r.case, r.person, r.inventoryNo, r.carrier, r.height, r.dmx, r.ip]),
         ctx,
-        { widths: ['*', '*', 50, 52, 52, 52, 42, 60, 36, 58, 60] },
+        { widths: ['*', '*', 42, 46, 46, 46, 46, 56, 38, 54, 32, 52, 54] },
       );
+    }
+    case 'people': {
+      const ids = new Set(visibleDevices(data, library, filter).map((d) => d.id));
+      const rows: string[][] = [];
+      for (const entry of buildPeopleList(projectLike(data), library)) {
+        const devices = entry.devices.filter((d) => ids.has(d.device.id));
+        devices.forEach((d, i) => {
+          const person = i === 0 ? (entry.person ? `${entry.person.lastName}, ${entry.person.firstName}`.replace(/^, |, $/g, '') : '(nicht zugeordnet)') : '';
+          const kind = i === 0 ? (entry.person?.kind ?? '') : '';
+          const connections = d.connections.map((c) => `${c.port} → ${c.target} (${c.cable}${c.cableLabel ? `, ${c.cableLabel}` : ''})`).join('\n');
+          rows.push([person, kind, d.device.label, d.templateName, connections || '–']);
+        });
+      }
+      return tableDoc('Personenliste', ['Person', 'Art', 'Gerät', 'Vorlage', 'Einstecken'], rows, ctx, {
+        widths: [90, 60, 70, 80, '*'],
+        subtitle: `${data.people.length} Personen · Geräte „benutzt von Mensch“ mit Verbindungen`,
+      });
+    }
+    case 'patch': {
+      const sections = buildPatchLists(projectLike(data), library).flatMap((list) => {
+        const target = (r: (typeof list.inputs)[number]) => (r.device ? `${r.device.label}${r.devicePort ? ` · ${r.devicePort}` : ''}${r.deviceTemplate ? `\n${r.deviceTemplate}` : ''}` : 'offen');
+        return [
+          {
+            title: `Input-Liste – ${list.mixer.label}`,
+            subtitle: `${list.mixerTemplate.name} · ${list.inputs.length} Eingänge, ${list.inputs.filter((r) => r.device).length} belegt`,
+            headers: ['Kanal', 'Anschluss', 'Name', 'Quelle', 'Über', '48 V', 'Stativ', 'Bemerkung'],
+            widths: [30, 50, '*', '*', '*', 28, 70, '*'],
+            rows: list.inputs.map((r) => [r.channel, r.port, r.name, target(r), viaText(r), r.phantom ? '48 V' : '', r.stand, r.notes]),
+          },
+          ...(list.outputs.length
+            ? [
+                {
+                  title: `Output-Liste – ${list.mixer.label}`,
+                  subtitle: `${list.mixerTemplate.name} · ${list.outputs.length} Ausgänge, ${list.outputs.filter((r) => r.device).length} belegt`,
+                  headers: ['Weg', 'Anschluss', 'Name', 'Ziel', 'Person', 'Über', 'Bemerkung'],
+                  widths: [30, 50, '*', '*', 80, '*', '*'],
+                  rows: list.outputs.map((r) => [r.channel, r.port, r.name, target(r), r.person ?? '', viaText(r), r.notes]),
+                },
+              ]
+            : []),
+        ];
+      });
+      return patchDoc(sections, ctx);
+    }
+    case 'power': {
+      const report = buildPowerReport(projectLike(data), library);
+      const pct = (u: number | undefined, a: number) => (u !== undefined && a > 0 ? `${Math.round(u * 100)} %${u >= 1 ? ' !' : ''}` : '');
+      const sections = report.distributors.map((d) => {
+        const max = Math.max(d.currentA.L1, d.currentA.L2, d.currentA.L3);
+        const phases = d.feed === '3P' ? `L1 ${formatAmps(d.currentA.L1)} · L2 ${formatAmps(d.currentA.L2)} · L3 ${formatAmps(d.currentA.L3)}` : `${d.feed} ${formatAmps(d.currentA[d.feed])}`;
+        return {
+          title: `${'– '.repeat(d.depth)}${d.device.label}`,
+          subtitle: `${d.template?.name ?? ''} · ${d.fedFrom ? `an ${d.fedFrom}` : 'Einspeisung'} · ${d.feed === '3P' ? 'Drehstrom' : d.feed}${d.inputFuseA ? ` ${d.inputFuseA} A` : ''} · ${formatWatts(totalW(d.load))} · ${phases}${d.usage !== undefined ? ` · Zuleitung ${pct(d.usage, max)}` : ''}${d.imbalance ? ' · Schieflast!' : ''}`,
+          headers: ['Nr.', 'Abgang', 'Phase', 'Absicherung', 'Angeschlossen', 'Leistung', 'Strom', 'Auslastung'],
+          widths: [24, 70, 50, 56, '*', 60, 50, 56],
+          rows: d.outlets.map((o, i) => [
+            i + 1,
+            o.label,
+            o.phase === '3P' ? 'Drehstrom' : o.phase,
+            o.fuseA ? `${o.fuseA} A` : '',
+            o.devices.map((x) => x.label).join(', ') || 'frei',
+            totalW(o.load) > 0 ? formatWatts(totalW(o.load)) : '',
+            o.currentA > 0 ? formatAmps(o.currentA) : '',
+            pct(o.usage, o.currentA),
+          ]),
+        };
+      });
+      if (report.unconnected.length) {
+        sections.push({
+          title: 'Ohne Stromanschluss',
+          subtitle: 'Geräte mit Leistung, aber ohne Stromkabel im Signalfluss',
+          headers: ['Nr.', 'Gerät', 'Leistung'],
+          widths: [24, '*', 80],
+          rows: report.unconnected.map((u, i) => [i + 1, u.device.label, formatWatts(u.powerW)]),
+        } as (typeof sections)[number]);
+      }
+      const total = report.total;
+      return sectionsDoc(
+        'Stromliste',
+        sections,
+        ctx,
+        'Keine Stromverteiler im Projekt.',
+        false,
+        `Gesamt ${formatWatts(totalW(total))} · L1 ${formatAmps(total.L1 / 230)} · L2 ${formatAmps(total.L2 / 230)} · L3 ${formatAmps(total.L3 / 230)} · volle Nennleistung bei 230 V`,
+      );
+    }
+    case 'labels': {
+      const ids = visibleDevices(data, library, filter).map((d) => d.id);
+      const format = LABEL_FORMATS.find((f) => f.id === opts.labelFormat) ?? LABEL_FORMATS[0]!;
+      return labelsDoc(buildDeviceLabels(projectLike(data), library, ids), format, ctx, { cutLines: opts.cutLines });
     }
     case 'network': {
       const rows = buildNetworkList({ devices: visibleDevices(data, library, filter), network: data.network }, templates);
@@ -240,8 +392,10 @@ export async function buildExportDoc(opts: ExportOptions, input: ExportInput): P
     }
     case 'stageplan': {
       const visibleLayers = new Set(data.layers.filter((l) => l.visible).map((l) => l.id));
+      const stageItems = buildStageItems(data.devices, library, data.layers, { colorMode: input.colorMode, filter, people: data.people });
       const drawing: StageDrawing = {
-        items: buildStageItems(data.devices, library, data.layers, { colorMode: input.colorMode, filter }),
+        items: stageItems,
+        ...(opts.showGroups ? { groupFrames: buildStageGroupFrames(data.groups, stageItems) } : {}),
         shapes: data.shapes.filter((s) => visibleLayers.has(s.layerId) || !data.layers.some((l) => l.id === s.layerId)),
         cables: buildStageCables(data.cables, data.devices, library, data.layers, filter, input.issues),
         multicores: buildMulticoreRoutes(data.devices, library, data.layers, filter),
@@ -274,14 +428,16 @@ export async function buildExportDoc(opts: ExportOptions, input: ExportInput): P
       );
     }
     case 'signalflow': {
-      const boxes = buildBoxes(data.devices, library, false, { colorMode: input.colorMode, filter });
+      const boxes = buildBoxes(data.devices, library, false, { colorMode: input.colorMode, filter, people: data.people });
+      const frames = buildGroupFrames(data.groups, boxes);
       const lines = buildCableLines(data.cables, boxes, library, input.issues, filter);
-      const bounds = signalFlowBounds(boxes) ?? { x: 0, y: 0, width: 800, height: 500 };
+      const boxBounds = signalFlowBounds(boxes);
+      const bounds = boxBounds && frames.length ? boundsOf([boxBounds, ...frames], 0)! : (boxBounds ?? { x: 0, y: 0, width: 800, height: 500 });
       const area = drawableArea(ctx);
       const worldPerPt = Math.max(bounds.width / area.width, bounds.height / area.height, 0.5);
       const view = { x: bounds.x - (area.width * worldPerPt - bounds.width) / 2, y: bounds.y - (area.height * worldPerPt - bounds.height) / 2, width: area.width * worldPerPt, height: area.height * worldPerPt };
       return planDoc(
-        [{ svg: signalFlowSvg(boxes, lines, view, area.width, area.height), label: '1 von 1' }],
+        [{ svg: signalFlowSvg(boxes, lines, view, area.width, area.height, frames), label: '1 von 1' }],
         {
           title: 'Signalfluss',
           scaleText: 'ohne Maßstab',
@@ -308,6 +464,7 @@ export function buildCsv(kind: ExportKind, data: ProjectData, library: Library, 
       return dmxCsv(buildDmxPatch({ devices }, templates));
     case 'packing':
     case 'bom':
+    case 'cases':
       return listCsv(kind, all, library, filteredPackItems(data, library, filter));
     case 'cables':
       // alle Geräte (für „von/nach“), aber nur passende Kabel
@@ -315,6 +472,12 @@ export function buildCsv(kind: ExportKind, data: ProjectData, library: Library, 
     case 'devices':
     case 'network':
       return listCsv(kind, { ...all, devices }, library);
+    case 'people':
+      return listCsv('people', all, library);
+    case 'patch':
+      return listCsv('patch', all, library);
+    case 'power':
+      return listCsv('power', all, library);
     default:
       return '';
   }

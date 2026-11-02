@@ -176,7 +176,7 @@ export function registerProjectRoutes(app: FastifyInstance, rooms: RoomManager, 
       throw error;
     }
     try {
-      return { removed: room.resetChecks(direction, session.name) };
+      return { removed: room.resetChecks(direction, session.name, { access: session.access, via: session.via }) };
     } catch (error) {
       return reply.code(409).send({ error: (error as Error).message });
     }
@@ -281,13 +281,22 @@ export function registerProjectRoutes(app: FastifyInstance, rooms: RoomManager, 
       const valid = Object.values(resolutions).every((r) => r === 'keep' || r === 'theirs' || r === 'copy');
       if (!valid) return reply.code(400).send({ error: 'Ungültige Entscheidung.' });
       try {
-        await room.resolveConflicts(resolutions, session.name);
+        await room.resolveConflicts(resolutions, session.name, { access: session.access, via: session.via });
       } catch (error) {
         return reply.code(400).send({ error: (error as Error).message });
       }
       return { ok: true };
     },
   );
+
+  // ---------- Änderungsprotokoll ----------
+
+  app.get<{ Params: { id: string } }>('/api/projects/:id/changelog', async (request, reply) => {
+    if (!requireSession(request, reply)) return reply;
+    const room = await roomOr404(request.params.id, reply);
+    if (!room) return reply;
+    return { entries: room.changeLogEntries() };
+  });
 
   // ---------- Versionen ----------
 
@@ -331,7 +340,7 @@ export function registerProjectRoutes(app: FastifyInstance, rooms: RoomManager, 
     if (room.readOnlyReason) return reply.code(409).send({ error: room.readOnlyReason });
     const exists = (await rooms.versions.list(room.versionKey)).some((v) => v.id === request.params.versionId);
     if (!exists) return reply.code(404).send({ error: 'Version nicht gefunden' });
-    await room.restoreVersion(request.params.versionId, session.name);
+    await room.restoreVersion(request.params.versionId, session.name, { access: session.access, via: session.via });
     return { ok: true };
   });
 }

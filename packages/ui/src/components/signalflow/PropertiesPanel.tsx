@@ -1,4 +1,6 @@
 // Eigenschaften der Auswahl: Gerät, Kabel oder Mehrfachauswahl.
+import { RotateCcw } from 'lucide-react';
+import { ICON } from '../icons';
 import type { ReactNode } from 'react';
 import type * as Y from 'yjs';
 import {
@@ -13,6 +15,7 @@ import {
   type Template,
 } from '@steckplan/core';
 import type { ProjectData } from '../../lib/useProjectData';
+import { formatDateTime } from '../../lib/format';
 import { texts } from '../../texts';
 import { Banner, Button, Field, TextArea, TextInput } from '../ui';
 import { ColorField, MasterSelect, selectClass } from '../library/fields';
@@ -20,6 +23,7 @@ import { isMulticore } from '@steckplan/core';
 import { CableLengthSection, MulticoreLengthSection } from './LengthSection';
 import { DmxSection, NetworkSection } from './DeviceTechSections';
 import { deviceColor } from './model';
+import { GroupSection, MountSideSection, PersonSection, TBarSection } from './PersonGroupSections';
 
 const s = texts.signalflow;
 const f = texts.library.fields;
@@ -76,14 +80,19 @@ function Logistics({
   onChange,
 }: {
   library: Library | null;
-  value: { ownerId?: string; trailerId?: string; inventoryNo?: string; notes?: string };
+  value: { ownerId?: string; trailerId?: string; caseId?: string; inventoryNo?: string; notes?: string };
   editable: boolean;
-  onChange: (patch: { ownerId?: string; trailerId?: string; inventoryNo?: string; notes?: string }) => void;
+  onChange: (patch: { ownerId?: string; trailerId?: string; caseId?: string; inventoryNo?: string; notes?: string }) => void;
 }) {
   return (
     <>
-      <MasterSelect label={s.owner} emptyLabel={f.none} entries={library?.masterData.owners ?? []} value={value.ownerId} onChange={(ownerId) => onChange({ ownerId })} disabled={!editable} />
-      <MasterSelect label={s.trailer} emptyLabel={f.none} entries={library?.masterData.trailers ?? []} value={value.trailerId} onChange={(trailerId) => onChange({ trailerId })} disabled={!editable} />
+      <MasterSelect label={s.owner} emptyLabel={f.none} entries={library?.masterData.owners ?? []} value={value.ownerId} onChange={(ownerId) => onChange({ ownerId })} disabled={!editable} createKind="owners" />
+      <MasterSelect label={texts.cases.case} emptyLabel={texts.cases.noCase} entries={library?.masterData.cases ?? []} value={value.caseId} onChange={(caseId) => onChange({ caseId })} disabled={!editable} createKind="cases" />
+      {value.caseId ? (
+        <p className="-mt-2 text-xs text-slate-500">{s.trailerFromCase}</p>
+      ) : (
+        <MasterSelect label={s.trailer} emptyLabel={f.none} entries={library?.masterData.trailers ?? []} value={value.trailerId} onChange={(trailerId) => onChange({ trailerId })} disabled={!editable} createKind="trailers" />
+      )}
       <Field label={s.inventoryNo}>
         <TextInput value={value.inventoryNo ?? ''} onChange={(e) => onChange({ inventoryNo: e.target.value || undefined })} disabled={!editable} />
       </Field>
@@ -91,6 +100,32 @@ function Logistics({
         <TextArea value={value.notes ?? ''} onChange={(e) => onChange({ notes: e.target.value || undefined })} disabled={!editable} />
       </Field>
     </>
+  );
+}
+
+/** Zahl mit „Vorgabe der Vorlage wiederherstellen“ (z. B. Leistung in W) */
+function MeterlessNumber({ label, value, overridden, disabled, onChange, resetLabel }: { label: string; value: number | undefined; overridden: boolean; disabled: boolean; onChange: (v: number | undefined) => void; resetLabel: string }) {
+  return (
+    <Field label={label}>
+      <div className="flex items-center gap-1">
+        <TextInput type="number" min={0} step={1} value={value ?? ''} disabled={disabled} onChange={(e) => onChange(e.target.value === '' ? undefined : Math.max(0, Math.round(Number(e.target.value))))} />
+        {overridden && !disabled && (
+          <Button variant="ghost" title={resetLabel} aria-label={resetLabel} onClick={() => onChange(undefined)}>
+            <RotateCcw {...ICON} />
+          </Button>
+        )}
+      </div>
+    </Field>
+  );
+}
+
+/** „Zuletzt geändert von … am …“ (vom Server gestempelt) */
+function LastModified({ value }: { value?: { at: string; by: string } }) {
+  if (!value) return null;
+  return (
+    <div className="text-xs text-slate-500 dark:text-slate-400" data-testid="last-modified">
+      {texts.lastModified(value.by, formatDateTime(value.at))}
+    </div>
   );
 }
 
@@ -121,19 +156,36 @@ function DeviceProperties({ doc, origin, library, data, device, editable, issues
         <div className="text-xs text-slate-500">
           {template?.name ?? '–'} · {s.connections(connected)}
         </div>
+        <LastModified value={device.lastModified} />
       </div>
       <IssueList issues={issues} id={device.id} />
       <Field label={s.label}>
         <TextInput value={device.label} onChange={(e) => update({ label: e.target.value })} disabled={!editable} />
       </Field>
+      <PersonSection doc={doc} origin={origin} library={library} data={data} device={device} editable={editable} />
+      {template?.kind === 'device' && (
+        <div>
+          <MeterlessNumber
+            label={s.powerW}
+            value={device.powerW ?? template.powerW}
+            overridden={device.powerW !== undefined}
+            disabled={!editable}
+            onChange={(powerW) => update({ powerW })}
+            resetLabel={s.resetPower(template.powerW)}
+          />
+        </div>
+      )}
+      <GroupSection doc={doc} origin={origin} data={data} devices={[device]} editable={editable} />
       {deviceExtra?.(device)}
+      <TBarSection doc={doc} origin={origin} library={library} data={data} device={device} editable={editable} />
+      <MountSideSection doc={doc} origin={origin} library={library} data={data} device={device} editable={editable} />
       {isMulticore(template) && <MulticoreLengthSection doc={doc} origin={origin} library={library} data={data} device={device} editable={editable} />}
       <DmxSection doc={doc} origin={origin} library={library} data={data} device={device} editable={editable} />
       <NetworkSection doc={doc} origin={origin} library={library} data={data} device={device} editable={editable} />
       <ColorField label={s.color} value={deviceColor(device, template)} onChange={(color) => update({ colorOverride: color && color !== template?.defaultColor ? color : undefined })} disabled={!editable} />
       {device.colorOverride && editable && (
         <Button variant="ghost" onClick={() => update({ colorOverride: undefined })}>
-          ↺ {s.resetColor}
+          <RotateCcw {...ICON} /> {s.resetColor}
         </Button>
       )}
       <MasterSelect
@@ -143,10 +195,11 @@ function DeviceProperties({ doc, origin, library, data, device, editable, issues
         value={category}
         onChange={(id) => update({ categoryOverride: id === template?.categoryId ? undefined : (id ?? '') || undefined })}
         disabled={!editable}
+        createKind="categories"
       />
       {device.categoryOverride !== undefined && editable && (
         <Button variant="ghost" onClick={() => update({ categoryOverride: undefined })}>
-          ↺ {s.resetCategory}
+          <RotateCcw {...ICON} /> {s.resetCategory}
         </Button>
       )}
       <Logistics library={library} value={device} editable={editable} onChange={update} />
@@ -178,6 +231,7 @@ function CableProperties({ doc, origin, library, data, cable, editable, issues }
           <div className="text-slate-400">↓</div>
           <div>{portName(data, library, cable.to)}</div>
         </div>
+        <LastModified value={cable.lastModified} />
       </div>
       <IssueList issues={issues} id={cable.id} />
       <Field label={s.cableType}>
@@ -221,13 +275,13 @@ function CableProperties({ doc, origin, library, data, cable, editable, issues }
   );
 }
 
-function MultiProperties({ doc, origin, library, devices, cables, editable }: Props & { devices: DeviceInstance[]; cables: Cable[] }) {
+function MultiProperties({ doc, origin, library, data, devices, cables, editable }: Props & { devices: DeviceInstance[]; cables: Cable[] }) {
   const items = devices.length + cables.length;
-  const setAll = (patch: { ownerId?: string; trailerId?: string }) => {
+  const setAll = (patch: { ownerId?: string; trailerId?: string; caseId?: string }) => {
     updateDevices(doc, devices.map((d) => ({ id: d.id, patch })), origin);
     updateCables(doc, cables.filter((c) => !c.direct).map((c) => ({ id: c.id, patch })), origin);
   };
-  const common = <K extends 'ownerId' | 'trailerId'>(key: K) => {
+  const common = <K extends 'ownerId' | 'trailerId' | 'caseId'>(key: K) => {
     const values = new Set([...devices, ...cables.filter((c) => !c.direct)].map((x) => x[key]));
     return values.size === 1 ? [...values][0] : undefined;
   };
@@ -237,6 +291,8 @@ function MultiProperties({ doc, origin, library, devices, cables, editable }: Pr
       <p className="text-xs text-slate-500">{s.multiHint}</p>
       <MasterSelect label={s.owner} emptyLabel={f.none} entries={library?.masterData.owners ?? []} value={common('ownerId')} onChange={(ownerId) => setAll({ ownerId })} disabled={!editable} />
       <MasterSelect label={s.trailer} emptyLabel={f.none} entries={library?.masterData.trailers ?? []} value={common('trailerId')} onChange={(trailerId) => setAll({ trailerId })} disabled={!editable} />
+      <MasterSelect label={texts.cases.case} emptyLabel={texts.cases.noCase} entries={library?.masterData.cases ?? []} value={common('caseId')} onChange={(caseId) => setAll({ caseId })} disabled={!editable} createKind="cases" />
+      {devices.length > 1 && <GroupSection doc={doc} origin={origin} data={data} devices={devices} editable={editable} />}
       {devices.length > 0 && (
         <MasterSelect
           label={s.category}

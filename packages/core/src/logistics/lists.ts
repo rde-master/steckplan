@@ -1,6 +1,7 @@
 // Listen als Datenstruktur – dieselbe Quelle für Bildschirm, PDF und CSV.
 import type { Library, MasterKind } from '../library/library';
-import type { Cable, CheckMark, DeviceInstance, Project, Template } from '../model/schema';
+import type { Cable, CaseTrailer, CheckMark, DeviceInstance, MasterData, Project, Template } from '../model/schema';
+import { devicePerson, personName } from '../people/people';
 import { findPort, isMulticore } from '../signalflow/ports';
 import { computeCableLength, computeMulticoreLength, lengthContext, type CableLength } from './length';
 
@@ -18,6 +19,7 @@ export interface CableListRow {
   length: CableLength;
   ownerId?: string;
   trailerId?: string;
+  caseId?: string;
   categoryId?: string;
   inventoryNo?: string;
 }
@@ -28,8 +30,12 @@ function endLabel(project: ProjectLike, templates: Map<string, Template>, end: C
   return `${device?.label ?? '?'} · ${port?.label ?? end.portId}`;
 }
 
-export function buildCableList(project: ProjectLike, library: Pick<Library, 'templates'>): CableListRow[] {
+export function buildCableList(
+  project: ProjectLike & Partial<Pick<Project, 'caseTrailers'>>,
+  library: Pick<Library, 'templates'> & { masterData?: Pick<MasterData, 'cases'> },
+): CableListRow[] {
   const templates = new Map(library.templates.map((t) => [t.id, t]));
+  const trailerOf = (item: { caseId?: string; trailerId?: string }) => effectiveTrailerId(item, project.caseTrailers, library.masterData?.cases);
   const ctx = lengthContext(project.devices, library.templates, project.settings);
   const rows: CableListRow[] = [];
   for (const cable of project.cables) {
@@ -44,7 +50,8 @@ export function buildCableList(project: ProjectLike, library: Pick<Library, 'tem
       to: endLabel(project, templates, cable.to),
       length: computeCableLength(cable, ctx),
       ownerId: cable.ownerId,
-      trailerId: cable.trailerId,
+      trailerId: trailerOf(cable),
+      ...(cable.caseId ? { caseId: cable.caseId } : {}),
       categoryId: cable.categoryOverride ?? t?.categoryId,
       inventoryNo: cable.inventoryNo,
     });
@@ -61,12 +68,31 @@ export function buildCableList(project: ProjectLike, library: Pick<Library, 'tem
       to: t!.endBLabel || 'Ende B',
       length: computeMulticoreLength(device, t, project.settings),
       ownerId: device.ownerId,
-      trailerId: device.trailerId,
+      trailerId: trailerOf(device),
+      ...(device.caseId ? { caseId: device.caseId } : {}),
       categoryId: device.categoryOverride ?? t!.categoryId,
       inventoryNo: device.inventoryNo,
     });
   }
   return rows.sort((a, b) => a.typeName.localeCompare(b.typeName, 'de') || a.from.localeCompare(b.from, 'de', { numeric: true }));
+}
+
+// ---------- Cases ----------
+
+/** Anhänger eines Cases: Zuordnung im Projekt, sonst Standard-Anhänger des Cases. */
+export function caseTrailerId(caseId: string, caseTrailers: CaseTrailer[] | undefined, cases: MasterData['cases'] | undefined): string | undefined {
+  const override = caseTrailers?.find((c) => c.id === caseId);
+  if (override) return override.trailerId;
+  return cases?.find((c) => c.id === caseId)?.defaultTrailerId;
+}
+
+/** Anhänger, in den ein Gerät/Kabel kommt: im Case → Anhänger des Cases, sonst der eigene. */
+export function effectiveTrailerId(
+  item: { caseId?: string; trailerId?: string },
+  caseTrailers: CaseTrailer[] | undefined,
+  cases: MasterData['cases'] | undefined,
+): string | undefined {
+  return item.caseId ? caseTrailerId(item.caseId, caseTrailers, cases) : item.trailerId;
 }
 
 // ---------- Packliste ----------
@@ -80,7 +106,11 @@ export interface PackItem {
   lengthMm: number | null;
   categoryId?: string;
   ownerId?: string;
+  /** Anhänger (bei Inhalt eines Cases: Anhänger des Cases) */
   trailerId?: string;
+  caseId?: string;
+  /** Person, die das Gerät benutzt */
+  person?: string;
   inventoryNo?: string;
   /** Stativ/Traverse bzw. Bühnenelement */
   carrier?: string;
@@ -91,8 +121,13 @@ export interface PackItem {
 }
 
 /** Alle Objekte, die mitgenommen werden (keine direkt gesteckten Verbindungen). */
-export function packItems(project: ProjectLike, library: Pick<Library, 'templates'>): PackItem[] {
+export function packItems(
+  project: ProjectLike & Partial<Pick<Project, 'caseTrailers' | 'people'>>,
+  library: Pick<Library, 'templates'> & { masterData?: Pick<MasterData, 'cases'> },
+): PackItem[] {
   const templates = new Map(library.templates.map((t) => [t.id, t]));
+  const cases = library.masterData?.cases;
+  const trailerOf = (item: { caseId?: string; trailerId?: string }) => effectiveTrailerId(item, project.caseTrailers, cases);
   const devices = new Map(project.devices.map((d) => [d.id, d]));
   const ctx = lengthContext(project.devices, library.templates, project.settings);
   const items: PackItem[] = [];
@@ -109,7 +144,9 @@ export function packItems(project: ProjectLike, library: Pick<Library, 'template
       lengthMm: multicore ? (computeMulticoreLength(d, t, project.settings).chosenMm ?? null) : null,
       categoryId: d.categoryOverride ?? t?.categoryId,
       ownerId: d.ownerId,
-      trailerId: d.trailerId,
+      trailerId: trailerOf(d),
+      ...(d.caseId ? { caseId: d.caseId } : {}),
+      ...(devicePerson(d, t, project.people ?? []) ? { person: personName(devicePerson(d, t, project.people ?? [])) } : {}),
       inventoryNo: d.inventoryNo,
       carrier: carrier?.label,
       notes: d.notes,
@@ -128,7 +165,8 @@ export function packItems(project: ProjectLike, library: Pick<Library, 'template
       lengthMm: computeCableLength(c, ctx).chosenMm ?? null,
       categoryId: c.categoryOverride ?? t?.categoryId,
       ownerId: c.ownerId,
-      trailerId: c.trailerId,
+      trailerId: trailerOf(c),
+      ...(c.caseId ? { caseId: c.caseId } : {}),
       inventoryNo: c.inventoryNo,
       route: `${devices.get(c.from.deviceId)?.label ?? '?'} → ${devices.get(c.to.deviceId)?.label ?? '?'}`,
       notes: c.notes,
@@ -138,10 +176,10 @@ export function packItems(project: ProjectLike, library: Pick<Library, 'template
   return items;
 }
 
-export type GroupBy = 'category' | 'trailer' | 'owner';
-const GROUP_FIELD: Record<GroupBy, 'categoryId' | 'trailerId' | 'ownerId'> = { category: 'categoryId', trailer: 'trailerId', owner: 'ownerId' };
-const GROUP_MASTER: Record<GroupBy, MasterKind> = { category: 'categories', trailer: 'trailers', owner: 'owners' };
-export const UNASSIGNED_LABEL: Record<GroupBy, string> = { category: 'ohne Kategorie', trailer: 'ohne Anhänger', owner: 'ohne Besitzer' };
+export type GroupBy = 'category' | 'trailer' | 'owner' | 'case';
+const GROUP_FIELD: Record<GroupBy, 'categoryId' | 'trailerId' | 'ownerId' | 'caseId'> = { category: 'categoryId', trailer: 'trailerId', owner: 'ownerId', case: 'caseId' };
+const GROUP_MASTER: Record<GroupBy, MasterKind> = { category: 'categories', trailer: 'trailers', owner: 'owners', case: 'cases' };
+export const UNASSIGNED_LABEL: Record<GroupBy, string> = { category: 'ohne Kategorie', trailer: 'ohne Anhänger', owner: 'ohne Besitzer', case: 'nicht im Case' };
 
 export interface PackRow {
   key: string;
@@ -171,18 +209,41 @@ export interface PackingList {
 export interface PackingOptions {
   groupBy: GroupBy[];
   mode: 'aggregated' | 'single';
+  /** Reihenfolge der Zeilen: nach Bezeichnung (Standard) oder zuerst nach Case */
+  sortBy?: 'name' | 'case';
+}
+
+type RowOrder = (a: PackRow, b: PackRow) => number;
+
+function byName(a: PackRow, b: PackRow): number {
+  return a.name.localeCompare(b.name, 'de') || (a.lengthMm ?? 0) - (b.lengthMm ?? 0) || (a.items[0]?.label ?? '').localeCompare(b.items[0]?.label ?? '', 'de', { numeric: true });
+}
+
+/** Nach Case (Name), Inhalt ohne Case am Ende, dann nach Bezeichnung */
+function byCase(library: Pick<Library, 'masterData'>): RowOrder {
+  const name = (row: PackRow) => {
+    const id = row.items[0]?.caseId;
+    return id ? (library.masterData.cases?.find((c) => c.id === id)?.name ?? '?') : null;
+  };
+  return (a, b) => {
+    const na = name(a);
+    const nb = name(b);
+    if (na === null && nb !== null) return 1;
+    if (nb === null && na !== null) return -1;
+    return (na ?? '').localeCompare(nb ?? '', 'de', { numeric: true }) || byName(a, b);
+  };
 }
 
 function isChecked(mark: CheckMark | undefined): boolean {
   return mark !== undefined;
 }
 
-/** Zusammengefasst wird nur, was in Vorlage, Länge, Besitzer und Anhänger übereinstimmt. */
+/** Zusammengefasst wird nur, was in Vorlage, Länge, Besitzer, Kategorie, Anhänger und Case übereinstimmt. */
 export function aggregationKey(item: PackItem): string {
-  return [item.kind, item.templateId, item.lengthMm ?? '', item.ownerId ?? '', item.trailerId ?? ''].join('|');
+  return [item.kind, item.templateId, item.lengthMm ?? '', item.ownerId ?? '', item.categoryId ?? '', item.trailerId ?? '', item.caseId ?? ''].join('|');
 }
 
-function buildRows(items: PackItem[], mode: PackingOptions['mode']): PackRow[] {
+function buildRows(items: PackItem[], mode: PackingOptions['mode'], order: RowOrder = byName): PackRow[] {
   const rows = new Map<string, PackRow>();
   for (const item of items) {
     const key = mode === 'aggregated' ? aggregationKey(item) : item.id;
@@ -196,10 +257,10 @@ function buildRows(items: PackItem[], mode: PackingOptions['mode']): PackRow[] {
     if (isChecked(item.check?.in)) row.checkedIn++;
   }
   for (const row of rows.values()) row.items.sort((a, b) => a.label.localeCompare(b.label, 'de', { numeric: true }));
-  return [...rows.values()].sort((a, b) => a.name.localeCompare(b.name, 'de') || (a.lengthMm ?? 0) - (b.lengthMm ?? 0) || (a.items[0]?.label ?? '').localeCompare(b.items[0]?.label ?? '', 'de', { numeric: true }));
+  return [...rows.values()].sort(order);
 }
 
-function group(items: PackItem[], levels: GroupBy[], library: Pick<Library, 'masterData'>, mode: PackingOptions['mode']): PackGroup[] {
+function group(items: PackItem[], levels: GroupBy[], library: Pick<Library, 'masterData'>, mode: PackingOptions['mode'], order: RowOrder): PackGroup[] {
   const [level, ...rest] = levels;
   if (!level) return [];
   const field = GROUP_FIELD[level];
@@ -216,8 +277,8 @@ function group(items: PackItem[], levels: GroupBy[], library: Pick<Library, 'mas
       label: key ? (entry?.name ?? '(unbekannt)') : UNASSIGNED_LABEL[level],
       ...(entry?.color ? { color: entry.color } : {}),
       unassigned: !key,
-      rows: rest.length ? [] : buildRows(list, mode),
-      groups: rest.length ? group(list, rest, library, mode) : [],
+      rows: rest.length ? [] : buildRows(list, mode, order),
+      groups: rest.length ? group(list, rest, library, mode, order) : [],
     };
   });
   // „nicht zugeordnet“ ans Ende
@@ -226,9 +287,10 @@ function group(items: PackItem[], levels: GroupBy[], library: Pick<Library, 'mas
 
 export function buildPackingList(items: PackItem[], library: Pick<Library, 'masterData'>, options: PackingOptions): PackingList {
   const levels = [...new Set(options.groupBy)].slice(0, 2);
+  const order = options.sortBy === 'case' ? byCase(library) : byName;
   const groups = levels.length
-    ? group(items, levels, library, options.mode)
-    : [{ key: 'all', label: 'Alle', unassigned: false, rows: buildRows(items, options.mode), groups: [] }];
+    ? group(items, levels, library, options.mode, order)
+    : [{ key: 'all', label: 'Alle', unassigned: false, rows: buildRows(items, options.mode, order), groups: [] }];
   const problems: PackingList['problems'] = [];
   for (const item of items) {
     for (const direction of ['out', 'in'] as const) {
@@ -237,6 +299,48 @@ export function buildPackingList(items: PackItem[], library: Pick<Library, 'mast
     }
   }
   return { groups, problems, total: items.length };
+}
+
+// ---------- Case-Listen ----------
+
+export interface CaseList {
+  caseId: string;
+  name: string;
+  color?: string;
+  notes?: string;
+  /** Anhänger des Cases (Projekt-Zuordnung, sonst Standard) */
+  trailerId?: string;
+  rows: PackRow[];
+  total: number;
+  checkedOut: number;
+  checkedIn: number;
+}
+
+/** Je Case: was hinein muss (zusammengefasst oder einzeln), nach Bezeichnung. Leere Cases werden weggelassen. */
+export function buildCaseLists(
+  items: PackItem[],
+  library: Pick<Library, 'masterData'>,
+  options: { mode: PackingOptions['mode']; caseTrailers?: CaseTrailer[] },
+): CaseList[] {
+  const byCaseId = new Map<string, PackItem[]>();
+  for (const item of items) if (item.caseId) byCaseId.set(item.caseId, [...(byCaseId.get(item.caseId) ?? []), item]);
+  return [...byCaseId.entries()]
+    .map(([caseId, list]) => {
+      const entry = library.masterData.cases?.find((c) => c.id === caseId);
+      const rows = buildRows(list, options.mode);
+      return {
+        caseId,
+        name: entry?.name ?? '(unbekanntes Case)',
+        ...(entry?.color ? { color: entry.color } : {}),
+        ...(entry?.notes ? { notes: entry.notes } : {}),
+        ...(caseTrailerId(caseId, options.caseTrailers, library.masterData.cases) ? { trailerId: caseTrailerId(caseId, options.caseTrailers, library.masterData.cases) } : {}),
+        rows,
+        total: list.length,
+        checkedOut: list.filter((i) => i.check?.out).length,
+        checkedIn: list.filter((i) => i.check?.in).length,
+      };
+    })
+    .sort((a, b) => a.name.localeCompare(b.name, 'de', { numeric: true }));
 }
 
 /** Nächstes noch nicht abgehaktes Exemplar einer Zeile (für „Antippen hakt das nächste ab“). */

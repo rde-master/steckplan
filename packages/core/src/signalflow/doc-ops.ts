@@ -58,6 +58,7 @@ export function addDevice(
     ...(options.dock?.mountedOnId ? { mountedOnId: options.dock.mountedOnId } : {}),
     ...(template.defaultOwnerId ? { ownerId: template.defaultOwnerId } : {}),
     ...(template.defaultTrailerId ? { trailerId: template.defaultTrailerId } : {}),
+    ...(template.defaultCaseId ? { caseId: template.defaultCaseId } : {}),
   };
   doc.transact(() => {
     const map = new Y.Map<unknown>();

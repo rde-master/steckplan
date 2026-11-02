@@ -38,7 +38,7 @@ export function conflictKey(kind: 'template' | MasterKind, id: string): string {
  * sameLibrary: Quelle wurde zuletzt mit dieser Bibliothek gespeichert → keine Nachfrage.
  */
 export function analyze(source: ReconcileSource, library: Library, options: { sameLibrary: boolean }): Analysis {
-  const analysis: Analysis = { additions: { templates: [], masterData: { categories: [], owners: [], trailers: [] } }, conflicts: [], autoUpdated: 0 };
+  const analysis: Analysis = { additions: { templates: [], masterData: { categories: [], owners: [], trailers: [], cases: [] } }, conflicts: [], autoUpdated: 0 };
 
   for (const theirs of source.templates) {
     const ours = library.templates.find((t) => t.id === theirs.id);
@@ -57,7 +57,7 @@ export function analyze(source: ReconcileSource, library: Library, options: { sa
   }
 
   for (const kind of MASTER_KINDS) {
-    for (const theirs of source.masterData[kind] as MasterEntry[]) {
+    for (const theirs of (source.masterData[kind] ?? []) as MasterEntry[]) {
       const ours = (library.masterData[kind] as MasterEntry[]).find((e) => e.id === theirs.id);
       if (!ours) (analysis.additions.masterData[kind] as MasterEntry[]).push(theirs);
       else if (masterEntryEqual(ours, theirs)) continue;
@@ -93,6 +93,7 @@ export interface IdMap {
   categories: Map<string, string>;
   owners: Map<string, string>;
   trailers: Map<string, string>;
+  cases: Map<string, string>;
 }
 
 export interface ApplyResult {
@@ -115,7 +116,7 @@ export function applyAnalysis(
   meta: { by: string; now?: Date },
 ): ApplyResult {
   const now = (meta.now ?? new Date()).toISOString();
-  const idMap: IdMap = { templates: new Map(), categories: new Map(), owners: new Map(), trailers: new Map() };
+  const idMap: IdMap = { templates: new Map(), categories: new Map(), owners: new Map(), trailers: new Map(), cases: new Map() };
   const summary = { added: 0, replaced: 0, copied: 0, kept: 0 };
   const next: Library = {
     ...library,
@@ -124,6 +125,7 @@ export function applyAnalysis(
       categories: [...library.masterData.categories],
       owners: [...library.masterData.owners],
       trailers: [...library.masterData.trailers],
+      cases: [...library.masterData.cases],
     },
   };
 
@@ -151,11 +153,17 @@ export function applyAnalysis(
     }
   }
 
+  // Cases verweisen auf Anhänger, die eventuell als Kopie angelegt wurden
+  next.masterData.cases = next.masterData.cases.map((c) =>
+    c.defaultTrailerId && idMap.trailers.has(c.defaultTrailerId) ? { ...c, defaultTrailerId: idMap.trailers.get(c.defaultTrailerId) } : c,
+  );
+
   const remapTemplate = (template: Template): Template => ({
     ...template,
     categoryId: template.categoryId && (idMap.categories.get(template.categoryId) ?? template.categoryId),
     defaultOwnerId: template.defaultOwnerId && (idMap.owners.get(template.defaultOwnerId) ?? template.defaultOwnerId),
     defaultTrailerId: template.defaultTrailerId && (idMap.trailers.get(template.defaultTrailerId) ?? template.defaultTrailerId),
+    defaultCaseId: template.defaultCaseId && (idMap.cases.get(template.defaultCaseId) ?? template.defaultCaseId),
   });
 
   for (const conflict of analysis.conflicts) {
@@ -197,18 +205,23 @@ export function applyAnalysis(
 
 /** Schreibt die ids im Projekt um (bei „als Kopie anlegen“) und erneuert libraryId und Snapshots. */
 export function finishProject(project: Project, library: Library, idMap: IdMap): Project {
-  const remap = <T extends { templateId?: string; ownerId?: string; trailerId?: string; categoryOverride?: string }>(item: T): T => ({
+  const remap = <T extends { templateId?: string; ownerId?: string; trailerId?: string; categoryOverride?: string; caseId?: string }>(item: T): T => ({
     ...item,
     ...(item.templateId ? { templateId: idMap.templates.get(item.templateId) ?? item.templateId } : {}),
     ...(item.ownerId ? { ownerId: idMap.owners.get(item.ownerId) ?? item.ownerId } : {}),
     ...(item.trailerId ? { trailerId: idMap.trailers.get(item.trailerId) ?? item.trailerId } : {}),
     ...(item.categoryOverride ? { categoryOverride: idMap.categories.get(item.categoryOverride) ?? item.categoryOverride } : {}),
+    ...(item.caseId ? { caseId: idMap.cases.get(item.caseId) ?? item.caseId } : {}),
   });
   const remapped: Project = {
     ...project,
     libraryId: library.libraryId,
     devices: project.devices.map(remap),
     cables: project.cables.map(remap),
+    caseTrailers: project.caseTrailers.map((c) => ({
+      id: idMap.cases.get(c.id) ?? c.id,
+      ...(c.trailerId ? { trailerId: idMap.trailers.get(c.trailerId) ?? c.trailerId } : {}),
+    })),
   };
   return { ...remapped, ...buildSnapshots(remapped, library) };
 }
