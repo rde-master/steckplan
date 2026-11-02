@@ -92,6 +92,16 @@ test('M8c: Stammdaten direkt anlegen, Vorlage kopieren, Personen, Gruppen, T-Bar
   await page.getByRole('button', { name: '＋ Person' }).click();
   await expect(page.getByTestId('people-table')).toBeVisible();
 
+  // Personen importieren (aus Excel eingefügt): vorhandene werden übersprungen
+  await page.getByRole('button', { name: '⇪ Importieren …' }).click();
+  const importDialog = page.getByRole('dialog', { name: 'Personen importieren' });
+  await importDialog.getByLabel('Personen (aus Excel eingefügt oder CSV)').fill('Name\tVorname\tArt\nMuster\tAnna\tSängerin\nBeispiel\tBert\tGitarre\nNeu\tNina\tBass');
+  await expect(importDialog.getByTestId('import-preview')).toContainText('schon vorhanden – übersprungen');
+  await importDialog.getByRole('button', { name: '2 Personen anlegen' }).click();
+  await expect(importDialog.getByText('2 Änderungen übernommen')).toBeVisible();
+  await importDialog.getByRole('button', { name: 'Schließen' }).last().click();
+  await expect(page.getByTestId('people-table').locator('tbody tr')).toHaveCount(3);
+
   // ---------- Signalfluss: Person zuordnen, Name im Kasten, Lagerwarnung, Gruppe ----------
   await page.getByRole('tab', { name: 'Signalfluss' }).click();
   await expect.poll(() => page.evaluate(() => window.__steckplanStage?.find('.device').length ?? 0)).toBe(4);

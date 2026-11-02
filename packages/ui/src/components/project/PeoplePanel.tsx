@@ -5,18 +5,28 @@ import { addPerson, personKinds, removePerson, updatePerson, usesPerson, type Li
 import type { ProjectData } from '../../lib/useProjectData';
 import { texts } from '../../texts';
 import { Button, TextInput } from '../ui';
+import { PeopleImportDialog } from './PeopleImportDialog';
 
 const t = texts.people;
 
 export function PeoplePanel({ doc, origin, data, library, editable }: { doc: Y.Doc; origin: object; data: ProjectData; library: Library | null; editable: boolean }) {
   const kinds = personKinds(data.people);
   const templates = new Map((library?.templates ?? []).map((x) => [x.id, x]));
+  const [importing, setImporting] = useState(false);
   const deviceCount = (person: Person) => data.devices.filter((d) => d.personId === person.id && usesPerson(d, templates.get(d.templateId))).length;
 
   return (
     <section className="space-y-3 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900" aria-label={t.title}>
-      <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">{t.title}</h2>
+      <div className="flex items-center gap-2">
+        <h2 className="flex-1 text-sm font-semibold uppercase tracking-wide text-slate-500">{t.title}</h2>
+        {editable && (
+          <Button variant="ghost" onClick={() => setImporting(true)}>
+            ⇪ {texts.peopleImport.open}
+          </Button>
+        )}
+      </div>
       <p className="text-xs text-slate-500">{t.hint}</p>
+      {importing && <PeopleImportDialog doc={doc} origin={origin} people={data.people} onClose={() => setImporting(false)} />}
       <datalist id="steckplan-person-kinds">
         {kinds.map((k) => (
           <option key={k} value={k} />
