@@ -797,9 +797,9 @@ export const texts = {
   },
   flowPages: {
     title: 'Seiten',
-    single: 'Eine Seite – mit „Seite“ z. B. Licht und Ton trennen',
+    single: 'Eine Seite – unter „Seiten verwalten“ weitere Seiten anlegen, z. B. um Licht und Ton zu trennen',
     unnamed: '(ohne Namen)',
-    add: 'Seite',
+    add: 'Neue Seite',
     manage: 'Seiten verwalten',
     newTitle: 'Neue Seite im Signalfluss',
     name: 'Name der Seite',
