@@ -4,7 +4,7 @@ import type { Cable, DeviceInstance, Project, Template } from '../model/schema';
 import { createYDocFromProject, readProjectFromYDoc } from '../model/ydoc';
 import { createEmptyLibrary } from '../library/library';
 import { listCsv } from '../logistics/exports';
-import { buildPatchLists, checkNetworkChannels, mixerNetworkRows, stageboxInputInfo, networkRoutes, patchId, readPatch, stageboxChannelLabels, updatePatchEntry, validAssignments, viaText } from './patch';
+import { buildPatchLists, checkNetworkChannels, entryForPort, setPortChannel, mixerNetworkRows, stageboxInputInfo, networkRoutes, patchId, readPatch, stageboxChannelLabels, updatePatchEntry, validAssignments, viaText } from './patch';
 
 const T0 = '2026-01-01T00:00:00.000Z';
 const t = (x: Partial<Template> & Pick<Template, 'id' | 'kind' | 'name'>): Template => ({ version: 1, updatedAt: T0, ...x });
@@ -139,7 +139,7 @@ describe('Netzwerk-Kanäle (digitale Stagebox)', () => {
   });
 
   it('Zuordnung erscheint als Netzwerk-Kanal in der Input-Liste und an der Stagebox', () => {
-    const p = base({ devices: base().devices.map((d) => (d.id === 'Gesang' ? { ...d, mixerChannel: { mixerId: 'DFOH', channel: 12 } } : d)) });
+    const p = base({ devices: base().devices.map((d) => (d.id === 'Gesang' ? { ...d, mixerChannels: [{ mixerId: 'DFOH', channel: 12 }] } : d)) });
     const list = buildPatchLists(p, { templates: tpl }).find((l) => l.mixer.id === 'DFOH')!;
     expect(list.network).toHaveLength(32);
     expect(list.network[11]).toMatchObject({ channel: 12, port: 'Netz 12', name: 'Gesang', phantom: true, devicePort: 'Out' });
@@ -153,7 +153,7 @@ describe('Netzwerk-Kanäle (digitale Stagebox)', () => {
   it('Prüfungen: Kette unterbrochen, Kanal fehlt, Kanal doppelt; Anzahl je Pult änderbar', () => {
     const assigned = base({
       devices: base().devices.map((d) =>
-        d.id === 'Gesang' ? { ...d, mixerChannel: { mixerId: 'DFOH', channel: 5 } } : d.id === 'Snare' ? { ...d, mixerChannel: { mixerId: 'DFOH', channel: 5 } } : d.id === 'DFOH' ? { ...d, networkChannels: 8 } : d,
+        d.id === 'Gesang' ? { ...d, mixerChannels: [{ mixerId: 'DFOH', channel: 5 }] } : d.id === 'Snare' ? { ...d, mixerChannels: [{ mixerId: 'DFOH', channel: 5 }] } : d.id === 'DFOH' ? { ...d, networkChannels: 8 } : d,
       ),
     });
     expect(checkNetworkChannels(assigned, { templates: tpl }).map((i) => i.message)).toEqual(['DFOH Kanal 5 ist doppelt belegt (Gesang, Snare).']);
@@ -161,7 +161,7 @@ describe('Netzwerk-Kanäle (digitale Stagebox)', () => {
     const broken = { ...assigned, cables: assigned.cables.filter((c) => c.id !== 'n') };
     expect(checkNetworkChannels(broken, { templates: tpl }).map((i) => i.message)).toContain('Gesang: Kanal 5 auf DFOH – keine durchgehende Kette (Quelle → Stagebox → Netzwerk → Pult).');
     expect(validAssignments(broken, { templates: tpl })).toEqual([]);
-    const outOfRange = { ...assigned, devices: assigned.devices.map((d) => (d.id === 'Gesang' ? { ...d, mixerChannel: { mixerId: 'DFOH', channel: 20 } } : d)) };
+    const outOfRange = { ...assigned, devices: assigned.devices.map((d) => (d.id === 'Gesang' ? { ...d, mixerChannels: [{ mixerId: 'DFOH', channel: 20 }] } : d)) };
     expect(checkNetworkChannels(outOfRange, { templates: tpl }).map((i) => i.message)).toContain('Gesang: DFOH hat keinen Kanal 20.');
   });
 });
@@ -177,7 +177,7 @@ describe('Netzwerk-Kanäle: Kette mit Multicore davor und zweiter Stagebox dazwi
   // Mikro → Multicore Ader 1 (Bühne → FOH) → Stagebox 1 In 5 → Netzwerk → Stagebox 2 → Netzwerk → Pult
   const p = (extra: Partial<Project> = {}) =>
     project({
-      devices: [dev('Mikro', 'kondensator', { mixerChannel: { mixerId: 'Pult', channel: 12 } }), dev('MC', 'mc'), dev('SB1', 'sb1'), dev('SB2', 'sb2'), dev('Pult', 'dp')],
+      devices: [dev('Mikro', 'kondensator', { mixerChannels: [{ mixerId: 'Pult', channel: 12 }] }), dev('MC', 'mc'), dev('SB1', 'sb1'), dev('SB2', 'sb2'), dev('Pult', 'dp')],
       cables: [
         cable('a', ['Mikro', 'out'], ['MC', 's1:a']),
         cable('b', ['MC', 's1:b'], ['SB1', 'i5']),
@@ -206,7 +206,63 @@ describe('Netzwerk-Kanäle: Kette mit Multicore davor und zweiter Stagebox dazwi
     for (const missing of ['a', 'b', 'c', 'd']) {
       const broken = p({ cables: p().cables.filter((c) => c.id !== missing) });
       expect(networkRoutes(broken.devices[0]!, broken, { templates: tpl })).toEqual([]);
-      expect(checkNetworkChannels(broken, { templates: tpl }).some((i) => i.id === 'netchannel-chain:Mikro')).toBe(true);
+      expect(checkNetworkChannels(broken, { templates: tpl }).some((i) => i.id.startsWith('netchannel-chain:Mikro:'))).toBe(true);
     }
+  });
+});
+
+describe('Netzwerk-Kanäle: je Ausgang ein Pult-Kanal', () => {
+  const net = (id: string) => ({ id, label: id, connector: 'RJ45', direction: 'bi' as const, signal: 'Dante', isNetwork: true });
+  const tpl = [
+    ...templates,
+    t({ id: 'kb', kind: 'device', name: 'Keyboard', ports: [audio('l', 'L', 'out'), audio('r', 'R', 'out')] }),
+    t({ id: 'sb', kind: 'device', name: 'Stagebox', ports: [audio('i1', 'In 1', 'in'), audio('i2', 'In 2', 'in'), net('n')] }),
+    t({ id: 'dp', kind: 'device', name: 'Digitalpult', mixer: true, networkChannels: 16, ports: [net('n')] }),
+  ];
+  const p = (mixerChannels?: NonNullable<Project['devices'][number]['mixerChannels']>) =>
+    project({
+      devices: [dev('Keys', 'kb', mixerChannels ? { mixerChannels } : {}), dev('SB', 'sb'), dev('Pult', 'dp')],
+      cables: [cable('l', ['Keys', 'l'], ['SB', 'i1']), cable('r', ['Keys', 'r'], ['SB', 'i2']), cable('n', ['SB', 'n'], ['Pult', 'n'])],
+    });
+  const lib = { templates: tpl };
+
+  it('jeder Ausgang hat eine eigene Kette und einen eigenen Kanal', () => {
+    const project1 = p([
+      { portId: 'l', mixerId: 'Pult', channel: 3 },
+      { portId: 'r', mixerId: 'Pult', channel: 4 },
+    ]);
+    expect(networkRoutes(project1.devices[0]!, project1, lib).map((r) => [r.sourcePortId, r.stageboxPort])).toEqual([
+      ['l', 'In 1'],
+      ['r', 'In 2'],
+    ]);
+    const list = buildPatchLists(project1, lib)[0]!;
+    expect(list.network.slice(2, 4).map((r) => [r.name, r.devicePort, viaText(r)])).toEqual([
+      ['Keys · L', 'L', 'SB · In 1 (Netzwerk)'],
+      ['Keys · R', 'R', 'SB · In 2 (Netzwerk)'],
+    ]);
+    expect([...stageboxInputInfo(project1, lib)]).toEqual([
+      ['SB/i1', { source: 'Keys · L', channel: '3' }],
+      ['SB/i2', { source: 'Keys · R', channel: '4' }],
+    ]);
+    expect(checkNetworkChannels(project1, lib)).toEqual([]);
+  });
+
+  it('ohne Ausgang (aus Format 5) gilt der erste Ausgang mit Kette; Setzen legt den Ausgang fest', () => {
+    const legacy = p([{ mixerId: 'Pult', channel: 7 }]);
+    const routes = networkRoutes(legacy.devices[0]!, legacy, lib);
+    const entries = legacy.devices[0]!.mixerChannels!;
+    expect(entryForPort(routes, entries, 'l')).toEqual({ mixerId: 'Pult', channel: 7 });
+    expect(entryForPort(routes, entries, 'r')).toBeUndefined();
+    expect(setPortChannel(routes, entries, 'r', { mixerId: 'Pult', channel: 8 })).toEqual([
+      { portId: 'l', mixerId: 'Pult', channel: 7 },
+      { portId: 'r', mixerId: 'Pult', channel: 8 },
+    ]);
+    expect(setPortChannel(routes, [{ portId: 'l', mixerId: 'Pult', channel: 7 }], 'l', undefined)).toBeUndefined();
+  });
+
+  it('Kette eines Ausgangs unterbrochen → Warnung mit Anschluss', () => {
+    const project1 = p([{ portId: 'r', mixerId: 'Pult', channel: 4 }]);
+    const broken = { ...project1, cables: project1.cables.filter((c) => c.id !== 'r') };
+    expect(checkNetworkChannels(broken, lib).map((i) => i.message)).toEqual(['Keys · R: Kanal 4 auf Pult – keine durchgehende Kette (Quelle → Stagebox → Netzwerk → Pult).']);
   });
 });

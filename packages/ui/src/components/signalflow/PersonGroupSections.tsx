@@ -8,6 +8,9 @@ import {
   assignGroup,
   networkChannelCount,
   networkRoutes,
+  entryForPort,
+  routeForEntry,
+  setPortChannel,
   createGroup,
   personName,
   removeGroup,
@@ -206,59 +209,74 @@ export function MountSideSection({ doc, origin, library, data, device, editable 
   );
 }
 
-/** Quelle → Kanal eines Mischpults über eine digitale Stagebox (nur bei durchgehender Kette). */
+/** Quelle → Kanal eines Mischpults über eine digitale Stagebox, je Ausgang (nur bei durchgehender Kette). */
 export function MixerChannelSection({ doc, origin, library, data, device, editable }: SectionProps) {
   const t = texts.netChannels;
   if (!library) return null;
   const routes = networkRoutes(device, data, library);
-  const current = device.mixerChannel;
-  if (routes.length === 0 && !current) return null;
+  const entries = device.mixerChannels ?? [];
+  if (routes.length === 0 && entries.length === 0) return null;
   const templates = new Map(library.templates.map((x) => [x.id, x]));
-  const value = current ? `${current.mixerId}:${current.channel}` : '';
-  const routeOk = !current || routes.some((r) => r.mixer.id === current.mixerId);
-  const occupiedBy = (mixerId: string, channel: number) =>
-    data.devices.find((d) => d.id !== device.id && d.mixerChannel?.mixerId === mixerId && d.mixerChannel.channel === channel)?.label;
+  const ports = [...new Map(routes.map((r) => [r.sourcePortId, r.sourcePort])).entries()];
+  const broken = entries.filter((e) => !routeForEntry(routes, e));
+  const save = (mixerChannels: DeviceInstance['mixerChannels']) => updateDevices(doc, [{ id: device.id, patch: { mixerChannels } }], origin);
+  const occupiedBy = (portId: string, mixerId: string, channel: number) =>
+    data.devices
+      .flatMap((d) => (d.mixerChannels ?? []).filter((e) => e.mixerId === mixerId && e.channel === channel).map((e) => ({ d, e })))
+      .find(({ d, e }) => d.id !== device.id || (e.portId ?? routeForEntry(routes, e)?.sourcePortId) !== portId)?.d.label;
   return (
-    <div className="space-y-1 rounded-md border border-slate-200 p-2 dark:border-slate-700" data-testid="mixer-channel-section">
-      <Field label={t.label}>
-        <select
-          className={selectClass}
-          value={routeOk ? value : ''}
-          disabled={!editable || routes.length === 0}
-          onChange={(e) => {
-            const v = e.target.value;
-            if (!v) return updateDevices(doc, [{ id: device.id, patch: { mixerChannel: undefined } }], origin);
-            const [mixerId, channel] = [v.slice(0, v.lastIndexOf(':')), Number(v.slice(v.lastIndexOf(':') + 1))];
-            updateDevices(doc, [{ id: device.id, patch: { mixerChannel: { mixerId, channel } } }], origin);
-          }}
-        >
-          <option value="">{t.none}</option>
-          {routes.map((r) => (
-            <optgroup key={r.mixer.id} label={t.group(r.mixer.label, r.stagebox.label, r.stageboxPort)}>
-              {Array.from({ length: networkChannelCount(r.mixer, templates.get(r.mixer.templateId)) }, (_, i) => i + 1).map((ch) => {
-                const busy = occupiedBy(r.mixer.id, ch);
-                return (
-                  <option key={ch} value={`${r.mixer.id}:${ch}`}>
-                    {t.option(r.mixer.label, ch)}
-                    {busy ? ` (${t.busy(busy)})` : ''}
-                  </option>
-                );
-              })}
-            </optgroup>
-          ))}
-        </select>
-      </Field>
+    <div className="space-y-2 rounded-md border border-slate-200 p-2 dark:border-slate-700" data-testid="mixer-channel-section">
+      {ports.map(([portId, portLabel]) => {
+        const current = entryForPort(routes, entries, portId);
+        const portRoutes = routes.filter((r) => r.sourcePortId === portId);
+        return (
+          <Field key={portId} label={ports.length > 1 ? t.labelPort(portLabel) : t.label}>
+            <select
+              className={selectClass}
+              value={current ? `${current.mixerId}:${current.channel}` : ''}
+              disabled={!editable}
+              onChange={(e) => {
+                const v = e.target.value;
+                const target = v ? { mixerId: v.slice(0, v.lastIndexOf(':')), channel: Number(v.slice(v.lastIndexOf(':') + 1)) } : undefined;
+                save(setPortChannel(routes, entries, portId, target));
+              }}
+            >
+              <option value="">{t.none}</option>
+              {portRoutes.map((r) => (
+                <optgroup key={`${r.mixer.id}/${r.stagebox.id}/${r.stageboxPortId}`} label={t.group(r.mixer.label, r.stagebox.label, r.stageboxPort)}>
+                  {Array.from({ length: networkChannelCount(r.mixer, templates.get(r.mixer.templateId)) }, (_, i) => i + 1).map((ch) => {
+                    const busy = occupiedBy(portId, r.mixer.id, ch);
+                    return (
+                      <option key={ch} value={`${r.mixer.id}:${ch}`}>
+                        {t.option(r.mixer.label, ch)}
+                        {busy ? ` (${t.busy(busy)})` : ''}
+                      </option>
+                    );
+                  })}
+                </optgroup>
+              ))}
+            </select>
+          </Field>
+        );
+      })}
       {routes.length > 0 && <p className="text-xs text-slate-500">{t.hint}</p>}
-      {!routeOk && current && (
-        <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-amber-700 dark:text-amber-300">
-          {t.broken(data.devices.find((d) => d.id === current.mixerId)?.label ?? '?', current.channel)}
+      {broken.map((e) => (
+        <div key={`${e.portId ?? ''}:${e.mixerId}:${e.channel}`} className="flex flex-wrap items-center gap-2 text-xs font-medium text-amber-700 dark:text-amber-300">
+          {t.broken(data.devices.find((d) => d.id === e.mixerId)?.label ?? '?', e.channel)}
           {editable && (
-            <Button variant="ghost" className="min-h-7 px-2 text-xs" onClick={() => updateDevices(doc, [{ id: device.id, patch: { mixerChannel: undefined } }], origin)}>
+            <Button
+              variant="ghost"
+              className="min-h-7 px-2 text-xs"
+              onClick={() => {
+                const rest = entries.filter((x) => x !== e);
+                save(rest.length ? rest : undefined);
+              }}
+            >
               {t.remove}
             </Button>
           )}
         </div>
-      )}
+      ))}
     </div>
   );
 }

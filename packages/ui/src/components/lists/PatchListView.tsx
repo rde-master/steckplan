@@ -10,10 +10,31 @@ import { Button, TextInput } from '../ui';
 
 const t = texts.patch;
 const c = t.columns;
+const ONLY_USED_KEY = 'steckplan.patchOnlyUsed';
+
+/** belegt = Quelle/Ziel gesteckt oder von Hand etwas eingetragen */
+const isUsed = (row: PatchRow) => !!row.device || row.edited.name || row.edited.stand || !!row.notes;
+
+function readOnlyUsed(): boolean {
+  try {
+    return localStorage.getItem(ONLY_USED_KEY) !== 'false';
+  } catch {
+    return true;
+  }
+}
 
 export function PatchListView({ doc, origin, data, library, editable }: { doc: Y.Doc; origin: object; data: ProjectData; library: Library | null; editable: boolean }) {
   const lists = useMemo(() => (library ? buildPatchLists(data, library) : []), [data, library]);
   const [direction, setDirection] = useState<'inputs' | 'outputs'>('inputs');
+  const [onlyUsed, setOnlyUsedState] = useState(readOnlyUsed);
+  const setOnlyUsed = (v: boolean) => {
+    setOnlyUsedState(v);
+    try {
+      localStorage.setItem(ONLY_USED_KEY, String(v));
+    } catch {
+      // ohne Speicher gilt die Auswahl nur bis zum Neuladen
+    }
+  };
   if (!library) return null;
   if (lists.length === 0) return <p className="mx-auto max-w-2xl p-6 text-center text-sm text-slate-500">{t.noMixer}</p>;
   const set = (id: string, patch: Parameters<typeof updatePatchEntry>[2]) => updatePatchEntry(doc, id, patch, origin);
@@ -28,49 +49,74 @@ export function PatchListView({ doc, origin, data, library, editable }: { doc: Y
             </button>
           ))}
         </div>
+        <label className="flex items-center gap-1.5 text-sm">
+          <input type="checkbox" checked={onlyUsed} onChange={(e) => setOnlyUsed(e.target.checked)} />
+          {t.onlyUsed}
+        </label>
         <p className="flex-1 text-xs text-slate-500">{t.hint}</p>
       </div>
-      {lists.map((list) => (
+      {lists.map((list) => {
+        const network = direction === 'inputs' ? list.network : [];
+        const analog = list[direction];
+        const shownNetwork = onlyUsed ? network.filter(isUsed) : network;
+        const shownAnalog = onlyUsed ? analog.filter(isUsed) : analog;
+        const all = network.length + analog.length;
+        const hidden = all - shownNetwork.length - shownAnalog.length;
+        const groupHeader = (label: string) => (
+          <tr>
+            <th colSpan={7} scope="rowgroup" className="bg-slate-50 px-2 py-1 text-left text-xs font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+              {label}
+            </th>
+          </tr>
+        );
+        return (
         <section key={list.mixer.id} className="rounded-lg border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900" aria-label={list.mixer.label}>
           <header className="border-b border-slate-100 px-3 py-2 dark:border-slate-800">
             <h3 className="font-semibold">
               {list.mixer.label} <span className="text-sm font-normal text-slate-500">{list.mixerTemplate.name}</span>
             </h3>
           </header>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[56rem] text-sm" data-testid={`patch-${direction}`}>
-              <thead>
-                <tr className="text-left text-xs text-slate-500">
-                  <th className="px-2 py-1 font-medium">{c.channel}</th>
-                  <th className="px-2 py-1 font-medium">{c.name}</th>
-                  <th className="px-2 py-1 font-medium">{direction === 'inputs' ? c.source : c.target}</th>
-                  <th className="px-2 py-1 font-medium">{c.via}</th>
-                  {direction === 'inputs' && <th className="px-2 py-1 font-medium">{c.phantom}</th>}
-                  {direction === 'inputs' && <th className="px-2 py-1 font-medium">{c.stand}</th>}
-                  <th className="px-2 py-1 font-medium">{c.notes}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {list[direction].map((row) => (
-                  <Row key={row.id} row={row} inputs={direction === 'inputs'} editable={editable} onChange={(patch) => set(row.id, patch)} />
-                ))}
-              </tbody>
-              {direction === 'inputs' && list.network.length > 0 && (
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800" data-testid="patch-network">
-                  <tr>
-                    <th colSpan={7} scope="rowgroup" className="bg-slate-50 px-2 py-1 text-left text-xs font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                      {texts.netChannels.section} ({list.network.filter((r) => r.device).length}/{list.network.length})
-                    </th>
+          {shownNetwork.length + shownAnalog.length === 0 ? (
+            <p className="px-3 py-4 text-sm text-slate-500" data-testid="patch-nothing">
+              {t.nothingUsed(all)}
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[56rem] text-sm" data-testid={`patch-${direction}`}>
+                <thead>
+                  <tr className="text-left text-xs text-slate-500">
+                    <th className="px-2 py-1 font-medium">{c.channel}</th>
+                    <th className="px-2 py-1 font-medium">{c.name}</th>
+                    <th className="px-2 py-1 font-medium">{direction === 'inputs' ? c.source : c.target}</th>
+                    <th className="px-2 py-1 font-medium">{c.via}</th>
+                    {direction === 'inputs' && <th className="px-2 py-1 font-medium">{c.phantom}</th>}
+                    {direction === 'inputs' && <th className="px-2 py-1 font-medium">{c.stand}</th>}
+                    <th className="px-2 py-1 font-medium">{c.notes}</th>
                   </tr>
-                  {list.network.map((row) => (
-                    <Row key={row.id} row={row} inputs editable={editable} onChange={(patch) => set(row.id, patch)} />
-                  ))}
-                </tbody>
-              )}
-            </table>
-          </div>
+                </thead>
+                {shownNetwork.length > 0 && (
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800" data-testid="patch-network">
+                    {groupHeader(`${texts.netChannels.section} (${network.filter((r) => r.device).length}/${network.length})`)}
+                    {shownNetwork.map((row) => (
+                      <Row key={row.id} row={row} inputs editable={editable} onChange={(patch) => set(row.id, patch)} />
+                    ))}
+                  </tbody>
+                )}
+                {shownAnalog.length > 0 && (
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800" data-testid="patch-analog">
+                    {network.length > 0 && groupHeader(`${t.analog} (${analog.filter((r) => r.device).length}/${analog.length})`)}
+                    {shownAnalog.map((row) => (
+                      <Row key={row.id} row={row} inputs={direction === 'inputs'} editable={editable} onChange={(patch) => set(row.id, patch)} />
+                    ))}
+                  </tbody>
+                )}
+              </table>
+              {hidden > 0 && <p className="px-3 py-1.5 text-xs text-slate-500">{t.hidden(hidden)}</p>}
+            </div>
+          )}
         </section>
-      ))}
+        );
+      })}
     </div>
   );
 }
