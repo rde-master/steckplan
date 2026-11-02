@@ -15,6 +15,7 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 ### Geändert
 
 - Ton-Patch: Spalte „Stativ“ entfernt (Liste, PDF und CSV)
+- Ton-Patch, Spalte „Über“: der Weg reicht jetzt bis zum Mischpult und nennt die Anschlüsse je Gerät (Eingang / Ausgang), z. B. „MC · Send 1 (FOH) → SB1 · In 1 / Dante → SB2 · Dante A / Dante B → Wing · Dante“; bei Ausgängen beginnt der Weg am Pult (gilt auch für PDF und CSV)
 - Signalfluss-Seiten: „Neue Seite“ liegt jetzt im Dialog „Seiten verwalten“ (die Leiste zeigt nur noch die Seiten und „Seiten verwalten“)
 - Projektformat 7 (Kastengröße, Kabellinien); ältere Steckplan-Versionen können Projekte im Format 7 nicht öffnen
 

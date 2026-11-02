@@ -45,7 +45,7 @@ test('Ton-Patch: Input-/Output-Liste aus dem Signalfluss, Angaben bearbeiten, PD
   const inputs = page.getByTestId('patch-inputs');
   const first = inputs.getByTestId('patch-row').first();
   await expect(first).toContainText('Gesang 1');
-  await expect(first).toContainText('Snake · Send 1 (Bühne)');
+  await expect(first).toContainText('Snake · Send 1 (Bühne) → FOH · In 1');
   await expect(first.getByLabel('48 V In 1')).toBeChecked();
   // nur belegte Kanäle (Vorgabe); alle Kanäle zeigt die Liste nach Abwählen
   await expect(inputs.getByTestId('patch-row')).toHaveCount(1);
@@ -142,7 +142,8 @@ test('Ton-Patch: Netzwerk-Kanäle – Quelle über digitale Stagebox einem Pult-
   await page.getByLabel('Nur belegte Kanäle').uncheck();
   const row3 = network.getByTestId('patch-row').nth(2);
   await expect(row3).toContainText('Vox');
-  await expect(row3).toContainText('SB · In 1 (Netzwerk)');
+  // Weg bis zum Pult, mit Anschlüssen
+  await expect(row3).toContainText('SB · In 1 / Dante → DFOH · Dante');
   await expect(row3.getByLabel('48 V Netz 3')).toBeChecked();
 });
 
@@ -194,7 +195,7 @@ test('Ton-Patch: Netzwerk-Kanal über Multicore → Stagebox 1 → Stagebox 2 �
   await page.getByRole('tab', { name: 'Ton-Patch' }).click();
   const row = page.getByTestId('patch-network').getByTestId('patch-row').first();
   await expect(row).toContainText('Mikrofon');
-  await expect(row).toContainText('MC · Send 1 (FOH) → SB1 · In 1 (Netzwerk) → SB2');
+  await expect(row).toContainText('MC · Send 1 (FOH) → SB1 · In 1 / Dante → SB2 · Dante / Dante 2 → Pult · Netz');
 });
 
 test('Ton-Patch: Gerät mit zwei Ausgängen – je Ausgang ein Pult-Kanal', async ({ page }) => {
@@ -240,7 +241,7 @@ test('Ton-Patch: Gerät mit zwei Ausgängen – je Ausgang ein Pult-Kanal', asyn
   await page.getByRole('tab', { name: 'Ton-Patch' }).click();
   const rows = page.getByTestId('patch-network').getByTestId('patch-row');
   await expect(rows).toHaveCount(2);
-  await expect(rows.nth(0)).toContainText('SB · In 1 (Netzwerk)');
+  await expect(rows.nth(0)).toContainText('SB · In 1 / Dante → Pult · Dante');
   await expect(rows.nth(0).getByLabel('Name Netz 1')).toHaveValue('Keys · Out L');
   await expect(rows.nth(1).getByLabel('Name Netz 2')).toHaveValue('Keys · Out R');
 });
