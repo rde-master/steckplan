@@ -10,11 +10,12 @@ import { ChangeLogView } from './ChangeLogView';
 import { PackingListView } from './PackingListView';
 import { PeopleListView } from './PeopleListView';
 import { PatchListView } from './PatchListView';
+import { PowerListView } from './PowerListView';
 import type * as Y from 'yjs';
 import { DmxPatchView, NetworkListView } from './TechLists';
 
 export function ListsView(props: { projectId: string; data: ProjectData; library: Library | null; canCheck: boolean; canReset: boolean; doc: Y.Doc; origin: object; editable: boolean }) {
-  const [list, setList] = useState<'packing' | 'cases' | 'cables' | 'people' | 'patch' | 'dmx' | 'network' | 'changes'>('packing');
+  const [list, setList] = useState<'packing' | 'cases' | 'cables' | 'people' | 'patch' | 'power' | 'dmx' | 'network' | 'changes'>('packing');
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex items-center gap-1 overflow-x-auto border-b *:shrink-0 border-slate-200 bg-white px-2 py-1 dark:border-slate-700 dark:bg-slate-900" role="tablist" aria-label={texts.lists.title}>
@@ -33,6 +34,9 @@ export function ListsView(props: { projectId: string; data: ProjectData; library
         <Button role="tab" aria-selected={list === 'patch'} variant={list === 'patch' ? 'primary' : 'ghost'} onClick={() => setList('patch')}>
           {texts.lists.patch}
         </Button>
+        <Button role="tab" aria-selected={list === 'power'} variant={list === 'power' ? 'primary' : 'ghost'} onClick={() => setList('power')}>
+          {texts.lists.power}
+        </Button>
         <Button role="tab" aria-selected={list === 'dmx'} variant={list === 'dmx' ? 'primary' : 'ghost'} onClick={() => setList('dmx')}>
           {texts.lists.dmx}
         </Button>
@@ -43,7 +47,7 @@ export function ListsView(props: { projectId: string; data: ProjectData; library
           {texts.lists.changes}
         </Button>
       </div>
-      {list !== 'changes' && list !== 'patch' && <FilterBar library={props.library} data={props.data} showColorMode={false} />}
+      {list !== 'changes' && list !== 'patch' && list !== 'power' && <FilterBar library={props.library} data={props.data} showColorMode={false} />}
       <div className="min-h-0 flex-1 overflow-y-auto">
         {list === 'packing' ? (
           <PackingListView {...props} />
@@ -51,6 +55,8 @@ export function ListsView(props: { projectId: string; data: ProjectData; library
           <PackingListView {...props} view="cases" />
         ) : list === 'cables' ? (
           <CableListView data={props.data} library={props.library} />
+        ) : list === 'power' ? (
+          <PowerListView data={props.data} library={props.library} />
         ) : list === 'patch' ? (
           <PatchListView doc={props.doc} origin={props.origin} data={props.data} library={props.library} editable={props.editable} />
         ) : list === 'people' ? (

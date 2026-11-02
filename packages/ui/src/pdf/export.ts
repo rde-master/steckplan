@@ -11,16 +11,20 @@ import {
   buildNetworkList,
   buildPackingList,
   buildPatchLists,
+  buildPowerReport,
   cableMatches,
   deviceMatches,
   dmxCsv,
   formatCableLength,
+  formatAmps,
   formatDmx,
   formatMeters,
+  formatWatts,
   isFilterActive,
   listCsv,
   masterLabel,
   packItems,
+  totalW,
   viaText,
   type Filter,
   type GroupBy,
@@ -41,6 +45,7 @@ import {
   packingListDoc,
   patchDoc,
   planDoc,
+  sectionsDoc,
   PT_PER_MM,
   tableDoc,
   tilePlan,
@@ -54,9 +59,9 @@ import {
 } from './documents';
 import { signalFlowBounds, signalFlowSvg, stageBounds, stagePlanSvg, usedCategories, type StageDrawing } from './svg';
 
-export type ExportKind = 'stageplan' | 'signalflow' | 'packing' | 'cases' | 'cables' | 'bom' | 'dmx' | 'devices' | 'network' | 'people' | 'patch' | 'labels' | 'wifi';
+export type ExportKind = 'stageplan' | 'signalflow' | 'packing' | 'cases' | 'cables' | 'bom' | 'dmx' | 'devices' | 'network' | 'people' | 'patch' | 'power' | 'labels' | 'wifi';
 
-export const CSV_KINDS: ExportKind[] = ['packing', 'cases', 'cables', 'bom', 'dmx', 'devices', 'network', 'people', 'patch'];
+export const CSV_KINDS: ExportKind[] = ['packing', 'cases', 'cables', 'bom', 'dmx', 'devices', 'network', 'people', 'patch', 'power'];
 
 export const EXPORT_TITLES: Record<ExportKind, string> = {
   stageplan: 'Bühnenplan',
@@ -70,6 +75,7 @@ export const EXPORT_TITLES: Record<ExportKind, string> = {
   network: 'Netzwerkliste',
   people: 'Personenliste',
   patch: 'Input-/Output-Liste',
+  power: 'Stromliste',
   labels: 'Geräte-Etiketten',
   wifi: 'WLAN-Aushang',
 };
@@ -318,6 +324,48 @@ export async function buildExportDoc(opts: ExportOptions, input: ExportInput): P
       });
       return patchDoc(sections, ctx);
     }
+    case 'power': {
+      const report = buildPowerReport(projectLike(data), library);
+      const pct = (u: number | undefined, a: number) => (u !== undefined && a > 0 ? `${Math.round(u * 100)} %${u >= 1 ? ' !' : ''}` : '');
+      const sections = report.distributors.map((d) => {
+        const max = Math.max(d.currentA.L1, d.currentA.L2, d.currentA.L3);
+        const phases = d.feed === '3P' ? `L1 ${formatAmps(d.currentA.L1)} · L2 ${formatAmps(d.currentA.L2)} · L3 ${formatAmps(d.currentA.L3)}` : `${d.feed} ${formatAmps(d.currentA[d.feed])}`;
+        return {
+          title: `${'– '.repeat(d.depth)}${d.device.label}`,
+          subtitle: `${d.template?.name ?? ''} · ${d.fedFrom ? `an ${d.fedFrom}` : 'Einspeisung'} · ${d.feed === '3P' ? 'Drehstrom' : d.feed}${d.inputFuseA ? ` ${d.inputFuseA} A` : ''} · ${formatWatts(totalW(d.load))} · ${phases}${d.usage !== undefined ? ` · Zuleitung ${pct(d.usage, max)}` : ''}${d.imbalance ? ' · Schieflast!' : ''}`,
+          headers: ['Nr.', 'Abgang', 'Phase', 'Absicherung', 'Angeschlossen', 'Leistung', 'Strom', 'Auslastung'],
+          widths: [24, 70, 50, 56, '*', 60, 50, 56],
+          rows: d.outlets.map((o, i) => [
+            i + 1,
+            o.label,
+            o.phase === '3P' ? 'Drehstrom' : o.phase,
+            o.fuseA ? `${o.fuseA} A` : '',
+            o.devices.map((x) => x.label).join(', ') || 'frei',
+            totalW(o.load) > 0 ? formatWatts(totalW(o.load)) : '',
+            o.currentA > 0 ? formatAmps(o.currentA) : '',
+            pct(o.usage, o.currentA),
+          ]),
+        };
+      });
+      if (report.unconnected.length) {
+        sections.push({
+          title: 'Ohne Stromanschluss',
+          subtitle: 'Geräte mit Leistung, aber ohne Stromkabel im Signalfluss',
+          headers: ['Nr.', 'Gerät', 'Leistung'],
+          widths: [24, '*', 80],
+          rows: report.unconnected.map((u, i) => [i + 1, u.device.label, formatWatts(u.powerW)]),
+        } as (typeof sections)[number]);
+      }
+      const total = report.total;
+      return sectionsDoc(
+        'Stromliste',
+        sections,
+        ctx,
+        'Keine Stromverteiler im Projekt.',
+        false,
+        `Gesamt ${formatWatts(totalW(total))} · L1 ${formatAmps(total.L1 / 230)} · L2 ${formatAmps(total.L2 / 230)} · L3 ${formatAmps(total.L3 / 230)} · volle Nennleistung bei 230 V`,
+      );
+    }
     case 'labels': {
       const ids = visibleDevices(data, library, filter).map((d) => d.id);
       const format = LABEL_FORMATS.find((f) => f.id === opts.labelFormat) ?? LABEL_FORMATS[0]!;
@@ -428,6 +476,8 @@ export function buildCsv(kind: ExportKind, data: ProjectData, library: Library, 
       return listCsv('people', all, library);
     case 'patch':
       return listCsv('patch', all, library);
+    case 'power':
+      return listCsv('power', all, library);
     default:
       return '';
   }

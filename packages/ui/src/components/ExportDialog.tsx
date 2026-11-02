@@ -30,6 +30,7 @@ const DEFAULT_ORIENTATION: Record<ExportKind, 'portrait' | 'landscape'> = {
   packing: 'landscape',
   cases: 'portrait',
   patch: 'landscape',
+  power: 'landscape',
   cables: 'landscape',
   bom: 'portrait',
   dmx: 'portrait',
