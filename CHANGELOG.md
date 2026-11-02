@@ -7,6 +7,8 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-11-02
+
 ### Hinzugefügt
 
 - Bühnenplan, „Nicht platziert“: je Gerät die Person (wenn es von einem Menschen benutzt wird) und der Besitzer
@@ -345,7 +347,8 @@ Meilenstein M0 – Projektgerüst.
 - Docker-Image mit Datenvolume `/data` und Beispiel-`docker-compose.yml`
 - GitHub Actions: Tests und Smoke-Test bei jedem Push, Installer als Artefakte, Docker-Image `:develop`, Release-Workflow für Tags `vX.Y.Z`
 
-[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.15.0...develop
+[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.16.0...develop
+[0.16.0]: https://github.com/rde-master/steckplan/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/rde-master/steckplan/compare/v0.14.2...v0.15.0
 [0.14.2]: https://github.com/rde-master/steckplan/compare/v0.14.1...v0.14.2
 [0.14.1]: https://github.com/rde-master/steckplan/compare/v0.14.0...v0.14.1
