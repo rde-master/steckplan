@@ -160,6 +160,7 @@ export function buildPatchLists(project: ProjectLike, library: Pick<Library, 'te
     const carrierText = carrier ? (templates.get(carrier.templateId)?.name ?? carrier.label) : undefined;
     const person = device ? personName(devicePerson(device, template, people)) : '';
     const entry = entries.get(id);
+    const label = found ? assignmentLabel(found, assignments) : '';
     return {
       id,
       channel,
@@ -169,7 +170,7 @@ export function buildPatchLists(project: ProjectLike, library: Pick<Library, 'te
       ...(person ? { person } : {}),
       via: found ? networkRouteHops(found.route) : [],
       ...(carrierText ? { carrier: carrierText } : {}),
-      name: entry?.name ?? (device ? (person ? `${device.label} (${person})` : device.label) : ''),
+      name: entry?.name ?? (device ? (person ? `${label} (${person})` : label) : ''),
       phantom: entry?.phantom ?? template?.phantomPower ?? false,
       stand: entry?.stand ?? carrierText ?? '',
       notes: entry?.notes ?? '',
@@ -204,6 +205,7 @@ export interface NetworkRoute {
   stageboxPortId: string;
   stageboxPort: string;
   /** Anschluss an der Quelle */
+  sourcePortId: string;
   sourcePort: string;
   /** analog vor der Stagebox: Multicore-Adern */
   analogVia: PatchHop[];
@@ -246,7 +248,7 @@ export function networkRoutes(device: DeviceInstance, project: Pick<Project, 'de
           const nextTemplate = templates.get(next.templateId);
           if (isMixer(nextTemplate) && networkChannelCount(next, nextTemplate) > 0) {
             if (!routes.some((r) => r.mixer.id === next.id && r.stagebox.id === stagebox.id && r.stageboxPortId === inPort.id)) {
-              routes.push({ mixer: next, stagebox, stageboxPortId: inPort.id, stageboxPort: inPort.label, sourcePort: sourcePort.label, analogVia: via, networkVia: path });
+              routes.push({ mixer: next, stagebox, stageboxPortId: inPort.id, stageboxPort: inPort.label, sourcePortId: sourcePort.id, sourcePort: sourcePort.label, analogVia: via, networkVia: path });
             }
           } else if (path.length < MAX_HOPS) {
             queue.push({ deviceId: next.id, path: [...path, next] });
@@ -274,18 +276,45 @@ export interface ChannelAssignment {
   route: NetworkRoute;
 }
 
+export type MixerChannelEntry = NonNullable<DeviceInstance['mixerChannels']>[number];
+
+/** Kette zu einer Zuordnung: gleiches Pult und gleicher Ausgang (ohne Ausgang: der erste mit Kette). */
+export function routeForEntry(routes: NetworkRoute[], entry: MixerChannelEntry): NetworkRoute | undefined {
+  return routes.find((r) => r.mixer.id === entry.mixerId && (entry.portId === undefined || r.sourcePortId === entry.portId));
+}
+
+/** Zuordnung eines Ausgangs (Einträge ohne Ausgang zählen für den ersten Ausgang mit Kette zum Pult). */
+export function entryForPort(routes: NetworkRoute[], entries: MixerChannelEntry[], portId: string): MixerChannelEntry | undefined {
+  return entries.find((e) => (e.portId ?? routeForEntry(routes, e)?.sourcePortId) === portId);
+}
+
+/** Zuordnung eines Ausgangs setzen oder entfernen (channel undefined); Einträge ohne Ausgang werden dabei festgelegt. */
+export function setPortChannel(routes: NetworkRoute[], entries: MixerChannelEntry[], portId: string, target: { mixerId: string; channel: number } | undefined): MixerChannelEntry[] | undefined {
+  const resolved = entries.map((e) => (e.portId === undefined ? { ...e, portId: routeForEntry(routes, e)?.sourcePortId } : e));
+  const rest = resolved.filter((e) => e.portId !== portId);
+  const next = target ? [...rest, { portId, ...target }] : rest;
+  return next.length ? next : undefined;
+}
+
 /** Zuordnungen mit gültiger Kette und vorhandenem Kanal. */
 export function validAssignments(project: Pick<Project, 'devices' | 'cables'>, library: Pick<Library, 'templates'>): ChannelAssignment[] {
   const templates = new Map(library.templates.map((t) => [t.id, t]));
   const result: ChannelAssignment[] = [];
   for (const device of project.devices) {
-    const mc = device.mixerChannel;
-    if (!mc) continue;
-    const route = networkRoutes(device, project, library).find((r) => r.mixer.id === mc.mixerId);
-    if (!route || mc.channel > networkChannelCount(route.mixer, templates.get(route.mixer.templateId))) continue;
-    result.push({ device, mixer: route.mixer, channel: mc.channel, route });
+    if (!device.mixerChannels?.length) continue;
+    const routes = networkRoutes(device, project, library);
+    for (const mc of device.mixerChannels) {
+      const route = routeForEntry(routes, mc);
+      if (!route || mc.channel > networkChannelCount(route.mixer, templates.get(route.mixer.templateId))) continue;
+      result.push({ device, mixer: route.mixer, channel: mc.channel, route });
+    }
   }
   return result;
+}
+
+/** Name der Quelle; bei Geräten mit mehreren zugeordneten Ausgängen mit Anschluss („Keyboard · L“). */
+function assignmentLabel(a: ChannelAssignment, assignments: ChannelAssignment[]): string {
+  return assignments.filter((x) => x.device.id === a.device.id).length > 1 ? `${a.device.label} · ${a.route.sourcePort}` : a.device.label;
 }
 
 /** Anzeige an der Stagebox: „Gerät/Anschluss“ → „→ FOH 12“ */
@@ -320,7 +349,8 @@ export function stageboxInputInfo(project: Pick<Project, 'devices' | 'cables'> &
   for (const a of assignments) {
     const key = `${a.route.stagebox.id}/${a.route.stageboxPortId}`;
     const person = personName(devicePerson(a.device, templates.get(a.device.templateId), project.people ?? []));
-    const source = person ? `${a.device.label} (${person})` : a.device.label;
+    const label = assignmentLabel(a, assignments);
+    const source = person ? `${label} (${person})` : label;
     const channel = channelText(assignments, a.mixer, a.channel);
     const existing = info.get(key);
     info.set(key, existing ? { source: existing.source, channel: `${existing.channel}, ${channel}` } : { source, channel });
@@ -348,7 +378,7 @@ export function mixerNetworkRows(project: ProjectLike, library: Pick<Library, 't
       list.mixer.id,
       used.map((r) => {
         const a = assignments.find((x) => x.mixer.id === list.mixer.id && x.channel === r.channel)!;
-        return { channel: r.channel, name: r.name, source: r.device!.label, stagebox: a.route.stagebox.label, stageboxPort: a.route.stageboxPort };
+        return { channel: r.channel, name: r.name, source: assignmentLabel(a, assignments), stagebox: a.route.stagebox.label, stageboxPort: a.route.stageboxPort };
       }),
     );
   }
@@ -361,24 +391,36 @@ export function checkNetworkChannels(project: Pick<Project, 'devices' | 'cables'
   const devices = new Map(project.devices.map((d) => [d.id, d]));
   const issues: Issue[] = [];
   for (const device of project.devices) {
-    const mc = device.mixerChannel;
-    if (!mc) continue;
-    const mixer = devices.get(mc.mixerId);
-    const route = networkRoutes(device, project, library).find((r) => r.mixer.id === mc.mixerId);
-    if (!mixer || !route) {
-      issues.push({ id: `netchannel-chain:${device.id}`, severity: 'warning', message: `${device.label}: Kanal ${mc.channel} auf ${mixer?.label ?? 'Pult'} – keine durchgehende Kette (Quelle → Stagebox → Netzwerk → Pult).`, objectIds: [device.id] });
-    } else if (mc.channel > networkChannelCount(mixer, templates.get(mixer.templateId))) {
-      issues.push({ id: `netchannel-range:${device.id}`, severity: 'warning', message: `${device.label}: ${mixer.label} hat keinen Kanal ${mc.channel}.`, objectIds: [device.id] });
+    if (!device.mixerChannels?.length) continue;
+    const routes = networkRoutes(device, project, library);
+    const portLabel = (portId: string | undefined) => (portId ? templatePorts(templates.get(device.templateId)).find((p) => p.id === portId)?.label : undefined);
+    for (const mc of device.mixerChannels) {
+      const mixer = devices.get(mc.mixerId);
+      const route = routeForEntry(routes, mc);
+      const port = portLabel(mc.portId);
+      const name = port ? `${device.label} · ${port}` : device.label;
+      const key = `${device.id}:${mc.portId ?? ''}:${mc.mixerId}:${mc.channel}`;
+      if (!mixer || !route) {
+        issues.push({ id: `netchannel-chain:${key}`, severity: 'warning', message: `${name}: Kanal ${mc.channel} auf ${mixer?.label ?? 'Pult'} – keine durchgehende Kette (Quelle → Stagebox → Netzwerk → Pult).`, objectIds: [device.id] });
+      } else if (mc.channel > networkChannelCount(mixer, templates.get(mixer.templateId))) {
+        issues.push({ id: `netchannel-range:${key}`, severity: 'warning', message: `${name}: ${mixer.label} hat keinen Kanal ${mc.channel}.`, objectIds: [device.id] });
+      }
     }
   }
   const byChannel = new Map<string, ChannelAssignment[]>();
-  for (const a of validAssignments(project, library)) {
+  const all = validAssignments(project, library);
+  for (const a of all) {
     const key = `${a.mixer.id}:${a.channel}`;
     byChannel.set(key, [...(byChannel.get(key) ?? []), a]);
   }
   for (const [key, list] of byChannel) {
     if (list.length < 2) continue;
-    issues.push({ id: `netchannel-double:${key}`, severity: 'warning', message: `${list[0]!.mixer.label} Kanal ${list[0]!.channel} ist doppelt belegt (${list.map((a) => a.device.label).join(', ')}).`, objectIds: list.map((a) => a.device.id) });
+    issues.push({
+      id: `netchannel-double:${key}`,
+      severity: 'warning',
+      message: `${list[0]!.mixer.label} Kanal ${list[0]!.channel} ist doppelt belegt (${list.map((a) => assignmentLabel(a, all)).join(', ')}).`,
+      objectIds: [...new Set(list.map((a) => a.device.id))],
+    });
   }
   return issues;
 }

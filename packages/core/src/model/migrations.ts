@@ -15,6 +15,19 @@ export const migrations: MigrationRegistry = {
   3: (p) => ({ ...p, schemaVersion: 4 }),
   // 4 → 5: Netzwerk-Kanäle am Mischpult und Zuordnung Quelle → Pult-Kanal, Seiten im Signalfluss – optional; vorhandene Daten bleiben unverändert.
   4: (p) => ({ ...p, schemaVersion: 5 }),
+  // 5 → 6: Pult-Kanal je Ausgang statt je Gerät – `mixerChannel` wird zu `mixerChannels: [{ mixerId, channel }]`
+  // (ohne Anschluss = erster Ausgang mit durchgehender Kette).
+  5: (p) => ({
+    ...p,
+    schemaVersion: 6,
+    devices: Array.isArray(p.devices)
+      ? p.devices.map((d: unknown) => {
+          if (typeof d !== 'object' || d === null || !('mixerChannel' in d)) return d;
+          const { mixerChannel, ...rest } = d as RawProject & { mixerChannel?: unknown };
+          return mixerChannel ? { ...rest, mixerChannels: [mixerChannel] } : rest;
+        })
+      : p.devices,
+  }),
 };
 
 export class ProjectFormatError extends Error {

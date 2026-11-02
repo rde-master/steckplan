@@ -745,6 +745,11 @@ export const texts = {
     suggestion: 'Vorschlag – zum Ändern überschreiben',
     reset: 'Vorschlag wiederherstellen',
     hint: 'Automatisch aus dem Signalfluss: Kabel und Multicore-Adern werden bis zur Quelle bzw. zum Ziel verfolgt. Name, 48 V, Stativ und Bemerkung sind hier änderbar.',
+    onlyUsed: 'Nur belegte Kanäle',
+    analog: 'Anschlüsse am Pult',
+    nothingUsed: (all: number) =>
+      `Noch kein Kanal belegt (${all} frei). Quellen per Kabel/Multicore mit dem Pult verbinden oder – bei einer digitalen Stagebox – am Quellgerät im Signalfluss einen „Pult-Kanal (Netzwerk)“ wählen. „Nur belegte Kanäle“ abwählen, um alle Kanäle zu sehen.`,
+    hidden: (n: number) => `${n} freie Kanäle ausgeblendet`,
   },
   power: {
     empty: 'Noch keine Stromverteiler und keine Geräte mit Leistung. Verteiler sind Geräte mit Strom-Abgängen (Bibliothek: Anschluss „Strom“, mit Absicherung und Phase); Geräte werden im Signalfluss per Stromkabel angeschlossen.',
@@ -777,6 +782,7 @@ export const texts = {
   },
   netChannels: {
     label: 'Pult-Kanal (Netzwerk)',
+    labelPort: (port: string) => `${port} → Pult-Kanal (Netzwerk)`,
     none: '– kein Kanal –',
     group: (mixer: string, stagebox: string, port: string) => `${mixer} über ${stagebox} · ${port}`,
     option: (mixer: string, ch: number) => `${mixer} Kanal ${ch}`,

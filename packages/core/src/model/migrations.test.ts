@@ -37,7 +37,7 @@ describe('Migrationen', () => {
       templateSnapshot: [{ id: 't1', kind: 'device', version: 3, updatedAt: '2026-01-01T00:00:00Z', name: 'Spot' }],
     };
     const project = parseProject(v1);
-    expect(project.schemaVersion).toBe(5);
+    expect(project.schemaVersion).toBe(6);
     expect(project.meta.name).toBe('Alt');
     expect(project.templateSnapshot[0]).toMatchObject({ id: 't1', version: 3, name: 'Spot' });
   });
@@ -48,7 +48,7 @@ describe('Migrationen', () => {
       id: 'p',
       templateSnapshot: [{ id: 'mc', kind: 'cableType', version: 1, updatedAt: 'x', name: 'Multicore 8/8' }],
     });
-    expect(project.schemaVersion).toBe(5);
+    expect(project.schemaVersion).toBe(6);
     const withChannels = parseProject({
       ...project,
       templateSnapshot: [
@@ -72,7 +72,7 @@ describe('Migrationen', () => {
       masterDataSnapshot: { categories: [], owners: [{ id: 'o', name: 'Ralf' }], trailers: [] },
     };
     const project = parseProject(v3);
-    expect(project.schemaVersion).toBe(5);
+    expect(project.schemaVersion).toBe(6);
     expect(project.people).toEqual([]);
     expect(project.groups).toEqual([]);
     expect(project.caseTrailers).toEqual([]);
@@ -96,10 +96,26 @@ describe('Migrationen', () => {
   it('Format 5: Netzwerk-Kanäle und Zuordnung zum Pult-Kanal', () => {
     const v4 = { schemaVersion: 4, id: 'p', devices: [{ id: 'd', templateId: 't', layerId: 'l', label: 'Mikro 1' }] };
     const project = parseProject(v4);
-    expect(project.schemaVersion).toBe(5);
-    const v5 = parseProject({ ...project, devices: [{ ...project.devices[0], mixerChannel: { mixerId: 'pult', channel: 12 } }, { id: 'pult', templateId: 'x', layerId: 'l', label: 'FOH', networkChannels: 48 }] });
-    expect(v5.devices[0]!.mixerChannel).toEqual({ mixerId: 'pult', channel: 12 });
-    expect(() => parseProject({ ...v5, devices: [{ ...v5.devices[0], mixerChannel: { mixerId: 'pult', channel: 0 } }] })).toThrow();
+    expect(project.schemaVersion).toBe(6);
+    const v6 = parseProject({ ...project, devices: [{ ...project.devices[0], mixerChannels: [{ portId: 'out', mixerId: 'pult', channel: 12 }] }, { id: 'pult', templateId: 'x', layerId: 'l', label: 'FOH', networkChannels: 48 }] });
+    expect(v6.devices[0]!.mixerChannels).toEqual([{ portId: 'out', mixerId: 'pult', channel: 12 }]);
+    expect(() => parseProject({ ...v6, devices: [{ ...v6.devices[0], mixerChannels: [{ mixerId: 'pult', channel: 0 }] }] })).toThrow();
+  });
+
+  it('Format 6: Pult-Kanal je Ausgang – bisherige Zuordnung wird übernommen', () => {
+    const v5 = {
+      schemaVersion: 5,
+      id: 'p',
+      devices: [
+        { id: 'd', templateId: 't', layerId: 'l', label: 'Mikro 1', mixerChannel: { mixerId: 'pult', channel: 12 } },
+        { id: 'e', templateId: 't', layerId: 'l', label: 'Mikro 2' },
+      ],
+    };
+    const project = parseProject(v5);
+    expect(project.schemaVersion).toBe(6);
+    expect(project.devices[0]!.mixerChannels).toEqual([{ mixerId: 'pult', channel: 12 }]);
+    expect(project.devices[0]).not.toHaveProperty('mixerChannel');
+    expect(project.devices[1]).not.toHaveProperty('mixerChannels');
   });
 
   it('lädt eine gespeicherte Datei wieder', () => {

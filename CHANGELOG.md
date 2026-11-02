@@ -7,6 +7,16 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+### Hinzugefügt
+
+- Netzwerk-Kanäle je Ausgang: Geräte mit mehreren Ausgängen (z. B. Keyboard L/R, Funkempfänger) lassen sich mit jedem Ausgang einem eigenen Pult-Kanal zuordnen („Out L → Pult-Kanal (Netzwerk)“); Stagebox, Pult und Input-Liste zeigen den Anschluss („Keys · Out L“)
+- Ton-Patch: „Nur belegte Kanäle“ (Vorgabe an) blendet freie Kanäle aus; ohne belegte Kanäle erklärt ein Hinweis, wie Kanäle auf das Pult kommen
+
+### Geändert
+
+- Ton-Patch: Netzwerk-Kanäle stehen oben, die Anschlüsse am Pult darunter
+- Projektformat 6: Zuordnungen zum Pult-Kanal gelten je Ausgang; bestehende Projekte werden beim Öffnen umgestellt (die bisherige Zuordnung gilt für den ersten Ausgang mit durchgehender Kette). Ältere Steckplan-Versionen können Projekte im Format 6 nicht öffnen
+
 ## [0.14.2] - 2026-11-02
 
 ### Hinzugefügt

@@ -3,7 +3,7 @@
 // Jede Änderung hier, die bestehende Dateien betrifft, braucht: schemaVersion erhöhen + Migration + Test.
 import { z } from 'zod';
 
-export const CURRENT_SCHEMA_VERSION = 5;
+export const CURRENT_SCHEMA_VERSION = 6;
 
 const id = z.string().min(1);
 const isoDate = z.string();
@@ -210,8 +210,11 @@ export const DeviceInstanceSchema = z.object({
     .optional(),
   /** Mischpult: Anzahl Netzwerk-Kanäle, überschreibt die Vorlage (seit Format 5) */
   networkChannels: z.number().int().nonnegative().max(512).optional(),
-  /** Quelle: liegt auf diesem Kanal eines Mischpults (über eine digitale Stagebox) (seit Format 5) */
-  mixerChannel: z.object({ mixerId: id, channel: z.number().int().positive() }).optional(),
+  /**
+   * Quelle: Ausgänge auf Kanälen eines Mischpults (über eine digitale Stagebox), je Ausgang eine Zuordnung (seit Format 6).
+   * Ohne portId (aus Format 5 übernommen): der erste Ausgang mit durchgehender Kette zu diesem Pult.
+   */
+  mixerChannels: z.array(z.object({ portId: z.string().optional(), mixerId: id, channel: z.number().int().positive() })).optional(),
   /** Leistung in Watt, überschreibt die Vorlage (seit Format 4) */
   powerW: z.number().nonnegative().optional(),
   /** Benutzt von Mensch: überschreibt die Vorgabe der Vorlage (seit Format 4) */
