@@ -644,6 +644,7 @@ Jeder Meilenstein endet mit grünen Tests, lauffähigem Build (Desktop **und** D
   - Lagerbestand je Vorlage; Kabeltypen mit festen Längen haben den Bestand je Länge. Warnung, wenn ein Projekt mehr verwendet als im Lager steht (je Projekt, nicht projektübergreifend)
   - Stative haben eine T-Bar: Länge als Vorgabe in der Vorlage, je Stativ änderbar; angedockte Geräte verteilen sich nebeneinander auf der T-Bar, hängend (unten) oder stehend (oben)
   - Gruppen im Signalfluss: benannt mit Farbe, jedes Gerät in höchstens einer Gruppe, Rahmen wird automatisch berechnet; im Bühnenplan ein-/ausblendbar
+- Desktop mit Server verbunden (M8b, 02.11.2026): je Server ein eigenes Fenster mit der Oberfläche des Servers (passt immer zur Server-Version); lokale Projekte bleiben in eigenen Fenstern. Der Desktop-Zugangsschlüssel wird mit Electron `safeStorage` verschlüsselt (macOS Keychain, Windows DPAPI) in den Einstellungen gespeichert. Server-Adressen mit `http://` sind erlaubt, außerhalb des eigenen Rechners mit deutlicher Warnung.
 
 ---
 
