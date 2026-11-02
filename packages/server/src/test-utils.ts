@@ -7,6 +7,7 @@ import * as Y from 'yjs';
 import { SyncClient, type SocketLike } from '@steckplan/core';
 import { PasswordChecker } from './auth/passwords';
 import { LoginRateLimiter } from './auth/rate-limit';
+import { DesktopKeyStore } from './auth/desktop-keys';
 import { SessionStore } from './auth/sessions';
 import { createServer, type ServerOptions, type SteckplanServer } from './server';
 import { LibraryStore } from './library/library-store';
@@ -51,6 +52,7 @@ export async function startTestServer(overrides: Partial<ServerOptions> = {}): P
     usage,
     passwords: new PasswordChecker({ edit: EDIT_PASSWORD, read: READ_PASSWORD }),
     rateLimiter: new LoginRateLimiter({ maxFailures: 3 }),
+    desktopKeys: new DesktopKeyStore({ file: join(dataDir, 'desktop-keys.json') }),
     saveDelayMs: 20,
     idleMs: 50,
     ...overrides,
