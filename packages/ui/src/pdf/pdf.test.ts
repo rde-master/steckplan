@@ -238,6 +238,15 @@ describe('PDF-Export', () => {
     expect(text).toContain('Anna Muster');
   });
 
+  it('Tabellen sortierbar (mehrstufig, auf-/absteigend)', async () => {
+    const asc = (await render(await exportDoc({ kind: 'devices', sort: [{ column: 'Kennung' }] }))).text;
+    expect(asc.indexOf('Endstufe 1')).toBeLessThan(asc.indexOf('FOH'));
+    const desc = (await render(await exportDoc({ kind: 'devices', sort: [{ column: 'Kennung', desc: true }] }))).text;
+    expect(desc.indexOf('Stativ 1')).toBeLessThan(desc.indexOf('Endstufe 1'));
+    const cables = (await render(await exportDoc({ kind: 'cables', sort: [{ column: 'Gewählt', desc: true }, { column: 'Von' }] }))).text;
+    expect(cables.indexOf('Spot 10 · Out')).toBeLessThan(cables.indexOf('Spot 1 · Out'));
+  });
+
   it('WLAN-Aushang: Passwort nur, wenn vorhanden und gewünscht', async () => {
     const withPw = await render(await exportDoc({ kind: 'wifi', format: 'A4', orientation: 'portrait' }, { w1: 'ge;heim' }));
     expect(withPw.text).toContain('Crew-Netz');

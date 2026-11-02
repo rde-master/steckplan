@@ -61,6 +61,7 @@ import {
   type PageFormat,
   type PlanTile,
 } from './documents';
+import { sortCsv, type SortKey } from './sorting';
 import { signalFlowBounds, signalFlowSvg, stageBounds, stagePlanSvg, usedCategories, type StageDrawing } from './svg';
 
 export type ExportKind = 'stageplan' | 'signalflow' | 'packing' | 'cases' | 'cables' | 'bom' | 'dmx' | 'devices' | 'network' | 'people' | 'patch' | 'power' | 'labels' | 'wifi';
@@ -107,7 +108,22 @@ export interface ExportOptions {
   showGroups: boolean;
   /** Signalfluss: welche Seiten (leer = alle) */
   flowPageIds: string[];
+  /** Sortierung der Tabellen (bis zu drei Spalten) */
+  sort: SortKey[];
 }
+
+/** Spalten, nach denen sich die Tabellen sortieren lassen (Überschriften wie im PDF) */
+export const SORT_COLUMNS: Partial<Record<ExportKind, string[]>> = {
+  cables: ['Kabeltyp', 'Kennung', 'Von', 'Nach', 'Plan', 'Höhe', 'Benötigt', 'Gewählt', 'Besitzer', 'Anhänger', 'Case', 'Inv.-Nr.'],
+  bom: ['Anzahl', 'Bezeichnung', 'Art', 'Länge', 'Kategorie'],
+  dmx: ['Univ.', 'Adresse', 'Gerät', 'Vorlage', 'Modus', 'Kanäle', 'Stativ/Traverse'],
+  devices: ['Kennung', 'Vorlage', 'Art', 'Kategorie', 'Besitzer', 'Anhänger', 'Case', 'Person', 'Inv.-Nr.', 'Stativ/Podest', 'Höhe', 'DMX', 'IP'],
+  network: ['Gerät', 'Anschluss', 'IP-Adresse', 'Subnetz', 'Hostname'],
+  people: ['Person', 'Art', 'Gerät', 'Vorlage'],
+  patch: ['Kanal', 'Name', 'Quelle', 'Über', '48 V', 'Stativ', 'Bemerkung'],
+  power: ['Abgang', 'Phase', 'Absicherung', 'Angeschlossen', 'Leistung', 'Strom', 'Auslastung'],
+};
+export const MAX_SORT_LEVELS = 3;
 
 export const DEFAULT_OPTIONS: ExportOptions = {
   kind: 'packing',
@@ -127,6 +143,7 @@ export const DEFAULT_OPTIONS: ExportOptions = {
   cutLines: false,
   showGroups: true,
   flowPageIds: [],
+  sort: [],
 };
 
 export interface ExportInput {
@@ -193,6 +210,7 @@ export async function buildExportDoc(opts: ExportOptions, input: ExportInput): P
     by: input.by,
     ...(input.now ? { now: input.now } : {}),
     ...(isFilterActive(filter) ? { filterNote: 'Filter aktiv' } : {}),
+    ...(SORT_COLUMNS[opts.kind] && opts.sort.length ? { sort: opts.sort } : {}),
   };
   const templates = new Map(library.templates.map((t) => [t.id, t]));
   const name = (kind: 'categories' | 'owners' | 'trailers' | 'cases') => (id?: string) => masterLabel(library, kind, id);
@@ -298,8 +316,10 @@ export async function buildExportDoc(opts: ExportOptions, input: ExportInput): P
         }
         const devices = entry.devices.filter((d) => ids.has(d.device.id));
         devices.forEach((d, i) => {
-          const person = i === 0 ? (entry.person ? `${entry.person.lastName}, ${entry.person.firstName}`.replace(/^, |, $/g, '') : '(nicht zugeordnet)') : '';
-          const kind = i === 0 ? (entry.person?.kind ?? '') : '';
+          // beim Sortieren steht die Person in jeder Zeile, sonst nur in der ersten
+          const repeat = i === 0 || opts.sort.length > 0;
+          const person = repeat ? (entry.person ? `${entry.person.lastName}, ${entry.person.firstName}`.replace(/^, |, $/g, '') : '(nicht zugeordnet)') : '';
+          const kind = repeat ? (entry.person?.kind ?? '') : '';
           const connections = d.connections.map((c) => `${c.port} → ${c.target} (${c.cable}${c.cableLabel ? `, ${c.cableLabel}` : ''})`).join('\n');
           rows.push([person, kind, d.device.label, d.templateName, connections || '–']);
         });
@@ -496,7 +516,11 @@ export async function buildExportDoc(opts: ExportOptions, input: ExportInput): P
 }
 
 /** CSV einer Liste (gefiltert wie auf dem Bildschirm). */
-export function buildCsv(kind: ExportKind, data: ProjectData, library: Library, filter: Filter): string {
+export function buildCsv(kind: ExportKind, data: ProjectData, library: Library, filter: Filter, sort: SortKey[] = []): string {
+  return SORT_COLUMNS[kind] ? sortCsv(buildCsvUnsorted(kind, data, library, filter), sort) : buildCsvUnsorted(kind, data, library, filter);
+}
+
+function buildCsvUnsorted(kind: ExportKind, data: ProjectData, library: Library, filter: Filter): string {
   const templates = new Map(library.templates.map((t) => [t.id, t]));
   const devices = visibleDevices(data, library, filter);
   const all = projectLike(data);
