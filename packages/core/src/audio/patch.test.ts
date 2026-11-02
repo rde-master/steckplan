@@ -74,12 +74,12 @@ describe('Ton-Patch: Input- und Output-Liste', () => {
     const [list] = buildPatchLists(project(), { templates });
     expect(list!.mixer.id).toBe('FOH');
     expect(list!.inputs.map((r) => [r.channel, r.port, r.device?.id ?? null, viaText(r)])).toEqual([
-      [1, 'In 1', 'Gesang', 'MC 1 · Send 1 (Bühne)'],
-      [2, 'In 2', 'Snare', ''],
+      [1, 'In 1', 'Gesang', 'MC 1 · Send 1 (Bühne) → FOH · In 1'],
+      [2, 'In 2', 'Snare', 'FOH · In 2'],
       [3, 'In 3', null, ''],
     ]);
     // Netzwerk-Anschlüsse gehören nicht dazu
-    expect(list!.outputs.map((r) => [r.port, r.device?.id, r.person, viaText(r)])).toEqual([['Aux 1', 'IEM Anna', 'Anna Muster', 'MC 1 · Return 1 (Bühne)']]);
+    expect(list!.outputs.map((r) => [r.port, r.device?.id, r.person, viaText(r)])).toEqual([['Aux 1', 'IEM Anna', 'Anna Muster', 'FOH · Aux 1 → MC 1 · Return 1 (Bühne)']]);
   });
 
   it('Vorschläge: Name mit Person, 48 V aus der Vorlage, Stativ vom Träger; Angaben überschreiben', () => {
@@ -92,9 +92,9 @@ describe('Ton-Patch: Input- und Output-Liste', () => {
 
   it('CSV mit Ein- und Ausgängen', () => {
     const csv = listCsv('patch', project(), { ...createEmptyLibrary('l'), templates });
-    expect(csv).toContain('FOH;Eingang;1;In 1;Gesang;Gesang · Out;Kondensatormikro;;MC 1 · Send 1 (Bühne);ja;');
+    expect(csv).toContain('FOH;Eingang;1;In 1;Gesang;Gesang · Out;Kondensatormikro;;MC 1 · Send 1 (Bühne) → FOH · In 1;ja;');
     expect(csv).toContain('FOH;Eingang;3;In 3;;offen;');
-    expect(csv).toContain('FOH;Ausgang;1;Aux 1;IEM Anna (Anna Muster);IEM Anna · In;In-Ear-Sender;Anna Muster;MC 1 · Return 1 (Bühne);;');
+    expect(csv).toContain('FOH;Ausgang;1;Aux 1;IEM Anna (Anna Muster);IEM Anna · In;In-Ear-Sender;Anna Muster;FOH · Aux 1 → MC 1 · Return 1 (Bühne);;');
   });
 
   it('ohne Mischpult keine Liste; Kreise führen nicht in eine Endlosschleife', () => {
@@ -143,7 +143,7 @@ describe('Netzwerk-Kanäle (digitale Stagebox)', () => {
     const list = buildPatchLists(p, { templates: tpl }).find((l) => l.mixer.id === 'DFOH')!;
     expect(list.network).toHaveLength(32);
     expect(list.network[11]).toMatchObject({ channel: 12, port: 'Netz 12', name: 'Gesang', phantom: true, devicePort: 'Out' });
-    expect(viaText(list.network[11]!)).toBe('Box · In 1 (Netzwerk)');
+    expect(viaText(list.network[11]!)).toBe('Box · In 1 / Netz → DFOH · Netz');
     expect(list.network[0]!.device).toBeUndefined();
     expect(list.inputs.map((r) => r.port)).toEqual(['Local 1']);
     expect([...stageboxChannelLabels(p, { templates: tpl })]).toEqual([['Box/i1', 'DFOH 12']]);
@@ -193,7 +193,7 @@ describe('Netzwerk-Kanäle: Kette mit Multicore davor und zweiter Stagebox dazwi
     expect(routes).toHaveLength(1);
     expect(routes[0]!.networkVia.map((d) => d.id)).toEqual(['SB2']);
     const list = buildPatchLists(project1, { templates: tpl }).find((l) => l.mixer.id === 'Pult')!;
-    expect(viaText(list.network[11]!)).toBe('MC · Send 1 (FOH) → SB1 · In 5 (Netzwerk) → SB2');
+    expect(viaText(list.network[11]!)).toBe('MC · Send 1 (FOH) → SB1 · In 5 / n1 → SB2 · a / b → Pult · n');
     expect([...stageboxChannelLabels(project1, { templates: tpl })]).toEqual([['SB1/i5', 'Pult 12']]);
     // Anzeige: an der Stagebox Quelle mit Person und Kanal (ein Pult → nur Nummer), am Pult die belegten Kanäle
     const withPerson = { ...project1, devices: project1.devices.map((d) => (d.id === 'Mikro' ? { ...d, usedByPerson: true, personId: 'anna' } : d)) };
@@ -237,8 +237,8 @@ describe('Netzwerk-Kanäle: je Ausgang ein Pult-Kanal', () => {
     ]);
     const list = buildPatchLists(project1, lib)[0]!;
     expect(list.network.slice(2, 4).map((r) => [r.name, r.devicePort, viaText(r)])).toEqual([
-      ['Keys · L', 'L', 'SB · In 1 (Netzwerk)'],
-      ['Keys · R', 'R', 'SB · In 2 (Netzwerk)'],
+      ['Keys · L', 'L', 'SB · In 1 / n → Pult · n'],
+      ['Keys · R', 'R', 'SB · In 2 / n → Pult · n'],
     ]);
     expect([...stageboxInputInfo(project1, lib)]).toEqual([
       ['SB/i1', { source: 'Keys · L', channel: '3' }],

@@ -122,7 +122,11 @@ export function buildPatchLists(project: ProjectLike, library: Pick<Library, 'te
   const people: Person[] = project.people ?? [];
 
   const row = (mixer: DeviceInstance, port: EffectivePort, channel: number): PatchRow => {
-    const { end, via } = trace({ deviceId: mixer.id, portId: port.id }, devices, templates, index);
+    const traced = trace({ deviceId: mixer.id, portId: port.id }, devices, templates, index);
+    const end = traced.end;
+    // Weg immer bis zum Pult: bei Eingängen am Ende, bei Ausgängen am Anfang
+    const mixerHop: PatchHop = { deviceId: mixer.id, text: `${mixer.label} · ${port.label}` };
+    const via = !end ? [] : port.role === 'out' ? [mixerHop, ...traced.via] : [...[...traced.via].reverse(), mixerHop];
     const device = end ? devices.get(end.deviceId) : undefined;
     const template = device ? templates.get(device.templateId) : undefined;
     const devicePortLabel = end ? templatePorts(template).find((p) => p.id === end.portId)?.label : undefined;
@@ -211,6 +215,16 @@ export interface NetworkRoute {
   analogVia: PatchHop[];
   /** digital zwischen Stagebox und Pult: weitere Geräte (z. B. zweite Stagebox, Switch) */
   networkVia: DeviceInstance[];
+  /** digitaler Weg mit Anschlüssen: Stagebox (Eingang → Netzwerk), weitere Geräte, zuletzt das Pult (nur Eingang) */
+  networkHops: NetworkHop[];
+}
+
+export interface NetworkHop {
+  device: DeviceInstance;
+  /** Anschluss, an dem das Signal ankommt */
+  inPort: string;
+  /** Anschluss, über den es weitergeht (fehlt beim Pult) */
+  outPort?: string;
 }
 
 /**
@@ -236,22 +250,35 @@ export function networkRoutes(device: DeviceInstance, project: Pick<Project, 'de
     if (!stagebox || !inPort || inPort.isNetwork || inPort.isPower || isMixer(stageboxTemplate) || networkPorts(stagebox.id).length === 0) continue;
     // digital: Breitensuche über Netzwerkkabel bis zu Pulten mit Netzwerk-Kanälen
     const visited = new Set([stagebox.id]);
-    const queue: { deviceId: string; path: DeviceInstance[] }[] = [{ deviceId: stagebox.id, path: [] }];
+    // je Gerät: Anschluss, an dem das Signal ankommt, und die Geräte davor (mit Anschlüssen)
+    const queue: { device: DeviceInstance; inPort: string; hops: NetworkHop[] }[] = [{ device: stagebox, inPort: inPort.label, hops: [] }];
     while (queue.length) {
-      const { deviceId, path } = queue.shift()!;
-      for (const port of networkPorts(deviceId)) {
-        for (const { other } of index.get(`${deviceId}/${port.id}`) ?? []) {
-          if (visited.has(other.deviceId) || !portOf(other.deviceId, other.portId)?.isNetwork) continue;
+      const { device: current, inPort: arrivedAt, hops } = queue.shift()!;
+      for (const port of networkPorts(current.id)) {
+        for (const { other } of index.get(`${current.id}/${port.id}`) ?? []) {
+          const otherPort = portOf(other.deviceId, other.portId);
+          if (visited.has(other.deviceId) || !otherPort?.isNetwork) continue;
           visited.add(other.deviceId);
           const next = devices.get(other.deviceId);
           if (!next) continue;
           const nextTemplate = templates.get(next.templateId);
+          const passed = [...hops, { device: current, inPort: arrivedAt, outPort: port.label }];
           if (isMixer(nextTemplate) && networkChannelCount(next, nextTemplate) > 0) {
             if (!routes.some((r) => r.mixer.id === next.id && r.stagebox.id === stagebox.id && r.stageboxPortId === inPort.id)) {
-              routes.push({ mixer: next, stagebox, stageboxPortId: inPort.id, stageboxPort: inPort.label, sourcePortId: sourcePort.id, sourcePort: sourcePort.label, analogVia: via, networkVia: path });
+              routes.push({
+                mixer: next,
+                stagebox,
+                stageboxPortId: inPort.id,
+                stageboxPort: inPort.label,
+                sourcePortId: sourcePort.id,
+                sourcePort: sourcePort.label,
+                analogVia: via,
+                networkVia: passed.slice(1).map((h) => h.device),
+                networkHops: [...passed, { device: next, inPort: otherPort.label }],
+              });
             }
-          } else if (path.length < MAX_HOPS) {
-            queue.push({ deviceId: next.id, path: [...path, next] });
+          } else if (hops.length < MAX_HOPS) {
+            queue.push({ device: next, inPort: otherPort.label, hops: passed });
           }
         }
       }
@@ -260,12 +287,11 @@ export function networkRoutes(device: DeviceInstance, project: Pick<Project, 'de
   return routes;
 }
 
-/** „Multicore 1 · Send 5 (FOH) → Stagebox 1 · In 5 (Netzwerk) → Stagebox 2“ */
+/** „Multicore 1 · Send 5 (FOH) → Stagebox 1 · In 5 / Dante → Stagebox 2 · Dante A / Dante B → Pult · Dante“ (Eingang / Ausgang je Gerät) */
 export function networkRouteHops(route: NetworkRoute): PatchHop[] {
   return [
     ...route.analogVia,
-    { deviceId: route.stagebox.id, text: `${route.stagebox.label} · ${route.stageboxPort} (Netzwerk)` },
-    ...route.networkVia.map((d) => ({ deviceId: d.id, text: d.label })),
+    ...route.networkHops.map((h) => ({ deviceId: h.device.id, text: `${h.device.label} · ${h.inPort}${h.outPort ? ` / ${h.outPort}` : ''}` })),
   ];
 }
 
