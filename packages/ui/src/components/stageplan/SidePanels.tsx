@@ -1,9 +1,9 @@
 // Seitenleisten des Bühnenplans: Nicht platziert, Ebenen, Hintergrund.
-import { Check, Eye, EyeOff, Lock, LockOpen, Plus, Ruler, User, Warehouse, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, Check, Eye, EyeOff, Lock, LockOpen, Plus, Ruler, User, Warehouse, X } from 'lucide-react';
 import { ICON } from '../icons';
 import { useRef, useState } from 'react';
 import type * as Y from 'yjs';
-import { addLayer, backgroundScale, devicePerson, isMulticore, personName, removeLayer, setBackground, templatePorts, updateLayer, type Background, type Cable, type DeviceInstance, type Library, type Person } from '@steckplan/core';
+import { addLayer, backgroundScale, devicePerson, isMulticore, moveLayer, personName, removeLayer, setBackground, templatePorts, updateLayer, type Background, type Cable, type DeviceInstance, type Library, type Person } from '@steckplan/core';
 import { imageToBackground, isPdf, loadPdf, type LoadedPdf } from '../../lib/background';
 import { useEditor } from '../../lib/editor';
 import type { ProjectData } from '../../lib/useProjectData';
@@ -139,8 +139,9 @@ export function LayersPanel({ doc, origin, data, editable }: { doc: Y.Doc; origi
   return (
     <div className="h-full space-y-2 overflow-y-auto p-2">
       <p className="px-1 text-xs text-slate-500">{s.layersHint}</p>
+      {/* oben in der Liste = oben im Plan */}
       <ul className="space-y-1" data-testid="layers">
-        {data.layers.map((layer) => {
+        {[...data.layers].sort((a, b) => b.order - a.order).map((layer, index, sorted) => {
           const count = data.devices.filter((d) => d.layerId === layer.id && d.stagePlan).length + data.shapes.filter((x) => x.layerId === layer.id).length;
           return (
             <li key={layer.id} className={`flex items-center gap-1 rounded-md border px-2 py-1 text-sm ${activeId === layer.id ? 'border-sky-300 bg-sky-50 dark:border-sky-700 dark:bg-sky-950' : 'border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900'}`}>
@@ -153,6 +154,16 @@ export function LayersPanel({ doc, origin, data, editable }: { doc: Y.Doc; origi
                 className="min-w-0 flex-1 border-transparent bg-transparent px-1 py-0.5 text-sm shadow-none"
               />
               <span className="text-xs text-slate-400">{count}</span>
+              {editable && (
+                <>
+                  <button type="button" className="rounded px-0.5 hover:bg-slate-200 disabled:opacity-30 dark:hover:bg-slate-700" aria-label={`${s.layerUp}: ${layer.name}`} disabled={index === 0} onClick={() => moveLayer(doc, layer.id, 1, origin)}>
+                    <ArrowUp {...ICON} />
+                  </button>
+                  <button type="button" className="rounded px-0.5 hover:bg-slate-200 disabled:opacity-30 dark:hover:bg-slate-700" aria-label={`${s.layerDown}: ${layer.name}`} disabled={index === sorted.length - 1} onClick={() => moveLayer(doc, layer.id, -1, origin)}>
+                    <ArrowDown {...ICON} />
+                  </button>
+                </>
+              )}
               <button type="button" className="rounded px-1 hover:bg-slate-200 dark:hover:bg-slate-700" aria-label={`${layer.visible ? s.hide : s.show}: ${layer.name}`} aria-pressed={!layer.visible} onClick={() => updateLayer(doc, layer.id, { visible: !layer.visible }, origin)}>
                 {layer.visible ? <Eye {...ICON} /> : <EyeOff {...ICON} />}
               </button>

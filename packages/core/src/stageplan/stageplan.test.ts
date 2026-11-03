@@ -3,7 +3,8 @@ import { createEmptyProject } from '../model/project';
 import type { DeviceInstance, Template } from '../model/schema';
 import { createYDocFromProject } from '../model/ydoc';
 import { checkStagePlan } from './checks';
-import { addLayer, addShape, backgroundScale, readBackground, readShapes, removeLayer, setBackground, updateLayer, updateShapes } from './doc-ops';
+import { addLayer, addShape, backgroundScale, moveLayer, readBackground, readShapes, removeLayer, setBackground, updateLayer, updateShapes } from './doc-ops';
+import { readLayers } from '../signalflow/doc-ops';
 import { canDock, dependents, dockedPosition, findDockTarget, moveWithDependents, rotateWithDependents } from './docking';
 import { containsPoint, footprint, polylineLength, projectOnTruss, rotate } from './geometry';
 import { effectiveHeight } from './heights';
@@ -133,6 +134,16 @@ describe('Dokument: Formen, Ebenen, Hintergrund', () => {
     expect((doc.getMap('layers').get(project.layers[0]!.id) as { get(k: string): unknown }).get('locked')).toBe(true);
     const extra = addLayer(doc, 'Pyro', 'me');
     expect(extra.order).toBe(project.layers.length);
+    // Reihenfolge: neue Ebene liegt oben; eine Stufe nach unten, dann wieder nach oben; am Rand passiert nichts
+    const top = () => readLayers(doc).at(-1)!.id;
+    expect(top()).toBe(extra.id);
+    moveLayer(doc, extra.id, -1, 'me');
+    expect(readLayers(doc).map((l) => l.order)).toEqual(readLayers(doc).map((_, i) => i));
+    expect(top()).not.toBe(extra.id);
+    moveLayer(doc, extra.id, 1, 'me');
+    expect(top()).toBe(extra.id);
+    moveLayer(doc, extra.id, 1, 'me');
+    expect(top()).toBe(extra.id);
     expect(removeLayer(doc, { devices: [], shapes: readShapes(doc) }, project.layers[0]!.id, 'me')).toBe(false);
     expect(removeLayer(doc, { devices: [], shapes: readShapes(doc) }, extra.id, 'me')).toBe(true);
 

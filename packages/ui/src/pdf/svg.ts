@@ -30,7 +30,7 @@ export interface StageDrawing {
   background?: Background;
   showCables: boolean;
   /** Gruppenrahmen (optional) */
-  groupFrames?: { id: string; name: string; color: string; x: number; y: number; width: number; height: number }[];
+  groupFrames?: { id: string; name: string; color: string; layerOrder: number; x: number; y: number; width: number; height: number }[];
 }
 
 /** Umrandung aller Inhalte in Millimetern (mit Rand). */
@@ -78,19 +78,21 @@ export function stagePlanSvg(d: StageDrawing, view: Rect, widthPt: number, heigh
       out.push(`<image href="${bg.image}" x="${n(o.x)}" y="${n(o.y)}" width="${n(bg.widthPx * sc)}" height="${n(bg.heightPx * sc)}" opacity="${n(bg.opacity ?? 0.5)}" preserveAspectRatio="none"/>`);
     }
   }
-  // Gruppenrahmen
-  for (const f of d.groupFrames ?? []) {
-    out.push(
-      `<rect x="${n(f.x)}" y="${n(f.y)}" width="${n(f.width)}" height="${n(f.height)}" rx="${n(fontMm)}" fill="${f.color}" fill-opacity="0.08" stroke="${f.color}" stroke-width="${n(stroke * 1.5)}" stroke-dasharray="${n(fontMm)} ${n(fontMm / 2)}"/>` +
-        `<text x="${n(f.x + fontMm * 0.6)}" y="${n(f.y + fontMm * 1.3)}" font-size="${n(fontMm)}" font-weight="bold" fill="${f.color}">${esc(f.name)}</text>`,
-    );
-  }
   // Wände
   for (const s of d.shapes.filter((x) => x.kind === 'wall')) {
     out.push(`<polyline points="${s.points.map((p) => `${n(p.x)},${n(p.y)}`).join(' ')}" fill="none" stroke="#334155" stroke-width="${n(s.strokeWidthMm ?? 200)}" stroke-linecap="square"/>`);
   }
-  // Objekte
-  for (const i of d.items) {
+  // Objekte nach Ebenen (unten → oben); Gruppenrahmen direkt unter den Objekten der untersten Ebene ihrer Mitglieder
+  const frame = (f: NonNullable<StageDrawing['groupFrames']>[number]) =>
+    out.push(
+      `<rect x="${n(f.x)}" y="${n(f.y)}" width="${n(f.width)}" height="${n(f.height)}" rx="${n(fontMm)}" fill="${f.color}" fill-opacity="0.08" stroke="${f.color}" stroke-width="${n(stroke * 1.5)}" stroke-dasharray="${n(fontMm)} ${n(fontMm / 2)}"/>` +
+        `<text x="${n(f.x + fontMm * 0.6)}" y="${n(f.y + fontMm * 1.3)}" font-size="${n(fontMm)}" font-weight="bold" fill="${f.color}">${esc(f.name)}</text>`,
+    );
+  d.items.forEach((i, index) => {
+    if (index === 0 || d.items[index - 1]!.layerOrder !== i.layerOrder) for (const f of (d.groupFrames ?? []).filter((x) => x.layerOrder === i.layerOrder)) frame(f);
+    drawItem(i);
+  });
+  function drawItem(i: StageDrawing['items'][number]) {
     const { widthMm: w, depthMm: h, form } = i.footprint;
     const opacity = i.dimmed ? DIMMED : 1;
     const fill = i.kind === 'truss' ? '#e2e8f0' : i.kind === 'stand' ? '#f1f5f9' : i.fill;

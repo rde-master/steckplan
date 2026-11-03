@@ -8,6 +8,7 @@ import type { CrossPageRef } from '@steckplan/core';
 import { useLongPress } from '../../lib/useLongPress';
 import { useEdgeScroll } from '../../lib/useEdgeScroll';
 import { DIMMED_OPACITY } from '../../lib/display';
+import { useDarkMode } from '../../lib/useDarkMode';
 import { anchorOf, bounds, ROLE_COLORS, type CableLine, type DeviceBox } from './model';
 
 export interface PortRef {
@@ -87,6 +88,8 @@ export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onC
   const selectedDevices = useMemo(() => new Set(selection.devices), [selection.devices]);
   const selectedCables = useMemo(() => new Set(selection.cables), [selection.cables]);
   const boxById = useMemo(() => new Map(boxes.map((b) => [b.device.id, b])), [boxes]);
+  // Schrift auf der Fläche (außerhalb der Kästen): hell bei dunklem Hintergrund
+  const dark = useDarkMode();
 
   useEffect(() => {
     const el = container.current;
@@ -504,7 +507,7 @@ export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onC
                 {!box.template && <Text text="Vorlage fehlt" x={8} y={30} fontSize={11} fill="#dc2626" />}
                 {box.person && <Text name="person-label" text={`👤 ${box.person}`} x={8} y={27} width={width - 16} fontSize={11} fill={box.text} opacity={0.9} ellipsis wrap="none" />}
                 {box.owner && <Text name="owner-label" text={`Besitzer: ${box.owner}`} x={8} y={box.person ? 43 : 27} width={width - 16} fontSize={11} fill={box.text} opacity={0.8} ellipsis wrap="none" />}
-                {box.unplaced && <Text name="unplaced-marker" text="⌖ nicht im Bühnenplan" x={0} y={height + 4} fontSize={10} fill="#b45309" fontStyle="italic" listening={false} />}
+                {box.unplaced && <Text name="unplaced-marker" text="⌖ nicht im Bühnenplan" x={0} y={height + 4} fontSize={10} fill={dark ? '#fbbf24' : '#b45309'} fontStyle="italic" listening={false} />}
                 {ends && (
                   <>
                     <Text text={ends.a} x={8} y={28} fontSize={10} fill={box.text} opacity={0.75} />
@@ -664,7 +667,7 @@ export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onC
                 width={240}
                 align={left ? 'right' : 'left'}
                 fontSize={11}
-                fill="#0369a1"
+                fill={dark ? '#7dd3fc' : '#0369a1'}
                 textDecoration="underline"
                 onClick={(e) => {
                   e.cancelBubble = true;
