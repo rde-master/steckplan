@@ -7,6 +7,8 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.19.0] - 2026-11-03
+
 ### Hinzugefügt
 
 - Strom: Hinweis in „Prüfungen“, wenn in einem Stromkreis (ab einem abgesicherten Abgang bzw. der Einspeisung) mehr als 3 Mehrfachsteckdosen stecken – hintereinander oder nebeneinander
@@ -393,7 +395,8 @@ Meilenstein M0 – Projektgerüst.
 - Docker-Image mit Datenvolume `/data` und Beispiel-`docker-compose.yml`
 - GitHub Actions: Tests und Smoke-Test bei jedem Push, Installer als Artefakte, Docker-Image `:develop`, Release-Workflow für Tags `vX.Y.Z`
 
-[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.18.0...develop
+[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.19.0...develop
+[0.19.0]: https://github.com/rde-master/steckplan/compare/v0.18.0...v0.19.0
 [0.18.0]: https://github.com/rde-master/steckplan/compare/v0.17.0...v0.18.0
 [0.17.0]: https://github.com/rde-master/steckplan/compare/v0.16.0...v0.17.0
 [0.16.0]: https://github.com/rde-master/steckplan/compare/v0.15.0...v0.16.0
