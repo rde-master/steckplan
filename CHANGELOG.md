@@ -24,6 +24,10 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 - Bühnenplan: direkt gesteckte Verbindungen (ohne Kabel) erscheinen jetzt gestrichelt (vorher gar nicht), auch im PDF
 - Projektformat 8 (defekte Anschlüsse); ältere Steckplan-Versionen können Projekte im Format 8 nicht öffnen
 
+### Behoben
+
+- Server/Docker: Hinter einem Reverse-Proxy (z. B. nginx, Nginx Proxy Manager) wurden ruhende Live-Verbindungen nach kurzer Zeit getrennt und neu aufgebaut – die Oberfläche flackerte dabei kurz. Der Server sendet jetzt alle 25 s ein Lebenszeichen (Ping) und beendet tote Verbindungen; bei kurzen Unterbrechungen bleibt die Oberfläche bedienbar (Abgleich beim Neuverbinden)
+
 ## [0.16.0] - 2026-11-02
 
 ### Hinzugefügt

@@ -89,7 +89,9 @@ export function ProjectPage({ id }: { id: string }) {
     [],
   );
 
-  const online = status === 'synced';
+  // Kurze Unterbrechung nach erfolgreichem Abgleich (z. B. Proxy trennt, Neuverbindung): weiter bedienbar,
+  // Änderungen werden beim Neuverbinden abgeglichen – sonst flackert die Oberfläche kurz.
+  const online = status === 'synced' || (!!state?.everSynced && (status === 'connecting' || status === 'disconnected'));
   const editable = online && !state?.readOnly;
 
   const backButton = !isDesktop ? (
