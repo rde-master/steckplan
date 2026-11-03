@@ -9,6 +9,8 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Hinzugefügt
 
+- Bühnenplan: Ebenen sortierbar („Nach oben“/„Nach unten“ in der Ebenen-Liste); oben in der Liste = oben im Plan. Objekte werden nach Ebenen gezeichnet, Gruppenrahmen direkt unter den Objekten der untersten Ebene ihrer Mitglieder (auch im PDF)
+
 - Bühnenplan, „Nicht platziert“: Suche (Kennung, Vorlage, Person, Besitzer, Gegenstelle), nach Kategorien gruppiert, und je Gerät, wo es eingesteckt ist („→ Stagebox · In 3“ / „← Pult · Aux 1“)
 - Bühnenplan: Texte am Plan einzeln ein-/ausblendbar – Kennung, Person, Meter (Höhe am Objekt und Länge an jedem Kabel) und Kabelname (neu: Kabeltyp bzw. Bezeichnung am Kabel); Auswahl und der gewählte Reiter links bleiben beim Neuladen erhalten (je Browser bzw. App)
 
@@ -16,6 +18,7 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Geändert
 
+- Dunkles Systemdesign: Beschriftungen auf der Zeichenfläche werden auf dunklem Hintergrund hell, auf hellem dunkel (Bühnenplan: Kennung/Person/Höhe außerhalb von Objekten, Multicore-Enden, Wände, Texte, Maßlinien; Signalfluss: „nicht im Bühnenplan“, Seitenverweise); Beschriftungen in Objekten richten sich nach der Objektfarbe
 - Bühnenplan: direkt gesteckte Verbindungen (ohne Kabel) erscheinen jetzt gestrichelt (vorher gar nicht), auch im PDF
 - Projektformat 8 (defekte Anschlüsse); ältere Steckplan-Versionen können Projekte im Format 8 nicht öffnen
 

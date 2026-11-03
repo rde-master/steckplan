@@ -33,6 +33,8 @@ export interface StageItem {
   tBarMm?: number;
   /** Gerät am Stativ: oben stehend oder unten hängend */
   mountSide?: 'top' | 'bottom';
+  /** Reihenfolge der Ebene (höher = weiter oben gezeichnet) */
+  layerOrder: number;
 }
 
 export interface StageDisplay {
@@ -70,13 +72,15 @@ export function buildStageItems(devices: DeviceInstance[], library: Library | nu
       height: effectiveHeight(device, byId, templates),
       kind,
       locked: layer?.locked ?? false,
+      layerOrder: layer?.order ?? 0,
       dimmed: !deviceVisible(display.filter, device, template),
       ...(personName(devicePerson(device, template, display.people ?? [])) ? { person: personName(devicePerson(device, template, display.people ?? [])) } : {}),
       ...(kind === 'stand' ? { tBarMm: tBarLength(device, template) } : {}),
       ...(device.mountedOnId && templates.get(byId.get(device.mountedOnId)?.templateId ?? '')?.kind === 'stand' ? { mountSide: device.mountSide ?? 'bottom' } : {}),
     });
   }
-  return items.sort((a, b) => (ORDER[a.kind] ?? 3) - (ORDER[b.kind] ?? 3));
+  // erst nach Ebene (unten → oben), innerhalb der Ebene Bühnenelemente, Traversen, Stative, Geräte
+  return items.sort((a, b) => a.layerOrder - b.layerOrder || (ORDER[a.kind] ?? 3) - (ORDER[b.kind] ?? 3));
 }
 
 /** Schöne Länge für den Maßstabsbalken (1, 2, 5, 10 … m) bei ~100 px. */
@@ -171,6 +175,8 @@ export interface StageGroupFrame {
   id: string;
   name: string;
   color: string;
+  /** gezeichnet direkt unter den Objekten der untersten Ebene seiner Mitglieder (alle Mitglieder liegen darüber) */
+  layerOrder: number;
   x: number;
   y: number;
   width: number;
@@ -180,8 +186,8 @@ export interface StageGroupFrame {
 /** Gruppenrahmen im Bühnenplan: umschließt die (gedrehten) Grundflächen der Mitglieder. */
 export function buildStageGroupFrames(groups: Group[], items: StageItem[], paddingMm = 300): StageGroupFrame[] {
   return groups.flatMap((group, index) => {
-    const rects = items
-      .filter((i) => i.device.groupId === group.id)
+    const members = items.filter((i) => i.device.groupId === group.id);
+    const rects = members
       .map((i) => {
         const corners = [
           { x: i.x - i.footprint.widthMm / 2, y: i.y - i.footprint.depthMm / 2 },
@@ -194,6 +200,7 @@ export function buildStageGroupFrames(groups: Group[], items: StageItem[], paddi
         return { x: Math.min(...xs), y: Math.min(...ys), width: Math.max(...xs) - Math.min(...xs), height: Math.max(...ys) - Math.min(...ys) };
       });
     const rect = boundsOf(rects, paddingMm);
-    return rect ? [{ id: group.id, name: group.name, color: group.color ?? GROUP_COLORS[index % GROUP_COLORS.length]!, ...rect }] : [];
+    const layerOrder = Math.min(...members.map((m) => m.layerOrder));
+    return rect ? [{ id: group.id, name: group.name, color: group.color ?? GROUP_COLORS[index % GROUP_COLORS.length]!, layerOrder, ...rect }] : [];
   });
 }

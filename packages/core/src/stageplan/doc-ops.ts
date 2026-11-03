@@ -69,6 +69,24 @@ export function addLayer(doc: Y.Doc, name: string, origin: unknown): Layer {
   return layer;
 }
 
+/**
+ * Ebene in der Zeichenreihenfolge verschieben: +1 = eine Stufe nach oben (wird über der nächsten gezeichnet), -1 = nach unten.
+ * Die Reihenfolge wird dabei lückenlos neu durchnummeriert.
+ */
+export function moveLayer(doc: Y.Doc, id: string, direction: 1 | -1, origin: unknown): void {
+  const layers = (Object.values(doc.getMap('layers').toJSON() as Record<string, Layer>)).sort((a, b) => a.order - b.order);
+  const index = layers.findIndex((l) => l.id === id);
+  const target = index + direction;
+  if (index < 0 || target < 0 || target >= layers.length) return;
+  [layers[index], layers[target]] = [layers[target]!, layers[index]!];
+  doc.transact(() => {
+    layers.forEach((layer, order) => {
+      const map = doc.getMap<Y.Map<unknown>>('layers').get(layer.id);
+      if (map && map.get('order') !== order) map.set('order', order);
+    });
+  }, origin);
+}
+
 /** Ebene löschen – nur wenn leer. Gibt false zurück, wenn noch Objekte darauf liegen. */
 export function removeLayer(doc: Y.Doc, project: Pick<Project, 'devices' | 'shapes'>, id: string, origin: unknown): boolean {
   if (project.devices.some((d) => d.layerId === id) || project.shapes.some((s) => s.layerId === id)) return false;

@@ -657,6 +657,7 @@ Jeder Meilenstein endet mit grünen Tests, lauffähigem Build (Desktop **und** D
 - Ton-Patch ohne Spalte „Stativ“ (02.11.2026): in Liste, PDF und CSV entfernt; vorhandene Angaben bleiben in der Datei, werden aber nicht mehr gezeigt
 - Defekte Anschlüsse (03.11.2026, Format 8): je Gerät im Projekt (nicht in der Bibliothek) markierbar, alle Anschlüsse, bei Multicores die ganze Ader; rotes X im Signalfluss und PDF; neue Kabel an defekte Anschlüsse werden verhindert, bestehende bleiben und erscheinen als Warnung; Ton-Patch zeigt „defekt“; Bedienung über Liste in den Eigenschaften (mit Notiz) und Rechtsklick auf den Anschluss
 - Bühnenplan-Anzeige (03.11.2026): „Nicht platziert“ mit Suche, Kategorien und Gegenstelle je Kabel; Texte am Plan (Kennung, Person, Meter = Höhe + Kabellänge, Kabelname) einzeln ein-/ausblendbar, persönlich je Browser gemerkt, ebenso der Reiter links; direkt gesteckte Verbindungen gestrichelt
+- Ebenen-Reihenfolge und dunkles Design (03.11.2026): Ebenen per Pfeil sortierbar, oben in der Liste = oben im Plan (vorhandenes Feld `order`, kein neues Format); Gruppenrahmen liegen direkt unter den Objekten der untersten Ebene ihrer Mitglieder; Schrift auf der Zeichenfläche weiß bei dunklem, schwarz bei hellem Hintergrund (im Objekt nach Objektfarbe)
 - Export-Vorschau (02.11.2026): im Export-Dialog daneben, live bei jeder Änderung; PDF blättern/vergrößern, CSV als Tabelle
 
 ---
