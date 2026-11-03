@@ -7,6 +7,8 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-11-03
+
 ### Hinzugefügt
 
 - Bühnenplan und Signalfluss: Umschalter „Fläche: Auto · Hell · Dunkel“ für die Zeichenfläche (je Ansicht, je Browser bzw. App gemerkt; „Auto“ folgt dem Systemdesign); die Schrift passt sich an
@@ -368,7 +370,8 @@ Meilenstein M0 – Projektgerüst.
 - Docker-Image mit Datenvolume `/data` und Beispiel-`docker-compose.yml`
 - GitHub Actions: Tests und Smoke-Test bei jedem Push, Installer als Artefakte, Docker-Image `:develop`, Release-Workflow für Tags `vX.Y.Z`
 
-[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.16.0...develop
+[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.17.0...develop
+[0.17.0]: https://github.com/rde-master/steckplan/compare/v0.16.0...v0.17.0
 [0.16.0]: https://github.com/rde-master/steckplan/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/rde-master/steckplan/compare/v0.14.2...v0.15.0
 [0.14.2]: https://github.com/rde-master/steckplan/compare/v0.14.1...v0.14.2
