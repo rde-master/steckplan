@@ -130,7 +130,7 @@ test('Bühnenplan: platzieren, andocken, Höhe, mitbewegen, zeichnen, Ebenen, Hi
   await expect(page.getByTestId('checks-list')).toContainText('2 Geräte angehängt, erlaubt sind 1');
 
   // Wand zeichnen (3 Punkte, Enter) und Maßlinie
-  await page.getByRole('button', { name: /Wand/ }).click();
+  await page.getByRole('button', { name: 'Wand', exact: true }).click();
   await expect(page.getByTestId('tool-hint')).toContainText('Wand');
   await page.mouse.click(box.x + 120, box.y + 120);
   await page.mouse.click(box.x + 420, box.y + 120);
