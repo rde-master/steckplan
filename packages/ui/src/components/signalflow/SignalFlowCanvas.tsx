@@ -52,6 +52,8 @@ export interface GroupFrame {
 }
 
 const GRID = 10;
+/** Strom: Farbe bei hoher Auslastung (ab 80 %) bzw. Überlast; sonst Textfarbe des Kastens */
+const POWER_COLORS: Record<string, string | undefined> = { ok: undefined, high: '#b45309', over: '#dc2626' };
 /** schraffierter Griff rechts unten zum Ändern der Größe */
 const HANDLE = 14;
 const snap = (v: number) => Math.round(v / GRID) * GRID;
@@ -85,6 +87,25 @@ export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onC
   const getPanView = useCallback(() => useEditor.getState().view, []);
   const growBand = useCallback((p: { x: number; y: number }) => setBand((b) => (b ? { ...b, x2: p.x, y2: p.y } : b)), []);
   useEdgeScroll({ active: band !== null, container, getView: getPanView, setView, onPointerWorld: growBand, onRelease: () => finishBand() });
+  // Auch beim Ziehen eines Kastens oder Kabels am Rand scrollen; Kasten bzw. Kabelende bleibt unter dem Zeiger
+  const dragging = useRef<{ node: Konva.Node; box: DeviceBox; offset: { x: number; y: number } } | null>(null);
+  const [draggingBox, setDraggingBox] = useState(false);
+  useEdgeScroll({
+    active: draggingBox || connecting !== null,
+    container,
+    getView: getPanView,
+    setView,
+    onPointerWorld: (p) => {
+      const d = dragging.current;
+      if (d) {
+        d.node.position({ x: p.x - d.offset.x, y: p.y - d.offset.y });
+        handleDragMove(d.box, d.node, false);
+      } else setConnecting((c) => (c ? { ...c, pointer: p } : c));
+    },
+    onRelease: () => {
+      if (!dragging.current) setConnecting(null);
+    },
+  });
   const dragStart = useRef<{ id: string; x: number; y: number; others: { id: string; x: number; y: number }[] } | null>(null);
   const pinch = useRef<{ distance: number; zoom: number } | null>(null);
   const selectedDevices = useMemo(() => new Set(selection.devices), [selection.devices]);
@@ -473,6 +494,9 @@ export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onC
                 onDragStart={(e) => {
                   e.cancelBubble = true;
                   handleDragStart(box);
+                  const p = pointerWorld();
+                  dragging.current = { node: e.target, box, offset: p ? { x: p.x - e.target.x(), y: p.y - e.target.y() } : { x: 0, y: 0 } };
+                  setDraggingBox(true);
                 }}
                 onDragMove={(e) => {
                   e.cancelBubble = true;
@@ -480,6 +504,8 @@ export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onC
                 }}
                 onDragEnd={(e) => {
                   e.cancelBubble = true;
+                  dragging.current = null;
+                  setDraggingBox(false);
                   handleDragMove(box, e.target, true);
                 }}
                 onClick={(e) => {
@@ -510,6 +536,20 @@ export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onC
                 {!box.template && <Text text="Vorlage fehlt" x={8} y={30} fontSize={11} fill="#dc2626" />}
                 {box.person && <Text name="person-label" text={`👤 ${box.person}`} x={8} y={27} width={width - 16} fontSize={11} fill={box.text} opacity={0.9} ellipsis wrap="none" />}
                 {box.owner && <Text name="owner-label" text={`Besitzer: ${box.owner}`} x={8} y={box.person ? 43 : 27} width={width - 16} fontSize={11} fill={box.text} opacity={0.8} ellipsis wrap="none" />}
+                {box.power && !box.multicore && (
+                  <Text
+                    name="power-label"
+                    text={box.power.text}
+                    x={8}
+                    y={27 + 16 * [box.person, box.owner].filter(Boolean).length}
+                    width={width - 16}
+                    fontSize={11}
+                    fontStyle={box.power.level === 'ok' ? 'normal' : 'bold'}
+                    fill={POWER_COLORS[box.power.level] ?? box.text}
+                    ellipsis
+                    wrap="none"
+                  />
+                )}
                 {box.unplaced && <Text name="unplaced-marker" text="⌖ nicht im Bühnenplan" x={0} y={height + 4} fontSize={10} fill={dark ? '#fbbf24' : '#b45309'} fontStyle="italic" listening={false} />}
                 {ends && (
                   <>
@@ -598,7 +638,7 @@ export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onC
                         width={port.side === 'left' ? leftWidth - 10 : width - 10}
                         align={port.side === 'left' ? 'left' : 'right'}
                         fontSize={11}
-                        fill={box.text}
+                        fill={POWER_COLORS[box.portLevels.get(port.id) ?? 'ok'] ?? box.text}
                         ellipsis
                         wrap="none"
                         listening={false}

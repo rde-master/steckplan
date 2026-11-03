@@ -1,5 +1,5 @@
 // Aufbereitung für die Zeichenfläche: Kästen mit Größe/Anschlüssen, Kabel mit Punkten.
-import { boundsOf, devicePerson, type MixerNetworkRow, type StageboxInputInfo, EMPTY_FILTER, formatDmx, GROUP_COLORS, personName, type Filter, type Group, type Person } from '@steckplan/core';
+import { boundsOf, devicePerson, type MixerNetworkRow, type PowerNote, type StageboxInputInfo, EMPTY_FILTER, formatDmx, GROUP_COLORS, personName, type Filter, type Group, type Person } from '@steckplan/core';
 import type { ColorMode } from '../../lib/editor';
 import { cableVisible, deviceVisible, displayColor } from '../../lib/display';
 import {
@@ -51,6 +51,10 @@ export interface DeviceBox {
   owner?: string;
   /** Anschluss → angezeigter Text */
   labels: Map<string, string>;
+  /** Strom: Summe (Verteiler/Leiste) bzw. Leistung (Verbraucher) */
+  power?: PowerNote;
+  /** Strom je Abgang: Warnstufe für die Farbe der Beschriftung */
+  portLevels: Map<string, PowerNote['level']>;
   /** defekte Anschlüsse (rotes X) */
   defects: Set<string>;
 }
@@ -86,6 +90,8 @@ export interface DisplayOptions {
   stageboxInfo?: Map<string, StageboxInputInfo>;
   /** Pulte: belegte Netzwerk-Kanäle (rechts als Anzeige-Zeilen) */
   mixerRows?: Map<string, MixerNetworkRow[]>;
+  /** Strom (eingestellte Maximalwerte): je Gerät und je Abgang („Gerät/Anschluss“) */
+  power?: { devices: Map<string, PowerNote>; outlets: Map<string, PowerNote> };
 }
 
 const DEFAULT_DISPLAY: DisplayOptions = { colorMode: 'device', filter: EMPTY_FILTER };
@@ -100,10 +106,13 @@ export function buildBoxes(devices: DeviceInstance[], library: Library | null, s
     const multicore = isMulticore(template);
     const ports = templatePorts(template);
     const labels = new Map<string, string>();
+    const portLevels = new Map<string, PowerNote['level']>();
     for (const port of ports) {
       const base = multicore ? port.label.replace(/ \([^)]*\)$/, '') : port.label;
       const info = display.stageboxInfo?.get(`${device.id}/${port.id}`);
-      labels.set(port.id, info ? `${base} · ${info.source} → ${info.channel}` : base);
+      const outlet = display.power?.outlets.get(`${device.id}/${port.id}`);
+      if (outlet) portLevels.set(port.id, outlet.level);
+      labels.set(port.id, info ? `${base} · ${info.source} → ${info.channel}` : outlet ? `${base} · ${outlet.text}` : base);
     }
     // Pult: belegte Netzwerk-Kanäle rechts unter den Anschlüssen (nur Anzeige)
     const virtualPorts: EffectivePort[] = (display.mixerRows?.get(device.id) ?? []).map((r) => ({
@@ -119,8 +128,9 @@ export function buildBoxes(devices: DeviceInstance[], library: Library | null, s
     const displayPorts: EffectivePort[] = [...ports.map((p) => ({ ...p, label: labels.get(p.id) ?? p.label })), ...virtualPorts];
     const person = display.showPeople === false ? '' : personName(devicePerson(device, template, display.people ?? []));
     const owner = display.showOwner && device.ownerId ? (library?.masterData.owners.find((o) => o.id === device.ownerId)?.name ?? '') : '';
-    const infoLines = [person, owner].filter(Boolean).length;
-    const longest = [device.label, person ? `👤 ${person}` : '', owner ? `Besitzer: ${owner}` : ''].reduce((a, b) => (b.length > a.length ? b : a), '');
+    const power = display.power?.devices.get(device.id);
+    const infoLines = [person, owner, power].filter(Boolean).length;
+    const longest = [device.label, person ? `👤 ${person}` : '', owner ? `Besitzer: ${owner}` : '', power?.text ?? ''].reduce((a, b) => (b.length > a.length ? b : a), '');
     const extraHeader = multicore ? MULTICORE_END_ROW : infoLines * PERSON_ROW;
     const sized = device.signalFlow;
     const base = boxLayout(longest, displayPorts, { width: sized?.width, height: sized?.height !== undefined ? sized.height - extraHeader : undefined });
@@ -136,7 +146,7 @@ export function buildBoxes(devices: DeviceInstance[], library: Library | null, s
     const unplaced = template?.kind === 'device' && !device.stagePlan;
     const dimmed = !deviceVisible(display.filter, device, template);
     const dmxLabel = device.dmx ? formatDmx(device.dmx.universe, device.dmx.address) : undefined;
-    boxes.push({ device, template, x: pos.x, y: pos.y, layout, extraHeader, fill, text: contrastText(fill), multicore, stageObject, unplaced, dimmed, labels, defects: defectivePortIds(device, template), ...(dmxLabel ? { dmxLabel } : {}), ...(person ? { person } : {}), ...(owner ? { owner } : {}) });
+    boxes.push({ device, template, x: pos.x, y: pos.y, layout, extraHeader, fill, text: contrastText(fill), multicore, stageObject, unplaced, dimmed, labels, portLevels, ...(power ? { power } : {}), defects: defectivePortIds(device, template), ...(dmxLabel ? { dmxLabel } : {}), ...(person ? { person } : {}), ...(owner ? { owner } : {}) });
   });
   return boxes;
 }

@@ -10,6 +10,7 @@ import {
   crossPageRefs,
   devicePageId,
   mixerNetworkRows,
+  powerNotes,
   stageboxInputInfo,
   duplicateDevices,
   isMulticore,
@@ -80,6 +81,7 @@ export function SignalFlowView({ doc, data, library, editable, undo }: { doc: Y.
   const setDisplay = useEditor((st) => st.setDisplay);
   const stageboxInfo = useMemo(() => (library && display.channelsOnBoxes ? stageboxInputInfo(data, library) : undefined), [data, library, display.channelsOnBoxes]);
   const mixerRows = useMemo(() => (library && display.channelsOnBoxes ? mixerNetworkRows(data, library) : undefined), [data, library, display.channelsOnBoxes]);
+  const power = useMemo(() => (library && display.powerOnBoxes ? powerNotes(data, library) : undefined), [data, library, display.powerOnBoxes]);
   const boxes = useMemo(
     () =>
       buildBoxes(pageDevices, library, showStageObjects, {
@@ -88,10 +90,11 @@ export function SignalFlowView({ doc, data, library, editable, undo }: { doc: Y.
         people: data.people,
         showPeople: display.peopleOnBoxes,
         showOwner: display.ownerOnBoxes,
+        ...(power ? { power } : {}),
         ...(stageboxInfo ? { stageboxInfo } : {}),
         ...(mixerRows ? { mixerRows } : {}),
       }),
-    [pageDevices, library, showStageObjects, colorMode, filter, data.people, display.peopleOnBoxes, display.ownerOnBoxes, stageboxInfo, mixerRows],
+    [pageDevices, library, showStageObjects, colorMode, filter, data.people, display.peopleOnBoxes, display.ownerOnBoxes, stageboxInfo, mixerRows, power],
   );
   const groupFrames = useMemo(() => buildGroupFrames(data.groups, boxes), [data.groups, boxes]);
   const cableStyle = data.settings.cableStyle ?? 'square';
@@ -418,6 +421,10 @@ export function SignalFlowView({ doc, data, library, editable, undo }: { doc: Y.
             <label className="flex items-center gap-1">
               <input type="checkbox" checked={display.channelsOnBoxes} onChange={(e) => setDisplay({ channelsOnBoxes: e.target.checked })} />
               {s.showChannels}
+            </label>
+            <label className="flex items-center gap-1" title={s.showPowerTitle}>
+              <input type="checkbox" checked={display.powerOnBoxes} onChange={(e) => setDisplay({ powerOnBoxes: e.target.checked })} />
+              {s.showPower}
             </label>
             <span className="ml-2 text-slate-500">{s.cableStyle}:</span>
             <span className="flex overflow-hidden rounded border border-slate-300 dark:border-slate-600" role="radiogroup" aria-label={s.cableStyle}>

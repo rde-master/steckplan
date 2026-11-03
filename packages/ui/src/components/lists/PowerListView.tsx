@@ -77,17 +77,18 @@ function Distributor({ report: d }: { report: DistributorReport }) {
       {/* Phasenbalken */}
       <div className="grid gap-1 px-3 py-2 sm:grid-cols-3">
         {phases.map((p) => {
-          const usage = d.inputFuseA ? d.currentA[p] / d.inputFuseA : 0;
+          const usage = d.currentA[p] / d.limitA;
           return (
             <div key={p} className="text-xs">
               <div className="flex justify-between">
                 <span className="font-medium">{p}</span>
                 <span className="tabular-nums">
                   {formatAmps(d.currentA[p])}
-                  {d.inputFuseA ? ` / ${d.inputFuseA} A` : ''}
+                  {` / ${d.limitA} A`}
+                  {d.limitSource !== 'input' && <span className="text-slate-500" title={t.limitTitle[d.limitSource]}>{` (${t.limitShort[d.limitSource]})`}</span>}
                 </span>
               </div>
-              <div className="mt-0.5 h-2 overflow-hidden rounded bg-slate-200 dark:bg-slate-700">
+              <div className="mt-0.5 h-2 overflow-hidden rounded bg-slate-200 dark:bg-slate-700" data-testid="phase-bar" data-usage={Math.round(usage * 100)}>
                 <div className={`h-full ${barClass(usage)}`} style={{ width: `${Math.min(100, usage * 100)}%` }} />
               </div>
             </div>

@@ -126,6 +126,22 @@ export function StagePlanCanvas(props: StageCanvasProps) {
       bandEnded.current = false;
     },
   });
+  // Auch beim Verschieben von Objekten am Rand scrollen; das Objekt bleibt unter dem Zeiger
+  const dragging = useRef<{ node: Konva.Node; item: StageItem; offset: { x: number; y: number } } | null>(null);
+  const [draggingItem, setDraggingItem] = useState(false);
+  useEdgeScroll({
+    active: draggingItem,
+    container,
+    getView: getPanView,
+    setView,
+    onPointerWorld: (p) => {
+      const d = dragging.current;
+      if (!d) return;
+      d.node.position({ x: p.x - d.offset.x, y: p.y - d.offset.y });
+      handleDragMove(d.item, d.node);
+    },
+    onRelease: () => undefined,
+  });
   const setTool = useEditor((s) => s.setTool);
   const moveBackground = useEditor((s) => s.moveBackground);
   const focusRequest = useEditor((s) => s.focusRequest);
@@ -500,6 +516,11 @@ export function StagePlanCanvas(props: StageCanvasProps) {
                 onDragStart={(e) => {
                   e.cancelBubble = true;
                   handleDragStart(item);
+                  const stage = stageRef.current;
+                  const pos = stage?.getPointerPosition();
+                  const p = pos ? { x: (pos.x - view.x) / view.zoom, y: (pos.y - view.y) / view.zoom } : null;
+                  dragging.current = { node: e.target, item, offset: p ? { x: p.x - e.target.x(), y: p.y - e.target.y() } : { x: 0, y: 0 } };
+                  setDraggingItem(true);
                 }}
                 onDragMove={(e) => {
                   e.cancelBubble = true;
@@ -507,6 +528,8 @@ export function StagePlanCanvas(props: StageCanvasProps) {
                 }}
                 onDragEnd={(e) => {
                   e.cancelBubble = true;
+                  dragging.current = null;
+                  setDraggingItem(false);
                   handleDragEnd(item, e.target, e.evt);
                 }}
                 onClick={(e) => {
