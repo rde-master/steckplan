@@ -9,6 +9,7 @@ import type { Cable, DeviceInstance, PatchEntry, Person, Project, Template } fro
 import { devicePerson, personName } from '../people/people';
 import type { Issue } from '../signalflow/checks';
 import { endNames, isMulticore, templatePorts, type EffectivePort } from '../signalflow/ports';
+import { isPortDefective } from '../signalflow/defects';
 
 export function isMixer(template: Template | undefined): boolean {
   return template?.kind === 'device' && template.mixer === true;
@@ -40,6 +41,8 @@ export interface PatchRow {
   person?: string;
   /** über welche Multicores/Stageboxen */
   via: PatchHop[];
+  /** defekte Anschlüsse/Adern auf dem Weg, z. B. „MC 1 · Send 3“ */
+  defects: string[];
   /** Stativ/Traverse, an dem die Quelle hängt (Vorschlag für „Stativ“) */
   carrier?: string;
   /** Angaben aus der Liste (bzw. Vorschläge) */
@@ -87,19 +90,22 @@ function cableIndex(cables: Cable[]): Map<string, { cable: Cable; other: End }[]
  * Verfolgt die Kette von einem Pult-Anschluss bis zum ersten Gerät, das kein Multicore ist.
  * Unterwegs werden Multicore-Adern durchlaufen (Ende A ↔ Ende B derselben Ader).
  */
-function trace(start: End, devices: Map<string, DeviceInstance>, templates: Map<string, Template>, index: ReturnType<typeof cableIndex>): { end?: End; via: PatchHop[] } {
+function trace(start: End, devices: Map<string, DeviceInstance>, templates: Map<string, Template>, index: ReturnType<typeof cableIndex>): { end?: End; via: PatchHop[]; touched: End[] } {
   const via: PatchHop[] = [];
   const visited = new Set<string>();
+  // alle Anschlüsse auf dem Weg (für „defekt“)
+  const touched: End[] = [start];
   let current = start;
   for (let hop = 0; hop < MAX_HOPS; hop++) {
     const key = `${current.deviceId}/${current.portId}`;
-    if (visited.has(key)) return { via };
+    if (visited.has(key)) return { via, touched };
     visited.add(key);
     const next = index.get(key)?.find((c) => !visited.has(`${c.other.deviceId}/${c.other.portId}`));
-    if (!next) return { via };
+    if (!next) return { via, touched };
+    touched.push(next.other);
     const device = devices.get(next.other.deviceId);
     const template = templates.get(device?.templateId ?? '');
-    if (!device || !isMulticore(template)) return { end: next.other, via };
+    if (!device || !isMulticore(template)) return { end: next.other, via, touched };
     // Multicore: zur anderen Seite derselben Ader
     const [channelId, side] = next.other.portId.split(':');
     const channel = template!.channels!.find((c) => c.id === channelId);
@@ -110,7 +116,23 @@ function trace(start: End, devices: Map<string, DeviceInstance>, templates: Map<
     visited.add(`${device.id}/${next.other.portId}`);
     current = { deviceId: device.id, portId: `${channelId}:${exit}` };
   }
-  return { via };
+  return { via, touched };
+}
+
+/** Defekte Anschlüsse unter den Enden als Text („Gerät · Anschluss“, bei Multicores die Ader), ohne Doppelte. */
+function defectTexts(ends: End[], devices: Map<string, DeviceInstance>, templates: Map<string, Template>): string[] {
+  const texts: string[] = [];
+  for (const e of ends) {
+    const device = devices.get(e.deviceId);
+    const template = templates.get(device?.templateId ?? '');
+    if (!device || !isPortDefective(device, template, e.portId)) continue;
+    const label = isMulticore(template)
+      ? (template!.channels!.find((c) => c.id === e.portId.split(':')[0])?.label ?? e.portId)
+      : (templatePorts(template).find((p) => p.id === e.portId)?.label ?? e.portId);
+    const text = `${device.label} · ${label}`;
+    if (!texts.includes(text)) texts.push(text);
+  }
+  return texts;
 }
 
 /** Input- und Output-Liste für alle Mischpulte im Projekt (nach Kennung sortiert). */
@@ -127,6 +149,7 @@ export function buildPatchLists(project: ProjectLike, library: Pick<Library, 'te
     // Weg immer bis zum Pult: bei Eingängen am Ende, bei Ausgängen am Anfang
     const mixerHop: PatchHop = { deviceId: mixer.id, text: `${mixer.label} · ${port.label}` };
     const via = !end ? [] : port.role === 'out' ? [mixerHop, ...traced.via] : [...[...traced.via].reverse(), mixerHop];
+    const defects = defectTexts(port.role === 'out' ? traced.touched : [...traced.touched].reverse(), devices, templates);
     const device = end ? devices.get(end.deviceId) : undefined;
     const template = device ? templates.get(device.templateId) : undefined;
     const devicePortLabel = end ? templatePorts(template).find((p) => p.id === end.portId)?.label : undefined;
@@ -144,6 +167,7 @@ export function buildPatchLists(project: ProjectLike, library: Pick<Library, 'te
       ...(devicePortLabel ? { devicePort: devicePortLabel } : {}),
       ...(person ? { person } : {}),
       via,
+      defects,
       ...(carrierText ? { carrier: carrierText } : {}),
       name: entry?.name ?? suggestedName,
       phantom: entry?.phantom ?? template?.phantomPower ?? false,
@@ -173,6 +197,7 @@ export function buildPatchLists(project: ProjectLike, library: Pick<Library, 'te
       ...(found ? { devicePort: found.route.sourcePort } : {}),
       ...(person ? { person } : {}),
       via: found ? networkRouteHops(found.route) : [],
+      defects: found ? defectTexts(found.route.touched, devices, templates) : [],
       ...(carrierText ? { carrier: carrierText } : {}),
       name: entry?.name ?? (device ? (person ? `${label} (${person})` : label) : ''),
       phantom: entry?.phantom ?? template?.phantomPower ?? false,
@@ -217,14 +242,18 @@ export interface NetworkRoute {
   networkVia: DeviceInstance[];
   /** digitaler Weg mit Anschlüssen: Stagebox (Eingang → Netzwerk), weitere Geräte, zuletzt das Pult (nur Eingang) */
   networkHops: NetworkHop[];
+  /** alle Anschlüsse auf dem Weg von der Quelle bis zum Pult (für „defekt“) */
+  touched: { deviceId: string; portId: string }[];
 }
 
 export interface NetworkHop {
   device: DeviceInstance;
   /** Anschluss, an dem das Signal ankommt */
   inPort: string;
+  inPortId: string;
   /** Anschluss, über den es weitergeht (fehlt beim Pult) */
   outPort?: string;
+  outPortId?: string;
 }
 
 /**
@@ -242,7 +271,7 @@ export function networkRoutes(device: DeviceInstance, project: Pick<Project, 'de
   const sourcePorts = templatePorts(templates.get(device.templateId)).filter((p) => !p.isNetwork && !p.isPower);
   for (const sourcePort of sourcePorts) {
     // analog: bis zum ersten Gerät, das kein Multicore ist (die Stagebox)
-    const { end, via } = trace({ deviceId: device.id, portId: sourcePort.id }, devices, templates, index);
+    const { end, via, touched } = trace({ deviceId: device.id, portId: sourcePort.id }, devices, templates, index);
     if (!end) continue;
     const stagebox = devices.get(end.deviceId);
     const stageboxTemplate = templates.get(stagebox?.templateId ?? '');
@@ -251,7 +280,7 @@ export function networkRoutes(device: DeviceInstance, project: Pick<Project, 'de
     // digital: Breitensuche über Netzwerkkabel bis zu Pulten mit Netzwerk-Kanälen
     const visited = new Set([stagebox.id]);
     // je Gerät: Anschluss, an dem das Signal ankommt, und die Geräte davor (mit Anschlüssen)
-    const queue: { device: DeviceInstance; inPort: string; hops: NetworkHop[] }[] = [{ device: stagebox, inPort: inPort.label, hops: [] }];
+    const queue: { device: DeviceInstance; inPort: EffectivePort; hops: NetworkHop[] }[] = [{ device: stagebox, inPort, hops: [] }];
     while (queue.length) {
       const { device: current, inPort: arrivedAt, hops } = queue.shift()!;
       for (const port of networkPorts(current.id)) {
@@ -262,7 +291,7 @@ export function networkRoutes(device: DeviceInstance, project: Pick<Project, 'de
           const next = devices.get(other.deviceId);
           if (!next) continue;
           const nextTemplate = templates.get(next.templateId);
-          const passed = [...hops, { device: current, inPort: arrivedAt, outPort: port.label }];
+          const passed: NetworkHop[] = [...hops, { device: current, inPort: arrivedAt.label, inPortId: arrivedAt.id, outPort: port.label, outPortId: port.id }];
           if (isMixer(nextTemplate) && networkChannelCount(next, nextTemplate) > 0) {
             if (!routes.some((r) => r.mixer.id === next.id && r.stagebox.id === stagebox.id && r.stageboxPortId === inPort.id)) {
               routes.push({
@@ -274,11 +303,16 @@ export function networkRoutes(device: DeviceInstance, project: Pick<Project, 'de
                 sourcePort: sourcePort.label,
                 analogVia: via,
                 networkVia: passed.slice(1).map((h) => h.device),
-                networkHops: [...passed, { device: next, inPort: otherPort.label }],
+                networkHops: [...passed, { device: next, inPort: otherPort.label, inPortId: otherPort.id }],
+                touched: [
+                  ...touched,
+                  ...passed.flatMap((h) => [{ deviceId: h.device.id, portId: h.inPortId }, ...(h.outPortId ? [{ deviceId: h.device.id, portId: h.outPortId }] : [])]),
+                  { deviceId: next.id, portId: otherPort.id },
+                ],
               });
             }
           } else if (hops.length < MAX_HOPS) {
-            queue.push({ device: next, inPort: otherPort.label, hops: passed });
+            queue.push({ device: next, inPort: otherPort, hops: passed });
           }
         }
       }
@@ -452,8 +486,9 @@ export function checkNetworkChannels(project: Pick<Project, 'devices' | 'cables'
 }
 
 /** Text für „über“: „Multicore 1 · Send 5 (Bühne) → …“ */
-export function viaText(row: Pick<PatchRow, 'via'>): string {
-  return row.via.map((h) => h.text).join(' → ');
+export function viaText(row: Pick<PatchRow, 'via'> & Partial<Pick<PatchRow, 'defects'>>): string {
+  const path = row.via.map((h) => h.text).join(' → ');
+  return row.defects?.length ? `${path}${path ? ' – ' : ''}DEFEKT: ${row.defects.join(', ')}` : path;
 }
 
 // ---------- Änderungen am Live-Dokument ----------

@@ -25,7 +25,7 @@ import { isMulticore } from '@steckplan/core';
 import { CableLengthSection, MulticoreLengthSection } from './LengthSection';
 import { DmxSection, NetworkSection } from './DeviceTechSections';
 import { deviceColor } from './model';
-import { GroupSection, MixerChannelSection, MountSideSection, PersonSection, TBarSection } from './PersonGroupSections';
+import { DefectSection, GroupSection, MixerChannelSection, MountSideSection, PersonSection, TBarSection } from './PersonGroupSections';
 
 const s = texts.signalflow;
 const f = texts.library.fields;
@@ -206,6 +206,7 @@ function DeviceProperties({ doc, origin, library, data, device, editable, issues
         />
       )}
       <MixerChannelSection doc={doc} origin={origin} library={library} data={data} device={device} editable={editable} />
+      <DefectSection doc={doc} origin={origin} library={library} data={data} device={device} editable={editable} />
       <PageSelect doc={doc} origin={origin} data={data} devices={[device]} editable={editable} />
       <GroupSection doc={doc} origin={origin} data={data} devices={[device]} editable={editable} />
       {deviceExtra?.(device)}

@@ -158,7 +158,14 @@ function Row({ row, inputs, editable, onChange }: { row: PatchRow; inputs: boole
           <span className="text-amber-700 dark:text-amber-300">{t.open}</span>
         )}
       </td>
-      <td className="px-2 py-1.5 text-xs text-slate-600 dark:text-slate-300">{viaText(row) || '–'}</td>
+      <td className="px-2 py-1.5 text-xs text-slate-600 dark:text-slate-300">
+        {viaText({ via: row.via }) || '–'}
+        {row.defects.length > 0 && (
+          <div className="mt-0.5 font-semibold text-red-700 dark:text-red-400" data-testid="patch-defect">
+            ✕ {texts.defects.patch}: {row.defects.join(', ')}
+          </div>
+        )}
+      </td>
       {inputs && (
         <td className="px-2 py-1.5 text-center">
           <input

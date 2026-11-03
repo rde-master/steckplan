@@ -218,6 +218,11 @@ export function signalFlowSvg(
     for (const a of b.layout.anchors) {
       const label = b.labels.get(a.port.id) ?? a.port.label;
       if (!a.port.virtual) g.push(`<circle cx="${n(a.x)}" cy="${n(a.y)}" r="3.5" fill="#ffffff" stroke="${ROLE_COLORS[a.port.role]}" stroke-width="1.5"/>`);
+      // defekt: rotes X über dem Anschluss
+      if (b.defects.has(a.port.id)) {
+        const d = 4.5;
+        g.push(`<path d="M ${n(a.x - d)} ${n(a.y - d)} L ${n(a.x + d)} ${n(a.y + d)} M ${n(a.x + d)} ${n(a.y - d)} L ${n(a.x - d)} ${n(a.y + d)}" stroke="#dc2626" stroke-width="1.8" stroke-linecap="round"/>`);
+      }
       g.push(
         a.port.side === 'left'
           ? `<text x="${n(a.x + 8)}" y="${n(a.y + 3)}" font-size="8.5" fill="${b.text}">${esc(label)}</text>`

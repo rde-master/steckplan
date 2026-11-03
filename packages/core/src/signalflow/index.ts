@@ -5,3 +5,4 @@ export * from './checks';
 export * from './doc-ops';
 export * from './groups';
 export * from './pages';
+export * from './defects';

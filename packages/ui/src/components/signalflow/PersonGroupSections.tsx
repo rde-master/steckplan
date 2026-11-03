@@ -8,6 +8,8 @@ import {
   assignGroup,
   networkChannelCount,
   networkRoutes,
+  defectTargets,
+  setDefect,
   entryForPort,
   routeForEntry,
   setPortChannel,
@@ -206,6 +208,57 @@ export function MountSideSection({ doc, origin, library, data, device, editable 
         ))}
       </div>
     </div>
+  );
+}
+
+/** Defekte Anschlüsse (bei Multicores: Adern) dieses Geräts – nur im Projekt, nicht in der Bibliothek. */
+export function DefectSection({ doc, origin, library, device, editable }: SectionProps) {
+  const t = texts.defects;
+  const template = library?.templates.find((x) => x.id === device.templateId);
+  const targets = defectTargets(template);
+  const marked = new Map((device.defectivePorts ?? []).map((d) => [d.portId, d]));
+  const [open, setOpen] = useState(marked.size > 0);
+  if (targets.length === 0) return null;
+  const save = (defectivePorts: DeviceInstance['defectivePorts']) => updateDevices(doc, [{ id: device.id, patch: { defectivePorts } }], origin);
+  return (
+    <details className="rounded-md border border-slate-200 p-2 dark:border-slate-700" open={open} onToggle={(e) => setOpen(e.currentTarget.open)} data-testid="defect-section">
+      <summary className="cursor-pointer text-sm font-medium">
+        {template && template.kind === 'cableType' ? t.titleCores : t.title}
+        {marked.size > 0 && <span className="ml-1 font-semibold text-red-700 dark:text-red-400">({marked.size})</span>}
+      </summary>
+      <p className="mt-1 text-xs text-slate-500">{t.hint}</p>
+      <ul className="mt-2 space-y-1">
+        {targets.map((target) => {
+          const defect = marked.get(target.key);
+          return (
+            <li key={target.key} className="space-y-1">
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={!!defect}
+                  disabled={!editable}
+                  aria-label={t.mark(target.label)}
+                  onChange={(e) => save(setDefect(device, target.key, e.target.checked ? {} : false))}
+                />
+                <span className={defect ? 'font-medium text-red-700 dark:text-red-400' : ''}>{target.label}</span>
+              </label>
+              {defect && (
+                <div className="pl-6">
+                  <TextInput
+                    aria-label={t.note(target.label)}
+                    placeholder={t.notePlaceholder}
+                    value={defect.note ?? ''}
+                    maxLength={500}
+                    disabled={!editable}
+                    onChange={(e) => save(setDefect(device, target.key, { note: e.target.value }))}
+                  />
+                </div>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </details>
   );
 }
 

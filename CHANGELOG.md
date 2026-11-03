@@ -7,6 +7,14 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+### Hinzugefügt
+
+- Defekte Anschlüsse: Im Signalfluss lassen sich Anschlüsse eines Geräts (bei Multicores ganze Adern) als defekt markieren – in den Eigenschaften unter „Defekte Anschlüsse“ (mit Notiz) oder per Rechtsklick auf den Anschluss; gilt nur für dieses Gerät im Projekt, nicht für die Vorlage. Defekte Anschlüsse bekommen ein rotes X (auch im PDF), neue Kabel lassen sich dort nicht stecken, bestehende erscheinen als Warnung in „Prüfungen“; der Ton-Patch nennt defekte Anschlüsse/Adern auf dem Weg
+
+### Geändert
+
+- Projektformat 8 (defekte Anschlüsse); ältere Steckplan-Versionen können Projekte im Format 8 nicht öffnen
+
 ## [0.16.0] - 2026-11-02
 
 ### Hinzugefügt
