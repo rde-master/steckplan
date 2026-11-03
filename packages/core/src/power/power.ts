@@ -10,6 +10,8 @@ export const VOLTAGE = 230;
 export const WARN_RATIO = 0.8;
 export const IMBALANCE_RATIO = 0.3;
 export const IMBALANCE_MIN_A = 5;
+/** Richtwert, wenn nirgends eine Absicherung eingetragen ist (übliche Schuko-Absicherung) */
+export const ASSUMED_FUSE_A = 16;
 
 export type Phase = 'L1' | 'L2' | 'L3';
 export type Feed = Phase | '3P';
@@ -69,6 +71,12 @@ export interface DistributorReport {
   /** Einspeisung: Phase(n) und Absicherung der Zuleitung */
   feed: Feed;
   inputFuseA?: number;
+  /**
+   * Grenze für die Anzeige (Balken): Absicherung der Zuleitung, sonst des Abgangs davor,
+   * sonst größte Absicherung der eigenen Abgänge, sonst 16 A als Richtwert
+   */
+  limitA: number;
+  limitSource: 'input' | 'upstream' | 'outlet' | 'assumed';
   /** woran der Verteiler hängt (Name des übergeordneten Verteilers · Abgang) */
   fedFrom?: string;
   /** eigene Leistung + alles an den Abgängen */
@@ -147,7 +155,7 @@ export function buildPowerReport(project: ProjectLike, library: Pick<Library, 't
   const effective = (portPhase: Feed | undefined, feed: Feed): Feed => (feed === '3P' ? (portPhase ?? '3P') : feed);
 
   /** Last eines Geräts (inkl. allem dahinter) bei Einspeisung `feed` */
-  const loadOf = (device: DeviceInstance, feed: Feed, depth: number, visited: Set<string>, fedFrom: string | undefined, collect: boolean, circuit?: Circuit): PhaseLoad => {
+  const loadOf = (device: DeviceInstance, feed: Feed, depth: number, visited: Set<string>, fedFrom: string | undefined, collect: boolean, circuit?: Circuit, upstreamFuseA?: number): PhaseLoad => {
     if (visited.has(device.id) || depth > MAX_DEPTH) return emptyLoad();
     visited.add(device.id);
     const template = templates.get(device.templateId);
@@ -158,8 +166,16 @@ export function buildPowerReport(project: ProjectLike, library: Pick<Library, 't
     if (outputs.length === 0) return load;
     const outlets: OutletRow[] = [];
     // Bericht-Platzhalter, damit die Reihenfolge Eltern vor Kindern bleibt
+    const ownOutletFuse = Math.max(0, ...outputs.map((o) => o.fuseA ?? 0)) || undefined;
+    const limit: Pick<DistributorReport, 'limitA' | 'limitSource'> = inputs[0]?.fuseA
+      ? { limitA: inputs[0].fuseA, limitSource: 'input' }
+      : upstreamFuseA
+        ? { limitA: upstreamFuseA, limitSource: 'upstream' }
+        : ownOutletFuse
+          ? { limitA: ownOutletFuse, limitSource: 'outlet' }
+          : { limitA: ASSUMED_FUSE_A, limitSource: 'assumed' };
     const report: DistributorReport | undefined = collect
-      ? { device, template, feed, ...(inputs[0]?.fuseA ? { inputFuseA: inputs[0].fuseA } : {}), ...(fedFrom ? { fedFrom } : {}), load: emptyLoad(), currentA: emptyLoad(), imbalance: false, outlets, depth }
+      ? { device, template, feed, ...(inputs[0]?.fuseA ? { inputFuseA: inputs[0].fuseA } : {}), ...limit, ...(fedFrom ? { fedFrom } : {}), load: emptyLoad(), currentA: emptyLoad(), imbalance: false, outlets, depth }
       : undefined;
     if (report) reports.push(report);
     for (const port of outputs) {
@@ -172,7 +188,9 @@ export function buildPowerReport(project: ProjectLike, library: Pick<Library, 't
         outletCircuit = { label: `${device.label} · ${port.label}`, strips: [] };
         if (collect) circuits.push(outletCircuit);
       }
-      const childLoad = child ? loadOf(child, phase, depth + 1, visited, `${device.label} · ${port.label}`, collect, outletCircuit) : emptyLoad();
+      // Absicherung, die für das Gerät dahinter gilt: die des Abgangs, sonst die, die schon davor galt
+      const childLimit = port.fuseA ?? inputs[0]?.fuseA ?? upstreamFuseA;
+      const childLoad = child ? loadOf(child, phase, depth + 1, visited, `${device.label} · ${port.label}`, collect, outletCircuit, childLimit) : emptyLoad();
       const current = Math.max(...PHASES.map((p) => amps(childLoad[p])));
       outlets.push({
         portId: port.id,

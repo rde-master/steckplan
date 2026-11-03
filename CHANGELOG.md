@@ -14,6 +14,7 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Behoben
 
+- Stromliste: Die Phasenbalken blieben leer, wenn an der Zuleitung keine Absicherung eingetragen war (z. B. Wandsteckdose, Mehrfachsteckdose); jetzt gilt sonst die Absicherung des Abgangs davor, die größte der eigenen Abgänge oder 16 A als Richtwert (jeweils angezeigt)
 - Strom: Hauptverteiler ohne Phasenangabe an der Zuleitung (z. B. Wandsteckdose ohne Zuleitung) galten als Drehstrom und lösten eine Schieflast-Warnung aus; jetzt gilt Drehstrom nur, wenn er erkennbar ist (Zuleitung oder Abgang mit „3P“ bzw. Abgänge auf mehreren Phasen), sonst einphasig
 - Signalfluss und Bühnenplan: Beim Ziehen eines Kastens, Objekts oder Kabels an den Rand scrollt die Ansicht jetzt mit (bisher nur beim Markieren); das Gezogene bleibt unter dem Mauszeiger
 

@@ -37,3 +37,37 @@ test('Signalfluss: Strom in den Kästen – Summe je Verteiler/Mehrfachsteckdose
   const plain = await page.evaluate(() => window.__steckplanStage!.find('Text').map((t) => (t as unknown as { text(): string }).text()));
   expect(plain).toContain('A1');
 });
+
+test('Stromliste: Balken zeigen die Last auch ohne Absicherung an der Zuleitung (Wandsteckdose, Mehrfachsteckdose)', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await loginAs(page, 'edit', 'Balken-Bernd');
+  const post = async (template: object) => (await page.request.post('/api/library/templates', { data: { template } })).json();
+  const p = (id: string, label: string, direction: string, extra: object = {}) => ({ id, label, connector: 'Schuko B', direction, signal: 'Strom', isPower: true, ...extra });
+  const wand = await post({ kind: 'device', name: 'Wandsteckdose Balken', ports: [p('w', 'Steckdose', 'out', { fuseA: 16 })] });
+  const leiste = await post({ kind: 'device', name: 'Leiste Balken', ports: [p('in', 'Netz', 'in'), p('s1', 'S1', 'out')] });
+  const heizer = await post({ kind: 'device', name: 'Heizer Balken', powerW: 1840, ports: [p('in', 'Netz', 'in')] });
+  const d = (id: string, t: { id: string }) => ({ id, templateId: t.id, layerId: 'l1', label: id });
+  const c = (id: string, from: [string, string], to: [string, string]) => ({ id, from: { deviceId: from[0], portId: from[1] }, to: { deviceId: to[0], portId: to[1] }, waypoints: [] });
+  const { id } = await (
+    await page.request.post('/api/projects/upload', {
+      data: {
+        schemaVersion: 8,
+        id: 'balken',
+        meta: { name: 'Balken' },
+        layers: [{ id: 'l1', name: 'Bühne', order: 0 }],
+        devices: [d('Wand', wand), d('Leiste', leiste), d('Heizer', heizer)],
+        cables: [c('a', ['Wand', 'w'], ['Leiste', 'in']), c('b', ['Leiste', 's1'], ['Heizer', 'in'])],
+      },
+    })
+  ).json();
+  await page.goto(`/projekt/${id}?ansicht=listen`);
+  await page.getByRole('tab', { name: 'Strom' }).click();
+  // 1840 W = 8 A von 16 A → 50 %; Wandsteckdose einphasig (ein Balken), Leiste mit Grenze vom Abgang davor
+  const wandBox = page.getByRole('region', { name: 'Wand' });
+  await expect(wandBox.getByTestId('phase-bar')).toHaveCount(1);
+  await expect(wandBox.getByTestId('phase-bar')).toHaveAttribute('data-usage', '50');
+  await expect(wandBox).toContainText('8,0 A / 16 A (Abgänge)');
+  const leisteBox = page.getByRole('region', { name: 'Leiste' });
+  await expect(leisteBox.getByTestId('phase-bar')).toHaveAttribute('data-usage', '50');
+  await expect(leisteBox).toContainText('(vom Abgang davor)');
+});
