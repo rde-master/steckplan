@@ -3,7 +3,7 @@ import type { Cable, DeviceInstance, PortDef, Template } from '../model/schema';
 import { createEmptyLibrary } from '../library/library';
 import { createEmptyProject } from '../model/project';
 import { listCsv } from '../logistics/exports';
-import { buildPowerReport, checkPower, devicePowerW, formatAmps, formatWatts, powerNotes } from './power';
+import { buildPowerReport, checkPower, devicePowerW, formatAmps, formatWatts, powerNotes, rootFeed } from './power';
 
 const T0 = '2026-01-01T00:00:00.000Z';
 const t = (x: Partial<Template> & Pick<Template, 'id' | 'kind' | 'name'>): Template => ({ version: 1, updatedAt: T0, ...x });
@@ -111,5 +111,42 @@ describe('Strom: Last je Abgang und Phase', () => {
     expect(formatAmps(13.04)).toBe('13,0 A');
     expect(formatWatts(575)).toBe('575 W');
     expect(formatWatts(6900)).toBe('6,9 kW');
+  });
+});
+
+describe('Strom: Wandsteckdose und Mehrfachsteckdosen je Stromkreis', () => {
+  // Wandsteckdose: keine Zuleitung, ein Abgang ohne Phasenangabe
+  const wand = t({ id: 'wand', kind: 'device', name: 'Wandsteckdose', ports: [{ ...pout('W', undefined, 16), phase: undefined }] });
+  const lib = { templates: [...templates, wand] };
+
+  it('Einspeisung: einphasig, wenn kein Drehstrom erkennbar – keine Schieflast', () => {
+    expect(rootFeed(wand)).toBe('L1');
+    expect(rootFeed(templates[0])).toBe('3P'); // Zuleitung mit 3P
+    expect(rootFeed(t({ id: 'x', kind: 'device', name: 'x', ports: [pout('A', 'L1'), pout('B', 'L2')] }))).toBe('3P'); // Abgänge auf mehreren Phasen
+    expect(rootFeed(t({ id: 'y', kind: 'device', name: 'y', ports: [pout('A', 'L2')] }))).toBe('L2');
+    const project = { devices: [dev('Wand', 'wand'), dev('Spot', 'spot', { powerW: 2000 })], cables: [pc('k', ['Wand', 'W'], ['Spot', 'in'])] };
+    const report = buildPowerReport(project, lib);
+    expect(report.distributors[0]).toMatchObject({ feed: 'L1', imbalance: false });
+    expect(report.distributors[0]!.outlets[0]!.phase).toBe('L1');
+    expect(checkPower(project, lib).filter((i) => i.message.includes('Schieflast'))).toEqual([]);
+  });
+
+  it('Hinweis bei mehr als 3 Mehrfachsteckdosen in einem Stromkreis (hintereinander oder nebeneinander)', () => {
+    const chain = (n: number) => {
+      const devices = [dev('Wand', 'wand'), ...Array.from({ length: n }, (_, i) => dev(`L${i + 1}`, 'leiste'))];
+      const cables = [pc('k0', ['Wand', 'W'], ['L1', 'in']), ...Array.from({ length: n - 1 }, (_, i) => pc(`k${i + 1}`, [`L${i + 1}`, 'S1'], [`L${i + 2}`, 'in']))];
+      return { devices, cables };
+    };
+    const hint = (p: ReturnType<typeof chain>) => checkPower(p, lib).filter((i) => i.id.startsWith('power-strips:'));
+    expect(hint(chain(3))).toEqual([]);
+    const four = hint(chain(4));
+    expect(four.map((i) => i.message)).toEqual(['Wand · W: 4 Mehrfachsteckdosen in einem Stromkreis (L1, L2, L3, L4) – besser höchstens 3 und nicht hintereinander stecken.']);
+    expect(four[0]!.severity).toBe('info');
+    // ein abgesicherter Unterverteiler dazwischen beginnt einen neuen Stromkreis
+    const split = {
+      devices: [dev('HV', 'hv'), dev('L1', 'leiste'), dev('L2', 'leiste'), dev('UV', 'uv'), dev('L3', 'leiste'), dev('L4', 'leiste')],
+      cables: [pc('a', ['HV', 'A1'], ['L1', 'in']), pc('b', ['L1', 'S1'], ['L2', 'in']), pc('c', ['HV', 'CEE'], ['UV', 'in']), pc('d', ['UV', 'B1'], ['L3', 'in']), pc('e', ['L3', 'S1'], ['L4', 'in'])],
+    };
+    expect(hint(split)).toEqual([]);
   });
 });

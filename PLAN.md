@@ -659,6 +659,7 @@ Jeder Meilenstein endet mit grünen Tests, lauffähigem Build (Desktop **und** D
 - Bühnenplan-Anzeige (03.11.2026): „Nicht platziert“ mit Suche, Kategorien und Gegenstelle je Kabel; Texte am Plan (Kennung, Person, Meter = Höhe + Kabellänge, Kabelname) einzeln ein-/ausblendbar, persönlich je Browser gemerkt, ebenso der Reiter links; direkt gesteckte Verbindungen gestrichelt
 - Ebenen-Reihenfolge und dunkles Design (03.11.2026): Ebenen per Pfeil sortierbar, oben in der Liste = oben im Plan (vorhandenes Feld `order`, kein neues Format); Gruppenrahmen liegen direkt unter den Objekten der untersten Ebene ihrer Mitglieder; Schrift auf der Zeichenfläche weiß bei dunklem, schwarz bei hellem Hintergrund (im Objekt nach Objektfarbe)
 - Strom im Signalfluss (03.11.2026): Mehrfachsteckdosen = Gerätevorlage mit Strom-Eingang und Strom-Ausgängen (Unterverteiler, Last wird bis zur Einspeisung summiert); Anzeige in den Kästen (Summe je Verteiler/Leiste, Strom je Abgang, Leistung je Verbraucher), Warnfarben ab 80/100 %, ein-/ausblendbar; an den Kabeln vorerst nicht
+- Strom-Einspeisung und Mehrfachsteckdosen (03.11.2026): Hauptverteiler ohne Phasenangabe nur bei erkennbarem Drehstrom als 3P, sonst einphasig (Wandsteckdose); Mehrfachsteckdose = Unterverteiler ohne abgesicherte Abgänge; Hinweis (info) ab 4 Mehrfachsteckdosen je Stromkreis (Stromkreis beginnt an einem abgesicherten Abgang bzw. der Einspeisung)
 - Export-Vorschau (02.11.2026): im Export-Dialog daneben, live bei jeder Änderung; PDF blättern/vergrößern, CSV als Tabelle
 
 ---
