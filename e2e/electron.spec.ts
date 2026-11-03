@@ -48,7 +48,7 @@ test('Desktop: Name beim ersten Start, Datei öffnen, Autosave, Sperrdatei', asy
     await expect.poll(() => JSON.parse(readFileSync(file, 'utf8')).meta.venue, { timeout: 10_000 }).toBe('Stadthalle');
 
     // Datei im alten Format 1 wurde beim Speichern auf das aktuelle Format angehoben
-    expect(JSON.parse(readFileSync(file, 'utf8')).schemaVersion).toBe(7);
+    expect(JSON.parse(readFileSync(file, 'utf8')).schemaVersion).toBe(8);
 
     // Bibliothek in eigenem Fenster (Knopf im Projektfenster)
     const libraryWindowPromise = app.waitForEvent('window');

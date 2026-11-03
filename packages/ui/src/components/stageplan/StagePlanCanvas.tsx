@@ -1,10 +1,11 @@
 // Maßstäblicher Bühnenplan (Konva). Weltkoordinaten in Millimetern, Position = Mittelpunkt.
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Circle, Ellipse, Group, Image as KImage, Layer, Line, Rect, Stage, Text, Transformer } from 'react-konva';
 import type Konva from 'konva';
 import {
   backgroundScale,
   canDock,
+  contrastText,
   formatDmx,
   dependents,
   findDockTarget,
@@ -19,6 +20,7 @@ import { useEditor } from '../../lib/editor';
 import { useLongPress } from '../../lib/useLongPress';
 import { useEdgeScroll } from '../../lib/useEdgeScroll';
 import { DIMMED_OPACITY } from '../../lib/display';
+import { canvasInk, useCanvasDark, type CanvasTheme } from '../../lib/useDarkMode';
 import { formatLength, scaleBar, type MulticoreRoute, type StageCable, type StageGroupFrame, type StageItem } from './model';
 
 export interface StagePt {
@@ -31,6 +33,10 @@ export interface StageCanvasProps {
   cables: StageCable[];
   multicores: MulticoreRoute[];
   showCables: boolean;
+  /** Fläche hell/dunkel (auto = Systemdesign) */
+  theme?: CanvasTheme;
+  /** welche Texte am Plan stehen (je Browser gemerkt) */
+  texts?: { labels: boolean; people: boolean; meters: boolean; cableNames: boolean };
   /** Beschriftung (Länge) für ein ausgewähltes Kabel bzw. Multicore */
   lengthLabel: (id: string) => string | undefined;
   onCableWaypoints: (id: string, waypoints: StagePt[]) => void;
@@ -83,6 +89,11 @@ function useImage(src: string | undefined): HTMLImageElement | null {
 
 export function StagePlanCanvas(props: StageCanvasProps) {
   const { items, shapes, lockedLayers, background, devices, templates, gridMm, snap, editable, cables, multicores, showCables } = props;
+  const show = props.texts ?? { labels: true, people: true, meters: true, cableNames: false };
+  // Schrift auf der Fläche: weiß bei dunklem, schwarz bei hellem Hintergrund
+  const dark = useCanvasDark(props.theme);
+  const ink = canvasInk(dark);
+  const frames = props.groupFrames ?? [];
   const container = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
   const transformerRef = useRef<Konva.Transformer>(null);
@@ -349,7 +360,8 @@ export function StagePlanCanvas(props: StageCanvasProps) {
   return (
     <div
       ref={container}
-      className="relative h-full w-full overflow-hidden bg-white dark:bg-slate-950"
+      className={`relative h-full w-full overflow-hidden ${dark ? 'bg-slate-950' : 'bg-white'}`}
+      data-canvas-theme={dark ? 'dark' : 'light'}
       style={{
         backgroundImage: 'linear-gradient(rgba(100,116,139,0.18) 1px, transparent 1px), linear-gradient(90deg, rgba(100,116,139,0.18) 1px, transparent 1px)',
         backgroundSize: `${visualGrid}px ${visualGrid}px`,
@@ -445,36 +457,38 @@ export function StagePlanCanvas(props: StageCanvasProps) {
           {shapes
             .filter((s) => s.kind === 'wall')
             .map((shape) => (
-              <ShapeNode key={shape.id} shape={shape} selected={selectedShapes.has(shape.id)} locked={lockedLayers.has(shape.layerId)} editable={editable && pointerTool} fontPx={fontPx} px={px} onSelect={(add) => (add ? toggleShape(shape.id) : select({ shapes: [shape.id] }))} onUpdate={(patch) => props.onUpdateShape(shape.id, patch)} snap={(p) => snapped(p)} />
+              <ShapeNode key={shape.id} shape={shape} selected={selectedShapes.has(shape.id)} locked={lockedLayers.has(shape.layerId)} editable={editable && pointerTool} fontPx={fontPx} px={px} onSelect={(add) => (add ? toggleShape(shape.id) : select({ shapes: [shape.id] }))} onUpdate={(patch) => props.onUpdateShape(shape.id, patch)} snap={(p) => snapped(p)} dark={dark} />
             ))}
 
-          {/* Gruppenrahmen (nur Anzeige) */}
-          {(props.groupFrames ?? []).map((frame) => (
-            <Group key={frame.id} name="stage-group-frame" x={frame.x} y={frame.y} listening={false}>
-              <Rect width={frame.width} height={frame.height} fill={frame.color} opacity={0.08} cornerRadius={px(10)} />
-              <Rect width={frame.width} height={frame.height} stroke={frame.color} strokeWidth={px(1.5)} dash={[px(8), px(4)]} cornerRadius={px(10)} />
-              <Text text={frame.name} x={px(8)} y={px(5)} fontSize={fontPx} fontStyle="bold" fill={frame.color} />
-            </Group>
-          ))}
-
-          {/* Objekte */}
-          {items.map((item) => {
+          {/* Objekte nach Ebenen (unten → oben); Gruppenrahmen direkt unter den Objekten der untersten Ebene ihrer Mitglieder */}
+          {items.map((item, index) => {
+            const firstOfLayer = index === 0 || items[index - 1]!.layerOrder !== item.layerOrder;
+            const layerFrames = firstOfLayer ? frames.filter((f) => f.layerOrder === item.layerOrder) : [];
             const selected = selectedDevices.has(item.device.id);
             const { widthMm: w, depthMm: d, form } = item.footprint;
             const target = dockTargetId === item.device.id;
             const stroke = target ? '#16a34a' : selected ? '#0284c7' : item.kind === 'device' ? 'rgba(15,23,42,0.6)' : '#475569';
             const strokeWidth = px(target ? 4 : selected ? 3 : 1);
-            const label = item.person ? `${item.device.label}\n👤 ${item.person}` : item.device.label;
+            // Beschriftung im Objekt: Kontrast zur Objektfarbe; außerhalb: Kontrast zum Hintergrund
+            const labelColor = labelInside(item.kind, d, fontPx, px) ? contrastText(item.fill.startsWith('#') ? item.fill : '#e2e8f0') : ink;
+            const label = [show.labels ? item.device.label : '', show.people && item.person ? `👤 ${item.person}` : ''].filter(Boolean).join('\n');
             const heightText = [
-              item.height.heightMm > 0 ? formatLength(item.height.heightMm) : '',
+              show.meters && item.height.heightMm > 0 ? formatLength(item.height.heightMm) : '',
               item.mountSide === 'top' ? 'steht oben' : '',
               showDmx && item.device.dmx ? `DMX ${formatDmx(item.device.dmx.universe, item.device.dmx.address)}` : '',
             ]
               .filter(Boolean)
               .join(' · ');
             return (
+              <Fragment key={item.device.id}>
+              {layerFrames.map((frame) => (
+                <Group key={`frame-${frame.id}`} id={`stage-group-frame-${frame.id}`} name="stage-group-frame" x={frame.x} y={frame.y} listening={false}>
+                  <Rect width={frame.width} height={frame.height} fill={frame.color} opacity={0.08} cornerRadius={px(10)} />
+                  <Rect width={frame.width} height={frame.height} stroke={frame.color} strokeWidth={px(1.5)} dash={[px(8), px(4)]} cornerRadius={px(10)} />
+                  <Text text={frame.name} x={px(8)} y={px(5)} fontSize={fontPx} fontStyle="bold" fill={frame.color} />
+                </Group>
+              ))}
               <Group
-                key={item.device.id}
                 id={`stage-device-${item.device.id}`}
                 name="stage-device"
                 x={item.x}
@@ -545,18 +559,20 @@ export function StagePlanCanvas(props: StageCanvasProps) {
                   </>
                 )}
                 <Text
-                  text={heightText ? `${label}\n${heightText}` : label}
+                  name="stage-label"
+                  text={[label, heightText].filter(Boolean).join('\n')}
                   x={-Math.max(w, px(120)) / 2}
                   y={labelY(item.kind, d, fontPx, px)}
                   width={Math.max(w, px(120))}
                   align="center"
                   fontSize={fontPx}
                   lineHeight={1.15}
-                  fill="#0f172a"
+                  fill={labelColor}
                   listening={false}
                 />
                 {item.device.mountedOnId && <Circle x={0} y={0} radius={px(3)} fill="#16a34a" listening={false} />}
               </Group>
+              </Fragment>
             );
           })}
 
@@ -592,7 +608,7 @@ export function StagePlanCanvas(props: StageCanvasProps) {
               >
                 <Rect x={-px(9)} y={-px(9)} width={px(18)} height={px(18)} fill={route.color} stroke={selected ? '#0284c7' : '#0f172a'} strokeWidth={px(selected ? 3 : 1)} cornerRadius={px(3)} />
                 <Text text={key === 'a' ? 'A' : 'B'} x={-px(9)} y={-px(6)} width={px(18)} align="center" fontSize={px(11)} fontStyle="bold" fill="#ffffff" listening={false} />
-                <Text text={`${route.device.label} · ${key === 'a' ? ends.a : ends.b}`} x={px(12)} y={-px(6)} fontSize={fontPx} fill="#0f172a" listening={false} />
+                <Text text={`${route.device.label} · ${key === 'a' ? ends.a : ends.b}`} x={px(12)} y={-px(6)} fontSize={fontPx} fill={ink} listening={false} />
               </Group>
             );
             return (
@@ -623,6 +639,7 @@ export function StagePlanCanvas(props: StageCanvasProps) {
                   />
                 )}
                 {selected && props.lengthLabel(route.device.id) && pts.length > 1 && <LengthTag points={pts} text={props.lengthLabel(route.device.id)!} px={px} fontPx={fontPx} />}
+                {!selected && show.meters && props.lengthLabel(route.device.id) && pts.length > 1 && <CableText points={pts} text={props.lengthLabel(route.device.id)!} px={px} fontPx={fontPx} />}
               </Group>
             );
           })}
@@ -641,6 +658,7 @@ export function StagePlanCanvas(props: StageCanvasProps) {
                     points={line.points}
                     stroke={line.issue ? '#dc2626' : line.color}
                     strokeWidth={px(selected ? 4 : 2)}
+                    dash={line.direct ? [px(8), px(5)] : undefined}
                     lineJoin="round"
                     hitStrokeWidth={px(12)}
                     listening={pointerTool}
@@ -656,6 +674,11 @@ export function StagePlanCanvas(props: StageCanvasProps) {
                   />
                   {selected && editable && pointerTool && <RouteHandles points={pts} px={px} snap={snapped} onChange={(waypoints) => props.onCableWaypoints(line.cable.id, waypoints)} />}
                   {selected && props.lengthLabel(line.cable.id) && <LengthTag points={pts} text={props.lengthLabel(line.cable.id)!} px={px} fontPx={fontPx} />}
+                  {!selected &&
+                    (() => {
+                      const text = [show.cableNames ? line.name : '', show.meters ? (props.lengthLabel(line.cable.id) ?? '') : ''].filter(Boolean).join(' · ');
+                      return text ? <CableText points={pts} text={text} px={px} fontPx={fontPx} /> : null;
+                    })()}
                 </Group>
               );
             })}
@@ -664,7 +687,7 @@ export function StagePlanCanvas(props: StageCanvasProps) {
           {shapes
             .filter((s) => s.kind !== 'wall')
             .map((shape) => (
-              <ShapeNode key={shape.id} shape={shape} selected={selectedShapes.has(shape.id)} locked={lockedLayers.has(shape.layerId)} editable={editable && pointerTool} fontPx={fontPx} px={px} onSelect={(add) => (add ? toggleShape(shape.id) : select({ shapes: [shape.id] }))} onUpdate={(patch) => props.onUpdateShape(shape.id, patch)} snap={(p) => snapped(p)} />
+              <ShapeNode key={shape.id} shape={shape} selected={selectedShapes.has(shape.id)} locked={lockedLayers.has(shape.layerId)} editable={editable && pointerTool} fontPx={fontPx} px={px} onSelect={(add) => (add ? toggleShape(shape.id) : select({ shapes: [shape.id] }))} onUpdate={(patch) => props.onUpdateShape(shape.id, patch)} snap={(p) => snapped(p)} dark={dark} />
             ))}
 
           {/* Markierungsrahmen */}
@@ -738,6 +761,14 @@ const TOOL_HINTS: Record<string, string> = {
 };
 
 /** Lage der Beschriftung je nach Art, damit sich Texte möglichst nicht überlappen. */
+/** Steht die Beschriftung im Objekt (dann Kontrast zur Objektfarbe)? – passend zu labelY */
+function labelInside(kind: string, depth: number, fontPx: number, px: (n: number) => number): boolean {
+  const lines = 2.4 * fontPx;
+  if (kind === 'stageElement') return depth > lines + px(8);
+  if (kind === 'device') return depth > lines + px(4);
+  return false;
+}
+
 function labelY(kind: string, depth: number, fontPx: number, px: (n: number) => number): number {
   const lines = 2.4 * fontPx;
   if (kind === 'stageElement') return depth > lines + px(8) ? -depth / 2 + px(4) : depth / 2 + px(3); // innen oben
@@ -830,6 +861,20 @@ function LengthTag({ points, text, px, fontPx }: { points: StagePt[]; text: stri
   );
 }
 
+/** Name/Länge an einem Kabel (nicht ausgewählt): heller Kasten in der Mitte */
+function CableText({ points, text, px, fontPx }: { points: StagePt[]; text: string; px: (n: number) => number; fontPx: number }) {
+  const mid = Math.floor((points.length - 1) / 2);
+  const p = points[mid]!;
+  const q = points[mid + 1] ?? p;
+  const size = fontPx * 0.85;
+  return (
+    <Group x={(p.x + q.x) / 2} y={(p.y + q.y) / 2} listening={false}>
+      <Rect x={px(6)} y={-px(8)} width={text.length * size * 0.58 + px(8)} height={px(16)} fill="#ffffff" opacity={0.85} stroke="#cbd5e1" strokeWidth={px(1)} cornerRadius={px(3)} />
+      <Text name="cable-text" text={text} x={px(10)} y={-px(5)} fontSize={size} fill="#334155" />
+    </Group>
+  );
+}
+
 interface ShapeNodeProps {
   shape: Shape;
   selected: boolean;
@@ -840,11 +885,13 @@ interface ShapeNodeProps {
   onSelect: (additive: boolean) => void;
   onUpdate: (patch: Partial<Shape>) => void;
   snap: (p: StagePt) => StagePt;
+  /** dunkler Hintergrund → helle Linien und Texte */
+  dark?: boolean;
 }
 
-function ShapeNode({ shape, selected, locked, editable, fontPx, px, onSelect, onUpdate, snap }: ShapeNodeProps) {
+function ShapeNode({ shape, selected, locked, editable, fontPx, px, onSelect, onUpdate, snap, dark = false }: ShapeNodeProps) {
   const canEdit = editable && !locked;
-  const color = selected ? '#0284c7' : '#334155';
+  const color = selected ? '#0284c7' : dark ? '#e2e8f0' : '#334155';
   const common = {
     name: 'stage-shape',
     id: `stage-shape-${shape.id}`,

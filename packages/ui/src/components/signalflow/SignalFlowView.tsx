@@ -17,11 +17,14 @@ import {
   removeDevices,
   updateDevices,
   updateSettings,
+  defectKey,
+  setDefect,
   type DeviceInstance,
   type Issue,
   type Library,
   type Template,
 } from '@steckplan/core';
+import { CanvasThemeSwitch } from '../CanvasThemeSwitch';
 import { useEditor } from '../../lib/editor';
 import type { UndoApi } from '../../lib/undo';
 import { useIssues } from '../../lib/useIssues';
@@ -240,6 +243,15 @@ export function SignalFlowView({ doc, data, library, editable, undo }: { doc: Y.
     if (final) undo.stop();
   }
 
+  function toggleDefect(deviceId: string, portId: string) {
+    const device = data.devices.find((d) => d.id === deviceId);
+    if (!device) return;
+    const key = defectKey(templates.get(device.templateId), portId);
+    const marked = device.defectivePorts?.some((d) => d.portId === key);
+    updateDevices(doc, [{ id: deviceId, patch: { defectivePorts: setDefect(device, key, marked ? false : {}) } }], undo.origin);
+    undo.stop();
+  }
+
   function resize(id: string, size: { width: number; height: number } | undefined, final: boolean) {
     const current = flowOf(id);
     const box = boxes.find((b) => b.device.id === id);
@@ -386,6 +398,9 @@ export function SignalFlowView({ doc, data, library, editable, undo }: { doc: Y.
                 </button>
               ))}
             </span>
+            <span className="ml-2">
+              <CanvasThemeSwitch value={display.canvasTheme} onChange={(canvasTheme) => setDisplay({ canvasTheme })} />
+            </span>
           </span>
         }
       />
@@ -426,6 +441,8 @@ export function SignalFlowView({ doc, data, library, editable, undo }: { doc: Y.
             pageRefs={pageRefs}
             onPageRef={(ref) => jumpToDevice(ref.targetDeviceId)}
             onResize={resize}
+            onToggleDefect={toggleDefect}
+            theme={display.canvasTheme}
           />
           <Minimap boxes={boxes} viewport={viewport} />
           {message && (

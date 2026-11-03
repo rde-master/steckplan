@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import Fastify, { type FastifyInstance } from 'fastify';
 import fastifyStatic from '@fastify/static';
 import fastifyWebsocket from '@fastify/websocket';
+import { keepAlive } from './keepalive';
 import { createHealthInfo, type ServerMode } from '@steckplan/core';
 import { registerAuth } from './auth/plugin';
 import type { PasswordChecker } from './auth/passwords';
@@ -47,6 +48,8 @@ export interface ServerOptions {
   idleMs?: number;
   stampDelayMs?: number;
   changeLogWindowMs?: number;
+  /** Abstand der Lebenszeichen (Ping) auf WebSocket-Verbindungen; 0 = aus. Standard 25 s */
+  keepAliveMs?: number;
 }
 
 export interface ConnectedPerson {
@@ -120,11 +123,16 @@ export async function createServer(options: ServerOptions): Promise<SteckplanSer
   });
 
   await app.register(fastifyWebsocket);
+  // Lebenszeichen, damit Reverse-Proxys ruhende Verbindungen nicht trennen (sonst Neuverbinden und kurzes Flackern)
   app.get<{ Params: { id: string } }>('/api/projects/:id/sync', { websocket: true }, (socket, request) => {
+    keepAlive(socket, options.keepAliveMs);
     rooms.handleConnection(socket, request, request.params.id);
   });
 
-  app.get('/api/events', { websocket: true }, (socket, request) => events.handleConnection(socket, request));
+  app.get('/api/events', { websocket: true }, (socket, request) => {
+    keepAlive(socket, options.keepAliveMs);
+    events.handleConnection(socket, request);
+  });
 
   registerProjectRoutes(app, rooms, options.usage);
   registerLibraryRoutes(app, { library: options.library, usage: options.usage });

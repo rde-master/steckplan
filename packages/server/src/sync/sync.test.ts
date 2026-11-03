@@ -117,6 +117,8 @@ describe('Live-Sync', () => {
     // Verbindung von b hart trennen
     for (const c of server.rooms.peek(id)!.connections) if (c.session.name === 'Tom') c.socket.terminate();
     await waitFor(() => b.state.status === 'disconnected' || b.state.status === 'connecting');
+    // war schon abgeglichen → Oberfläche bleibt bedienbar
+    expect(b.state.everSynced).toBe(true);
     a.doc.getMap('meta').set('venue', 'nach Abbruch');
     await waitFor(() => b.doc.getMap('meta').get('venue') === 'nach Abbruch', 5000);
   });

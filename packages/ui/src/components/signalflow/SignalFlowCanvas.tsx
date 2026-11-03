@@ -8,6 +8,7 @@ import type { CrossPageRef } from '@steckplan/core';
 import { useLongPress } from '../../lib/useLongPress';
 import { useEdgeScroll } from '../../lib/useEdgeScroll';
 import { DIMMED_OPACITY } from '../../lib/display';
+import { useCanvasDark, type CanvasTheme } from '../../lib/useDarkMode';
 import { anchorOf, bounds, ROLE_COLORS, type CableLine, type DeviceBox } from './model';
 
 export interface PortRef {
@@ -31,6 +32,10 @@ export interface CanvasProps {
   /** Kabel zu Geräten auf anderen Seiten: Verweis am Anschluss */
   pageRefs?: CrossPageRef[];
   onPageRef?: (ref: CrossPageRef) => void;
+  /** Fläche hell/dunkel (auto = Systemdesign) */
+  theme?: CanvasTheme;
+  /** Rechtsklick auf einen Anschluss: als defekt markieren / Markierung entfernen */
+  onToggleDefect?: (deviceId: string, portId: string) => void;
   /** Kasten am Griff rechts unten größer/kleiner ziehen; undefined = automatische Größe */
   onResize?: (id: string, size: { width: number; height: number } | undefined, final: boolean) => void;
 }
@@ -59,7 +64,7 @@ declare global {
   }
 }
 
-export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onConnect, onDropTemplate, onInvalidConnection, showDmx = false, groups = [], pageRefs = [], onPageRef, onResize }: CanvasProps) {
+export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onConnect, onDropTemplate, onInvalidConnection, showDmx = false, groups = [], pageRefs = [], onPageRef, onResize, onToggleDefect, theme }: CanvasProps) {
   const container = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
   const [size, setSize] = useState({ width: 800, height: 600 });
@@ -85,6 +90,8 @@ export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onC
   const selectedDevices = useMemo(() => new Set(selection.devices), [selection.devices]);
   const selectedCables = useMemo(() => new Set(selection.cables), [selection.cables]);
   const boxById = useMemo(() => new Map(boxes.map((b) => [b.device.id, b])), [boxes]);
+  // Schrift auf der Fläche (außerhalb der Kästen): hell bei dunklem Hintergrund
+  const dark = useCanvasDark(theme);
 
   useEffect(() => {
     const el = container.current;
@@ -151,9 +158,17 @@ export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onC
     return port ? { deviceId, portId, port } : null;
   }
 
+  const isDefective = (deviceId: string, portId: string) => boxById.get(deviceId)?.defects.has(portId) ?? false;
+  const DEFECT_MESSAGE = 'Dieser Anschluss ist als defekt markiert – bitte einen anderen wählen (Markierung in den Eigenschaften oder per Rechtsklick entfernen).';
+
   function startConnect(ref: PortRef, e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) {
     if (!editable) return;
+    if ('button' in e.evt && e.evt.button !== 0) return;
     e.cancelBubble = true;
+    if (isDefective(ref.deviceId, ref.portId)) {
+      onInvalidConnection(DEFECT_MESSAGE);
+      return;
+    }
     const box = boxById.get(ref.deviceId);
     const anchor = box && anchorOf(box, ref.portId);
     if (anchor) setConnecting({ from: ref, pointer: { x: anchor.x, y: anchor.y } });
@@ -168,6 +183,10 @@ export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onC
     const from = connecting.from;
     setConnecting(null);
     if (!ref || (ref.deviceId === from.deviceId && ref.portId === from.portId)) return;
+    if (isDefective(ref.deviceId, ref.portId)) {
+      onInvalidConnection(DEFECT_MESSAGE);
+      return;
+    }
     const oriented = orientConnection(from, ref);
     if (!oriented) {
       onInvalidConnection(
@@ -183,6 +202,7 @@ export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onC
   function candidateState(deviceId: string, port: EffectivePort): 'ok' | 'invalid' | null {
     if (!connecting) return null;
     if (deviceId === connecting.from.deviceId && port.id === connecting.from.portId) return null;
+    if (isDefective(deviceId, port.id)) return 'invalid';
     return orientConnection(connecting.from, { deviceId, portId: port.id, port }) ? 'ok' : 'invalid';
   }
 
@@ -315,7 +335,8 @@ export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onC
   return (
     <div
       ref={container}
-      className="relative h-full w-full overflow-hidden bg-slate-100 dark:bg-slate-950"
+      className={`relative h-full w-full overflow-hidden ${dark ? 'bg-slate-950' : 'bg-slate-100'}`}
+      data-canvas-theme={dark ? 'dark' : 'light'}
       style={{
         backgroundImage: 'radial-gradient(circle, rgba(100,116,139,0.35) 1px, transparent 1px)',
         backgroundSize: `${20 * view.zoom}px ${20 * view.zoom}px`,
@@ -489,7 +510,7 @@ export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onC
                 {!box.template && <Text text="Vorlage fehlt" x={8} y={30} fontSize={11} fill="#dc2626" />}
                 {box.person && <Text name="person-label" text={`👤 ${box.person}`} x={8} y={27} width={width - 16} fontSize={11} fill={box.text} opacity={0.9} ellipsis wrap="none" />}
                 {box.owner && <Text name="owner-label" text={`Besitzer: ${box.owner}`} x={8} y={box.person ? 43 : 27} width={width - 16} fontSize={11} fill={box.text} opacity={0.8} ellipsis wrap="none" />}
-                {box.unplaced && <Text name="unplaced-marker" text="⌖ nicht im Bühnenplan" x={0} y={height + 4} fontSize={10} fill="#b45309" fontStyle="italic" listening={false} />}
+                {box.unplaced && <Text name="unplaced-marker" text="⌖ nicht im Bühnenplan" x={0} y={height + 4} fontSize={10} fill={dark ? '#fbbf24' : '#b45309'} fontStyle="italic" listening={false} />}
                 {ends && (
                   <>
                     <Text text={ends.a} x={8} y={28} fontSize={10} fill={box.text} opacity={0.75} />
@@ -605,7 +626,18 @@ export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onC
                           const stage = e.target.getStage();
                           if (stage) stage.container().style.cursor = '';
                         }}
+                        onContextMenu={(e) => {
+                          e.evt.preventDefault();
+                          e.cancelBubble = true;
+                          if (editable) onToggleDefect?.(box.device.id, port.id);
+                        }}
                       />
+                      {box.defects.has(port.id) && (
+                        <Group name="port-defect" id={`defect-${box.device.id}-${port.id}`} listening={false}>
+                          <Line points={[x - 6, y - 6, x + 6, y + 6]} stroke="#dc2626" strokeWidth={2.5} lineCap="round" />
+                          <Line points={[x + 6, y - 6, x - 6, y + 6]} stroke="#dc2626" strokeWidth={2.5} lineCap="round" />
+                        </Group>
+                      )}
                     </Group>
                   );
                 })}
@@ -638,7 +670,7 @@ export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onC
                 width={240}
                 align={left ? 'right' : 'left'}
                 fontSize={11}
-                fill="#0369a1"
+                fill={dark ? '#7dd3fc' : '#0369a1'}
                 textDecoration="underline"
                 onClick={(e) => {
                   e.cancelBubble = true;

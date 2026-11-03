@@ -30,7 +30,7 @@ export interface StageDrawing {
   background?: Background;
   showCables: boolean;
   /** Gruppenrahmen (optional) */
-  groupFrames?: { id: string; name: string; color: string; x: number; y: number; width: number; height: number }[];
+  groupFrames?: { id: string; name: string; color: string; layerOrder: number; x: number; y: number; width: number; height: number }[];
 }
 
 /** Umrandung aller Inhalte in Millimetern (mit Rand). */
@@ -78,19 +78,21 @@ export function stagePlanSvg(d: StageDrawing, view: Rect, widthPt: number, heigh
       out.push(`<image href="${bg.image}" x="${n(o.x)}" y="${n(o.y)}" width="${n(bg.widthPx * sc)}" height="${n(bg.heightPx * sc)}" opacity="${n(bg.opacity ?? 0.5)}" preserveAspectRatio="none"/>`);
     }
   }
-  // Gruppenrahmen
-  for (const f of d.groupFrames ?? []) {
-    out.push(
-      `<rect x="${n(f.x)}" y="${n(f.y)}" width="${n(f.width)}" height="${n(f.height)}" rx="${n(fontMm)}" fill="${f.color}" fill-opacity="0.08" stroke="${f.color}" stroke-width="${n(stroke * 1.5)}" stroke-dasharray="${n(fontMm)} ${n(fontMm / 2)}"/>` +
-        `<text x="${n(f.x + fontMm * 0.6)}" y="${n(f.y + fontMm * 1.3)}" font-size="${n(fontMm)}" font-weight="bold" fill="${f.color}">${esc(f.name)}</text>`,
-    );
-  }
   // Wände
   for (const s of d.shapes.filter((x) => x.kind === 'wall')) {
     out.push(`<polyline points="${s.points.map((p) => `${n(p.x)},${n(p.y)}`).join(' ')}" fill="none" stroke="#334155" stroke-width="${n(s.strokeWidthMm ?? 200)}" stroke-linecap="square"/>`);
   }
-  // Objekte
-  for (const i of d.items) {
+  // Objekte nach Ebenen (unten → oben); Gruppenrahmen direkt unter den Objekten der untersten Ebene ihrer Mitglieder
+  const frame = (f: NonNullable<StageDrawing['groupFrames']>[number]) =>
+    out.push(
+      `<rect x="${n(f.x)}" y="${n(f.y)}" width="${n(f.width)}" height="${n(f.height)}" rx="${n(fontMm)}" fill="${f.color}" fill-opacity="0.08" stroke="${f.color}" stroke-width="${n(stroke * 1.5)}" stroke-dasharray="${n(fontMm)} ${n(fontMm / 2)}"/>` +
+        `<text x="${n(f.x + fontMm * 0.6)}" y="${n(f.y + fontMm * 1.3)}" font-size="${n(fontMm)}" font-weight="bold" fill="${f.color}">${esc(f.name)}</text>`,
+    );
+  d.items.forEach((i, index) => {
+    if (index === 0 || d.items[index - 1]!.layerOrder !== i.layerOrder) for (const f of (d.groupFrames ?? []).filter((x) => x.layerOrder === i.layerOrder)) frame(f);
+    drawItem(i);
+  });
+  function drawItem(i: StageDrawing['items'][number]) {
     const { widthMm: w, depthMm: h, form } = i.footprint;
     const opacity = i.dimmed ? DIMMED : 1;
     const fill = i.kind === 'truss' ? '#e2e8f0' : i.kind === 'stand' ? '#f1f5f9' : i.fill;
@@ -132,7 +134,7 @@ export function stagePlanSvg(d: StageDrawing, view: Rect, widthPt: number, heigh
     for (const c of d.cables) {
       const pts: string[] = [];
       for (let k = 0; k < c.points.length; k += 2) pts.push(`${n(c.points[k]!)},${n(c.points[k + 1]!)}`);
-      out.push(`<polyline points="${pts.join(' ')}" fill="none" stroke="${c.issue ? '#dc2626' : c.color}" stroke-width="${n(stroke * 1.5)}" opacity="${c.dimmed ? DIMMED : 1}"/>`);
+      out.push(`<polyline points="${pts.join(' ')}" fill="none" stroke="${c.issue ? '#dc2626' : c.color}" stroke-width="${n(stroke * 1.5)}"${c.direct ? ` stroke-dasharray="${n(stroke * 6)} ${n(stroke * 4)}"` : ''} opacity="${c.dimmed ? DIMMED : 1}"/>`);
     }
   }
   // Text und Maßlinien
@@ -218,6 +220,11 @@ export function signalFlowSvg(
     for (const a of b.layout.anchors) {
       const label = b.labels.get(a.port.id) ?? a.port.label;
       if (!a.port.virtual) g.push(`<circle cx="${n(a.x)}" cy="${n(a.y)}" r="3.5" fill="#ffffff" stroke="${ROLE_COLORS[a.port.role]}" stroke-width="1.5"/>`);
+      // defekt: rotes X über dem Anschluss
+      if (b.defects.has(a.port.id)) {
+        const d = 4.5;
+        g.push(`<path d="M ${n(a.x - d)} ${n(a.y - d)} L ${n(a.x + d)} ${n(a.y + d)} M ${n(a.x + d)} ${n(a.y - d)} L ${n(a.x - d)} ${n(a.y + d)}" stroke="#dc2626" stroke-width="1.8" stroke-linecap="round"/>`);
+      }
       g.push(
         a.port.side === 'left'
           ? `<text x="${n(a.x + 8)}" y="${n(a.y + 3)}" font-size="8.5" fill="${b.text}">${esc(label)}</text>`

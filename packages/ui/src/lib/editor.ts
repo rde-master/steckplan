@@ -1,5 +1,6 @@
 // Zustand des Editors (pro geöffnetem Projekt): Auswahl, Ansicht, Optionen.
 import { create } from 'zustand';
+import type { CanvasTheme } from './useDarkMode';
 import { EMPTY_FILTER, type Filter } from '@steckplan/core';
 
 export type ColorMode = 'device' | 'category' | 'owner' | 'trailer';
@@ -36,6 +37,9 @@ interface EditorState {
   /** Anzeige im Signalfluss (je Browser gemerkt): Besitzer in der Geräteauswahl, Besitzer und Personen in den Kästen */
   display: SignalFlowDisplay;
   setDisplay(patch: Partial<SignalFlowDisplay>): void;
+  /** Anzeige im Bühnenplan (je Browser gemerkt): Texte am Plan, gewählter Reiter links */
+  stageDisplay: StagePlanDisplay;
+  setStageDisplay(patch: Partial<StagePlanDisplay>): void;
   flowMode: FlowMode;
   setFlowMode(mode: FlowMode): void;
   /** aktuelle Seite im Signalfluss ('' = erste) */
@@ -75,10 +79,49 @@ export interface SignalFlowDisplay {
   peopleOnBoxes: boolean;
   /** Pult-Kanal an den Eingängen digitaler Stageboxen („→ FOH 12“) */
   channelsOnBoxes: boolean;
+  /** Fläche hell/dunkel (auto = Systemdesign) */
+  canvasTheme: CanvasTheme;
+}
+
+export type StagePanel = 'library' | 'unplaced' | 'layers' | 'background';
+
+export interface StagePlanDisplay {
+  /** Kennung am Objekt */
+  labels: boolean;
+  /** Person am Objekt */
+  people: boolean;
+  /** Höhe am Objekt und Länge an jedem Kabel */
+  meters: boolean;
+  /** Kabeltyp bzw. Bezeichnung an jedem Kabel */
+  cableNames: boolean;
+  /** Reiter links */
+  panel: StagePanel;
+  /** Fläche hell/dunkel (auto = Systemdesign) */
+  canvasTheme: CanvasTheme;
+}
+
+const STAGE_DISPLAY_KEY = 'steckplan.stageDisplay';
+const DEFAULT_STAGE_DISPLAY: StagePlanDisplay = { labels: true, people: true, meters: true, cableNames: false, panel: 'library', canvasTheme: 'auto' };
+
+function loadStageDisplay(): StagePlanDisplay {
+  try {
+    const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(STAGE_DISPLAY_KEY) : null;
+    return raw ? { ...DEFAULT_STAGE_DISPLAY, ...(JSON.parse(raw) as Partial<StagePlanDisplay>) } : DEFAULT_STAGE_DISPLAY;
+  } catch {
+    return DEFAULT_STAGE_DISPLAY;
+  }
+}
+
+function saveStageDisplay(display: StagePlanDisplay): void {
+  try {
+    localStorage.setItem(STAGE_DISPLAY_KEY, JSON.stringify(display));
+  } catch {
+    // z. B. privater Modus – dann nur für diese Sitzung
+  }
 }
 
 const DISPLAY_KEY = 'steckplan.signalflowDisplay';
-const DEFAULT_DISPLAY: SignalFlowDisplay = { ownerInLibrary: false, ownerOnBoxes: false, peopleOnBoxes: true, channelsOnBoxes: true };
+const DEFAULT_DISPLAY: SignalFlowDisplay = { ownerInLibrary: false, ownerOnBoxes: false, peopleOnBoxes: true, channelsOnBoxes: true, canvasTheme: 'auto' };
 
 function loadDisplay(): SignalFlowDisplay {
   try {
@@ -180,6 +223,14 @@ export const useEditor = create<EditorState>((set) => ({
       const display = { ...st.display, ...patch };
       saveDisplay(display);
       return { display };
+    });
+  },
+  stageDisplay: loadStageDisplay(),
+  setStageDisplay(patch) {
+    set((st) => {
+      const stageDisplay = { ...st.stageDisplay, ...patch };
+      saveStageDisplay(stageDisplay);
+      return { stageDisplay };
     });
   },
   setStageView(stageView) {

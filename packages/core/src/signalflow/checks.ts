@@ -3,6 +3,7 @@ import type { Library } from '../library/library';
 import type { Cable, DeviceInstance, Project, Template } from '../model/schema';
 import { connectorMatch } from './cables';
 import { canFlow, findPort } from './ports';
+import { portDefect } from './defects';
 
 export type IssueSeverity = 'error' | 'warning' | 'info';
 
@@ -49,6 +50,19 @@ export function checkSignalFlow(project: Pick<Project, 'devices' | 'cables'>, li
     if (!fromPort || !toPort) continue;
     for (const key of [`${fromDevice.id}/${fromPort.id}`, `${toDevice.id}/${toPort.id}`]) {
       occupancy.set(key, [...(occupancy.get(key) ?? []), cable]);
+    }
+    for (const [device, template, port] of [
+      [fromDevice, fromTemplate, fromPort],
+      [toDevice, toTemplate, toPort],
+    ] as const) {
+      const defect = portDefect(device, template, port.id);
+      if (!defect) continue;
+      issues.push({
+        id: `defect:${cable.id}:${device.id}`,
+        severity: 'warning',
+        message: `${deviceTitle(device, template)}: Anschluss „${port.label}“ ist als defekt markiert, aber belegt${defect.note ? ` (${defect.note})` : ''}.`,
+        objectIds: [cable.id, device.id],
+      });
     }
     if (!canFlow(fromPort.role, toPort.role)) {
       issues.push({ id: `direction:${cable.id}`, severity: 'error', message: `${where}: Richtung passt nicht (${fromPort.label} → ${toPort.label}).`, objectIds: [cable.id] });

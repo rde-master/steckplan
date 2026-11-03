@@ -36,6 +36,8 @@ export interface SyncClientState {
   connectionId: string | null;
   users: PresenceUser[];
   notice?: string;
+  /** war schon einmal abgeglichen – kurze Unterbrechungen danach muss die Oberfläche nicht anzeigen */
+  everSynced?: boolean;
 }
 
 export interface SyncClientOptions {
@@ -174,7 +176,7 @@ export class SyncClient {
       const syncType = syncProtocol.readSyncMessage(decoder, encoder, this.doc, this);
       if (encoding.length(encoder) > 1) this.socket?.send(encoding.toUint8Array(encoder));
       if (syncType === syncProtocol.messageYjsSyncStep2 && this._state.status !== 'synced') {
-        this.setState({ status: 'synced' });
+        this.setState({ status: 'synced', everSynced: true });
       }
     } else if (type === MESSAGE_INFO) {
       this.handleInfo(decodeInfo(decoder));
