@@ -131,6 +131,19 @@ describe('Strom: Wandsteckdose und Mehrfachsteckdosen je Stromkreis', () => {
     expect(checkPower(project, lib).filter((i) => i.message.includes('Schieflast'))).toEqual([]);
   });
 
+  it('Grenze für die Balken: Zuleitung, sonst Abgang davor, sonst eigene Abgänge, sonst 16 A angenommen', () => {
+    const project = {
+      devices: [dev('Wand', 'wand'), dev('L1', 'leiste'), dev('Spot', 'spot'), dev('HV', 'hv'), dev('L2', 'leiste'), dev('Lose', 'leiste')],
+      cables: [pc('a', ['Wand', 'W'], ['L1', 'in']), pc('b', ['L1', 'S1'], ['Spot', 'in']), pc('c', ['HV', 'A1'], ['L2', 'in'])],
+    };
+    const by = (id: string) => buildPowerReport(project, lib).distributors.find((d) => d.device.id === id)!;
+    expect(by('HV')).toMatchObject({ limitA: 32, limitSource: 'input' });
+    expect(by('Wand')).toMatchObject({ limitA: 16, limitSource: 'outlet' });
+    expect(by('L1')).toMatchObject({ limitA: 16, limitSource: 'upstream' });
+    expect(by('L2')).toMatchObject({ limitA: 16, limitSource: 'upstream' });
+    expect(by('Lose')).toMatchObject({ limitA: 16, limitSource: 'assumed' });
+  });
+
   it('Hinweis bei mehr als 3 Mehrfachsteckdosen in einem Stromkreis (hintereinander oder nebeneinander)', () => {
     const chain = (n: number) => {
       const devices = [dev('Wand', 'wand'), ...Array.from({ length: n }, (_, i) => dev(`L${i + 1}`, 'leiste'))];

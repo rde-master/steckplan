@@ -788,6 +788,12 @@ export const texts = {
     mainFeed: 'Einspeisung',
     fedFrom: (from: string) => `an ${from}`,
     threePhase: 'Drehstrom',
+    limitShort: { upstream: 'vom Abgang davor', outlet: 'Abgänge', assumed: 'angenommen' },
+    limitTitle: {
+      upstream: 'Keine Absicherung an der Zuleitung – es gilt die Absicherung des Abgangs, an dem dieser Verteiler hängt.',
+      outlet: 'Keine Absicherung an der Zuleitung – Grenze ist die größte Absicherung der eigenen Abgänge.',
+      assumed: 'Nirgends eine Absicherung eingetragen – 16 A als Richtwert (übliche Schuko-Absicherung).',
+    },
     imbalance: 'Schieflast: Die Phasen sind ungleich belastet – Geräte auf andere Phasen verteilen.',
     columns: ['Abgang', 'Phase', 'Absicherung', 'Angeschlossen', 'Leistung', 'Strom', 'Auslastung'],
     free: 'frei',
