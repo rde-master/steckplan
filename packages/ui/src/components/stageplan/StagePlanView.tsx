@@ -36,6 +36,7 @@ import {
   type Shape,
   type Template,
 } from '@steckplan/core';
+import { CanvasThemeSwitch } from '../CanvasThemeSwitch';
 import { useEditor, type StagePanel, type StageTool } from '../../lib/editor';
 import type { UndoApi } from '../../lib/undo';
 import { useIssues } from '../../lib/useIssues';
@@ -511,6 +512,9 @@ export function StagePlanView({ doc, data, library, editable, undo }: { doc: Y.D
             </label>
           ))}
         </span>
+        <span className="ml-2">
+          <CanvasThemeSwitch value={stageDisplay.canvasTheme} onChange={(canvasTheme) => setStageDisplay({ canvasTheme })} />
+        </span>
         {data.groups.length > 0 && (
           <label className="ml-2 flex items-center gap-1 text-xs" title={texts.groups.showTitle}>
             <input type="checkbox" checked={showStageGroups} onChange={(e) => setShowStageGroups(e.target.checked)} />
@@ -554,6 +558,7 @@ export function StagePlanView({ doc, data, library, editable, undo }: { doc: Y.D
             multicores={multicores}
             showCables={showCables}
             texts={stageDisplay}
+            theme={stageDisplay.canvasTheme}
             groupFrames={groupFrames}
             lengthLabel={lengthLabel}
             onCableWaypoints={(id, waypoints) => {

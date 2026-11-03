@@ -8,7 +8,7 @@ import type { CrossPageRef } from '@steckplan/core';
 import { useLongPress } from '../../lib/useLongPress';
 import { useEdgeScroll } from '../../lib/useEdgeScroll';
 import { DIMMED_OPACITY } from '../../lib/display';
-import { useDarkMode } from '../../lib/useDarkMode';
+import { useCanvasDark, type CanvasTheme } from '../../lib/useDarkMode';
 import { anchorOf, bounds, ROLE_COLORS, type CableLine, type DeviceBox } from './model';
 
 export interface PortRef {
@@ -32,6 +32,8 @@ export interface CanvasProps {
   /** Kabel zu Geräten auf anderen Seiten: Verweis am Anschluss */
   pageRefs?: CrossPageRef[];
   onPageRef?: (ref: CrossPageRef) => void;
+  /** Fläche hell/dunkel (auto = Systemdesign) */
+  theme?: CanvasTheme;
   /** Rechtsklick auf einen Anschluss: als defekt markieren / Markierung entfernen */
   onToggleDefect?: (deviceId: string, portId: string) => void;
   /** Kasten am Griff rechts unten größer/kleiner ziehen; undefined = automatische Größe */
@@ -62,7 +64,7 @@ declare global {
   }
 }
 
-export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onConnect, onDropTemplate, onInvalidConnection, showDmx = false, groups = [], pageRefs = [], onPageRef, onResize, onToggleDefect }: CanvasProps) {
+export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onConnect, onDropTemplate, onInvalidConnection, showDmx = false, groups = [], pageRefs = [], onPageRef, onResize, onToggleDefect, theme }: CanvasProps) {
   const container = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
   const [size, setSize] = useState({ width: 800, height: 600 });
@@ -89,7 +91,7 @@ export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onC
   const selectedCables = useMemo(() => new Set(selection.cables), [selection.cables]);
   const boxById = useMemo(() => new Map(boxes.map((b) => [b.device.id, b])), [boxes]);
   // Schrift auf der Fläche (außerhalb der Kästen): hell bei dunklem Hintergrund
-  const dark = useDarkMode();
+  const dark = useCanvasDark(theme);
 
   useEffect(() => {
     const el = container.current;
@@ -333,7 +335,8 @@ export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onC
   return (
     <div
       ref={container}
-      className="relative h-full w-full overflow-hidden bg-slate-100 dark:bg-slate-950"
+      className={`relative h-full w-full overflow-hidden ${dark ? 'bg-slate-950' : 'bg-slate-100'}`}
+      data-canvas-theme={dark ? 'dark' : 'light'}
       style={{
         backgroundImage: 'radial-gradient(circle, rgba(100,116,139,0.35) 1px, transparent 1px)',
         backgroundSize: `${20 * view.zoom}px ${20 * view.zoom}px`,
