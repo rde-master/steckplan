@@ -34,7 +34,9 @@ import {
   type Issue,
   type Library,
   type Shape,
+  type Layer,
   type Template,
+  updateLayer,
 } from '@steckplan/core';
 import { CanvasThemeSwitch } from '../CanvasThemeSwitch';
 import { useEditor, type StagePanel, type StageTool } from '../../lib/editor';
@@ -51,7 +53,7 @@ import { LibrarySidebar } from '../signalflow/LibrarySidebar';
 import { PropertiesPanel } from '../signalflow/PropertiesPanel';
 import { FilterBar } from '../FilterBar';
 import { buildMulticoreRoutes, buildStageCables, buildStageGroupFrames, buildStageItems } from './model';
-import { BackgroundPanel, LayersPanel, UnplacedPanel } from './SidePanels';
+import { BackgroundPanel, LayersPanel, PlacedPanel, UnplacedPanel } from './SidePanels';
 import { StagePlanCanvas, type StagePt } from './StagePlanCanvas';
 import { ShapeProperties, StageDeviceSection } from './StageProperties';
 
@@ -69,6 +71,9 @@ export function StagePlanView({ doc, data, library, editable, undo }: { doc: Y.D
   const tool = useEditor((st) => st.tool);
   const setTool = useEditor((st) => st.setTool);
   const activeLayer = useEditor((st) => st.activeLayerId);
+  const setActiveLayer = useEditor((st) => st.setActiveLayer);
+  // Einfügen mit Ebenen-Auswahl (bei mehr als einer Ebene)
+  const [pendingInsert, setPendingInsert] = useState<{ template?: Template; deviceId?: string; at?: StagePt } | null>(null);
   const filter = useEditor((st) => st.filter);
   const colorMode = useEditor((st) => st.colorMode);
   const showCables = useEditor((st) => st.showCables);
@@ -181,10 +186,28 @@ export function StagePlanView({ doc, data, library, editable, undo }: { doc: Y.D
     [narrow],
   );
 
-  function addFromTemplate(template: Template, at?: StagePt) {
+  /** Einfügen anfragen: bei mehreren Ebenen erst fragen, auf welche */
+  function requestInsert(request: { template?: Template; deviceId?: string; at?: StagePt }) {
+    if (!editable) return;
+    if (data.layers.length > 1) {
+      setPendingInsert(request);
+      return;
+    }
+    insertOn(request, layerId);
+  }
+
+  function insertOn(request: { template?: Template; deviceId?: string; at?: StagePt }, target: string | undefined) {
+    const layer = data.layers.find((l) => l.id === target);
+    if (layer && !layer.visible) updateLayer(doc, layer.id, { visible: true }, undo.origin);
+    if (target) setActiveLayer(target);
+    if (request.template) addFromTemplate(request.template, request.at, target);
+    else if (request.deviceId) placeUnplaced(request.deviceId, request.at, target);
+  }
+
+  function addFromTemplate(template: Template, at?: StagePt, targetLayer: string | undefined = layerId) {
     if (!editable) return;
     const pos = at ?? viewCenter();
-    const device = addDevice(doc, template, pos, undo.origin, { view: 'stagePlan', layerId });
+    const device = addDevice(doc, template, pos, undo.origin, { view: 'stagePlan', layerId: targetLayer });
     const created = { ...device };
     const patch = dropPatch(created, template, pos, false);
     updateDevices(doc, withStandLayout([{ id: device.id, patch }], [created]), undo.origin);
@@ -193,18 +216,20 @@ export function StagePlanView({ doc, data, library, editable, undo }: { doc: Y.D
     if (narrow) setMobilePanel('none');
   }
 
-  function placeUnplaced(id: string, at?: StagePt) {
+  function placeUnplaced(id: string, at?: StagePt, chosenLayer?: string) {
     const device = byId.get(id);
     if (!device) return;
     const pos = at ?? viewCenter();
+    // wie neue Objekte: auf die aktive Ebene (sonst landet es evtl. auf einer ausgeblendeten oder tieferen Ebene)
+    const targetLayer = chosenLayer ?? layerId ?? device.layerId;
     if (isMulticore(templates.get(device.templateId))) {
-      updateDevices(doc, [{ id, patch: { stagePlan: { position: pos, rotationDeg: 0, endB: { x: pos.x + 5000, y: pos.y }, waypoints: [] } } }], undo.origin);
+      updateDevices(doc, [{ id, patch: { layerId: targetLayer, stagePlan: { position: pos, rotationDeg: 0, endB: { x: pos.x + 5000, y: pos.y }, waypoints: [] } } }], undo.origin);
       undo.stop();
       select({ devices: [id] });
       return;
     }
     const placed = { ...device, stagePlan: { position: pos, rotationDeg: 0 } };
-    updateDevices(doc, withStandLayout([{ id, patch: { layerId: device.layerId || layerId || device.layerId, ...dropPatch(placed, templates.get(device.templateId), pos, false) } }]), undo.origin);
+    updateDevices(doc, withStandLayout([{ id, patch: { layerId: targetLayer, ...dropPatch(placed, templates.get(device.templateId), pos, false) } }]), undo.origin);
     undo.stop();
     select({ devices: [id] });
   }
@@ -392,6 +417,7 @@ export function StagePlanView({ doc, data, library, editable, undo }: { doc: Y.D
 
   const tabs: { key: Panel; label: string }[] = [
     { key: 'library', label: s.panels.library },
+    { key: 'placed', label: s.panels.placed },
     { key: 'unplaced', label: `${s.panels.unplaced}${unplacedCount ? ` (${unplacedCount})` : ''}` },
     { key: 'layers', label: s.panels.layers },
     { key: 'background', label: s.panels.background },
@@ -406,8 +432,23 @@ export function StagePlanView({ doc, data, library, editable, undo }: { doc: Y.D
         ))}
       </div>
       <div className="min-h-0 flex-1">
-        {panel === 'library' && <LibrarySidebar mode="stageplan" library={library} editable={editable} onAdd={(t) => addFromTemplate(t)} />}
-        {panel === 'unplaced' && <UnplacedPanel devices={data.devices} cables={data.cables} people={data.people} library={library} editable={editable} onPlace={(id) => placeUnplaced(id)} />}
+        {panel === 'library' && <LibrarySidebar mode="stageplan" library={library} editable={editable} onAdd={(t) => requestInsert({ template: t })} />}
+        {panel === 'placed' && (
+          <PlacedPanel
+            devices={data.devices}
+            cables={data.cables}
+            people={data.people}
+            layers={data.layers}
+            library={library}
+            selected={new Set(selection.devices)}
+            onOpen={(id) => {
+              select({ devices: [id] });
+              const item = items.find((i) => i.device.id === id);
+              if (item) focus({ x: item.x, y: item.y });
+            }}
+          />
+        )}
+        {panel === 'unplaced' && <UnplacedPanel devices={data.devices} cables={data.cables} people={data.people} library={library} editable={editable} onPlace={(id) => requestInsert({ deviceId: id })} />}
         {panel === 'layers' && <LayersPanel doc={doc} origin={undo.origin} data={data} editable={editable} />}
         {panel === 'background' && <BackgroundPanel doc={doc} origin={undo.origin} background={data.background} editable={editable} />}
       </div>
@@ -590,9 +631,9 @@ export function StagePlanView({ doc, data, library, editable, undo }: { doc: Y.D
             }}
             onDropTemplate={(id, at) => {
               const t = templates.get(id);
-              if (t) addFromTemplate(t, at);
+              if (t) requestInsert({ template: t, at });
             }}
-            onDropUnplaced={(id, at) => placeUnplaced(id, at)}
+            onDropUnplaced={(id, at) => requestInsert({ deviceId: id, at })}
             onCalibrate={(p1, p2) => setCalibration({ p1, p2, text: '' })}
             onBackgroundMove={(offset) => {
               if (data.background) setBackground(doc, { ...data.background, offset }, undo.origin);
@@ -613,6 +654,19 @@ export function StagePlanView({ doc, data, library, editable, undo }: { doc: Y.D
         )}
       </div>
       <ChecksPanel issues={issues} onJump={jump} />
+      {pendingInsert && (
+        <LayerChoiceDialog
+          layers={data.layers}
+          initial={layerId}
+          title={pendingInsert.template?.name ?? byId.get(pendingInsert.deviceId ?? '')?.label ?? ''}
+          onCancel={() => setPendingInsert(null)}
+          onChoose={(target) => {
+            const request = pendingInsert;
+            setPendingInsert(null);
+            insertOn(request, target);
+          }}
+        />
+      )}
       {calibration && (
         <Modal
           title={s.calibrateTitle}
@@ -641,5 +695,42 @@ export function StagePlanView({ doc, data, library, editable, undo }: { doc: Y.D
         </Modal>
       )}
     </div>
+  );
+}
+
+/** Auf welche Ebene soll eingefügt werden? (oben in der Liste = oben im Plan; gesperrte Ebenen nicht wählbar) */
+function LayerChoiceDialog({ layers, initial, title, onCancel, onChoose }: { layers: Layer[]; initial: string | undefined; title: string; onCancel: () => void; onChoose: (layerId: string) => void }) {
+  const t = texts.stageplan;
+  const sorted = [...layers].sort((a, b) => b.order - a.order);
+  const firstFree = sorted.find((l) => !l.locked)?.id;
+  const [choice, setChoice] = useState(sorted.some((l) => l.id === initial && !l.locked) ? initial! : (firstFree ?? ''));
+  return (
+    <Modal title={t.chooseLayerTitle} onClose={onCancel}>
+      <form
+        className="space-y-3"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (choice) onChoose(choice);
+        }}
+      >
+        <p className="text-sm text-slate-600 dark:text-slate-300">{t.chooseLayerText(title)}</p>
+        <div className="space-y-1" role="radiogroup" aria-label={t.chooseLayerTitle}>
+          {sorted.map((layer) => (
+            <label key={layer.id} className={`flex items-center gap-2 rounded-md border px-2 py-1.5 text-sm ${choice === layer.id ? 'border-sky-300 bg-sky-50 dark:border-sky-700 dark:bg-sky-950' : 'border-slate-200 dark:border-slate-700'} ${layer.locked ? 'opacity-50' : ''}`}>
+              <input type="radio" name="insert-layer" value={layer.id} checked={choice === layer.id} disabled={layer.locked} onChange={() => setChoice(layer.id)} />
+              <span className="flex-1">{layer.name}</span>
+              {!layer.visible && <span className="text-xs text-slate-500">{t.layerHiddenNote}</span>}
+              {layer.locked && <span className="text-xs text-slate-500">{t.layerLockedNote}</span>}
+            </label>
+          ))}
+        </div>
+        <div className="flex justify-end gap-2">
+          <Button onClick={onCancel}>{texts.common.cancel}</Button>
+          <Button type="submit" variant="primary" disabled={!choice}>
+            {t.insertHere}
+          </Button>
+        </div>
+      </form>
+    </Modal>
   );
 }
