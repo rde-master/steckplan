@@ -3,7 +3,7 @@
 // Jede Änderung hier, die bestehende Dateien betrifft, braucht: schemaVersion erhöhen + Migration + Test.
 import { z } from 'zod';
 
-export const CURRENT_SCHEMA_VERSION = 7;
+export const CURRENT_SCHEMA_VERSION = 8;
 
 const id = z.string().min(1);
 const isoDate = z.string();
@@ -223,6 +223,11 @@ export const DeviceInstanceSchema = z.object({
    * Ohne portId (aus Format 5 übernommen): der erste Ausgang mit durchgehender Kette zu diesem Pult.
    */
   mixerChannels: z.array(z.object({ portId: z.string().optional(), mixerId: id, channel: z.number().int().positive() })).optional(),
+  /**
+   * Defekte Anschlüsse dieses Geräts (nur im Projekt, nicht in der Bibliothek) (seit Format 8).
+   * portId = Anschluss; bei Multicores die Ader (gilt für beide Enden).
+   */
+  defectivePorts: z.array(z.object({ portId: z.string().min(1), note: z.string().max(500).optional() })).optional(),
   /** Leistung in Watt, überschreibt die Vorlage (seit Format 4) */
   powerW: z.number().nonnegative().optional(),
   /** Benutzt von Mensch: überschreibt die Vorgabe der Vorlage (seit Format 4) */

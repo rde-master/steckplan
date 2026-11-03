@@ -30,6 +30,8 @@ export const migrations: MigrationRegistry = {
   }),
   // 6 → 7: Größe der Kästen im Signalfluss je Gerät, Kabellinien eckig/geschwungen – optional; vorhandene Daten bleiben unverändert.
   6: (p) => ({ ...p, schemaVersion: 7 }),
+  // 7 → 8: defekte Anschlüsse je Gerät im Projekt – optional; vorhandene Daten bleiben unverändert.
+  7: (p) => ({ ...p, schemaVersion: 8 }),
 };
 
 export class ProjectFormatError extends Error {

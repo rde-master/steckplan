@@ -31,6 +31,8 @@ export interface CanvasProps {
   /** Kabel zu Geräten auf anderen Seiten: Verweis am Anschluss */
   pageRefs?: CrossPageRef[];
   onPageRef?: (ref: CrossPageRef) => void;
+  /** Rechtsklick auf einen Anschluss: als defekt markieren / Markierung entfernen */
+  onToggleDefect?: (deviceId: string, portId: string) => void;
   /** Kasten am Griff rechts unten größer/kleiner ziehen; undefined = automatische Größe */
   onResize?: (id: string, size: { width: number; height: number } | undefined, final: boolean) => void;
 }
@@ -59,7 +61,7 @@ declare global {
   }
 }
 
-export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onConnect, onDropTemplate, onInvalidConnection, showDmx = false, groups = [], pageRefs = [], onPageRef, onResize }: CanvasProps) {
+export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onConnect, onDropTemplate, onInvalidConnection, showDmx = false, groups = [], pageRefs = [], onPageRef, onResize, onToggleDefect }: CanvasProps) {
   const container = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
   const [size, setSize] = useState({ width: 800, height: 600 });
@@ -151,9 +153,17 @@ export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onC
     return port ? { deviceId, portId, port } : null;
   }
 
+  const isDefective = (deviceId: string, portId: string) => boxById.get(deviceId)?.defects.has(portId) ?? false;
+  const DEFECT_MESSAGE = 'Dieser Anschluss ist als defekt markiert – bitte einen anderen wählen (Markierung in den Eigenschaften oder per Rechtsklick entfernen).';
+
   function startConnect(ref: PortRef, e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) {
     if (!editable) return;
+    if ('button' in e.evt && e.evt.button !== 0) return;
     e.cancelBubble = true;
+    if (isDefective(ref.deviceId, ref.portId)) {
+      onInvalidConnection(DEFECT_MESSAGE);
+      return;
+    }
     const box = boxById.get(ref.deviceId);
     const anchor = box && anchorOf(box, ref.portId);
     if (anchor) setConnecting({ from: ref, pointer: { x: anchor.x, y: anchor.y } });
@@ -168,6 +178,10 @@ export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onC
     const from = connecting.from;
     setConnecting(null);
     if (!ref || (ref.deviceId === from.deviceId && ref.portId === from.portId)) return;
+    if (isDefective(ref.deviceId, ref.portId)) {
+      onInvalidConnection(DEFECT_MESSAGE);
+      return;
+    }
     const oriented = orientConnection(from, ref);
     if (!oriented) {
       onInvalidConnection(
@@ -183,6 +197,7 @@ export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onC
   function candidateState(deviceId: string, port: EffectivePort): 'ok' | 'invalid' | null {
     if (!connecting) return null;
     if (deviceId === connecting.from.deviceId && port.id === connecting.from.portId) return null;
+    if (isDefective(deviceId, port.id)) return 'invalid';
     return orientConnection(connecting.from, { deviceId, portId: port.id, port }) ? 'ok' : 'invalid';
   }
 
@@ -605,7 +620,18 @@ export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onC
                           const stage = e.target.getStage();
                           if (stage) stage.container().style.cursor = '';
                         }}
+                        onContextMenu={(e) => {
+                          e.evt.preventDefault();
+                          e.cancelBubble = true;
+                          if (editable) onToggleDefect?.(box.device.id, port.id);
+                        }}
                       />
+                      {box.defects.has(port.id) && (
+                        <Group name="port-defect" id={`defect-${box.device.id}-${port.id}`} listening={false}>
+                          <Line points={[x - 6, y - 6, x + 6, y + 6]} stroke="#dc2626" strokeWidth={2.5} lineCap="round" />
+                          <Line points={[x + 6, y - 6, x - 6, y + 6]} stroke="#dc2626" strokeWidth={2.5} lineCap="round" />
+                        </Group>
+                      )}
                     </Group>
                   );
                 })}

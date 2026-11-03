@@ -797,6 +797,15 @@ export const texts = {
     remove: 'Zuordnung entfernen',
     section: 'Netzwerk-Kanäle',
   },
+  defects: {
+    title: 'Defekte Anschlüsse',
+    titleCores: 'Defekte Adern',
+    hint: 'Gilt nur für dieses Gerät im Projekt (nicht für die Vorlage). Defekte Anschlüsse bekommen im Signalfluss ein rotes X; neue Kabel lassen sich dort nicht stecken. Schneller: Rechtsklick auf den Anschluss.',
+    mark: (port: string) => `Defekt: ${port}`,
+    note: (port: string) => `Notiz zum Defekt: ${port}`,
+    notePlaceholder: 'Notiz, z. B. Wackelkontakt',
+    patch: 'defekt',
+  },
   flowPages: {
     title: 'Seiten',
     single: 'Eine Seite – unter „Seiten verwalten“ weitere Seiten anlegen, z. B. um Licht und Ton zu trennen',

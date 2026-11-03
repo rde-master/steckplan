@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { createEmptyProject } from '../model/project';
 import type { Cable, DeviceInstance, Project, Template } from '../model/schema';
 import { createYDocFromProject, readProjectFromYDoc } from '../model/ydoc';
+import { checkSignalFlow } from '../signalflow/checks';
+import { defectivePortIds, defectTargets, isPortDefective, setDefect } from '../signalflow/defects';
 import { createEmptyLibrary } from '../library/library';
 import { listCsv } from '../logistics/exports';
 import { buildPatchLists, checkNetworkChannels, entryForPort, setPortChannel, mixerNetworkRows, stageboxInputInfo, networkRoutes, patchId, readPatch, stageboxChannelLabels, updatePatchEntry, validAssignments, viaText } from './patch';
@@ -264,5 +266,34 @@ describe('Netzwerk-Kanäle: je Ausgang ein Pult-Kanal', () => {
     const project1 = p([{ portId: 'r', mixerId: 'Pult', channel: 4 }]);
     const broken = { ...project1, cables: project1.cables.filter((c) => c.id !== 'r') };
     expect(checkNetworkChannels(broken, lib).map((i) => i.message)).toEqual(['Keys · R: Kanal 4 auf Pult – keine durchgehende Kette (Quelle → Stagebox → Netzwerk → Pult).']);
+  });
+});
+
+describe('Defekte Anschlüsse', () => {
+  const lib = { templates };
+  const mark = (p: Project, id: string, ports: string[]) => ({ ...p, devices: p.devices.map((d) => (d.id === id ? { ...d, defectivePorts: ports.map((portId) => ({ portId })) } : d)) });
+
+  it('Multicore: Markierung gilt für die Ader (beide Enden); Liste der markierbaren Adern', () => {
+    const p = mark(project(), 'MC 1', ['s1']);
+    const mc = p.devices.find((d) => d.id === 'MC 1')!;
+    const tpl = templates.find((x) => x.id === mc.templateId);
+    expect(isPortDefective(mc, tpl, 's1:a')).toBe(true);
+    expect(isPortDefective(mc, tpl, 's1:b')).toBe(true);
+    expect(isPortDefective(mc, tpl, 's2:a')).toBe(false);
+    expect(defectTargets(tpl).map((x) => x.key)).toContain('s1');
+    expect([...defectivePortIds(mc, tpl)].sort()).toEqual(['s1:a', 's1:b']);
+    expect(setDefect(mc, 's1', false)).toBeUndefined();
+    expect(setDefect(mc, 's2', { note: 'kratzt' })).toEqual([{ portId: 's1' }, { portId: 's2', note: 'kratzt' }]);
+  });
+
+  it('Ton-Patch nennt defekte Adern und Pult-Anschlüsse auf dem Weg; Prüfung warnt bei belegtem defektem Anschluss', () => {
+    const p = mark(mark(project(), 'MC 1', ['s1']), 'FOH', ['in3']);
+    const [list] = buildPatchLists(p, lib);
+    expect(list!.inputs[0]!.defects).toEqual(['MC 1 · Send 1']);
+    expect(viaText(list!.inputs[0]!)).toBe('MC 1 · Send 1 (Bühne) → FOH · In 1 – DEFEKT: MC 1 · Send 1');
+    expect(list!.inputs[1]!.defects).toEqual([]);
+    expect(list!.inputs[2]!.defects).toEqual(['FOH · In 3']);
+    const issues = checkSignalFlow(p, lib).filter((i) => i.id.startsWith('defect:'));
+    expect(issues.map((i) => i.message).sort()).toEqual(['MC 1: Anschluss „Send 1 (Bühne)“ ist als defekt markiert, aber belegt.', 'MC 1: Anschluss „Send 1 (FOH)“ ist als defekt markiert, aber belegt.']);
   });
 });

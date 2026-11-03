@@ -8,6 +8,7 @@ import {
   contrastText,
   curveCable,
   DEFAULT_DEVICE_COLOR,
+  defectivePortIds,
   isMulticore,
   routeCable,
   templatePorts,
@@ -50,6 +51,8 @@ export interface DeviceBox {
   owner?: string;
   /** Anschluss → angezeigter Text */
   labels: Map<string, string>;
+  /** defekte Anschlüsse (rotes X) */
+  defects: Set<string>;
 }
 
 export interface CableLine {
@@ -133,7 +136,7 @@ export function buildBoxes(devices: DeviceInstance[], library: Library | null, s
     const unplaced = template?.kind === 'device' && !device.stagePlan;
     const dimmed = !deviceVisible(display.filter, device, template);
     const dmxLabel = device.dmx ? formatDmx(device.dmx.universe, device.dmx.address) : undefined;
-    boxes.push({ device, template, x: pos.x, y: pos.y, layout, extraHeader, fill, text: contrastText(fill), multicore, stageObject, unplaced, dimmed, labels, ...(dmxLabel ? { dmxLabel } : {}), ...(person ? { person } : {}), ...(owner ? { owner } : {}) });
+    boxes.push({ device, template, x: pos.x, y: pos.y, layout, extraHeader, fill, text: contrastText(fill), multicore, stageObject, unplaced, dimmed, labels, defects: defectivePortIds(device, template), ...(dmxLabel ? { dmxLabel } : {}), ...(person ? { person } : {}), ...(owner ? { owner } : {}) });
   });
   return boxes;
 }
