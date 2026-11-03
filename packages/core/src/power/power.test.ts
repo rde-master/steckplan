@@ -3,7 +3,7 @@ import type { Cable, DeviceInstance, PortDef, Template } from '../model/schema';
 import { createEmptyLibrary } from '../library/library';
 import { createEmptyProject } from '../model/project';
 import { listCsv } from '../logistics/exports';
-import { buildPowerReport, checkPower, devicePowerW, formatAmps, formatWatts } from './power';
+import { buildPowerReport, checkPower, devicePowerW, formatAmps, formatWatts, powerNotes } from './power';
 
 const T0 = '2026-01-01T00:00:00.000Z';
 const t = (x: Partial<Template> & Pick<Template, 'id' | 'kind' | 'name'>): Template => ({ version: 1, updatedAt: T0, ...x });
@@ -61,6 +61,21 @@ describe('Strom: Last je Abgang und Phase', () => {
     expect(report.distributors.find((d) => d.device.id === 'Leiste')!.outlets.map((o) => o.phase)).toEqual(['L1', 'L1']);
     expect(report.unconnected.map((u) => u.device.id)).toEqual(['Spot lose']);
     expect(devicePowerW(devices[5]!, templates[3])).toBe(1000);
+  });
+
+  it('Anzeige im Signalfluss: Summe je Verteiler/Leiste, Strom je Abgang, Leistung je Verbraucher', () => {
+    const notes = powerNotes({ devices, cables }, { templates });
+    // Leiste an L1: 2 × 575 W = 1150 W ≈ 5,0 A (ohne Absicherung)
+    expect(notes.devices.get('Leiste')).toEqual({ text: '⚡ 5,0 A · 1,15 kW', level: 'ok' });
+    expect(notes.outlets.get('Leiste/S1')).toEqual({ text: '2,5 A', level: 'ok' });
+    // Abgang mit Absicherung: Auslastung; Dimmer 30 A an 16 A → Überlast
+    expect(notes.outlets.get('HV/A3')).toEqual({ text: '30,0 A (188 %)', level: 'over' });
+    expect(notes.outlets.has('HV/A2')).toBe(false); // nichts angeschlossen
+    // Hauptverteiler (3P, 32 A): höchster Phasenstrom 30 A → 94 %
+    expect(notes.devices.get('HV')).toEqual({ text: '⚡ 30,0 A · 9,05 kW · 94 %', level: 'high' });
+    // Verbraucher: eigene Leistung (auch ohne Stromkabel)
+    expect(notes.devices.get('Spot 3')).toEqual({ text: '⚡ 1 kW', level: 'ok' });
+    expect(notes.devices.get('Spot lose')).toEqual({ text: '⚡ 575 W', level: 'ok' });
   });
 
   it('Überlast, hohe Auslastung, Schieflast und nicht angeschlossene Geräte', () => {

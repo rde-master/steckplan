@@ -303,6 +303,8 @@ export const texts = {
     powerW: 'Leistung (W)',
     resetNetworkChannels: (n: number | undefined) => `Anzahl der Vorlage übernehmen${n !== undefined ? ` (${n})` : ''}`,
     showChannels: 'Kanäle',
+    showPower: 'Strom',
+    showPowerTitle: 'Eingestellte Maximalwerte (nicht live): Summe je Verteiler/Mehrfachsteckdose, Strom je Abgang, Leistung je Gerät',
     cableStyle: 'Kabel',
     cableStyles: { square: 'eckig', curved: 'geschwungen' },
     cableStyleReadOnly: 'Nur mit Bearbeiten-Zugang änderbar (gilt für das ganze Projekt)',

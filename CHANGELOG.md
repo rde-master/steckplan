@@ -7,6 +7,10 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+### Hinzugefügt
+
+- Signalfluss: Strom in den Kästen (eingestellte Maximalwerte, nicht live) – an Verteilern und Mehrfachsteckdosen die Summe („⚡ 10,0 A · 2,3 kW · 63 %“), an jedem belegten Strom-Abgang der Strom („A1 · 10,0 A (63 %)“), an Verbrauchern die Leistung („⚡ 1,15 kW“); ab 80 % Auslastung orange, ab 100 % rot; ein-/ausblendbar über „In Kästen: Strom“
+
 ## [0.18.0] - 2026-11-03
 
 ### Hinzugefügt
