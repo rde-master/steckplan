@@ -81,8 +81,20 @@ export interface DistributorReport {
   depth: number;
 }
 
+/** Stromkreis: ab einem abgesicherten Abgang (bzw. ab der Einspeisung) bis zum nächsten abgesicherten Abgang */
+export interface Circuit {
+  /** „Verteiler · A1“ */
+  label: string;
+  /** Mehrfachsteckdosen in diesem Stromkreis (hintereinander oder nebeneinander) */
+  strips: DeviceInstance[];
+}
+
+/** Ab so vielen Mehrfachsteckdosen in einem Stromkreis gibt es einen Hinweis */
+export const MAX_STRIPS_PER_CIRCUIT = 3;
+
 export interface PowerReport {
   distributors: DistributorReport[];
+  circuits: Circuit[];
   /** Geräte mit Leistung, aber ohne Stromkabel */
   unconnected: { device: DeviceInstance; powerW: number }[];
   /** Gesamtleistung aller Hauptverteiler */
@@ -103,21 +115,43 @@ function powerIndex(cables: Cable[], devices: Map<string, DeviceInstance>, templ
   return index;
 }
 
+/**
+ * Einspeisung eines Hauptverteilers: Phase der Zuleitung; ohne Angabe Drehstrom nur, wenn erkennbar
+ * (Abgang mit „3P“ oder Abgänge auf mehreren Phasen) – sonst einphasig (Phase der Abgänge, sonst L1).
+ * Beispiel: Wandsteckdose ohne Zuleitung → einphasig.
+ */
+export function rootFeed(template: Template | undefined): Feed {
+  const { inputs, outputs } = powerPorts(template);
+  const declared = inputs[0]?.phase;
+  if (declared) return declared;
+  const phases = new Set(outputs.map((o) => o.phase).filter((p): p is Feed => p !== undefined));
+  if (phases.has('3P') || phases.size > 1) return '3P';
+  return [...phases][0] ?? 'L1';
+}
+
+/** Mehrfachsteckdose = Unterverteiler (mit Zuleitung) ohne abgesicherte Abgänge */
+function isStrip(template: Template | undefined): boolean {
+  const { inputs, outputs } = powerPorts(template);
+  return inputs.length > 0 && outputs.length > 0 && outputs.every((o) => !o.fuseA);
+}
+
 /** Leistungsbilanz des ganzen Projekts. */
 export function buildPowerReport(project: ProjectLike, library: Pick<Library, 'templates'>): PowerReport {
   const templates = new Map(library.templates.map((t) => [t.id, t]));
   const devices = new Map(project.devices.map((d) => [d.id, d]));
   const index = powerIndex(project.cables, devices, templates);
   const reports: DistributorReport[] = [];
+  const circuits: Circuit[] = [];
 
   /** Phase, auf die ein Anschluss bei gegebener Einspeisung wirkt */
   const effective = (portPhase: Feed | undefined, feed: Feed): Feed => (feed === '3P' ? (portPhase ?? '3P') : feed);
 
   /** Last eines Geräts (inkl. allem dahinter) bei Einspeisung `feed` */
-  const loadOf = (device: DeviceInstance, feed: Feed, depth: number, visited: Set<string>, fedFrom: string | undefined, collect: boolean): PhaseLoad => {
+  const loadOf = (device: DeviceInstance, feed: Feed, depth: number, visited: Set<string>, fedFrom: string | undefined, collect: boolean, circuit?: Circuit): PhaseLoad => {
     if (visited.has(device.id) || depth > MAX_DEPTH) return emptyLoad();
     visited.add(device.id);
     const template = templates.get(device.templateId);
+    if (circuit && depth > 0 && isStrip(template)) circuit.strips.push(device);
     const own = devicePowerW(device, template);
     let load = feed === '3P' ? { L1: own / 3, L2: own / 3, L3: own / 3 } : { ...emptyLoad(), [feed]: own };
     const { inputs, outputs } = powerPorts(template);
@@ -132,7 +166,13 @@ export function buildPowerReport(project: ProjectLike, library: Pick<Library, 't
       const phase = effective(port.phase, feed);
       const other = index.get(`${device.id}/${port.id}`);
       const child = other ? devices.get(other.deviceId) : undefined;
-      const childLoad = child ? loadOf(child, phase, depth + 1, visited, `${device.label} · ${port.label}`, collect) : emptyLoad();
+      // abgesicherter Abgang (oder Einspeisung ohne übergeordneten Stromkreis) beginnt einen neuen Stromkreis
+      let outletCircuit = circuit;
+      if (child && (port.fuseA || !circuit)) {
+        outletCircuit = { label: `${device.label} · ${port.label}`, strips: [] };
+        if (collect) circuits.push(outletCircuit);
+      }
+      const childLoad = child ? loadOf(child, phase, depth + 1, visited, `${device.label} · ${port.label}`, collect, outletCircuit) : emptyLoad();
       const current = Math.max(...PHASES.map((p) => amps(childLoad[p])));
       outlets.push({
         portId: port.id,
@@ -164,7 +204,7 @@ export function buildPowerReport(project: ProjectLike, library: Pick<Library, 't
   const visited = new Set<string>();
   let total = emptyLoad();
   for (const root of roots) {
-    const feed = powerPorts(templates.get(root.templateId)).inputs[0]?.phase ?? '3P';
+    const feed = rootFeed(templates.get(root.templateId));
     total = add(total, loadOf(root, feed, 0, visited, undefined, true));
   }
 
@@ -173,7 +213,7 @@ export function buildPowerReport(project: ProjectLike, library: Pick<Library, 't
     .map((d) => ({ device: d, powerW: devicePowerW(d, templates.get(d.templateId)) }))
     .filter((x) => x.powerW > 0)
     .sort((a, b) => a.device.label.localeCompare(b.device.label, 'de', { numeric: true }));
-  return { distributors: reports, unconnected, total };
+  return { distributors: reports, circuits, unconnected, total };
 }
 
 export type PowerLevel = 'ok' | 'high' | 'over';
@@ -253,6 +293,15 @@ export function checkPower(project: ProjectLike, library: Pick<Library, 'templat
       severity: 'info',
       message: `${report.unconnected.length === 1 ? '1 Gerät hat' : `${report.unconnected.length} Geräte haben`} Leistung, aber keinen Stromanschluss (${report.unconnected.slice(0, 5).map((u) => u.device.label).join(', ')}${report.unconnected.length > 5 ? ' …' : ''}).`,
       objectIds: report.unconnected.map((u) => u.device.id),
+    });
+  }
+  for (const c of report.circuits) {
+    if (c.strips.length <= MAX_STRIPS_PER_CIRCUIT) continue;
+    issues.push({
+      id: `power-strips:${c.label}`,
+      severity: 'info',
+      message: `${c.label}: ${c.strips.length} Mehrfachsteckdosen in einem Stromkreis (${c.strips.map((d) => d.label).join(', ')}) – besser höchstens ${MAX_STRIPS_PER_CIRCUIT} und nicht hintereinander stecken.`,
+      objectIds: c.strips.map((d) => d.id),
     });
   }
   return issues;
