@@ -20,7 +20,7 @@ import { useEditor } from '../../lib/editor';
 import { useLongPress } from '../../lib/useLongPress';
 import { useEdgeScroll } from '../../lib/useEdgeScroll';
 import { DIMMED_OPACITY } from '../../lib/display';
-import { canvasInk, useDarkMode } from '../../lib/useDarkMode';
+import { canvasInk, useCanvasDark, type CanvasTheme } from '../../lib/useDarkMode';
 import { formatLength, scaleBar, type MulticoreRoute, type StageCable, type StageGroupFrame, type StageItem } from './model';
 
 export interface StagePt {
@@ -33,6 +33,8 @@ export interface StageCanvasProps {
   cables: StageCable[];
   multicores: MulticoreRoute[];
   showCables: boolean;
+  /** Fläche hell/dunkel (auto = Systemdesign) */
+  theme?: CanvasTheme;
   /** welche Texte am Plan stehen (je Browser gemerkt) */
   texts?: { labels: boolean; people: boolean; meters: boolean; cableNames: boolean };
   /** Beschriftung (Länge) für ein ausgewähltes Kabel bzw. Multicore */
@@ -89,7 +91,7 @@ export function StagePlanCanvas(props: StageCanvasProps) {
   const { items, shapes, lockedLayers, background, devices, templates, gridMm, snap, editable, cables, multicores, showCables } = props;
   const show = props.texts ?? { labels: true, people: true, meters: true, cableNames: false };
   // Schrift auf der Fläche: weiß bei dunklem, schwarz bei hellem Hintergrund
-  const dark = useDarkMode();
+  const dark = useCanvasDark(props.theme);
   const ink = canvasInk(dark);
   const frames = props.groupFrames ?? [];
   const container = useRef<HTMLDivElement>(null);
@@ -358,7 +360,8 @@ export function StagePlanCanvas(props: StageCanvasProps) {
   return (
     <div
       ref={container}
-      className="relative h-full w-full overflow-hidden bg-white dark:bg-slate-950"
+      className={`relative h-full w-full overflow-hidden ${dark ? 'bg-slate-950' : 'bg-white'}`}
+      data-canvas-theme={dark ? 'dark' : 'light'}
       style={{
         backgroundImage: 'linear-gradient(rgba(100,116,139,0.18) 1px, transparent 1px), linear-gradient(90deg, rgba(100,116,139,0.18) 1px, transparent 1px)',
         backgroundSize: `${visualGrid}px ${visualGrid}px`,

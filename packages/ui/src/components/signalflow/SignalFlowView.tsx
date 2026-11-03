@@ -24,6 +24,7 @@ import {
   type Library,
   type Template,
 } from '@steckplan/core';
+import { CanvasThemeSwitch } from '../CanvasThemeSwitch';
 import { useEditor } from '../../lib/editor';
 import type { UndoApi } from '../../lib/undo';
 import { useIssues } from '../../lib/useIssues';
@@ -397,6 +398,9 @@ export function SignalFlowView({ doc, data, library, editable, undo }: { doc: Y.
                 </button>
               ))}
             </span>
+            <span className="ml-2">
+              <CanvasThemeSwitch value={display.canvasTheme} onChange={(canvasTheme) => setDisplay({ canvasTheme })} />
+            </span>
           </span>
         }
       />
@@ -438,6 +442,7 @@ export function SignalFlowView({ doc, data, library, editable, undo }: { doc: Y.
             onPageRef={(ref) => jumpToDevice(ref.targetDeviceId)}
             onResize={resize}
             onToggleDefect={toggleDefect}
+            theme={display.canvasTheme}
           />
           <Minimap boxes={boxes} viewport={viewport} />
           {message && (

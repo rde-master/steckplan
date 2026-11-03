@@ -808,6 +808,13 @@ export const texts = {
     remove: 'Zuordnung entfernen',
     section: 'Netzwerk-Kanäle',
   },
+  canvasTheme: {
+    label: 'Fläche',
+    auto: 'Auto',
+    light: 'Hell',
+    dark: 'Dunkel',
+    autoTitle: 'Wie das Systemdesign (hell oder dunkel)',
+  },
   defects: {
     title: 'Defekte Anschlüsse',
     titleCores: 'Defekte Adern',

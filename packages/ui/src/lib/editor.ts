@@ -1,5 +1,6 @@
 // Zustand des Editors (pro geöffnetem Projekt): Auswahl, Ansicht, Optionen.
 import { create } from 'zustand';
+import type { CanvasTheme } from './useDarkMode';
 import { EMPTY_FILTER, type Filter } from '@steckplan/core';
 
 export type ColorMode = 'device' | 'category' | 'owner' | 'trailer';
@@ -78,6 +79,8 @@ export interface SignalFlowDisplay {
   peopleOnBoxes: boolean;
   /** Pult-Kanal an den Eingängen digitaler Stageboxen („→ FOH 12“) */
   channelsOnBoxes: boolean;
+  /** Fläche hell/dunkel (auto = Systemdesign) */
+  canvasTheme: CanvasTheme;
 }
 
 export type StagePanel = 'library' | 'unplaced' | 'layers' | 'background';
@@ -93,10 +96,12 @@ export interface StagePlanDisplay {
   cableNames: boolean;
   /** Reiter links */
   panel: StagePanel;
+  /** Fläche hell/dunkel (auto = Systemdesign) */
+  canvasTheme: CanvasTheme;
 }
 
 const STAGE_DISPLAY_KEY = 'steckplan.stageDisplay';
-const DEFAULT_STAGE_DISPLAY: StagePlanDisplay = { labels: true, people: true, meters: true, cableNames: false, panel: 'library' };
+const DEFAULT_STAGE_DISPLAY: StagePlanDisplay = { labels: true, people: true, meters: true, cableNames: false, panel: 'library', canvasTheme: 'auto' };
 
 function loadStageDisplay(): StagePlanDisplay {
   try {
@@ -116,7 +121,7 @@ function saveStageDisplay(display: StagePlanDisplay): void {
 }
 
 const DISPLAY_KEY = 'steckplan.signalflowDisplay';
-const DEFAULT_DISPLAY: SignalFlowDisplay = { ownerInLibrary: false, ownerOnBoxes: false, peopleOnBoxes: true, channelsOnBoxes: true };
+const DEFAULT_DISPLAY: SignalFlowDisplay = { ownerInLibrary: false, ownerOnBoxes: false, peopleOnBoxes: true, channelsOnBoxes: true, canvasTheme: 'auto' };
 
 function loadDisplay(): SignalFlowDisplay {
   try {

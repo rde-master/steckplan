@@ -9,6 +9,8 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Hinzugefügt
 
+- Bühnenplan und Signalfluss: Umschalter „Fläche: Auto · Hell · Dunkel“ für die Zeichenfläche (je Ansicht, je Browser bzw. App gemerkt; „Auto“ folgt dem Systemdesign); die Schrift passt sich an
+
 - Bühnenplan: Ebenen sortierbar („Nach oben“/„Nach unten“ in der Ebenen-Liste); oben in der Liste = oben im Plan. Objekte werden nach Ebenen gezeichnet, Gruppenrahmen direkt unter den Objekten der untersten Ebene ihrer Mitglieder (auch im PDF)
 
 - Bühnenplan, „Nicht platziert“: Suche (Kennung, Vorlage, Person, Besitzer, Gegenstelle), nach Kategorien gruppiert, und je Gerät, wo es eingesteckt ist („→ Stagebox · In 3“ / „← Pult · Aux 1“)
