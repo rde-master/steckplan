@@ -87,6 +87,25 @@ export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onC
   const getPanView = useCallback(() => useEditor.getState().view, []);
   const growBand = useCallback((p: { x: number; y: number }) => setBand((b) => (b ? { ...b, x2: p.x, y2: p.y } : b)), []);
   useEdgeScroll({ active: band !== null, container, getView: getPanView, setView, onPointerWorld: growBand, onRelease: () => finishBand() });
+  // Auch beim Ziehen eines Kastens oder Kabels am Rand scrollen; Kasten bzw. Kabelende bleibt unter dem Zeiger
+  const dragging = useRef<{ node: Konva.Node; box: DeviceBox; offset: { x: number; y: number } } | null>(null);
+  const [draggingBox, setDraggingBox] = useState(false);
+  useEdgeScroll({
+    active: draggingBox || connecting !== null,
+    container,
+    getView: getPanView,
+    setView,
+    onPointerWorld: (p) => {
+      const d = dragging.current;
+      if (d) {
+        d.node.position({ x: p.x - d.offset.x, y: p.y - d.offset.y });
+        handleDragMove(d.box, d.node, false);
+      } else setConnecting((c) => (c ? { ...c, pointer: p } : c));
+    },
+    onRelease: () => {
+      if (!dragging.current) setConnecting(null);
+    },
+  });
   const dragStart = useRef<{ id: string; x: number; y: number; others: { id: string; x: number; y: number }[] } | null>(null);
   const pinch = useRef<{ distance: number; zoom: number } | null>(null);
   const selectedDevices = useMemo(() => new Set(selection.devices), [selection.devices]);
@@ -475,6 +494,9 @@ export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onC
                 onDragStart={(e) => {
                   e.cancelBubble = true;
                   handleDragStart(box);
+                  const p = pointerWorld();
+                  dragging.current = { node: e.target, box, offset: p ? { x: p.x - e.target.x(), y: p.y - e.target.y() } : { x: 0, y: 0 } };
+                  setDraggingBox(true);
                 }}
                 onDragMove={(e) => {
                   e.cancelBubble = true;
@@ -482,6 +504,8 @@ export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onC
                 }}
                 onDragEnd={(e) => {
                   e.cancelBubble = true;
+                  dragging.current = null;
+                  setDraggingBox(false);
                   handleDragMove(box, e.target, true);
                 }}
                 onClick={(e) => {
