@@ -99,6 +99,10 @@ export interface StageCable {
   color: string;
   dimmed: boolean;
   issue: boolean;
+  /** direkt gesteckt (ohne Kabel) → gestrichelt */
+  direct: boolean;
+  /** Kabeltyp bzw. Bezeichnung (leer bei direkt gesteckt) */
+  name: string;
 }
 
 export function buildStageCables(cables: Cable[], devices: DeviceInstance[], library: Library | null, layers: Layer[], filter: Filter, issues: Issue[]): StageCable[] {
@@ -108,7 +112,6 @@ export function buildStageCables(cables: Cable[], devices: DeviceInstance[], lib
   const issueMap = cableIssueMap(issues);
   const result: StageCable[] = [];
   for (const cable of cables) {
-    if (cable.direct) continue;
     const from = byId.get(cable.from.deviceId);
     const to = byId.get(cable.to.deviceId);
     if (!from || !to || hidden.has(from.layerId) || hidden.has(to.layerId)) continue;
@@ -120,9 +123,11 @@ export function buildStageCables(cables: Cable[], devices: DeviceInstance[], lib
     result.push({
       cable,
       points: [a, ...cable.waypoints, b].flatMap((p) => [p.x, p.y]),
-      color: type?.defaultColor ?? '#475569',
+      color: cable.direct ? '#64748b' : (type?.defaultColor ?? '#475569'),
       dimmed: !cableVisible(filter, cable, type),
       issue: severity === 'error' || severity === 'warning',
+      direct: !!cable.direct,
+      name: cable.direct ? '' : cable.label || type?.name || '',
     });
   }
   return result;

@@ -36,7 +36,7 @@ import {
   type Shape,
   type Template,
 } from '@steckplan/core';
-import { useEditor, type StageTool } from '../../lib/editor';
+import { useEditor, type StagePanel, type StageTool } from '../../lib/editor';
 import type { UndoApi } from '../../lib/undo';
 import { useIssues } from '../../lib/useIssues';
 import { useIsNarrow } from '../../lib/useProjectDoc';
@@ -55,7 +55,7 @@ import { StagePlanCanvas, type StagePt } from './StagePlanCanvas';
 import { ShapeProperties, StageDeviceSection } from './StageProperties';
 
 const s = texts.stageplan;
-type Panel = 'library' | 'unplaced' | 'layers' | 'background';
+type Panel = StagePanel;
 const GRIDS = [100, 250, 500, 1000];
 
 export function StagePlanView({ doc, data, library, editable, undo }: { doc: Y.Doc; data: ProjectData; library: Library | null; editable: boolean; undo: UndoApi }) {
@@ -73,7 +73,11 @@ export function StagePlanView({ doc, data, library, editable, undo }: { doc: Y.D
   const showCables = useEditor((st) => st.showCables);
   const setShowCables = useEditor((st) => st.setShowCables);
   const narrow = useIsNarrow(900);
-  const [panel, setPanel] = useState<Panel>('library');
+  // Reiter links und Texte am Plan: je Browser gemerkt (bleibt beim Neuladen)
+  const stageDisplay = useEditor((st) => st.stageDisplay);
+  const setStageDisplay = useEditor((st) => st.setStageDisplay);
+  const panel = stageDisplay.panel;
+  const setPanel = (next: Panel) => setStageDisplay({ panel: next });
   const [mobilePanel, setMobilePanel] = useState<'none' | 'side' | 'properties'>('none');
   const [calibration, setCalibration] = useState<{ p1: StagePt; p2: StagePt; text: string } | null>(null);
   const [viewport, setViewport] = useState({ width: 800, height: 600 });
@@ -402,7 +406,7 @@ export function StagePlanView({ doc, data, library, editable, undo }: { doc: Y.D
       </div>
       <div className="min-h-0 flex-1">
         {panel === 'library' && <LibrarySidebar mode="stageplan" library={library} editable={editable} onAdd={(t) => addFromTemplate(t)} />}
-        {panel === 'unplaced' && <UnplacedPanel devices={data.devices} people={data.people} library={library} editable={editable} onPlace={(id) => placeUnplaced(id)} />}
+        {panel === 'unplaced' && <UnplacedPanel devices={data.devices} cables={data.cables} people={data.people} library={library} editable={editable} onPlace={(id) => placeUnplaced(id)} />}
         {panel === 'layers' && <LayersPanel doc={doc} origin={undo.origin} data={data} editable={editable} />}
         {panel === 'background' && <BackgroundPanel doc={doc} origin={undo.origin} background={data.background} editable={editable} />}
       </div>
@@ -491,6 +495,22 @@ export function StagePlanView({ doc, data, library, editable, undo }: { doc: Y.D
           <input type="checkbox" checked={showCables} onChange={(e) => setShowCables(e.target.checked)} />
           {s.showCables}
         </label>
+        <span className="ml-2 flex items-center gap-2 text-xs" role="group" aria-label={s.showTexts}>
+          <span className="text-slate-500">{s.showTexts}:</span>
+          {(
+            [
+              ['labels', s.textLabels],
+              ['people', s.textPeople],
+              ['meters', s.textMeters],
+              ['cableNames', s.textCableNames],
+            ] as const
+          ).map(([key, label]) => (
+            <label key={key} className="flex items-center gap-1">
+              <input type="checkbox" checked={stageDisplay[key]} onChange={(e) => setStageDisplay({ [key]: e.target.checked })} />
+              {label}
+            </label>
+          ))}
+        </span>
         {data.groups.length > 0 && (
           <label className="ml-2 flex items-center gap-1 text-xs" title={texts.groups.showTitle}>
             <input type="checkbox" checked={showStageGroups} onChange={(e) => setShowStageGroups(e.target.checked)} />
@@ -533,6 +553,7 @@ export function StagePlanView({ doc, data, library, editable, undo }: { doc: Y.D
             cables={stageCables}
             multicores={multicores}
             showCables={showCables}
+            texts={stageDisplay}
             groupFrames={groupFrames}
             lengthLabel={lengthLabel}
             onCableWaypoints={(id, waypoints) => {

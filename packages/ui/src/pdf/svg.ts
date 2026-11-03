@@ -132,7 +132,7 @@ export function stagePlanSvg(d: StageDrawing, view: Rect, widthPt: number, heigh
     for (const c of d.cables) {
       const pts: string[] = [];
       for (let k = 0; k < c.points.length; k += 2) pts.push(`${n(c.points[k]!)},${n(c.points[k + 1]!)}`);
-      out.push(`<polyline points="${pts.join(' ')}" fill="none" stroke="${c.issue ? '#dc2626' : c.color}" stroke-width="${n(stroke * 1.5)}" opacity="${c.dimmed ? DIMMED : 1}"/>`);
+      out.push(`<polyline points="${pts.join(' ')}" fill="none" stroke="${c.issue ? '#dc2626' : c.color}" stroke-width="${n(stroke * 1.5)}"${c.direct ? ` stroke-dasharray="${n(stroke * 6)} ${n(stroke * 4)}"` : ''} opacity="${c.dimmed ? DIMMED : 1}"/>`);
     }
   }
   // Text und Maßlinien

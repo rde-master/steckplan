@@ -9,10 +9,14 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Hinzugefügt
 
+- Bühnenplan, „Nicht platziert“: Suche (Kennung, Vorlage, Person, Besitzer, Gegenstelle), nach Kategorien gruppiert, und je Gerät, wo es eingesteckt ist („→ Stagebox · In 3“ / „← Pult · Aux 1“)
+- Bühnenplan: Texte am Plan einzeln ein-/ausblendbar – Kennung, Person, Meter (Höhe am Objekt und Länge an jedem Kabel) und Kabelname (neu: Kabeltyp bzw. Bezeichnung am Kabel); Auswahl und der gewählte Reiter links bleiben beim Neuladen erhalten (je Browser bzw. App)
+
 - Defekte Anschlüsse: Im Signalfluss lassen sich Anschlüsse eines Geräts (bei Multicores ganze Adern) als defekt markieren – in den Eigenschaften unter „Defekte Anschlüsse“ (mit Notiz) oder per Rechtsklick auf den Anschluss; gilt nur für dieses Gerät im Projekt, nicht für die Vorlage. Defekte Anschlüsse bekommen ein rotes X (auch im PDF), neue Kabel lassen sich dort nicht stecken, bestehende erscheinen als Warnung in „Prüfungen“; der Ton-Patch nennt defekte Anschlüsse/Adern auf dem Weg
 
 ### Geändert
 
+- Bühnenplan: direkt gesteckte Verbindungen (ohne Kabel) erscheinen jetzt gestrichelt (vorher gar nicht), auch im PDF
 - Projektformat 8 (defekte Anschlüsse); ältere Steckplan-Versionen können Projekte im Format 8 nicht öffnen
 
 ## [0.16.0] - 2026-11-02
