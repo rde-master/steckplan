@@ -7,6 +7,16 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+### Hinzugefügt
+
+- Bühnenplan: Reiter „Im Plan“ – alles, was im Bühnenplan steht, mit Suche, nach Kategorien, Person, Besitzer, Gegenstellen und Ebene; Klick wählt aus und holt es ins Bild
+- Signalfluss: Seitenleiste mit „Bibliothek“ und „Im Plan“ – alle Geräte im Signalfluss (alle Seiten) mit denselben Angaben und der Seite; Klick wechselt bei Bedarf die Seite, wählt aus und holt es ins Bild
+- Bühnenplan: Beim Einfügen (aus der Bibliothek oder „Nicht platziert“) fragt ein Fenster, auf welche Ebene – bei mehr als einer Ebene; vorausgewählt ist die aktive Ebene, gesperrte Ebenen sind nicht wählbar, eine ausgeblendete wird eingeblendet
+
+### Behoben
+
+- Bühnenplan: Ein aus „Nicht platziert“ eingefügtes Gerät landete auf seiner bisherigen Ebene statt auf der gewählten und war dadurch evtl. nicht zu sehen; außerdem werden Geräte auf einem Podest, an einem Stativ oder einer Traverse jetzt immer über ihrem Träger gezeichnet, auch wenn der Träger auf einer höheren Ebene liegt
+
 ## [0.17.0] - 2026-11-03
 
 ### Hinzugefügt

@@ -81,9 +81,11 @@ export interface SignalFlowDisplay {
   channelsOnBoxes: boolean;
   /** Fläche hell/dunkel (auto = Systemdesign) */
   canvasTheme: CanvasTheme;
+  /** Seitenleiste links: Bibliothek oder „Im Plan“ */
+  sidebar: 'library' | 'used';
 }
 
-export type StagePanel = 'library' | 'unplaced' | 'layers' | 'background';
+export type StagePanel = 'library' | 'placed' | 'unplaced' | 'layers' | 'background';
 
 export interface StagePlanDisplay {
   /** Kennung am Objekt */
@@ -121,7 +123,7 @@ function saveStageDisplay(display: StagePlanDisplay): void {
 }
 
 const DISPLAY_KEY = 'steckplan.signalflowDisplay';
-const DEFAULT_DISPLAY: SignalFlowDisplay = { ownerInLibrary: false, ownerOnBoxes: false, peopleOnBoxes: true, channelsOnBoxes: true, canvasTheme: 'auto' };
+const DEFAULT_DISPLAY: SignalFlowDisplay = { ownerInLibrary: false, ownerOnBoxes: false, peopleOnBoxes: true, channelsOnBoxes: true, canvasTheme: 'auto', sidebar: 'library' };
 
 function loadDisplay(): SignalFlowDisplay {
   try {

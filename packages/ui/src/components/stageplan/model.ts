@@ -33,7 +33,7 @@ export interface StageItem {
   tBarMm?: number;
   /** Gerät am Stativ: oben stehend oder unten hängend */
   mountSide?: 'top' | 'bottom';
-  /** Reihenfolge der Ebene (höher = weiter oben gezeichnet) */
+  /** Reihenfolge der Ebene (höher = weiter oben gezeichnet); mindestens die des Trägers, auf/an dem es steht/hängt */
   layerOrder: number;
 }
 
@@ -79,6 +79,18 @@ export function buildStageItems(devices: DeviceInstance[], library: Library | nu
       ...(device.mountedOnId && templates.get(byId.get(device.mountedOnId)?.templateId ?? '')?.kind === 'stand' ? { mountSide: device.mountSide ?? 'bottom' } : {}),
     });
   }
+  // Was auf etwas steht oder an etwas hängt (Podest, Stativ, Traverse), liegt mindestens auf der Ebene seines Trägers –
+  // sonst verschwindet es unter dem Träger, wenn dieser auf einer höheren Ebene liegt.
+  const byDevice = new Map(items.map((i) => [i.device.id, i]));
+  const effective = (item: StageItem, seen = new Set<string>()): number => {
+    const carrierId = item.device.mountedOnId ?? item.device.stagePlan?.standsOnId;
+    const carrier = carrierId ? byDevice.get(carrierId) : undefined;
+    if (!carrier || seen.has(item.device.id)) return item.layerOrder;
+    seen.add(item.device.id);
+    return Math.max(item.layerOrder, effective(carrier, seen));
+  };
+  const orders = new Map(items.map((i) => [i.device.id, effective(i)]));
+  for (const item of items) item.layerOrder = orders.get(item.device.id)!;
   // erst nach Ebene (unten → oben), innerhalb der Ebene Bühnenelemente, Traversen, Stative, Geräte
   return items.sort((a, b) => a.layerOrder - b.layerOrder || (ORDER[a.kind] ?? 3) - (ORDER[b.kind] ?? 3));
 }
