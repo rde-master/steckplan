@@ -30,7 +30,7 @@ export interface StageDrawing {
   background?: Background;
   showCables: boolean;
   /** Gruppenrahmen (optional) */
-  groupFrames?: { id: string; name: string; color: string; x: number; y: number; width: number; height: number }[];
+  groupFrames?: { id: string; name: string; color: string; layerOrder: number; x: number; y: number; width: number; height: number }[];
 }
 
 /** Umrandung aller Inhalte in Millimetern (mit Rand). */
