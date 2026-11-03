@@ -31,6 +31,8 @@ export interface StageCanvasProps {
   cables: StageCable[];
   multicores: MulticoreRoute[];
   showCables: boolean;
+  /** welche Texte am Plan stehen (je Browser gemerkt) */
+  texts?: { labels: boolean; people: boolean; meters: boolean; cableNames: boolean };
   /** Beschriftung (Länge) für ein ausgewähltes Kabel bzw. Multicore */
   lengthLabel: (id: string) => string | undefined;
   onCableWaypoints: (id: string, waypoints: StagePt[]) => void;
@@ -83,6 +85,7 @@ function useImage(src: string | undefined): HTMLImageElement | null {
 
 export function StagePlanCanvas(props: StageCanvasProps) {
   const { items, shapes, lockedLayers, background, devices, templates, gridMm, snap, editable, cables, multicores, showCables } = props;
+  const show = props.texts ?? { labels: true, people: true, meters: true, cableNames: false };
   const container = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
   const transformerRef = useRef<Konva.Transformer>(null);
@@ -464,9 +467,9 @@ export function StagePlanCanvas(props: StageCanvasProps) {
             const target = dockTargetId === item.device.id;
             const stroke = target ? '#16a34a' : selected ? '#0284c7' : item.kind === 'device' ? 'rgba(15,23,42,0.6)' : '#475569';
             const strokeWidth = px(target ? 4 : selected ? 3 : 1);
-            const label = item.person ? `${item.device.label}\n👤 ${item.person}` : item.device.label;
+            const label = [show.labels ? item.device.label : '', show.people && item.person ? `👤 ${item.person}` : ''].filter(Boolean).join('\n');
             const heightText = [
-              item.height.heightMm > 0 ? formatLength(item.height.heightMm) : '',
+              show.meters && item.height.heightMm > 0 ? formatLength(item.height.heightMm) : '',
               item.mountSide === 'top' ? 'steht oben' : '',
               showDmx && item.device.dmx ? `DMX ${formatDmx(item.device.dmx.universe, item.device.dmx.address)}` : '',
             ]
@@ -545,7 +548,8 @@ export function StagePlanCanvas(props: StageCanvasProps) {
                   </>
                 )}
                 <Text
-                  text={heightText ? `${label}\n${heightText}` : label}
+                  name="stage-label"
+                  text={[label, heightText].filter(Boolean).join('\n')}
                   x={-Math.max(w, px(120)) / 2}
                   y={labelY(item.kind, d, fontPx, px)}
                   width={Math.max(w, px(120))}
@@ -623,6 +627,7 @@ export function StagePlanCanvas(props: StageCanvasProps) {
                   />
                 )}
                 {selected && props.lengthLabel(route.device.id) && pts.length > 1 && <LengthTag points={pts} text={props.lengthLabel(route.device.id)!} px={px} fontPx={fontPx} />}
+                {!selected && show.meters && props.lengthLabel(route.device.id) && pts.length > 1 && <CableText points={pts} text={props.lengthLabel(route.device.id)!} px={px} fontPx={fontPx} />}
               </Group>
             );
           })}
@@ -641,6 +646,7 @@ export function StagePlanCanvas(props: StageCanvasProps) {
                     points={line.points}
                     stroke={line.issue ? '#dc2626' : line.color}
                     strokeWidth={px(selected ? 4 : 2)}
+                    dash={line.direct ? [px(8), px(5)] : undefined}
                     lineJoin="round"
                     hitStrokeWidth={px(12)}
                     listening={pointerTool}
@@ -656,6 +662,11 @@ export function StagePlanCanvas(props: StageCanvasProps) {
                   />
                   {selected && editable && pointerTool && <RouteHandles points={pts} px={px} snap={snapped} onChange={(waypoints) => props.onCableWaypoints(line.cable.id, waypoints)} />}
                   {selected && props.lengthLabel(line.cable.id) && <LengthTag points={pts} text={props.lengthLabel(line.cable.id)!} px={px} fontPx={fontPx} />}
+                  {!selected &&
+                    (() => {
+                      const text = [show.cableNames ? line.name : '', show.meters ? (props.lengthLabel(line.cable.id) ?? '') : ''].filter(Boolean).join(' · ');
+                      return text ? <CableText points={pts} text={text} px={px} fontPx={fontPx} /> : null;
+                    })()}
                 </Group>
               );
             })}
@@ -826,6 +837,20 @@ function LengthTag({ points, text, px, fontPx }: { points: StagePt[]; text: stri
     <Group x={(p.x + q.x) / 2} y={(p.y + q.y) / 2} listening={false}>
       <Rect x={px(8)} y={-px(10)} width={text.length * fontPx * 0.58 + px(10)} height={px(20)} fill="#0f172a" opacity={0.85} cornerRadius={px(4)} />
       <Text name="length-tag" text={text} x={px(13)} y={-px(6)} fontSize={fontPx} fill="#ffffff" />
+    </Group>
+  );
+}
+
+/** Name/Länge an einem Kabel (nicht ausgewählt): heller Kasten in der Mitte */
+function CableText({ points, text, px, fontPx }: { points: StagePt[]; text: string; px: (n: number) => number; fontPx: number }) {
+  const mid = Math.floor((points.length - 1) / 2);
+  const p = points[mid]!;
+  const q = points[mid + 1] ?? p;
+  const size = fontPx * 0.85;
+  return (
+    <Group x={(p.x + q.x) / 2} y={(p.y + q.y) / 2} listening={false}>
+      <Rect x={px(6)} y={-px(8)} width={text.length * size * 0.58 + px(8)} height={px(16)} fill="#ffffff" opacity={0.85} stroke="#cbd5e1" strokeWidth={px(1)} cornerRadius={px(3)} />
+      <Text name="cable-text" text={text} x={px(10)} y={-px(5)} fontSize={size} fill="#334155" />
     </Group>
   );
 }

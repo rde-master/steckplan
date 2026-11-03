@@ -656,6 +656,7 @@ Jeder Meilenstein endet mit grünen Tests, lauffähigem Build (Desktop **und** D
 - Kastengröße und Kabellinien im Signalfluss (02.11.2026, Format 7): Kästen per schraffiertem Griff rechts unten in Breite und Höhe änderbar (nie kleiner als automatisch, Doppelklick = automatisch), Größe je Gerät im Projekt gespeichert und im PDF übernommen; Kabellinien eckig oder geschwungen als Projekteinstellung (Umschalter in der Signalfluss-Leiste, gilt auch im PDF)
 - Ton-Patch ohne Spalte „Stativ“ (02.11.2026): in Liste, PDF und CSV entfernt; vorhandene Angaben bleiben in der Datei, werden aber nicht mehr gezeigt
 - Defekte Anschlüsse (03.11.2026, Format 8): je Gerät im Projekt (nicht in der Bibliothek) markierbar, alle Anschlüsse, bei Multicores die ganze Ader; rotes X im Signalfluss und PDF; neue Kabel an defekte Anschlüsse werden verhindert, bestehende bleiben und erscheinen als Warnung; Ton-Patch zeigt „defekt“; Bedienung über Liste in den Eigenschaften (mit Notiz) und Rechtsklick auf den Anschluss
+- Bühnenplan-Anzeige (03.11.2026): „Nicht platziert“ mit Suche, Kategorien und Gegenstelle je Kabel; Texte am Plan (Kennung, Person, Meter = Höhe + Kabellänge, Kabelname) einzeln ein-/ausblendbar, persönlich je Browser gemerkt, ebenso der Reiter links; direkt gesteckte Verbindungen gestrichelt
 - Export-Vorschau (02.11.2026): im Export-Dialog daneben, live bei jeder Änderung; PDF blättern/vergrößern, CSV als Tabelle
 
 ---

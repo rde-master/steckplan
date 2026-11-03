@@ -3,7 +3,7 @@ import { Check, Eye, EyeOff, Lock, LockOpen, Plus, Ruler, User, Warehouse, X } f
 import { ICON } from '../icons';
 import { useRef, useState } from 'react';
 import type * as Y from 'yjs';
-import { addLayer, backgroundScale, devicePerson, isMulticore, personName, removeLayer, setBackground, updateLayer, type Background, type DeviceInstance, type Library, type Person } from '@steckplan/core';
+import { addLayer, backgroundScale, devicePerson, isMulticore, personName, removeLayer, setBackground, templatePorts, updateLayer, type Background, type Cable, type DeviceInstance, type Library, type Person } from '@steckplan/core';
 import { imageToBackground, isPdf, loadPdf, type LoadedPdf } from '../../lib/background';
 import { useEditor } from '../../lib/editor';
 import type { ProjectData } from '../../lib/useProjectData';
@@ -12,59 +12,119 @@ import { Banner, Button, Field, TextInput } from '../ui';
 
 const s = texts.stageplan;
 
-export function UnplacedPanel({ devices, people = [], library, editable, onPlace }: { devices: DeviceInstance[]; people?: Person[]; library: Library | null; editable: boolean; onPlace: (id: string) => void }) {
+export function UnplacedPanel({
+  devices,
+  cables = [],
+  people = [],
+  library,
+  editable,
+  onPlace,
+}: {
+  devices: DeviceInstance[];
+  cables?: Cable[];
+  people?: Person[];
+  library: Library | null;
+  editable: boolean;
+  onPlace: (id: string) => void;
+}) {
+  const [query, setQuery] = useState('');
   const templates = new Map((library?.templates ?? []).map((t) => [t.id, t]));
-  const unplaced = devices
+  const byId = new Map(devices.map((d) => [d.id, d]));
+  const owners = new Map((library?.masterData.owners ?? []).map((o) => [o.id, o.name]));
+  const categories = [...(library?.masterData.categories ?? [])].sort((a, b) => a.name.localeCompare(b.name, 'de'));
+  const portLabel = (device: DeviceInstance, portId: string) => templatePorts(templates.get(device.templateId)).find((p) => p.id === portId)?.label ?? portId;
+  /** Gegenstellen: „→ Stagebox · In 3“ (Signal geht hin) bzw. „← Pult · Aux 1“ */
+  const connections = (d: DeviceInstance) =>
+    cables.flatMap((c) => {
+      const mine = c.from.deviceId === d.id ? 'from' : c.to.deviceId === d.id ? 'to' : null;
+      if (!mine) return [];
+      const other = mine === 'from' ? c.to : c.from;
+      const device = byId.get(other.deviceId);
+      return device ? [`${mine === 'from' ? '→' : '←'} ${device.label} · ${portLabel(device, other.portId)}`] : [];
+    });
+  const q = query.trim().toLocaleLowerCase('de');
+  const rows = devices
     .filter((d) => !d.stagePlan && (templates.get(d.templateId)?.kind !== 'cableType' || isMulticore(templates.get(d.templateId))))
-    .sort((a, b) => a.label.localeCompare(b.label, 'de'));
+    .map((d) => {
+      const t = templates.get(d.templateId);
+      const person = personName(devicePerson(d, t, people));
+      const owner = d.ownerId ? owners.get(d.ownerId) : undefined;
+      return { d, t, person, owner, links: connections(d), categoryId: d.categoryOverride ?? t?.categoryId };
+    })
+    .filter((r) => !q || [r.d.label, r.t?.name, r.person, r.owner, ...r.links].some((x) => x?.toLocaleLowerCase('de').includes(q)))
+    .sort((a, b) => a.d.label.localeCompare(b.d.label, 'de', { numeric: true }));
+  const total = devices.filter((d) => !d.stagePlan && (templates.get(d.templateId)?.kind !== 'cableType' || isMulticore(templates.get(d.templateId)))).length;
+  const groups = [
+    ...categories.map((c) => ({ key: c.id, label: c.name, color: c.color, rows: rows.filter((r) => r.categoryId === c.id) })),
+    { key: '', label: s.noCategory, color: undefined, rows: rows.filter((r) => !r.categoryId || !categories.some((c) => c.id === r.categoryId)) },
+  ].filter((g) => g.rows.length > 0);
   return (
     <div className="h-full overflow-y-auto p-2">
       <p className="px-1 pb-2 text-xs text-slate-500">{s.unplacedHint}</p>
-      {unplaced.length === 0 ? (
+      {total === 0 ? (
         <p className="flex items-center gap-1 px-1 text-sm text-emerald-700 dark:text-emerald-400"><Check {...ICON} /> {s.allPlaced}</p>
       ) : (
-        <ul className="space-y-1" data-testid="unplaced-list">
-          {unplaced.map((d) => {
-            const t = templates.get(d.templateId);
-            const person = personName(devicePerson(d, t, people));
-            const owner = d.ownerId ? library?.masterData.owners.find((o) => o.id === d.ownerId)?.name : undefined;
-            return (
-              <li
-                key={d.id}
-                draggable={editable}
-                onDragStart={(e) => {
-                  e.dataTransfer.setData('application/x-steckplan-device', d.id);
-                  e.dataTransfer.effectAllowed = 'move';
-                }}
-                className={`flex items-center gap-2 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 ${editable ? 'cursor-grab' : ''}`}
-              >
-                <span className="h-3.5 w-3.5 shrink-0 rounded border border-slate-300" style={{ backgroundColor: d.colorOverride ?? t?.defaultColor ?? '#cbd5e1' }} />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate">{d.label}</span>
-                  {(person || owner) && (
-                    <span className="flex flex-wrap gap-x-2 text-xs text-slate-500 dark:text-slate-400">
-                      {person && (
-                        <span className="inline-flex min-w-0 items-center gap-0.5 text-sky-700 dark:text-sky-300" data-testid="unplaced-person" title={s.unplacedPerson}>
-                          <User size={12} aria-hidden /> <span className="truncate">{person}</span>
-                        </span>
+        <>
+          <TextInput type="search" aria-label={s.unplacedSearch} placeholder={s.unplacedSearch} value={query} onChange={(e) => setQuery(e.target.value)} />
+          {rows.length === 0 && <p className="px-1 pt-2 text-sm text-slate-500">{s.unplacedNoMatch}</p>}
+          <div className="mt-2" data-testid="unplaced-list">
+            {groups.map((group) => (
+              <details key={group.key || 'none'} open className="mb-2" data-testid={`unplaced-group-${group.key || 'none'}`}>
+                <summary className="flex cursor-pointer list-none items-center gap-1.5 px-1 pb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  {group.color && <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: group.color }} />}
+                  {group.label} <span className="font-normal">({group.rows.length})</span>
+                </summary>
+                <ul className="space-y-1">
+                  {group.rows.map(({ d, t, person, owner, links }) => (
+                    <li
+                      key={d.id}
+                      draggable={editable}
+                      onDragStart={(e) => {
+                        e.dataTransfer.setData('application/x-steckplan-device', d.id);
+                        e.dataTransfer.effectAllowed = 'move';
+                      }}
+                      className={`flex items-center gap-2 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 ${editable ? 'cursor-grab' : ''}`}
+                    >
+                      <span className="h-3.5 w-3.5 shrink-0 rounded border border-slate-300" style={{ backgroundColor: d.colorOverride ?? t?.defaultColor ?? '#cbd5e1' }} />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate">{d.label}</span>
+                        {(person || owner) && (
+                          <span className="flex flex-wrap gap-x-2 text-xs text-slate-500 dark:text-slate-400">
+                            {person && (
+                              <span className="inline-flex min-w-0 items-center gap-0.5 text-sky-700 dark:text-sky-300" data-testid="unplaced-person" title={s.unplacedPerson}>
+                                <User size={12} aria-hidden /> <span className="truncate">{person}</span>
+                              </span>
+                            )}
+                            {owner && (
+                              <span className="inline-flex min-w-0 items-center gap-0.5" data-testid="unplaced-owner" title={s.unplacedOwner}>
+                                <Warehouse size={12} aria-hidden /> <span className="truncate">{owner}</span>
+                              </span>
+                            )}
+                          </span>
+                        )}
+                        {links.length > 0 && (
+                          <span className="block text-xs text-slate-500 dark:text-slate-400" data-testid="unplaced-links" title={links.join('\n')}>
+                            {links.slice(0, 2).map((l) => (
+                              <span key={l} className="block truncate">
+                                {l}
+                              </span>
+                            ))}
+                            {links.length > 2 && <span className="block">{s.connectedMore(links.length - 2)}</span>}
+                          </span>
+                        )}
+                      </span>
+                      {editable && (
+                        <button type="button" className="rounded px-1.5 text-base leading-none text-slate-500 hover:bg-slate-200" aria-label={`${s.place}: ${d.label}`} onClick={() => onPlace(d.id)}>
+                          <Plus {...ICON} />
+                        </button>
                       )}
-                      {owner && (
-                        <span className="inline-flex min-w-0 items-center gap-0.5" data-testid="unplaced-owner" title={s.unplacedOwner}>
-                          <Warehouse size={12} aria-hidden /> <span className="truncate">{owner}</span>
-                        </span>
-                      )}
-                    </span>
-                  )}
-                </span>
-                {editable && (
-                  <button type="button" className="rounded px-1.5 text-base leading-none text-slate-500 hover:bg-slate-200" aria-label={`${s.place}: ${d.label}`} onClick={() => onPlace(d.id)}>
-                    <Plus {...ICON} />
-                  </button>
-                )}
-              </li>
-            );
-          })}
-        </ul>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            ))}
+          </div>
+        </>
       )}
     </div>
   );
