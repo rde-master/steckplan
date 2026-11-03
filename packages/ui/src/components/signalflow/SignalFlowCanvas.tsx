@@ -52,6 +52,8 @@ export interface GroupFrame {
 }
 
 const GRID = 10;
+/** Strom: Farbe bei hoher Auslastung (ab 80 %) bzw. Überlast; sonst Textfarbe des Kastens */
+const POWER_COLORS: Record<string, string | undefined> = { ok: undefined, high: '#b45309', over: '#dc2626' };
 /** schraffierter Griff rechts unten zum Ändern der Größe */
 const HANDLE = 14;
 const snap = (v: number) => Math.round(v / GRID) * GRID;
@@ -510,6 +512,20 @@ export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onC
                 {!box.template && <Text text="Vorlage fehlt" x={8} y={30} fontSize={11} fill="#dc2626" />}
                 {box.person && <Text name="person-label" text={`👤 ${box.person}`} x={8} y={27} width={width - 16} fontSize={11} fill={box.text} opacity={0.9} ellipsis wrap="none" />}
                 {box.owner && <Text name="owner-label" text={`Besitzer: ${box.owner}`} x={8} y={box.person ? 43 : 27} width={width - 16} fontSize={11} fill={box.text} opacity={0.8} ellipsis wrap="none" />}
+                {box.power && !box.multicore && (
+                  <Text
+                    name="power-label"
+                    text={box.power.text}
+                    x={8}
+                    y={27 + 16 * [box.person, box.owner].filter(Boolean).length}
+                    width={width - 16}
+                    fontSize={11}
+                    fontStyle={box.power.level === 'ok' ? 'normal' : 'bold'}
+                    fill={POWER_COLORS[box.power.level] ?? box.text}
+                    ellipsis
+                    wrap="none"
+                  />
+                )}
                 {box.unplaced && <Text name="unplaced-marker" text="⌖ nicht im Bühnenplan" x={0} y={height + 4} fontSize={10} fill={dark ? '#fbbf24' : '#b45309'} fontStyle="italic" listening={false} />}
                 {ends && (
                   <>
@@ -598,7 +614,7 @@ export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onC
                         width={port.side === 'left' ? leftWidth - 10 : width - 10}
                         align={port.side === 'left' ? 'left' : 'right'}
                         fontSize={11}
-                        fill={box.text}
+                        fill={POWER_COLORS[box.portLevels.get(port.id) ?? 'ok'] ?? box.text}
                         ellipsis
                         wrap="none"
                         listening={false}

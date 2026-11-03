@@ -176,6 +176,47 @@ export function buildPowerReport(project: ProjectLike, library: Pick<Library, 't
   return { distributors: reports, unconnected, total };
 }
 
+export type PowerLevel = 'ok' | 'high' | 'over';
+
+export interface PowerNote {
+  text: string;
+  level: PowerLevel;
+}
+
+function level(usage: number | undefined): PowerLevel {
+  return usage === undefined ? 'ok' : usage >= 1 ? 'over' : usage >= WARN_RATIO ? 'high' : 'ok';
+}
+
+/**
+ * Anzeige im Signalfluss (eingestellte Maximalwerte, nicht live):
+ * - je Verteiler/Mehrfachsteckdose die Summe („⚡ 9,6 A · 2,2 kW · 60 %“),
+ * - je Strom-Abgang, was daran hängt („2,1 A“, mit Auslastung bei Absicherung),
+ * - je Verbraucher seine Leistung („⚡ 150 W“).
+ */
+export function powerNotes(project: ProjectLike, library: Pick<Library, 'templates'>): { devices: Map<string, PowerNote>; outlets: Map<string, PowerNote> } {
+  const templates = new Map(library.templates.map((t) => [t.id, t]));
+  const report = buildPowerReport(project, library);
+  const devices = new Map<string, PowerNote>();
+  const outlets = new Map<string, PowerNote>();
+  for (const d of report.distributors) {
+    const max = Math.max(d.currentA.L1, d.currentA.L2, d.currentA.L3);
+    const current = d.feed === '3P' ? max : d.currentA[d.feed];
+    const parts = [`⚡ ${formatAmps(current)}`, formatWatts(totalW(d.load))];
+    if (d.usage !== undefined) parts.push(`${Math.round(d.usage * 100)} %`);
+    devices.set(d.device.id, { text: parts.join(' · '), level: level(d.usage) });
+    for (const o of d.outlets) {
+      if (o.devices.length === 0) continue;
+      outlets.set(`${d.device.id}/${o.portId}`, { text: o.usage !== undefined ? `${formatAmps(o.currentA)} (${Math.round(o.usage * 100)} %)` : formatAmps(o.currentA), level: level(o.usage) });
+    }
+  }
+  for (const device of project.devices) {
+    if (devices.has(device.id)) continue;
+    const w = devicePowerW(device, templates.get(device.templateId));
+    if (w > 0) devices.set(device.id, { text: `⚡ ${formatWatts(w)}`, level: 'ok' });
+  }
+  return { devices, outlets };
+}
+
 export function formatAmps(a: number): string {
   return `${a.toLocaleString('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} A`;
 }

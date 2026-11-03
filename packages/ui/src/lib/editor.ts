@@ -81,6 +81,8 @@ export interface SignalFlowDisplay {
   channelsOnBoxes: boolean;
   /** Fläche hell/dunkel (auto = Systemdesign) */
   canvasTheme: CanvasTheme;
+  /** Strom in den Kästen: Summe je Verteiler/Leiste, Strom je Abgang, Leistung je Verbraucher */
+  powerOnBoxes: boolean;
   /** Seitenleiste links: Bibliothek oder „Im Plan“ */
   sidebar: 'library' | 'used';
 }
@@ -123,7 +125,7 @@ function saveStageDisplay(display: StagePlanDisplay): void {
 }
 
 const DISPLAY_KEY = 'steckplan.signalflowDisplay';
-const DEFAULT_DISPLAY: SignalFlowDisplay = { ownerInLibrary: false, ownerOnBoxes: false, peopleOnBoxes: true, channelsOnBoxes: true, canvasTheme: 'auto', sidebar: 'library' };
+const DEFAULT_DISPLAY: SignalFlowDisplay = { ownerInLibrary: false, ownerOnBoxes: false, peopleOnBoxes: true, channelsOnBoxes: true, canvasTheme: 'auto', powerOnBoxes: true, sidebar: 'library' };
 
 function loadDisplay(): SignalFlowDisplay {
   try {
