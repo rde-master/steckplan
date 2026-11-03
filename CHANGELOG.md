@@ -7,6 +7,18 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-11-03
+
+### Hinzugefügt
+
+- Bühnenplan: Reiter „Im Plan“ – alles, was im Bühnenplan steht, mit Suche, nach Kategorien, Person, Besitzer, Gegenstellen und Ebene; Klick wählt aus und holt es ins Bild
+- Signalfluss: Seitenleiste mit „Bibliothek“ und „Im Plan“ – alle Geräte im Signalfluss (alle Seiten) mit denselben Angaben und der Seite; Klick wechselt bei Bedarf die Seite, wählt aus und holt es ins Bild
+- Bühnenplan: Beim Einfügen (aus der Bibliothek oder „Nicht platziert“) fragt ein Fenster, auf welche Ebene – bei mehr als einer Ebene; vorausgewählt ist die aktive Ebene, gesperrte Ebenen sind nicht wählbar, eine ausgeblendete wird eingeblendet
+
+### Behoben
+
+- Bühnenplan: Ein aus „Nicht platziert“ eingefügtes Gerät landete auf seiner bisherigen Ebene statt auf der gewählten und war dadurch evtl. nicht zu sehen; außerdem werden Geräte auf einem Podest, an einem Stativ oder einer Traverse jetzt immer über ihrem Träger gezeichnet, auch wenn der Träger auf einer höheren Ebene liegt
+
 ## [0.17.0] - 2026-11-03
 
 ### Hinzugefügt
@@ -370,7 +382,8 @@ Meilenstein M0 – Projektgerüst.
 - Docker-Image mit Datenvolume `/data` und Beispiel-`docker-compose.yml`
 - GitHub Actions: Tests und Smoke-Test bei jedem Push, Installer als Artefakte, Docker-Image `:develop`, Release-Workflow für Tags `vX.Y.Z`
 
-[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.17.0...develop
+[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.18.0...develop
+[0.18.0]: https://github.com/rde-master/steckplan/compare/v0.17.0...v0.18.0
 [0.17.0]: https://github.com/rde-master/steckplan/compare/v0.16.0...v0.17.0
 [0.16.0]: https://github.com/rde-master/steckplan/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/rde-master/steckplan/compare/v0.14.2...v0.15.0

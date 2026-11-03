@@ -25,6 +25,7 @@ import {
   type Template,
 } from '@steckplan/core';
 import { CanvasThemeSwitch } from '../CanvasThemeSwitch';
+import { DeviceList } from '../DeviceList';
 import { useEditor } from '../../lib/editor';
 import type { UndoApi } from '../../lib/undo';
 import { useIssues } from '../../lib/useIssues';
@@ -343,7 +344,44 @@ export function SignalFlowView({ doc, data, library, editable, undo }: { doc: Y.
     pending !== null &&
     [pending.from.deviceId, pending.to.deviceId].some((id) => isMulticore(templates.get(data.devices.find((d) => d.id === id)?.templateId ?? '')));
 
-  const sidebar = <LibrarySidebar library={library} editable={editable} onAdd={(t) => add(t)} />;
+  const pageName = new Map(pages.map((p) => [p.id, p.name]));
+  const sidebar = (
+    <div className="flex h-full flex-col">
+      <div className="grid grid-cols-2 gap-1 border-b border-slate-200 p-1 dark:border-slate-700" role="tablist" aria-label={texts.stageplan.panels.library}>
+        {(['library', 'used'] as const).map((key) => (
+          <button
+            key={key}
+            type="button"
+            role="tab"
+            aria-selected={display.sidebar === key}
+            onClick={() => setDisplay({ sidebar: key })}
+            className={`rounded px-2 py-1 text-xs ${display.sidebar === key ? 'bg-sky-600 text-white' : 'hover:bg-slate-200 dark:hover:bg-slate-700'}`}
+          >
+            {key === 'library' ? texts.stageplan.panels.library : texts.stageplan.panels.placed}
+          </button>
+        ))}
+      </div>
+      <div className="min-h-0 flex-1">
+        {display.sidebar === 'used' ? (
+          <DeviceList
+            devices={data.devices}
+            cables={data.cables}
+            people={data.people}
+            library={library}
+            testId="flow-used"
+            include={(_, t) => !t || t.kind === 'device' || isMulticore(t) || (showStageObjects && ['stageElement', 'truss', 'stand'].includes(t.kind))}
+            hint={texts.stageplan.flowUsedHint}
+            empty={<p className="px-1 text-sm text-slate-500">{texts.stageplan.flowUsedEmpty}</p>}
+            detail={(d) => (pages.length > 1 ? `${texts.stageplan.pageLabel}: ${pageName.get(devicePageId(d, pages)) ?? '–'}` : undefined)}
+            selected={new Set(selection.devices)}
+            onOpen={(id) => jumpToDevice(id)}
+          />
+        ) : (
+          <LibrarySidebar library={library} editable={editable} onAdd={(t) => add(t)} />
+        )}
+      </div>
+    </div>
+  );
   const properties = <PropertiesPanel doc={doc} origin={undo.origin} library={library} data={data} selection={selection} issues={issues} editable={editable} />;
 
   return (

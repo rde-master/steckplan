@@ -74,7 +74,8 @@ test('Bühnenplan: platzieren, andocken, Höhe, mitbewegen, zeichnen, Ebenen, Hi
   await expect(page.getByRole('tab', { name: 'Nicht platziert (1)' })).toBeVisible();
 
   // Stativ aus der Bibliothek in die Mitte setzen
-  await page.getByRole('button', { name: 'Hinzufügen: Lichtstativ' }).click();
+  await page.getByRole('button', { name: 'Hinzufügen: Lichtstativ' }).click();  // mehrere Ebenen → Fenster „Auf welche Ebene?“ (Vorauswahl: aktive Ebene)
+  await page.getByRole('dialog', { name: 'Auf welche Ebene?' }).getByRole('button', { name: 'Einfügen' }).click();
   await expect.poll(() => count(page, '.stage-device')).toBe(1);
   const standId = (await project(page.request, id)).devices.find((d: { templateId: string }) => d.templateId === stand.id).id;
 
@@ -83,7 +84,8 @@ test('Bühnenplan: platzieren, andocken, Höhe, mitbewegen, zeichnen, Ebenen, Hi
   const canvas = page.getByTestId('stageplan-canvas');
   const box = (await canvas.boundingBox())!;
   const standCenter = await center(page, `#stage-device-${standId}`);
-  await page.getByTestId('unplaced-list').getByRole('listitem').filter({ hasText: 'PAR 1' }).dragTo(canvas, { targetPosition: { x: standCenter.x - box.x + 10, y: standCenter.y - box.y + 10 } });
+  await page.getByTestId('unplaced-list').getByRole('listitem').filter({ hasText: 'PAR 1' }).dragTo(canvas, { targetPosition: { x: standCenter.x - box.x + 10, y: standCenter.y - box.y + 10 } });  // mehrere Ebenen → Fenster „Auf welche Ebene?“ (Vorauswahl: aktive Ebene)
+  await page.getByRole('dialog', { name: 'Auf welche Ebene?' }).getByRole('button', { name: 'Einfügen' }).click();
   await expect.poll(async () => (await project(page.request, id)).devices.find((d: { id: string }) => d.id === 'spot1').mountedOnId).toBe(standId);
   await expect(page.getByRole('tab', { name: 'Nicht platziert' })).toBeVisible();
   let data = await project(page.request, id);
@@ -120,7 +122,8 @@ test('Bühnenplan: platzieren, andocken, Höhe, mitbewegen, zeichnen, Ebenen, Hi
   // zweites Gerät auf das Stativ (max. 1) → Warnung
   await page.getByRole('tab', { name: 'Bibliothek' }).click();
   const s1 = await center(page, `#stage-device-${standId}`);
-  await page.getByRole('complementary', { name: 'Bibliothek' }).getByRole('listitem').filter({ hasText: 'Spot PAR' }).dragTo(canvas, { targetPosition: { x: s1.x - box.x - 10, y: s1.y - box.y - 10 } });
+  await page.getByRole('complementary', { name: 'Bibliothek' }).getByRole('listitem').filter({ hasText: 'Spot PAR' }).dragTo(canvas, { targetPosition: { x: s1.x - box.x - 10, y: s1.y - box.y - 10 } });  // mehrere Ebenen → Fenster „Auf welche Ebene?“ (Vorauswahl: aktive Ebene)
+  await page.getByRole('dialog', { name: 'Auf welche Ebene?' }).getByRole('button', { name: 'Einfügen' }).click();
   const checks = page.getByRole('region', { name: 'Prüfungen' });
   await expect(checks).toContainText('1 Warnung');
   await checks.getByRole('button', { name: /Prüfungen/ }).click();
