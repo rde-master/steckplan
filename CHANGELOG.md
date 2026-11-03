@@ -10,13 +10,11 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 ### Hinzugefügt
 
 - Strom: Hinweis in „Prüfungen“, wenn in einem Stromkreis (ab einem abgesicherten Abgang bzw. der Einspeisung) mehr als 3 Mehrfachsteckdosen stecken – hintereinander oder nebeneinander
-
 - Signalfluss: Strom in den Kästen (eingestellte Maximalwerte, nicht live) – an Verteilern und Mehrfachsteckdosen die Summe („⚡ 10,0 A · 2,3 kW · 63 %“), an jedem belegten Strom-Abgang der Strom („A1 · 10,0 A (63 %)“), an Verbrauchern die Leistung („⚡ 1,15 kW“); ab 80 % Auslastung orange, ab 100 % rot; ein-/ausblendbar über „In Kästen: Strom“
 
 ### Behoben
 
 - Strom: Hauptverteiler ohne Phasenangabe an der Zuleitung (z. B. Wandsteckdose ohne Zuleitung) galten als Drehstrom und lösten eine Schieflast-Warnung aus; jetzt gilt Drehstrom nur, wenn er erkennbar ist (Zuleitung oder Abgang mit „3P“ bzw. Abgänge auf mehreren Phasen), sonst einphasig
-
 - Signalfluss und Bühnenplan: Beim Ziehen eines Kastens, Objekts oder Kabels an den Rand scrollt die Ansicht jetzt mit (bisher nur beim Markieren); das Gezogene bleibt unter dem Mauszeiger
 
 ## [0.18.0] - 2026-11-03
