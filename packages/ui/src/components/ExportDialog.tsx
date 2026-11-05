@@ -4,6 +4,7 @@ import { ICON } from './icons';
 import { useState } from 'react';
 import { ExportPreview } from './ExportPreview';
 import { can, formatAppTitle, isFilterActive, sortPages, VERSION, type GroupBy, type Issue, type Library, type ProjectMeta } from '@steckplan/core';
+import { getDesktop } from '../lib/desktop';
 import { api, errorMessage } from '../lib/api';
 import { useEditor } from '../lib/editor';
 import { useSession } from '../lib/session';
@@ -72,8 +73,34 @@ export function ExportDialog({
   const canSeeSecrets = !!session && can(session.access, 'viewSecrets');
   const set = (patch: Partial<ExportOptions>) => setOpts((o) => ({ ...o, ...patch }));
 
+  const [qrNote, setQrNote] = useState<string | null>(null);
+
+  /** Etiketten: QR-Code zur Leseansicht – Einstellungen, Adresse und Lese-Schlüssel (legt ihn mit Bearbeiten-Zugang an) */
+  async function labelQr(): Promise<{ base: string; token: string; hint: string } | undefined> {
+    const settings = await api.getLabelQr().catch(() => null);
+    if (!settings?.enabled) {
+      setQrNote(texts.labelQr.exportOff);
+      return undefined;
+    }
+    const desktop = getDesktop();
+    const base = (settings.baseUrl || (desktop ? ((await desktop.webAccess.status().catch(() => null))?.url ?? '') : window.location.origin)).replace(/\/+$/, '');
+    if (!base) {
+      setQrNote(texts.labelQr.exportNoAddress);
+      return undefined;
+    }
+    let share = await api.getShare(projectId).catch(() => null);
+    if (!share && session && can(session.access, 'manageProjects')) share = await api.ensureShare(projectId).catch(() => null);
+    if (!share) {
+      setQrNote(texts.labelQr.exportNoKey);
+      return undefined;
+    }
+    setQrNote(texts.labelQr.exportWithQr(base));
+    return { base, token: share.token, hint: settings.hint };
+  }
+
   /** PDF-Definition wie beim Herunterladen (auch für die Vorschau) */
   async function makeDoc() {
+    const qr = opts.kind === 'labels' ? await labelQr() : undefined;
     const passwords = opts.kind === 'wifi' && canSeeSecrets && opts.printPassword ? Object.fromEntries((await api.getSecrets(projectId)).wifiPasswords.map((w) => [w.wifiId, w.password])) : undefined;
     return buildExportDoc(opts, {
       data,
@@ -86,6 +113,7 @@ export function ExportDialog({
       by: session?.name ?? '',
       fetchQr: async (wifiId) => (await fetch(api.wifiQrUrl(projectId, wifiId, String(Date.now())))).text(),
       ...(passwords ? { passwords } : {}),
+      ...(qr ? { labelQr: qr } : {}),
     });
   }
 
@@ -273,6 +301,11 @@ export function ExportDialog({
               {e.cutLines}
             </label>
             <p className="text-xs text-slate-500">{e.labelsHint}</p>
+            {qrNote && (
+              <p className="text-xs text-slate-600 dark:text-slate-300" data-testid="label-qr-note">
+                {qrNote}
+              </p>
+            )}
           </div>
         )}
 

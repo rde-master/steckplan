@@ -15,6 +15,7 @@ import { UsageTracker } from './library/usage-tracker';
 import { DataDirProjectStore } from './storage/data-dir-store';
 import { VersionStore } from './storage/version-store';
 import { MediaStore } from './storage/media-store';
+import { LabelQrStore } from './auth/label-qr';
 import type { ProjectStore } from './storage/types';
 
 export const EDIT_PASSWORD = 'bearbeiten-geheim';
@@ -56,6 +57,7 @@ export async function startTestServer(overrides: Partial<ServerOptions> = {}): P
     rateLimiter: new LoginRateLimiter({ maxFailures: 3 }),
     desktopKeys: new DesktopKeyStore({ file: join(dataDir, 'desktop-keys.json') }),
     media: new MediaStore((id) => join(dataDir, 'media', id)),
+    labelQr: new LabelQrStore(join(dataDir, 'label-qr.json')),
     saveDelayMs: 20,
     idleMs: 50,
     ...overrides,

@@ -23,6 +23,8 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 - Regie (M11e): Vorstellungs-Ansicht im Vollbild (dunkel) – aktueller Eintrag mit mitlaufendem Text, aktuelle Lichtszene als Raster, was als Nächstes kommt, Player, große Knöpfe „Szene/Eintrag zurück/weiter“ und Pfeiltasten
 - Vorstellung: „Führen“ (Regie- oder Bearbeiten-Zugang) überträgt die Stelle live an alle, die „Folgen“ eingeschaltet haben – Nachzügler springen direkt an die aktuelle Stelle, eigenes Bedienen verlässt das Folgen; wer führt, ist sichtbar
 - Export: Ablaufplan, Lichtszenen (je Szene das Raster in Farbe und eine Tabelle der Werte) und Textbuch (Rollen, Regieanweisungen, Szenenwechsel am Rand) als PDF
+- Geräte-Etiketten: Fußzeile mit Logo und Projektname und einem QR-Code mit dem Hinweis „Aktuelle Informationen finden Sie hier.“ – Scannen öffnet ohne Passwort die Leseansicht des Projekts beim Gerät des Etiketts (nur dieses Projekt, nur lesen)
+- Einstellungen (Docker: Einstellungsseite, Desktop: Startfenster): QR-Code auf Etiketten an/aus, Adresse, Hinweistext; Lese-Schlüssel je Projekt erneuern oder sperren (alte Etiketten öffnen dann nichts mehr)
 
 ### Behoben
 

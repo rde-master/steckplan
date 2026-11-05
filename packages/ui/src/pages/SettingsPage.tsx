@@ -2,6 +2,7 @@
 import { useCallback, useState, type FormEvent } from 'react';
 import { can } from '@steckplan/core';
 import { AppHeader, MainNav } from '../components/AppHeader';
+import { LabelQrSettings } from '../components/LabelQrSettings';
 import { AccessBadge, Banner, Button, Field, Spinner, TextInput } from '../components/ui';
 import { selectClass } from '../components/library/fields';
 import { api, errorMessage, type DesktopKeyInfo } from '../lib/api';
@@ -19,7 +20,16 @@ export function SettingsPage() {
   return (
     <div className="flex min-h-full flex-col bg-slate-50 dark:bg-slate-950">
       <AppHeader title={t.title} nav={<MainNav active="settings" />} />
-      <main className="mx-auto w-full max-w-3xl flex-1 space-y-4 p-4">{allowed ? <DesktopKeys /> : <Banner tone="warn">{t.notAllowed}</Banner>}</main>
+      <main className="mx-auto w-full max-w-3xl flex-1 space-y-4 p-4">
+        {allowed ? (
+          <>
+            <DesktopKeys />
+            <LabelQrSettings addressHint={window.location.origin} />
+          </>
+        ) : (
+          <Banner tone="warn">{t.notAllowed}</Banner>
+        )}
+      </main>
     </div>
   );
 }

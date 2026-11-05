@@ -3,6 +3,7 @@ import { formatAppTitle, type HealthInfo } from '@steckplan/core';
 import { errorMessage } from '../lib/api';
 import type { DesktopBridge, RecentFile } from '../lib/desktop';
 import { useSession } from '../lib/session';
+import { LabelQrSettings } from '../components/LabelQrSettings';
 import { texts } from '../texts';
 import { Banner, Button, Field, Spinner, TextInput } from '../components/ui';
 import { WebAccessDialog } from '../components/WebAccessDialog';
@@ -97,6 +98,7 @@ export function DesktopStartPage({ desktop }: { desktop: DesktopBridge }) {
         </section>
         <ServersSection desktop={desktop} connectRequest={connectRequest} />
         <SettingsSection desktop={desktop} name={name} onSaved={setName} />
+        <LabelQrSettings addressHint={texts.labelQr.desktopAddress} />
       </main>
       <footer className="px-6 py-2 text-right text-xs text-slate-400">{version && formatAppTitle(version)}</footer>
     </div>

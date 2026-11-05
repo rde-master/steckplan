@@ -1,8 +1,8 @@
 import { ArrowLeft, Copy, Download, FileOutput, History, LibraryBig, LogOut, Menu, Wifi } from 'lucide-react';
 import { ICON } from '../components/icons';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type * as Y from 'yjs';
-import { can, type Conflict, type PresenceUser, type ProjectMeta } from '@steckplan/core';
+import { can, devicePageId, type Conflict, type PresenceUser, type ProjectMeta } from '@steckplan/core';
 import { api, errorMessage } from '../lib/api';
 import { useLibrary } from '../lib/library';
 import { getDesktop } from '../lib/desktop';
@@ -84,6 +84,23 @@ export function ProjectPage({ id }: { id: string }) {
   }, [status, refreshSession]);
 
   useEffect(() => resetEditor(), [id, resetEditor]);
+
+  // Über den QR-Code eines Etiketts geöffnet (?geraet=…): Gerät wählen, seine Seite zeigen, hinspringen – einmal
+  const [deviceParam] = useState(() => new URLSearchParams(window.location.search).get('geraet'));
+  const target = deviceParam ? data.devices.find((d) => d.id === deviceParam) : undefined;
+  const deviceShown = useRef(false);
+  useEffect(() => {
+    if (!target || deviceShown.current) return;
+    deviceShown.current = true;
+    const editor = useEditor.getState();
+    editor.setFlowPage(devicePageId(target, data.flowPages));
+    editor.select({ devices: [target.id], cables: [] });
+    if (target.signalFlow) editor.focus({ x: target.signalFlow.position.x + 90, y: target.signalFlow.position.y + 40 });
+    editor.requestProperties();
+    const url = new URL(window.location.href);
+    url.searchParams.delete('geraet');
+    window.history.replaceState(null, '', url.pathname + url.search);
+  }, [target, data.flowPages]);
 
   // Desktop: Menübefehle „Versionen …“ und „Exportieren …“
   useEffect(
