@@ -7,6 +7,8 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.21.0] - 2026-11-05
+
 ### Hinzugefügt
 
 - Regie (M11a): neuer Reiter „Regie“ mit dem Ablauf aus Liedern, Schauspielstücken, Pausen und Ansagen – sortieren per Ziehen oder Pfeilen, kopieren, Dauer („3:40“ oder „15“ für Minuten), Beginn und laufende Startzeiten, Gesamtdauer, beteiligte Personen, Notiz
@@ -440,7 +442,8 @@ Meilenstein M0 – Projektgerüst.
 - Docker-Image mit Datenvolume `/data` und Beispiel-`docker-compose.yml`
 - GitHub Actions: Tests und Smoke-Test bei jedem Push, Installer als Artefakte, Docker-Image `:develop`, Release-Workflow für Tags `vX.Y.Z`
 
-[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.20.0...develop
+[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.21.0...develop
+[0.21.0]: https://github.com/rde-master/steckplan/compare/v0.20.0...v0.21.0
 [0.20.0]: https://github.com/rde-master/steckplan/compare/v0.19.0...v0.20.0
 [0.19.0]: https://github.com/rde-master/steckplan/compare/v0.18.0...v0.19.0
 [0.18.0]: https://github.com/rde-master/steckplan/compare/v0.17.0...v0.18.0
