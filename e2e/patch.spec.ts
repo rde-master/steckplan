@@ -52,6 +52,7 @@ test('Ton-Patch: Input-/Output-Liste aus dem Signalfluss, Angaben bearbeiten, PD
   await expect(first).toHaveAttribute('data-group', 'Band M9');
   await expect(first.getByTestId('patch-group')).toHaveText('Band M9');
   await expect(first.locator('td').first()).toHaveCSS('border-left-color', 'rgb(220, 38, 38)');
+  await expect(first.locator('td').nth(3)).not.toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
   // nur belegte Kanäle (Vorgabe); alle Kanäle zeigt die Liste nach Abwählen
   await expect(inputs.getByTestId('patch-row')).toHaveCount(1);
   await page.getByLabel('Nur belegte Kanäle').uncheck();

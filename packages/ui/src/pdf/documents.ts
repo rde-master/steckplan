@@ -294,13 +294,15 @@ export function sectionsDoc(title: string, sections: PatchSection[], ctx: DocCon
           ...sortRows(section.headers, section.rows.map((r, index) => [...r, index]), ctx.sort).map((sorted) => {
             const index = sorted[sorted.length - 1] as number;
             const group = section.rowGroups?.[index];
+            const color = group ? (group.color ?? '#64748b') : undefined;
+            // Gruppe: ganze Zeile leicht in der Gruppenfarbe
+            const tint = color ? { fillColor: color, fillOpacity: 0.12 } : {};
             return sorted.slice(0, -1).map((cell, i): Content => {
-              if (i === 0) return { text: String(cell), bold: true, alignment: 'right' };
-              if (group && i === section.groupColumn) {
-                const color = group.color ?? '#64748b';
-                return { stack: [{ text: ` ${pdfText(group.name)} `, background: color, color: contrastText(color), bold: true, fontSize: 7 }, pdfText(String(cell))] };
+              if (i === 0) return { text: String(cell), bold: true, alignment: 'right', ...tint };
+              if (color && i === section.groupColumn) {
+                return { stack: [{ text: ` ${pdfText(group!.name)} `, background: color, color: contrastText(color), bold: true, fontSize: 7 }, pdfText(String(cell))], ...tint };
               }
-              return pdfText(String(cell));
+              return { text: pdfText(String(cell)), ...tint };
             });
           }),
         ],

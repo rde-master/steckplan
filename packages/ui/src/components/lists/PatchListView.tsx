@@ -143,11 +143,13 @@ export function PatchListView({ doc, origin, data, library, editable }: { doc: Y
 function Row({ row, frame, inputs, editable, onChange }: { row: PatchRow; frame?: Frame; inputs: boolean; editable: boolean; onChange: (patch: Parameters<typeof updatePatchEntry>[2]) => void }) {
   const suggested = (edited: boolean) => (edited ? '' : 'italic text-slate-500');
   const cells = inputs ? 6 : 5;
-  // Gruppenrahmen: links/rechts an jeder Zeile, oben an der ersten, unten an der letzten
+  // Gruppe: Zeile leicht eingefärbt; Rahmen links/rechts an jeder Zeile, oben an der ersten, unten an der letzten
   const edge = `2px solid ${frame?.color}`;
   const cell = (i: number): CSSProperties | undefined =>
     frame
       ? {
+          // ganze Zeile leicht in der Gruppenfarbe
+          backgroundColor: `color-mix(in srgb, ${frame.color} 12%, transparent)`,
           ...(i === 0 ? { borderLeft: edge } : {}),
           ...(i === cells - 1 ? { borderRight: edge } : {}),
           ...(frame.first ? { borderTop: edge } : {}),

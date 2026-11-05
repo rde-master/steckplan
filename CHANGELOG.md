@@ -10,7 +10,7 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 ### Geändert
 
 - Ton-Patch: Kanalname-Vorschlag bei Geräten mit Person ist jetzt „Vorname Name (Art)“, z. B. „Anna Muster (Sängerin)“; die Art steht auch neben der Person in der Spalte Quelle/Ziel und im PDF
-- Ton-Patch: Gruppen sind farbig zu erkennen – aufeinanderfolgende Kanäle derselben Gruppe bekommen einen Rahmen in der Gruppenfarbe mit dem Gruppennamen als Etikett; im PDF steht die Gruppe als farbiges Etikett in der Spalte Quelle/Ziel
+- Ton-Patch: Gruppen sind farbig zu erkennen – aufeinanderfolgende Kanäle derselben Gruppe bekommen einen Rahmen in der Gruppenfarbe mit dem Gruppennamen als Etikett, die Zeilen sind leicht in der Gruppenfarbe eingefärbt; im PDF steht die Gruppe als farbiges Etikett in der Spalte Quelle/Ziel, die Zeile ist ebenfalls leicht eingefärbt
 
 ## [0.19.0] - 2026-11-03
 
