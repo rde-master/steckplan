@@ -96,6 +96,7 @@ Alles liegt im Volume `/data`:
 | `projects/` | Projekte als `.steckplan`-Dateien (JSON) |
 | `versions/` | automatische Versionen (die letzten 30 pro Projekt) |
 | `trash/` | gelöschte Projekte (30 Tage wiederherstellbar) |
+| `label-qr.json` | QR-Code auf den Geräte-Etiketten: Einstellungen und Lese-Schlüssel je Projekt (ein Schlüssel öffnet ohne Passwort die Leseansicht genau eines Projekts – in den Einstellungen erneuern oder sperren) |
 | `media/` | Audiodateien der Regie je Projekt, unverändert und ohne Größengrenze (`media/<Projekt>/`); nicht mehr verwendete Dateien 30 Tage in `.papierkorb/`, unfertige Uploads in `.uploads/`. Kann groß werden – bei Datensicherungen mit einplanen |
 | `library.json` | Bibliothek: Vorlagen (Geräte, Kabeltypen, Bühnenelemente, Traversen, Stative) und Stammdaten (Kategorien, Besitzer, Anhänger, Cases) |
 | `changelog/` | Änderungsprotokoll je Projekt (nicht in der Projektdatei) |
