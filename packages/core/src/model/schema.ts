@@ -526,6 +526,47 @@ export const LightTargetSchema = z.object({
 });
 export type LightTarget = z.infer<typeof LightTargetSchema>;
 
+/** Lichtszene eines Ablauf-Eintrags; Auslöser: Zeitpunkt im Lied und/oder Textzeile */
+export const LightSceneSchema = z.object({
+  id,
+  itemId: id,
+  order: z.number(),
+  name: z.string().default(''),
+  notes: z.string().optional(),
+  atSec: z.number().nonnegative().optional(),
+  lineId: id.optional(),
+});
+export type LightScene = z.infer<typeof LightSceneSchema>;
+
+export const EFFECT_KINDS = ['circle', 'eight', 'pan', 'tilt', 'wave', 'random', 'chase', 'other'] as const;
+export type EffectKind = (typeof EFFECT_KINDS)[number];
+export const EFFECT_SPEEDS = ['slow', 'medium', 'fast'] as const;
+
+/** Werte eines Geräts in einer Szene (id = „Szene:Gerät“); fehlende Angaben = unverändert/egal */
+export const FixtureStateSchema = z.object({
+  id: z.string().min(1),
+  sceneId: id,
+  deviceId: id,
+  /** Helligkeit 0–100 % */
+  dimmer: z.number().min(0).max(100).optional(),
+  /** Farbe (Anzeige) und – aus einem Farbrad – ihr Name */
+  color: z.object({ hex: z.string(), name: z.string().optional() }).optional(),
+  gobo: z.object({ wheel: z.number().int().nonnegative(), name: z.string(), rotate: z.enum(['cw', 'ccw']).optional() }).optional(),
+  prism: z.boolean().optional(),
+  zoomDeg: z.number().nonnegative().optional(),
+  /** Fokus, Iris, Frost in % */
+  focus: z.number().min(0).max(100).optional(),
+  iris: z.number().min(0).max(100).optional(),
+  frost: z.number().min(0).max(100).optional(),
+  strobeHz: z.number().nonnegative().optional(),
+  targetId: id.optional(),
+  effect: z.object({ kind: z.enum(EFFECT_KINDS), speed: z.enum(EFFECT_SPEEDS).optional(), text: z.string().optional() }).optional(),
+  notes: z.string().optional(),
+});
+export type FixtureState = z.infer<typeof FixtureStateSchema>;
+/** Die einstellbaren Werte (ohne Kennungen) */
+export type FixtureValues = Omit<FixtureState, 'id' | 'sceneId' | 'deviceId'>;
+
 export const ShowSettingsSchema = z.object({
   /** Beginn des Ablaufs „HH:MM“ */
   startTime: z.string().optional(),
@@ -561,6 +602,9 @@ export const ProjectSchema = z.object({
   lightGrid: LightGridSchema.default({ cols: 12, rows: 6, rowLabels: [] }),
   lightPlacements: z.array(LightPlacementSchema).default([]),
   lightTargets: z.array(LightTargetSchema).default([]),
+  /** Lichtszenen und Werte je Gerät (seit Format 9) */
+  lightScenes: z.array(LightSceneSchema).default([]),
+  sceneStates: z.array(FixtureStateSchema).default([]),
   network: z
     .object({
       subnets: z.array(SubnetSchema).default([]),

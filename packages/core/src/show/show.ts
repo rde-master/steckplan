@@ -3,6 +3,7 @@
 // (wichtig für Zeitpunkte und Lichtszenen), auch wenn Zeilen eingefügt, gelöscht oder korrigiert werden.
 import * as Y from 'yjs';
 import { newId } from '../model/project';
+import { copyItemScenes, removeItemScenes } from './scenes';
 import type { ItemMedia, MediaRef, SectionKind, ShowItem, ShowItemKind, ShowRole, ShowSettings, TextLine, TextSection } from '../model/schema';
 
 // ---------- Lesen ----------
@@ -298,6 +299,7 @@ export function removeShowItem(doc: Y.Doc, id: string, origin: unknown): void {
   doc.transact(() => {
     itemsMap(doc).delete(id);
     for (const s of readShow(doc).sections) if (s.itemId === id) sectionsMap(doc).delete(s.id);
+    removeItemScenes(doc, id);
     renumber(doc, readShow(doc).items.map((i) => i.id));
   }, origin);
 }
@@ -327,7 +329,16 @@ export function duplicateShowItem(doc: Y.Doc, id: string, origin: unknown): stri
   doc.transact(() => {
     const { id: _id, kind, order: _order, ...rest } = item;
     copyId = addShowItem(doc, kind, origin, { ...rest, title: `${item.title} (Kopie)` }, id);
-    for (const s of itemSections(sections, id)) addSection(doc, copyId, s.kind, s.label, origin, s.lines.map((l) => ({ ...l, id: newId() })));
+    const lineIds = new Map<string, string>();
+    for (const s of itemSections(sections, id)) {
+      const lines = s.lines.map((l) => {
+        const next = newId();
+        lineIds.set(l.id, next);
+        return { ...l, id: next };
+      });
+      addSection(doc, copyId, s.kind, s.label, origin, lines);
+    }
+    copyItemScenes(doc, id, copyId, lineIds);
   }, origin);
   return copyId;
 }

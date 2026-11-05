@@ -33,7 +33,7 @@ export const migrations: MigrationRegistry = {
   // 7 → 8: defekte Anschlüsse je Gerät im Projekt – optional; vorhandene Daten bleiben unverändert.
   7: (p) => ({ ...p, schemaVersion: 8 }),
   // 8 → 9: Regie (Ablauf, Texte) – neue, leere Bereiche.
-  8: (p) => ({ ...p, schemaVersion: 9, show: { items: [], sections: [] }, showSettings: {}, media: [], lightGrid: { cols: 12, rows: 6, rowLabels: [] }, lightPlacements: [], lightTargets: [] }),
+  8: (p) => ({ ...p, schemaVersion: 9, show: { items: [], sections: [] }, showSettings: {}, media: [], lightGrid: { cols: 12, rows: 6, rowLabels: [] }, lightPlacements: [], lightTargets: [], lightScenes: [], sceneStates: [] }),
 };
 
 export class ProjectFormatError extends Error {
