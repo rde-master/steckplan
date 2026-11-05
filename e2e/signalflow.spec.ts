@@ -46,6 +46,23 @@ async function drag(page: Page, from: { x: number; y: number }, to: { x: number;
   await page.mouse.up();
 }
 
+/** Punkt auf einem Kabel nahe einem Anschluss (Seitenkoordinaten) – zum Anfassen des Kabelendes */
+async function cableNear(page: Page, near: { x: number; y: number }): Promise<{ x: number; y: number }> {
+  const found = await page.evaluate((p) => {
+    const stage = window.__steckplanStage!;
+    const box = stage.container().getBoundingClientRect();
+    for (let r = 14; r <= 60; r += 2) {
+      for (let a = 0; a < 360; a += 10) {
+        const x = p.x - box.left + r * Math.cos((a * Math.PI) / 180);
+        const y = p.y - box.top + r * Math.sin((a * Math.PI) / 180);
+        if (stage.getIntersection({ x, y })?.name() === 'cable') return { x: x + box.left, y: y + box.top };
+      }
+    }
+    return null;
+  }, near);
+  if (!found) throw new Error('Kein Kabel in der Nähe');
+  return found;
+}
 async function project(request: APIRequestContext, id: string) {
   return (await request.get(`/api/projects/${id}/download`)).json();
 }
@@ -115,6 +132,17 @@ test('Signalfluss: Geräte platzieren, Kabel ziehen, Multicore, Prüfungen, Rüc
   // falsche Richtung: Eingang → Eingang
   await drag(page, await port(page, 'Pult 1', 'in1'), await port(page, 'Pult 1', 'in2'));
   await expect(page.getByText('Ein Eingang kann nur mit einem Ausgang verbunden werden.')).toBeVisible();
+
+  // Kabel umstecken: Ende am Pult anfassen und auf In 2 ziehen – dasselbe Kabel (Typ bleibt), dann zurück
+  const cableId = (await project(page.request, id)).cables[0].id;
+  await drag(page, await cableNear(page, await port(page, 'Pult 1', 'in1')), await port(page, 'Pult 1', 'in2'));
+  await expect.poll(async () => (await project(page.request, id)).cables.map((c: { id: string; to: { portId: string } }) => `${c.id}:${c.to.portId}`)).toEqual([`${cableId}:in2`]);
+  expect((await project(page.request, id)).cables[0]).toMatchObject({ templateId: lib.xlr.id, from: { portId: 'out' } });
+  // ins Leere fallen lassen: nichts ändert sich
+  const nowhere = await port(page, 'Pult 1', 'in2');
+  await drag(page, await cableNear(page, nowhere), { x: nowhere.x + 200, y: nowhere.y + 250 });
+  await drag(page, await cableNear(page, await port(page, 'Pult 1', 'in2')), await port(page, 'Pult 1', 'in1'));
+  await expect.poll(async () => (await project(page.request, id)).cables.map((c: { to: { portId: string } }) => c.to.portId)).toEqual(['in1']);
 
   // Multicore als Kasten: Mikrofon per Kabel an die Ader (Auswahl), Fan-out direkt ins Pult
   await page.getByRole('button', { name: 'Hinzufügen: Multicore 1/1', exact: true }).click();

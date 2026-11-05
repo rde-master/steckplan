@@ -16,6 +16,7 @@ import {
   duplicateDevices,
   isMulticore,
   removeCables,
+  updateCables,
   removeDevices,
   updateDevices,
   updateSettings,
@@ -173,6 +174,14 @@ export function SignalFlowView({ doc, data, library, editable, undo }: { doc: Y.
     const auto = !fromMulticore && !toMulticore ? autoCableType(library, from.port, to.port) : undefined;
     if (auto) createCable(from, to, { kind: 'type', template: auto });
     else setPending({ from, to });
+  }
+
+  /** Kabel umstecken: Typ, Besitzer usw. bleiben, nur die Enden ändern sich */
+  function reconnect(cableId: string, from: PortRef, to: PortRef) {
+    if (!editable) return;
+    updateCables(doc, [{ id: cableId, patch: { from: { deviceId: from.deviceId, portId: from.portId }, to: { deviceId: to.deviceId, portId: to.portId } } }], undo.origin);
+    undo.stop();
+    select({ cables: [cableId] });
   }
 
   function deleteSelection() {
@@ -476,6 +485,7 @@ export function SignalFlowView({ doc, data, library, editable, undo }: { doc: Y.
             occupied={occupied}
             onMove={move}
             onConnect={connect}
+            onReconnect={reconnect}
             onDropTemplate={(id, at) => {
               const template = templates.get(id);
               if (template) add(template, at);
