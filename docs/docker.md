@@ -71,6 +71,7 @@ docker compose start
 |---|---|---|---|
 | `STECKPLAN_EDIT_PASSWORD` | ja | – | Bearbeiten-Passwort (volle Bearbeitung) |
 | `STECKPLAN_READ_PASSWORD` | ja | – | Lese-Passwort (ansehen, Packliste abhaken) – muss sich vom Bearbeiten-Passwort unterscheiden |
+| `STECKPLAN_DIRECTION_PASSWORD` | nein | – | Regie-Passwort: Regie (Ablauf, Texte) bearbeiten, alles andere nur lesen, keine Häkchen. Ohne = kein Regie-Zugang. Muss sich von den anderen Passwörtern unterscheiden |
 | `PORT` | nein | `8080` | Port im Container |
 | `TZ` | nein | UTC | Zeitzone, z. B. `Europe/Berlin` |
 | `STECKPLAN_TRUST_PROXY` | nein | `false` | `true` nur hinter einem Reverse-Proxy: dann werden `X-Forwarded-For`/`-Proto` ausgewertet (richtige IP für die Begrenzung von Fehlversuchen, sichere Cookies bei HTTPS) |

@@ -25,7 +25,7 @@ async function main(): Promise<void> {
     throw error;
   }
 
-  const passwords = { edit: config.editPassword, read: config.readPassword };
+  const passwords = { edit: config.editPassword, read: config.readPassword, direction: config.directionPassword };
   const store = new DataDirProjectStore(config.dataDir);
   await store.init();
   const versions = new VersionStore(join(config.dataDir, 'versions'));

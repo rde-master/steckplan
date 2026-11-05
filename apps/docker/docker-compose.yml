@@ -23,6 +23,8 @@ services:
       # Pflicht – kommen aus der Datei .env; ohne sie startet der Container nicht.
       STECKPLAN_EDIT_PASSWORD: ${STECKPLAN_EDIT_PASSWORD:?Bitte STECKPLAN_EDIT_PASSWORD in .env setzen}
       STECKPLAN_READ_PASSWORD: ${STECKPLAN_READ_PASSWORD:?Bitte STECKPLAN_READ_PASSWORD in .env setzen}
+      # optional: Regie-Passwort (Regie bearbeiten, alles andere lesen); leer = kein Regie-Zugang
+      STECKPLAN_DIRECTION_PASSWORD: ${STECKPLAN_DIRECTION_PASSWORD:-}
       TZ: ${TZ:-Europe/Berlin}
     volumes:
       # Projekte, Bibliothek, Versionen, Desktop-Zugangsschlüssel …

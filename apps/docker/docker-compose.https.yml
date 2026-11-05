@@ -18,6 +18,8 @@ services:
     environment:
       STECKPLAN_EDIT_PASSWORD: ${STECKPLAN_EDIT_PASSWORD:?Bitte STECKPLAN_EDIT_PASSWORD in .env setzen}
       STECKPLAN_READ_PASSWORD: ${STECKPLAN_READ_PASSWORD:?Bitte STECKPLAN_READ_PASSWORD in .env setzen}
+      # optional: Regie-Passwort (Regie bearbeiten, alles andere lesen); leer = kein Regie-Zugang
+      STECKPLAN_DIRECTION_PASSWORD: ${STECKPLAN_DIRECTION_PASSWORD:-}
       # hinter dem Reverse-Proxy: echte Client-IP (Sperre bei Fehlversuchen) und sichere Cookies
       STECKPLAN_TRUST_PROXY: "true"
       TZ: ${TZ:-Europe/Berlin}

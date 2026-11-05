@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import WebSocket from 'ws';
 import * as Y from 'yjs';
-import { createEmptyProject, readProjectFromYDoc, type SyncClient } from '@steckplan/core';
+import { addShowItem, createEmptyProject, readProjectFromYDoc, readShow, type SyncClient } from '@steckplan/core';
 import { isManagedStore } from '../storage/types';
 import { connect, login, startTestServer, waitFor, type TestServer } from '../test-utils';
 
@@ -76,6 +76,29 @@ describe('Live-Sync', () => {
     expect(editor.doc.getMap('meta').get('name')).toBe('Live');
     expect(editor.doc.getMap('meta').get('venue')).toBe('');
     expect(server.rooms.peek(id)!.doc.getMap('meta').get('name')).toBe('Live');
+  });
+
+  it('Regie-Zugang: ändert nur die Regie; Änderungen außerhalb werden verworfen', async () => {
+    const { server, id } = await setup();
+    const editor = track(connect(server, id, await login(server, 'edit')));
+    const regie = track(connect(server, id, await login(server, 'direction')));
+    await Promise.all([editor.whenSynced(), regie.whenSynced()]);
+    expect(regie.state).toMatchObject({ access: 'direction', readOnly: false });
+
+    const itemId = addShowItem(regie.doc, 'song', null, { title: 'Opener' });
+    await waitFor(() => readShow(editor.doc).items.some((i) => i.id === itemId));
+    await waitFor(async () => ((await server.store.load(id).catch(() => null))?.show.items.length ?? 0) === 1);
+
+    // außerhalb der Regie (manipulierter oder fehlerhafter Client) → verworfen, mit Hinweis
+    regie.doc.getMap('meta').set('name', 'GEHACKT');
+    await waitFor(() => regie.state.notice?.includes('außerhalb der Regie') ?? false);
+    editor.doc.getMap('meta').set('notes', 'Marker');
+    await waitFor(() => regie.doc.getMap('meta').get('notes') === 'Marker');
+    expect(editor.doc.getMap('meta').get('name')).toBe('Live');
+    expect(server.rooms.peek(id)!.doc.getMap('meta').get('name')).toBe('Live');
+    // Änderungsprotokoll mit Regie-Zugang
+    const log = (await server.app.inject({ method: 'GET', url: `/api/projects/${id}/changelog`, headers: { cookie: await login(server, 'edit') } })).json().entries as { by: string; access: string; action: string }[];
+    expect(log.find((e) => e.by === 'Regina')).toMatchObject({ access: 'direction', action: expect.stringContaining('Regie: Ablauf geändert') });
   });
 
   it('lehnt Verbindungen ohne Anmeldung ab', async () => {

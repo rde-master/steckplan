@@ -28,7 +28,7 @@ contextBridge.exposeInMainWorld('steckplanDesktop', {
     status: () => ipcRenderer.invoke('web:status'),
     start: (address: string) => ipcRenderer.invoke('web:start', address),
     stop: () => ipcRenderer.invoke('web:stop'),
-    setPasswords: (passwords: { edit: string; read: string }) => ipcRenderer.invoke('web:setPasswords', passwords),
+    setPasswords: (passwords: { edit: string; read: string; direction?: string }) => ipcRenderer.invoke('web:setPasswords', passwords),
     setPort: (port: number) => ipcRenderer.invoke('web:setPort', port),
     disconnect: (sessionId: string) => ipcRenderer.invoke('web:disconnect', sessionId),
   },
