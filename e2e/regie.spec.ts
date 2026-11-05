@@ -29,7 +29,20 @@ test('Regie: Ablauf, Texte, Rollen; Regie-Zugang bearbeitet nur die Regie', asyn
   await detail.getByLabel('Titel').fill('Opener');
   await detail.getByLabel('Dauer').fill('3:40');
   await detail.getByLabel('Dauer').press('Enter');
+  // Personen und Notiz sind eingeklappt; geschlossen zeigt die Zeile, was eingetragen ist
+  const peopleBox = detail.getByTestId('regie-people');
+  await expect(detail.getByRole('checkbox', { name: /Anna Muster/ })).toBeHidden();
+  await expect(peopleBox).toContainText('–');
+  await peopleBox.getByText('Beteiligte Personen').click();
   await detail.getByRole('checkbox', { name: /Anna Muster/ }).click();
+  await peopleBox.getByText('Beteiligte Personen').click();
+  await expect(peopleBox).toContainText('Anna Muster');
+  const notesBox = detail.getByTestId('regie-notes');
+  await notesBox.getByText('Notiz').click();
+  await notesBox.getByLabel('Notiz').fill('Mit Gitarre\nzweite Zeile');
+  await notesBox.getByText('Notiz', { exact: true }).click();
+  await expect(notesBox).toContainText('Mit Gitarre');
+  await expect(notesBox.getByLabel('Notiz')).toBeHidden();
   await detail.getByRole('button', { name: 'Text einfügen …' }).click();
   await page.getByRole('dialog').getByRole('textbox').fill('[Strophe 1]\nEs war einmal\nein kleiner Ton\n\nRefrain:\nLa la la\nLa la la');
   await page.getByRole('dialog').getByRole('button', { name: 'Einfügen' }).click();

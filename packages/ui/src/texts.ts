@@ -263,6 +263,7 @@ export const texts = {
       notes: 'Notiz',
     },
     noPeople: 'Personen legst du unter „Projektdaten“ an.',
+    none: '–',
     up: 'Nach oben',
     down: 'Nach unten',
     duplicate: 'Kopieren',
