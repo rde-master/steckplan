@@ -181,3 +181,61 @@ export function buildDmxPatch(project: Pick<Project, 'devices'>, templates: Map<
     })
     .sort((a, b) => (a.universe ?? Infinity) - (b.universe ?? Infinity) || (a.address ?? 0) - (b.address ?? 0) || a.label.localeCompare(b.label, 'de', { numeric: true }));
 }
+
+// ---------- Universum als Übersicht (grafische Ansicht) ----------
+
+export interface DmxSegment {
+  row: DmxPatchRow;
+  start: number;
+  /** Ende, höchstens 512 */
+  end: number;
+  /** Kanäle über 512 hinaus */
+  overflow: number;
+}
+
+export interface DmxUniverseMap {
+  universe: number;
+  segments: DmxSegment[];
+  /** belegte Kanäle (ohne Doppelte) */
+  used: number;
+  /** doppelt belegte Bereiche */
+  overlaps: { start: number; end: number }[];
+  /** freie Bereiche */
+  free: { start: number; end: number }[];
+}
+
+/** Zusammenhängende Bereiche der Kanäle 1 … 512, für die test() gilt. */
+function runs(test: (channel: number) => boolean): { start: number; end: number }[] {
+  const result: { start: number; end: number }[] = [];
+  for (let ch = 1; ch <= DMX_CHANNELS; ch++) {
+    if (!test(ch)) continue;
+    const last = result[result.length - 1];
+    if (last && last.end === ch - 1) last.end = ch;
+    else result.push({ start: ch, end: ch });
+  }
+  return result;
+}
+
+/** Je Universum: Geräte als Bereiche, Belegung, Überlappungen und freie Bereiche (Geräte ohne Adresse/Modus fehlen). */
+export function dmxUniverses(rows: DmxPatchRow[]): DmxUniverseMap[] {
+  const byUniverse = new Map<number, DmxSegment[]>();
+  for (const row of rows) {
+    if (row.universe === undefined || row.address === undefined || row.end === undefined) continue;
+    const segments = byUniverse.get(row.universe) ?? [];
+    segments.push({ row, start: row.address, end: Math.min(row.end, DMX_CHANNELS), overflow: Math.max(0, row.end - DMX_CHANNELS) });
+    byUniverse.set(row.universe, segments);
+  }
+  return [...byUniverse.entries()]
+    .sort(([a], [b]) => a - b)
+    .map(([universe, segments]) => {
+      const count = new Array<number>(DMX_CHANNELS + 1).fill(0);
+      for (const s of segments) for (let ch = s.start; ch <= s.end; ch++) count[ch]!++;
+      return {
+        universe,
+        segments: segments.sort((a, b) => a.start - b.start || a.end - b.end),
+        used: count.filter((c) => c > 0).length,
+        overlaps: runs((ch) => count[ch]! > 1),
+        free: runs((ch) => count[ch] === 0),
+      };
+    });
+}

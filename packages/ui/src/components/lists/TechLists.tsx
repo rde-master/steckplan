@@ -1,11 +1,21 @@
 // DMX-Patchliste und Netzwerkliste.
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { buildDmxPatch, buildNetworkList, checkDmx, checkNetwork, deviceMatches, formatDmx, type Library } from '@steckplan/core';
 import { useEditor } from '../../lib/editor';
 import type { ProjectData } from '../../lib/useProjectData';
 import { texts } from '../../texts';
+import { DmxUniverseView } from './DmxUniverseView';
 
 const d = texts.techLists;
+const DMX_VIEW_KEY = 'steckplan.dmxView';
+
+function readDmxView(): 'list' | 'universe' {
+  try {
+    return localStorage.getItem(DMX_VIEW_KEY) === 'universe' ? 'universe' : 'list';
+  } catch {
+    return 'list';
+  }
+}
 
 function useTemplates(library: Library | null) {
   return useMemo(() => new Map((library?.templates ?? []).map((t) => [t.id, t])), [library]);
@@ -17,9 +27,33 @@ export function DmxPatchView({ data, library }: { data: ProjectData; library: Li
   const devices = data.devices.filter((x) => deviceMatches(filter, x, templates.get(x.templateId)));
   const rows = buildDmxPatch({ devices }, templates);
   const problems = new Set(checkDmx(data, templates).flatMap((i) => i.objectIds));
+  const [view, setViewState] = useState(readDmxView);
+  const setView = (v: 'list' | 'universe') => {
+    setViewState(v);
+    try {
+      localStorage.setItem(DMX_VIEW_KEY, v);
+    } catch {
+      // ohne Speicher gilt die Auswahl nur bis zum Neuladen
+    }
+  };
   if (rows.length === 0) return <p className="p-8 text-center text-sm text-slate-500">{d.noDmx}</p>;
   return (
-    <div className="overflow-x-auto p-3">
+    <div className="space-y-3 p-3">
+      <div className="flex w-fit rounded-md border border-slate-300 dark:border-slate-600" role="radiogroup" aria-label={d.dmxViewLabel}>
+        {(['list', 'universe'] as const).map((v) => (
+          <button key={v} type="button" role="radio" aria-checked={view === v} onClick={() => setView(v)} className={`px-3 py-1.5 text-sm ${view === v ? 'bg-sky-600 text-white' : ''}`}>
+            {d.dmxViews[v]}
+          </button>
+        ))}
+      </div>
+      {view === 'universe' ? <DmxUniverseView rows={rows} /> : <DmxTable rows={rows} problems={problems} />}
+    </div>
+  );
+}
+
+function DmxTable({ rows, problems }: { rows: ReturnType<typeof buildDmxPatch>; problems: Set<string> }) {
+  return (
+    <div className="overflow-x-auto">
       <table className="w-full min-w-[44rem] rounded-lg border border-slate-200 bg-white text-sm dark:border-slate-700 dark:bg-slate-900" data-testid="dmx-patch">
         <thead className="bg-slate-50 text-left text-xs text-slate-500 dark:bg-slate-800">
           <tr>

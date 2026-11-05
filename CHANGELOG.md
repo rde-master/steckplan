@@ -7,6 +7,10 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+### Hinzugefügt
+
+- Listen → DMX-Patch: Umschalter „Liste | Universum“. Die grafische Ansicht zeigt je Universum die 512 Kanäle als Raster (32 je Zeile, auf dem Handy 16), die Geräte als farbige, beschriftete Balken, doppelt belegte Kanäle rot gerahmt (überlappende Geräte übereinander), Auslastung, größte freie Bereiche und Geräte ohne Adresse; Klick auf ein Gerät zeigt Modus, Bereich, Stativ/Traverse und Konflikte. Die Wahl bleibt im Browser gespeichert, der Filter gilt auch hier
+
 ## [0.19.0] - 2026-11-03
 
 ### Hinzugefügt
