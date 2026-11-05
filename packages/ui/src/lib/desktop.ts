@@ -18,7 +18,7 @@ export interface NetworkAddress {
 export interface ConnectedPerson {
   sessionId: string;
   name: string;
-  access: 'edit' | 'read' | 'local';
+  access: 'edit' | 'read' | 'direction' | 'local';
   via: string;
   projects: string[];
 }
@@ -32,6 +32,7 @@ export interface WebAccessStatus {
   address: string | null;
   interfaces: NetworkAddress[];
   hasPasswords: boolean;
+  hasDirectionPassword: boolean;
   people: ConnectedPerson[];
 }
 
@@ -40,7 +41,7 @@ export interface WebAccessBridge {
   status(): Promise<WebAccessStatus>;
   start(address: string): Promise<WebAccessStatus>;
   stop(): Promise<WebAccessStatus>;
-  setPasswords(passwords: { edit: string; read: string }): Promise<WebAccessStatus>;
+  setPasswords(passwords: { edit: string; read: string; direction?: string }): Promise<WebAccessStatus>;
   setPort(port: number): Promise<WebAccessStatus>;
   disconnect(sessionId: string): Promise<WebAccessStatus>;
 }

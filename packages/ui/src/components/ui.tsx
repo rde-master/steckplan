@@ -63,14 +63,16 @@ export function Banner({ tone = 'info', children }: { tone?: 'info' | 'warn' | '
 }
 
 export function accessText(access: Access): string {
-  return access === 'read' ? texts.session.accessRead : access === 'edit' ? texts.session.accessEdit : texts.session.accessLocal;
+  return access === 'read' ? texts.session.accessRead : access === 'edit' ? texts.session.accessEdit : access === 'direction' ? texts.session.accessDirection : texts.session.accessLocal;
 }
 
 export function AccessBadge({ access }: { access: Access }) {
   const tone =
     access === 'read'
       ? 'bg-amber-100 text-amber-900 dark:bg-amber-900 dark:text-amber-100'
-      : 'bg-emerald-100 text-emerald-900 dark:bg-emerald-900 dark:text-emerald-100';
+      : access === 'direction'
+        ? 'bg-violet-100 text-violet-900 dark:bg-violet-900 dark:text-violet-100'
+        : 'bg-emerald-100 text-emerald-900 dark:bg-emerald-900 dark:text-emerald-100';
   return <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${tone}`}>{accessText(access)}</span>;
 }
 
