@@ -132,4 +132,15 @@ test('Regie Lichtszenen: Werte je Gerät, „wie vorige“, Auslöser, Marken im
   await expect(scenes.getByTestId('scene-tab').nth(1)).toHaveAttribute('aria-selected', 'true');
   await expect(scenes.getByTestId('scene-tab').nth(1)).toContainText('0:01.2');
   await expect(fixture('MH 2')).toContainText('80 %');
+
+  // Leertaste: Abspielen / Pause – auch wenn ein Knopf den Fokus hat (der wird nicht zusätzlich ausgelöst)
+  const paused = () => page.evaluate(() => document.querySelector('audio')!.paused);
+  await page.keyboard.press('Space');
+  await expect.poll(paused).toBe(false);
+  await page.keyboard.press('Space');
+  await expect.poll(paused).toBe(true);
+  await expect(scenes.getByTestId('scene-tab')).toHaveCount(3);
+  // beim Tippen in einem Feld nicht
+  await scenes.getByLabel('Name der Szene').press('Space');
+  expect(await paused()).toBe(true);
 });
