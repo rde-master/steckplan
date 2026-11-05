@@ -294,14 +294,38 @@ if (!app.requestSingleInstanceLock()) {
     quitting = true;
     void (async () => {
       try {
-        await webAccess?.stop();
-        await server.rooms.closeAll('Steckplan wird beendet.');
-        await server.store.closeAll();
-        await server.app.close();
+        // Jeder Schritt hat eine Frist: Beenden darf nie hängen bleiben (z. B. eine offene Verbindung).
+        // Speichern hat die längste Frist; überschrittene Fristen werden protokolliert.
+        await withDeadline('Weboberfläche beenden', webAccess?.stop(), 3000);
+        await withDeadline('Projekte speichern', server.rooms.closeAll('Steckplan wird beendet.'), 15000);
+        await withDeadline('Dateien schließen', server.store.closeAll(), 5000);
+        if (!(await withDeadline('Server beenden', server.app.close(), 3000))) server.app.server.closeAllConnections();
+      } catch (error) {
+        console.error(`Fehler beim Beenden: ${(error as Error).message}`);
       } finally {
         cleanedUp = true;
         app.quit();
       }
     })();
   });
+}
+
+/** Wartet höchstens ms Millisekunden; gibt false zurück (und protokolliert), wenn die Frist abläuft. */
+async function withDeadline(step: string, work: Promise<unknown> | undefined, ms: number): Promise<boolean> {
+  if (!work) return true;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const expired = new Promise<false>((resolve) => {
+    timer = setTimeout(() => resolve(false), ms);
+  });
+  const done = work.then(
+    () => true as const,
+    (error: unknown) => {
+      console.error(`Beenden – ${step}: ${(error as Error).message}`);
+      return true as const;
+    },
+  );
+  const finished = await Promise.race([done, expired]);
+  clearTimeout(timer);
+  if (!finished) console.error(`Beenden – ${step}: nach ${ms} ms abgebrochen`);
+  return finished;
 }
