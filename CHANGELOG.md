@@ -7,6 +7,8 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.23.3] - 2026-11-05
+
 ### Hinzugefügt
 
 - Regie: „Textfenster“ – eigene Seite mit eigenem Link (`/projekt/<id>/text`, Knopf im Regie-Menü, Link kopieren): Text zentriert, vorige Zeile ausgegraut, aktuelle hervorgehoben, drei nächste; Antippen schaltet Vollbild. Läuft auf jedem Gerät mit (auch Lese-Zugang), wenn in der Vorstellung jemand führt – im selben Browser auch ohne Führen
@@ -502,7 +504,8 @@ Meilenstein M0 – Projektgerüst.
 - Docker-Image mit Datenvolume `/data` und Beispiel-`docker-compose.yml`
 - GitHub Actions: Tests und Smoke-Test bei jedem Push, Installer als Artefakte, Docker-Image `:develop`, Release-Workflow für Tags `vX.Y.Z`
 
-[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.23.2...develop
+[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.23.3...develop
+[0.23.3]: https://github.com/rde-master/steckplan/compare/v0.23.2...v0.23.3
 [0.23.2]: https://github.com/rde-master/steckplan/compare/v0.23.1...v0.23.2
 [0.23.1]: https://github.com/rde-master/steckplan/compare/v0.23.0...v0.23.1
 [0.23.0]: https://github.com/rde-master/steckplan/compare/v0.22.0...v0.23.0
