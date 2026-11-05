@@ -7,6 +7,10 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+### Geändert
+
+- Regie: „Beteiligte Personen“ und „Notiz“ eines Ablauf-Eintrags sind eingeklappt und öffnen sich bei Bedarf; geschlossen zeigt die Zeile die Namen bzw. den Anfang der Notiz
+
 ## [0.21.0] - 2026-11-05
 
 ### Hinzugefügt

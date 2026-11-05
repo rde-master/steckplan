@@ -1,7 +1,7 @@
 // Regie (M11a): Ablauf links, gewählter Eintrag rechts (Angaben, Rollen, Texte).
 // Auf dem Handy erst der Ablauf, Antippen öffnet den Eintrag.
-import { ArrowDown, ArrowUp, ChevronLeft, Clapperboard, ClipboardPaste, Coffee, Copy, Drama, GripVertical, Megaphone, Music, Trash2, type LucideIcon } from 'lucide-react';
-import { useCallback, useState, type DragEvent } from 'react';
+import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Clapperboard, ClipboardPaste, Coffee, Copy, Drama, GripVertical, Megaphone, Music, Trash2, type LucideIcon } from 'lucide-react';
+import { useCallback, useState, type DragEvent, type ReactNode } from 'react';
 import type * as Y from 'yjs';
 import {
   addShowItem,
@@ -320,11 +320,24 @@ function ItemDetail({
         )}
       </div>
 
-      <PeoplePicker people={people} selected={item.personIds} editable={editable} onChange={(personIds) => set({ personIds })} />
+      {/* eingeklappt; die Zeile zeigt, was eingetragen ist */}
+      <Collapsible
+        label={t.fields.people}
+        preview={
+          item.personIds
+            .map((id) => people.find((p) => p.id === id))
+            .filter((p): p is Person => !!p)
+            .map((p) => personName(p))
+            .join(', ') || t.none
+        }
+        testId="regie-people"
+      >
+        <PeoplePicker people={people} selected={item.personIds} editable={editable} onChange={(personIds) => set({ personIds })} />
+      </Collapsible>
 
-      <Field label={t.fields.notes}>
-        <TextArea value={item.notes ?? ''} disabled={!editable} onChange={(e) => set({ notes: e.target.value || undefined })} />
-      </Field>
+      <Collapsible label={t.fields.notes} preview={item.notes?.split('\n')[0] || t.none} testId="regie-notes">
+        <TextArea aria-label={t.fields.notes} value={item.notes ?? ''} disabled={!editable} onChange={(e) => set({ notes: e.target.value || undefined })} />
+      </Collapsible>
 
       {item.kind === 'song' && <MediaSection projectId={projectId} doc={doc} origin={origin} item={item} media={media} editable={editable} />}
 
@@ -434,10 +447,23 @@ function DurationField({ value, editable, onChange }: { value: number | undefine
   );
 }
 
+/** Aufklappbarer Abschnitt (startet geschlossen); zu sehen sind Bezeichnung und eine kurze Vorschau */
+function Collapsible({ label, preview, testId, children }: { label: string; preview: string; testId: string; children: ReactNode }) {
+  return (
+    <details className="group rounded-md border border-slate-200 dark:border-slate-700" data-testid={testId}>
+      <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-sm select-none [&::-webkit-details-marker]:hidden">
+        <ChevronRight size={16} className="shrink-0 text-slate-400 transition-transform group-open:rotate-90" aria-hidden />
+        <span className="shrink-0 font-medium text-slate-700 dark:text-slate-200">{label}</span>
+        <span className="min-w-0 truncate text-slate-500 group-open:hidden">{preview}</span>
+      </summary>
+      <div className="border-t border-slate-200 px-3 py-2 dark:border-slate-700">{children}</div>
+    </details>
+  );
+}
+
 function PeoplePicker({ people, selected, editable, onChange }: { people: Person[]; selected: string[]; editable: boolean; onChange: (ids: string[]) => void }) {
   return (
     <div className="space-y-1">
-      <div className="text-sm font-medium text-slate-700 dark:text-slate-200">{t.fields.people}</div>
       {people.length === 0 ? (
         <p className="text-xs text-slate-500">{t.noPeople}</p>
       ) : (
