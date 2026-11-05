@@ -321,6 +321,7 @@ export function PerformanceView({
         {item && (item.media?.length ?? 0) > 0 && (
           <div className="mx-auto max-w-4xl [&>[data-testid=regie-player]]:static [&>[data-testid=regie-player]]:mx-0 [&>[data-testid=regie-player]]:border-0">
             <PlayerBar
+              settings={data.showSettings}
               key={item.id}
               projectId={projectId}
               item={item}

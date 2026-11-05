@@ -51,12 +51,15 @@ test('Textfenster: eigene Seite, im selben Browser und auf anderen Geräten (Fü
   await expect(popup.getByTestId('lyrics-page')).toContainText('Warte auf die Vorstellung');
 
   // Hintergrundbild einrichten (Medienspeicher), abdunkeln
-  await page.getByRole('button', { name: 'Textfenster einrichten' }).click();
+  await page.getByRole('button', { name: 'Regie-Einstellungen' }).click();
   const setup = page.getByTestId('lyrics-settings');
   const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64');
   await setup.locator('input[type=file]').setInputFiles({ name: 'Buehne.png', mimeType: 'image/png', buffer: png });
   await expect(setup.getByRole('img', { name: 'Hintergrundbild' })).toBeVisible();
   await setup.getByRole('slider').fill('0.7');
+  // Restzeit: rot ab 5 s, blinkend ab 2 s
+  await setup.getByLabel('Restzeit rot ab').fill('5');
+  await setup.getByLabel('blinkt ab').fill('2');
   await page.getByRole('button', { name: 'Fertig' }).click();
   await expect(popup.getByTestId('lyrics-background')).toHaveAttribute('style', /\/media\//);
   const bg = await (await page.request.get(`/api/projects/${id}/download`)).json();
@@ -129,7 +132,7 @@ test('Textfenster: eigene Seite, im selben Browser und auf anderen Geräten (Fü
   // Schließen der Vorstellung: Seite bleibt bedienbar, das Textfenster wartet wieder
   await expect(page.getByRole('radio', { name: 'Lichtszenen' })).toBeVisible();
   await expect(popup.getByTestId('lyrics-page')).toContainText('Warte auf die Vorstellung');
-  await page.getByRole('button', { name: 'Textfenster einrichten' }).click();
+  await page.getByRole('button', { name: 'Regie-Einstellungen' }).click();
   await page.getByLabel('vor der aktuellen').selectOption('2');
   await page.getByLabel('nach der aktuellen').selectOption('5');
   await page.getByRole('button', { name: 'Fertig' }).click();
@@ -141,5 +144,20 @@ test('Textfenster: eigene Seite, im selben Browser und auf anderen Geräten (Fü
   await expect(rows).toHaveText(['Zeile 1', 'Zeile 2', 'Zeile 3', 'Zeile 4', 'Zeile 5', 'Zeile 6', 'Zeile 7', 'Zeile 8']);
   await expect(popup.locator('[data-current]')).toHaveText('Zeile 3');
   const saved = await (await page.request.get(`/api/projects/${id}/download`)).json();
-  expect(saved.showSettings).toMatchObject({ lyricsBefore: 2, lyricsAfter: 5 });
+  expect(saved.showSettings).toMatchObject({ lyricsBefore: 2, lyricsAfter: 5, remainWarnSec: 5, remainBlinkSec: 2 });
+
+  // Restzeit rechts im Player (Titel 12 s): normal, dann rot, dann blinkend
+  const remaining = perf.getByTestId('remaining');
+  await expect(remaining).toHaveText('−0:09');
+  await expect(remaining).toHaveAttribute('data-state', 'normal');
+  await page.evaluate(() => {
+    document.querySelector('audio')!.currentTime = 9;
+  });
+  await expect(remaining).toHaveText('−0:03');
+  await expect(remaining).toHaveAttribute('data-state', 'warn');
+  await perf.getByTestId('regie-player').screenshot({ path: 'test-results/restzeit.png' });
+  await page.evaluate(() => {
+    document.querySelector('audio')!.currentTime = 10.5;
+  });
+  await expect(remaining).toHaveAttribute('data-state', 'blink');
 });

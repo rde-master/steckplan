@@ -66,6 +66,7 @@ export function ScenesView({ projectId, doc, origin, data, library, editable }: 
       <ScenesSection key={`scenes-${item.id}`} doc={doc} origin={origin} item={item} data={data} library={library} lines={lines} time={time} audio={hasAudio ? audio : null} editable={editable} />
       {hasAudio && (
         <PlayerBar
+          settings={data.showSettings}
           key={`player-${item.id}`}
           projectId={projectId}
           item={item}
