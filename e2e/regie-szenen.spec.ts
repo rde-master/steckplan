@@ -61,7 +61,12 @@ test('Regie Lichtszenen: Werte je Gerät, „wie vorige“, Auslöser, Marken im
   await detail.locator('input[type=file]').setInputFiles({ name: 'Ballade.wav', mimeType: 'audio/wav', buffer: wav(5) });
   await expect(detail.getByTestId('regie-player')).toBeVisible();
 
-  const scenes = detail.getByTestId('regie-scenes');
+  // Lichtszenen im eigenen Bereich, mit Player für die Musik des Stücks
+  await page.getByRole('radio', { name: 'Lichtszenen' }).click();
+  const sceneDetail = page.getByTestId('scenes-detail');
+  await expect(page.getByTestId('scenes-items')).toContainText('keine Szene');
+  await expect(sceneDetail.getByTestId('regie-player')).toBeVisible();
+  const scenes = sceneDetail.getByTestId('regie-scenes');
   await scenes.getByRole('button', { name: '+ Szene' }).click();
   const fixture = (name: string) => scenes.getByTestId('scene-fixture').and(scenes.locator(`[data-device="${name}"]`));
   await expect(fixture('MH 1')).toContainText('–');
@@ -99,10 +104,11 @@ test('Regie Lichtszenen: Werte je Gerät, „wie vorige“, Auslöser, Marken im
   await expect(panel).toContainText('unterschiedlich');
 
   // Marken im Player, mitgehen beim Abspielen
-  await expect(detail.getByTestId('scene-marker')).toHaveCount(2);
+  await expect(sceneDetail.getByTestId('scene-marker')).toHaveCount(2);
+  await expect(page.getByTestId('scenes-items')).toContainText('2 Szenen');
   await scenes.getByTestId('scene-tab').first().click();
   await expect(scenes.getByTestId('scene-tab').first()).toHaveAttribute('aria-selected', 'true');
-  await detail.getByRole('button', { name: 'Abspielen' }).click();
+  await sceneDetail.getByRole('button', { name: 'Abspielen' }).click();
   await expect(scenes.getByTestId('scene-tab').nth(1)).toHaveAttribute('aria-selected', 'true', { timeout: 6000 });
 
   // gespeichert

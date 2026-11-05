@@ -7,6 +7,18 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.22.0] - 2026-11-05
+
+### Geändert
+
+- Regie: Texte in einem eigenen Bereich (Ablauf | Texte | Lichtszenen | Lichtaufbau) – links Lieder, Schauspielstücke und Ansagen mit der Zahl ihrer Zeilen, rechts Text, Rollen und „Text einfügen“, bei Liedern mit Audio Mitlesen und Mitschreiben mit Player; im Ablauf bleiben Angaben, Personen, Notiz und Audio
+- Regie: Lichtszenen in einem eigenen Bereich (Ablauf | Lichtszenen | Lichtaufbau) – links die Lieder und Schauspielstücke mit der Zahl ihrer Szenen, rechts die Szenen des gewählten Stücks, unten der Player für seine Musik (Szenen als Marken auf der Zeitleiste, „Jetzt“ übernimmt die Abspielzeit)
+- Regie: „Beteiligte Personen“ und „Notiz“ eines Ablauf-Eintrags sind eingeklappt und öffnen sich bei Bedarf; geschlossen zeigt die Zeile die Namen bzw. den Anfang der Notiz
+
+### Behoben
+
+- Desktop: Beenden kann nicht mehr hängen bleiben – jeder Aufräumschritt hat eine Frist (Projekte speichern 15 s, sonst wenige Sekunden), überschrittene Fristen werden protokolliert
+
 ## [0.21.0] - 2026-11-05
 
 ### Hinzugefügt
@@ -442,7 +454,8 @@ Meilenstein M0 – Projektgerüst.
 - Docker-Image mit Datenvolume `/data` und Beispiel-`docker-compose.yml`
 - GitHub Actions: Tests und Smoke-Test bei jedem Push, Installer als Artefakte, Docker-Image `:develop`, Release-Workflow für Tags `vX.Y.Z`
 
-[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.21.0...develop
+[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.22.0...develop
+[0.22.0]: https://github.com/rde-master/steckplan/compare/v0.21.0...v0.22.0
 [0.21.0]: https://github.com/rde-master/steckplan/compare/v0.20.0...v0.21.0
 [0.20.0]: https://github.com/rde-master/steckplan/compare/v0.19.0...v0.20.0
 [0.19.0]: https://github.com/rde-master/steckplan/compare/v0.18.0...v0.19.0

@@ -29,27 +29,53 @@ test('Regie: Ablauf, Texte, Rollen; Regie-Zugang bearbeitet nur die Regie', asyn
   await detail.getByLabel('Titel').fill('Opener');
   await detail.getByLabel('Dauer').fill('3:40');
   await detail.getByLabel('Dauer').press('Enter');
+  // Personen und Notiz sind eingeklappt; geschlossen zeigt die Zeile, was eingetragen ist
+  const peopleBox = detail.getByTestId('regie-people');
+  await expect(detail.getByRole('checkbox', { name: /Anna Muster/ })).toBeHidden();
+  await expect(peopleBox).toContainText('–');
+  await peopleBox.getByText('Beteiligte Personen').click();
   await detail.getByRole('checkbox', { name: /Anna Muster/ }).click();
-  await detail.getByRole('button', { name: 'Text einfügen …' }).click();
+  await peopleBox.getByText('Beteiligte Personen').click();
+  await expect(peopleBox).toContainText('Anna Muster');
+  const notesBox = detail.getByTestId('regie-notes');
+  await notesBox.getByText('Notiz').click();
+  await notesBox.getByLabel('Notiz').fill('Mit Gitarre\nzweite Zeile');
+  await notesBox.getByText('Notiz', { exact: true }).click();
+  await expect(notesBox).toContainText('Mit Gitarre');
+  await expect(notesBox.getByLabel('Notiz')).toBeHidden();
+  // im Ablauf gibt es keinen Text mehr – der hat einen eigenen Bereich
+  await expect(detail.getByRole('button', { name: 'Text einfügen …' })).toHaveCount(0);
+
+  // Texte: Lied auswählen, ganzen Text einfügen, Refrain kopieren
+  const area = (name: string) => page.getByRole('radio', { name, exact: true }).click();
+  const textItems = page.getByTestId('texts-items');
+  const textDetail = page.getByTestId('texts-detail');
+  await area('Texte');
+  await textItems.getByRole('button', { name: /Opener/ }).click();
+  await textDetail.getByRole('button', { name: 'Text einfügen …' }).click();
   await page.getByRole('dialog').getByRole('textbox').fill('[Strophe 1]\nEs war einmal\nein kleiner Ton\n\nRefrain:\nLa la la\nLa la la');
   await page.getByRole('dialog').getByRole('button', { name: 'Einfügen' }).click();
-  await expect(detail.getByTestId('regie-section')).toHaveCount(2);
-  await expect(detail.getByLabel('Text Refrain')).toHaveValue('La la la\nLa la la');
-  // Refrain kopieren
-  await detail.getByRole('button', { name: 'Kopieren: Refrain' }).click();
-  await expect(detail.getByTestId('regie-section')).toHaveCount(3);
+  await expect(textDetail.getByTestId('regie-section')).toHaveCount(2);
+  await expect(textDetail.getByLabel('Text Refrain')).toHaveValue('La la la\nLa la la');
+  await textDetail.getByRole('button', { name: 'Kopieren: Refrain' }).click();
+  await expect(textDetail.getByTestId('regie-section')).toHaveCount(3);
+  await expect(textItems).toContainText('6 Zeilen');
 
-  // Schauspiel: Rollen aus dem Text
+  // Schauspiel im Ablauf anlegen, Text und Rollen im Bereich „Texte“
+  await area('Ablauf');
   await list.getByRole('button', { name: '+ Schauspiel' }).click();
   await detail.getByLabel('Titel').fill('Die Begegnung');
   await detail.getByLabel('Dauer').fill('8:00');
   await detail.getByLabel('Dauer').press('Enter');
-  await detail.getByRole('button', { name: '+ Abschnitt' }).click();
-  await detail.getByLabel('Text Szene 1').fill('Hamlet: Sein oder nicht sein,\ndas ist die Frage.\n(Ophelia tritt auf)\nOphelia: Mein Prinz!');
-  await detail.getByLabel('Titel').click(); // Feld verlassen
-  await expect(detail.getByTestId('regie-role')).toHaveCount(2);
-  await detail.getByLabel('gespielt von Ophelia').selectOption({ label: 'Anna Muster' });
-  await expect(detail.getByTestId('regie-role').first()).toContainText('2 Zeilen');
+  await area('Texte');
+  await textItems.getByRole('button', { name: /Die Begegnung/ }).click();
+  await textDetail.getByRole('button', { name: '+ Abschnitt' }).click();
+  await textDetail.getByLabel('Text Szene 1').fill('Hamlet: Sein oder nicht sein,\ndas ist die Frage.\n(Ophelia tritt auf)\nOphelia: Mein Prinz!');
+  await textDetail.getByRole('heading', { name: 'Die Begegnung' }).click(); // Feld verlassen
+  await expect(textDetail.getByTestId('regie-role')).toHaveCount(2);
+  await textDetail.getByLabel('gespielt von Ophelia').selectOption({ label: 'Anna Muster' });
+  await expect(textDetail.getByTestId('regie-role').first()).toContainText('2 Zeilen');
+  await area('Ablauf');
 
   // Pause, Reihenfolge, Startzeiten
   await list.getByRole('button', { name: '+ Pause' }).click();
