@@ -7,6 +7,14 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+### Hinzugefügt
+
+- Lichtszenen: „+ Szene jetzt“ (Taste J) legt beim Abspielen eine neue Szene an der aktuellen Abspielzeit an – eingereiht nach der Szene davor und mit deren Werten
+
+### Geändert
+
+- Lichtszenen: Gerätearten stehen links neben dem Raster (auf dem Handy als Leiste darüber); die Werte rechts erscheinen erst, wenn ein Gerät gewählt ist – sonst hat das Raster die ganze Breite
+
 ## [0.23.0] - 2026-11-05
 
 ### Hinzugefügt
