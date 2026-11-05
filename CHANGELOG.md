@@ -7,6 +7,10 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+### Behoben
+
+- Desktop: Beenden kann nicht mehr hängen bleiben – jeder Aufräumschritt hat eine Frist (Projekte speichern 15 s, sonst wenige Sekunden), überschrittene Fristen werden protokolliert
+
 ## [0.22.0] - 2026-11-05
 
 ### Geändert
