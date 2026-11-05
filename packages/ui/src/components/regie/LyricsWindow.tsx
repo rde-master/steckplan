@@ -66,40 +66,52 @@ export function useCueClock(cue: ReceivedCue | null): number | undefined {
 
 // ---------- Anzeige ----------
 
-/** Die fünf Zeilen um die aktuelle (index -1 = noch vor der ersten Zeile) */
-export function lyricRows<T>(lines: T[], current: number): (T | undefined)[] {
-  return [-1, 0, 1, 2, 3].map((offset) => {
-    const i = current + offset;
-    return i >= 0 && i < lines.length ? lines[i] : undefined;
-  });
-}
+/** Höhe einer Zeile in vh – fünf Zeilen sind sichtbar */
+const ROW_VH = 15;
 
+/**
+ * Fünf Zeilen, zentriert: vorige (ausgegraut), aktuelle (hervorgehoben), drei nächste.
+ * Alle Zeilen stehen in einer Liste, die beim Wechsel weich nach oben gleitet; Hervorhebung und Ein-/Ausblenden
+ * gehen ebenfalls weich über – nichts springt.
+ */
 export function LyricsDisplay({ title, lines, currentLineId, roleNames }: { title: string; lines: TimedLine[]; currentLineId: string | undefined; roleNames: Map<string, string> }) {
   const current = lines.findIndex((l) => l.line.id === currentLineId);
-  const rows = lyricRows(lines, current);
+  // aktuelle Zeile in den zweiten der fünf Plätze (vor der ersten Zeile: Index -1 → erste Zeile auf Platz 3)
+  const shift = (1 - current) * ROW_VH;
   return (
-    <div className="flex h-full flex-col px-[4vw] py-[3vh]" data-testid="lyrics-window">
-      <div className="truncate text-center text-[2.2vw] font-semibold text-slate-500">{title}</div>
-      <ol className="flex flex-1 flex-col items-center justify-center gap-[1.5vh]">
-        {rows.map((row, slot) => {
-          const isCurrent = slot === 1;
-          const speaker = row?.line.roleId ? roleNames.get(row.line.roleId) : undefined;
-          const text = row ? (row.line.direction ? `(${row.line.text})` : row.line.text) : '';
-          return (
-            <li
-              key={slot}
-              data-testid="lyrics-row"
-              data-current={isCurrent || undefined}
-              className={`max-w-full min-h-[1.3em] truncate rounded-lg px-[2vw] text-center leading-tight ${
-                slot === 0 ? 'text-[4vw] text-slate-500' : isCurrent ? (row ? 'bg-sky-900 py-[0.6vh] text-[5.5vw] font-semibold text-white' : 'text-[5.5vw]') : 'text-[4.5vw] text-slate-200'
-              } ${row?.line.direction ? 'italic' : ''}`}
-            >
-              {speaker && <span className="mr-[1vw] text-sky-300">{speaker}:</span>}
-              {text || ' '}
-            </li>
-          );
-        })}
-      </ol>
+    <div className="relative flex h-full flex-col" data-testid="lyrics-window">
+      <div className="truncate px-[4vw] pt-[3vh] text-center text-[2.2vw] font-semibold text-slate-400 [text-shadow:0_2px_8px_rgb(0_0_0/0.8)]">{title}</div>
+      <div className="relative min-h-0 flex-1 overflow-hidden">
+        <div className="absolute inset-x-0 top-1/2" style={{ height: `${5 * ROW_VH}vh`, marginTop: `-${2.5 * ROW_VH}vh` }}>
+          <ol className="transition-transform duration-700 ease-out motion-reduce:transition-none" style={{ transform: `translateY(${shift}vh)` }}>
+            {lines.map((l, i) => {
+              const d = i - current;
+              const visible = d >= -1 && d <= 3;
+              const isCurrent = d === 0;
+              const speaker = l.line.roleId ? roleNames.get(l.line.roleId) : undefined;
+              return (
+                <li
+                  key={l.line.id}
+                  style={{ height: `${ROW_VH}vh` }}
+                  className="flex items-center justify-center px-[3vw] text-center"
+                  data-testid={visible ? 'lyrics-row' : undefined}
+                  data-current={isCurrent || undefined}
+                  aria-hidden={!visible || undefined}
+                >
+                  <span
+                    className={`max-w-full truncate rounded-xl px-[2vw] py-[0.4em] text-[4.5vw] leading-tight transition-all duration-700 ease-out motion-reduce:transition-none [text-shadow:0_2px_10px_rgb(0_0_0/0.85)] ${
+                      isCurrent ? 'scale-[1.2] bg-sky-900/85 font-semibold text-white' : d === -1 ? 'scale-90 text-slate-400 opacity-70' : visible ? 'text-slate-100' : 'opacity-0'
+                    } ${l.line.direction ? 'italic' : ''}`}
+                  >
+                    {speaker && <span className="mr-[1vw] text-sky-300">{speaker}:</span>}
+                    {(l.line.direction ? `(${l.line.text})` : l.line.text) || '\u00a0'}
+                  </span>
+                </li>
+              );
+            })}
+          </ol>
+        </div>
+      </div>
     </div>
   );
 }

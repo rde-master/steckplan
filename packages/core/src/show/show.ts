@@ -347,6 +347,35 @@ export function updateShowSettings(doc: Y.Doc, patch: Partial<ShowSettings>, ori
   doc.transact(() => setFields(doc.getMap('showSettings'), patch), origin);
 }
 
+/**
+ * Hintergrundbild des Textfensters setzen (Verweis im Projekt, damit die Datei erhalten bleibt) bzw. entfernen (null).
+ * Ein ersetztes oder entferntes Bild verliert seinen Verweis, wenn es sonst nirgends verwendet wird.
+ */
+export function setLyricsBackground(doc: Y.Doc, ref: MediaRef | null, origin: unknown, dim = 0.5): void {
+  doc.transact(() => {
+    const settings = doc.getMap('showSettings');
+    const media = doc.getMap<Y.Map<unknown>>('media');
+    const old = (settings.get('lyricsBackground') as { mediaId?: string } | undefined)?.mediaId;
+    if (ref) {
+      if (!media.has(ref.id)) {
+        const map = new Y.Map<unknown>();
+        media.set(ref.id, map);
+        setFields(map, { ...ref });
+      }
+      settings.set('lyricsBackground', { mediaId: ref.id, dim });
+    } else settings.delete('lyricsBackground');
+    if (old && old !== ref?.id && !readShow(doc).items.some((i) => i.media?.some((m) => m.mediaId === old))) media.delete(old);
+  }, origin);
+}
+
+/** Abdunkeln des Hintergrundbilds ändern (0–1) */
+export function setLyricsBackgroundDim(doc: Y.Doc, dim: number, origin: unknown): void {
+  const settings = doc.getMap('showSettings');
+  const current = settings.get('lyricsBackground') as { mediaId: string; dim: number } | undefined;
+  if (!current) return;
+  doc.transact(() => settings.set('lyricsBackground', { ...current, dim: Math.min(1, Math.max(0, dim)) }), origin);
+}
+
 /** Neuer Abschnitt am Ende des Eintrags bzw. nach afterId. */
 export function addSection(doc: Y.Doc, itemId: string, kind: SectionKind, label: string, origin: unknown, lines: TextLine[] = [], afterId?: string): string {
   const id = newId();

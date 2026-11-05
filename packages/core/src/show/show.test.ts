@@ -15,6 +15,8 @@ import {
   readMedia,
   removeItemMedia,
   setLineTime,
+  setLyricsBackground,
+  setLyricsBackgroundDim,
   updateItemMedia,
   appendPastedText,
   duplicateSection,
@@ -247,5 +249,31 @@ describe('Regie: Audio und Zeitpunkte', () => {
     expect(itemLines(readShow(d).sections, song)[0]!.line.atSec).toBe(3.1);
     clearLineTimes(d, song, null);
     expect(itemLines(readShow(d).sections, song).every((l) => l.line.atSec === undefined)).toBe(true);
+  });
+});
+
+describe('Regie: Hintergrundbild des Textfensters', () => {
+  it('setzen, abdunkeln, ersetzen und entfernen – der Verweis hält die Datei, solange sie gebraucht wird', () => {
+    const d = doc();
+    const ref = (id: string) => ({ id, name: `${id}.jpg`, mime: 'image/jpeg', sizeBytes: 10, sha256: '', addedAt: '', addedBy: '' });
+    setLyricsBackground(d, ref('bild1'), null);
+    const read = () => {
+      const r = readProjectFromYDoc(d);
+      if (!r.ok) throw new Error(r.error);
+      return r.project;
+    };
+    let p = read();
+    expect(p.showSettings.lyricsBackground).toEqual({ mediaId: 'bild1', dim: 0.5 });
+    expect(p.media.map((m) => m.id)).toEqual(['bild1']);
+    setLyricsBackgroundDim(d, 1.4, null);
+    expect(read().showSettings.lyricsBackground?.dim).toBe(1);
+    setLyricsBackground(d, ref('bild2'), null, 0.3);
+    p = read();
+    expect(p.showSettings.lyricsBackground).toEqual({ mediaId: 'bild2', dim: 0.3 });
+    expect(p.media.map((m) => m.id)).toEqual(['bild2']);
+    setLyricsBackground(d, null, null);
+    p = read();
+    expect(p.showSettings.lyricsBackground).toBeUndefined();
+    expect(p.media).toEqual([]);
   });
 });
