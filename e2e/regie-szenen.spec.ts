@@ -48,7 +48,10 @@ test('Regie Lichtszenen: Werte je Gerät, „wie vorige“, Auslöser, Marken im
         ],
         lightTargets: [{ id: 't1', order: 0, name: 'Sängerin', color: '#e11d48' }],
         show: {
-          items: [{ id: 'song', order: 0, kind: 'song', title: 'Ballade' }],
+          items: [
+            { id: 'song', order: 0, kind: 'song', title: 'Ballade' },
+            { id: 'song2', order: 1, kind: 'song', title: 'Zweites Lied' },
+          ],
           sections: [{ id: 's1', itemId: 'song', order: 0, kind: 'verse', label: 'Strophe 1', lines: [{ id: 'z1', text: 'Erste Zeile', atSec: 0.5 }, { id: 'z2', text: 'Zweite Zeile', atSec: 2.5 }] }],
         },
       },
@@ -60,6 +63,11 @@ test('Regie Lichtszenen: Werte je Gerät, „wie vorige“, Auslöser, Marken im
   const detail = page.getByTestId('regie-detail');
   await detail.locator('input[type=file]').setInputFiles({ name: 'Ballade.wav', mimeType: 'audio/wav', buffer: wav(5) });
   await expect(detail.getByTestId('regie-player')).toBeVisible();
+  // zweites Lied auch mit Audio (Player neben den Szenen)
+  await page.getByTestId('regie-item').filter({ hasText: 'Zweites Lied' }).click();
+  await detail.locator('input[type=file]').setInputFiles({ name: 'Zweites.wav', mimeType: 'audio/wav', buffer: wav(3) });
+  await expect(detail.getByTestId('regie-player')).toBeVisible();
+  await page.getByTestId('regie-item').filter({ hasText: 'Ballade' }).click();
 
   // Lichtszenen im eigenen Bereich, mit Player für die Musik des Stücks
   await page.getByRole('radio', { name: 'Lichtszenen' }).click();
@@ -139,6 +147,12 @@ test('Regie Lichtszenen: Werte je Gerät, „wie vorige“, Auslöser, Marken im
   await expect.poll(paused).toBe(false);
   await page.keyboard.press('Space');
   await expect.poll(paused).toBe(true);
+  await expect(scenes.getByTestId('scene-tab')).toHaveCount(3);
+  // Wechsel zu einem anderen Lied mit Audio: dessen (keine) Szenen, nicht die des vorigen
+  await page.getByTestId('scenes-items').getByRole('button', { name: /Zweites Lied/ }).click();
+  await expect(sceneDetail.getByRole('heading', { name: 'Zweites Lied' })).toBeVisible();
+  await expect(scenes.getByTestId('scene-tab')).toHaveCount(0);
+  await page.getByTestId('scenes-items').getByRole('button', { name: /Ballade/ }).click();
   await expect(scenes.getByTestId('scene-tab')).toHaveCount(3);
   // beim Tippen in einem Feld nicht
   await scenes.getByLabel('Name der Szene').press('Space');

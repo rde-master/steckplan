@@ -62,10 +62,11 @@ export function ScenesView({ projectId, doc, origin, data, library, editable }: 
         <h2 className="min-w-0 flex-1 truncate text-lg font-semibold">{item.title || texts.regie.untitled}</h2>
         {!hasAudio && item.kind === 'song' && <span className="text-xs text-slate-500">{t.noAudio}</span>}
       </header>
-      <ScenesSection key={item.id} doc={doc} origin={origin} item={item} data={data} library={library} lines={lines} time={time} audio={hasAudio ? audio : null} editable={editable} />
+      {/* eigene Schlüssel je Kind: gleiche Schlüssel bei Geschwistern ließen beim Wechsel des Stücks die alten Szenen stehen */}
+      <ScenesSection key={`scenes-${item.id}`} doc={doc} origin={origin} item={item} data={data} library={library} lines={lines} time={time} audio={hasAudio ? audio : null} editable={editable} />
       {hasAudio && (
         <PlayerBar
-          key={item.id}
+          key={`player-${item.id}`}
           projectId={projectId}
           item={item}
           media={data.media}
