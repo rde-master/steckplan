@@ -117,6 +117,8 @@ function setup(): { data: ProjectData; library: Library } {
     lightGrid: { cols: 12, rows: 6, rowLabels: [] },
     lightPlacements: [],
     lightTargets: [],
+    lightScenes: [],
+    sceneStates: [],
   };
   return { data, library };
 }

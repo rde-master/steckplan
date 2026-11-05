@@ -8,6 +8,8 @@ import {
   appendPastedText,
   clearLineTimes,
   itemLines,
+  itemScenes,
+  sceneTime,
   nextUntimedLine,
   setLineTime,
   type Library,
@@ -33,6 +35,7 @@ import { ICON } from '../icons';
 import { Button, Field, Modal, TextArea, TextInput } from '../ui';
 import { SectionsEditor } from './SectionsEditor';
 import { LightSetupView } from './LightSetupView';
+import { ScenesSection } from './ScenesSection';
 import { LyricsView, MediaSection, PlayerBar, seekAudio, usePlayerTime, useRecordKey } from './SongMedia';
 
 const t = texts.regie;
@@ -82,7 +85,7 @@ function readArea(): 'show' | 'light' {
   }
 }
 
-function ShowView({ projectId, doc, origin, data, editable }: { projectId: string; doc: Y.Doc; origin: object; data: ProjectData; library: Library | null; editable: boolean }) {
+function ShowView({ projectId, doc, origin, data, library, editable }: { projectId: string; doc: Y.Doc; origin: object; data: ProjectData; library: Library | null; editable: boolean }) {
   const narrow = useIsNarrow(900);
   const { items, sections } = data.show;
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -174,6 +177,8 @@ function ShowView({ projectId, doc, origin, data, editable }: { projectId: strin
     <ItemDetail
       key={selected.id}
       projectId={projectId}
+      data={data}
+      library={library}
       media={data.media}
       doc={doc}
       origin={origin}
@@ -201,6 +206,8 @@ function ShowView({ projectId, doc, origin, data, editable }: { projectId: strin
 
 function ItemDetail({
   projectId,
+  data,
+  library,
   media,
   doc,
   origin,
@@ -214,6 +221,8 @@ function ItemDetail({
   onSelect,
 }: {
   projectId: string;
+  data: ProjectData;
+  library: Library | null;
   media: MediaRef[];
   doc: Y.Doc;
   origin: object;
@@ -343,8 +352,16 @@ function ItemDetail({
         </section>
       )}
 
+      {(item.kind === 'song' || item.kind === 'play') && (
+        <ScenesSection doc={doc} origin={origin} item={item} data={data} library={library} lines={lines} time={time} audio={hasAudio ? audio : null} editable={editable} />
+      )}
+
       {hasAudio && (
         <PlayerBar
+          markers={itemScenes(data.lightScenes, item.id).flatMap((s, i) => {
+            const at = sceneTime(s, lines.map((l) => l.line));
+            return at === undefined ? [] : [{ id: s.id, at, label: `${i + 1} ${s.name}` }];
+          })}
           projectId={projectId}
           item={item}
           media={media}

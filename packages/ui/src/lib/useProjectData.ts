@@ -17,6 +17,8 @@ import {
   readLightPlacements,
   readLightTargets,
   readMedia,
+  readScenes,
+  readSceneStates,
   readShow,
   readSubnets,
   readWifi,
@@ -31,7 +33,9 @@ import {
   type Project,
   type ProjectSettings,
   type Shape,
+  type FixtureState,
   type LightGrid,
+  type LightScene,
   type LightPlacement,
   type LightTarget,
   type MediaRef,
@@ -61,6 +65,9 @@ export interface ProjectData {
   lightGrid: LightGrid;
   lightPlacements: LightPlacement[];
   lightTargets: LightTarget[];
+  /** Lichtszenen und Werte je Gerät */
+  lightScenes: LightScene[];
+  sceneStates: FixtureState[];
 }
 
 const EMPTY: ProjectData = {
@@ -82,6 +89,8 @@ const EMPTY: ProjectData = {
   lightGrid: { cols: 12, rows: 6, rowLabels: [] },
   lightPlacements: [],
   lightTargets: [],
+  lightScenes: [],
+  sceneStates: [],
 };
 
 function read(doc: Y.Doc): ProjectData {
@@ -104,6 +113,8 @@ function read(doc: Y.Doc): ProjectData {
     lightGrid: readLightGrid(doc),
     lightPlacements: readLightPlacements(doc),
     lightTargets: readLightTargets(doc),
+    lightScenes: readScenes(doc),
+    sceneStates: readSceneStates(doc),
   };
 }
 

@@ -18,6 +18,13 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 - Medien: Docker unter `/data/media`, Desktop im Ordner `<Name>.medien` neben der Datei; nicht mehr verwendete Dateien 30 Tage im Papierkorb; „Neues Projekt aus diesem“ und „Speichern unter“ nehmen die Medien mit. Im Browser „Mit Medien herunterladen“ als `.steckplan.zip`, das sich in der Projektliste wieder hochladen lässt
 - Regie (M11c): Lichtfähigkeiten an Gerätevorlagen (Bibliothek → Licht): „In Lichtszenen anzeigen“, Dimmer, Strobe, Farbmischung (RGB/RGBW/RGBA/CMY), Farbräder mit benannten Farben, CTO/CTB, Gobo-Räder (Gobos mit Namen, drehbar), Prisma, Zoom, Fokus, Iris, Frost, beweglich mit Schwenk-/Neigebereich
 - Regie → Lichtaufbau: Raster je Projekt mit allen Lichtgeräten – per Ziehen oder Antippen platzieren (belegtes Feld = tauschen), Zeilen benennen, Größe ändern, „Aus dem Bühnenplan anordnen“ (je Traverse/Stativ eine Zeile), Geräte ausblenden; benannte Ziele (z. B. Sängerin, Publikum) mit Farbe und Punkt auf einer Draufsicht der Bühne
+- Regie (M11d): Lichtszenen je Lied und Schauspiel – im Raster die Geräte antippen (mehrere möglich) und Helligkeit, Farbe (Farbrad oder frei), Gobo mit Drehung, Ziel, Bewegung mit Tempo, Prisma, Zoom, Fokus, Iris, Frost, Strobe und Notiz setzen; das Raster zeigt jede Szene in ihren Farben. „+ Szene“ übernimmt die Werte der gewählten Szene, „+ leere Szene“ beginnt leer; Szenen sortieren, kopieren, löschen
+- Regie: Auslöser je Szene per Zeitpunkt („Jetzt“ übernimmt die Abspielzeit) oder Textzeile; Szenen als Marken auf der Zeitleiste des Players, „Beim Abspielen mitgehen“ zeigt die laufende Szene
+
+### Behoben
+
+- Regie → Lichtaufbau: Die Draufsicht der Bühne hatte viel leeren Rand; jetzt eng zugeschnitten
+- Test „Signalfluss“ wartet nach „Rückgängig“, bis das Gerät wieder gezeichnet ist (schlug unter Last gelegentlich fehl)
 
 ## [0.20.0] - 2026-11-05
 
