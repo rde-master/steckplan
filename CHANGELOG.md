@@ -20,6 +20,9 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 - Regie → Lichtaufbau: Raster je Projekt mit allen Lichtgeräten – per Ziehen oder Antippen platzieren (belegtes Feld = tauschen), Zeilen benennen, Größe ändern, „Aus dem Bühnenplan anordnen“ (je Traverse/Stativ eine Zeile), Geräte ausblenden; benannte Ziele (z. B. Sängerin, Publikum) mit Farbe und Punkt auf einer Draufsicht der Bühne
 - Regie (M11d): Lichtszenen je Lied und Schauspiel – im Raster die Geräte antippen (mehrere möglich) und Helligkeit, Farbe (Farbrad oder frei), Gobo mit Drehung, Ziel, Bewegung mit Tempo, Prisma, Zoom, Fokus, Iris, Frost, Strobe und Notiz setzen; das Raster zeigt jede Szene in ihren Farben. „+ Szene“ übernimmt die Werte der gewählten Szene, „+ leere Szene“ beginnt leer; Szenen sortieren, kopieren, löschen
 - Regie: Auslöser je Szene per Zeitpunkt („Jetzt“ übernimmt die Abspielzeit) oder Textzeile; Szenen als Marken auf der Zeitleiste des Players, „Beim Abspielen mitgehen“ zeigt die laufende Szene
+- Regie (M11e): Vorstellungs-Ansicht im Vollbild (dunkel) – aktueller Eintrag mit mitlaufendem Text, aktuelle Lichtszene als Raster, was als Nächstes kommt, Player, große Knöpfe „Szene/Eintrag zurück/weiter“ und Pfeiltasten
+- Vorstellung: „Führen“ (Regie- oder Bearbeiten-Zugang) überträgt die Stelle live an alle, die „Folgen“ eingeschaltet haben – Nachzügler springen direkt an die aktuelle Stelle, eigenes Bedienen verlässt das Folgen; wer führt, ist sichtbar
+- Export: Ablaufplan, Lichtszenen (je Szene das Raster in Farbe und eine Tabelle der Werte) und Textbuch (Rollen, Regieanweisungen, Szenenwechsel am Rand) als PDF
 
 ### Behoben
 
