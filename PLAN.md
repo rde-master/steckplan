@@ -189,7 +189,7 @@ Mit Steckplan kann man:
 - Mehrsprachigkeit im MVP
 - Switch-Port-/VLAN-Verwaltung als eigene Funktion (nur Notizfelder)
 
-### 3.4 Regie (Phase 2c, vor Release 1.0)
+### 3.4 Regie (Phase 2c, M11, vor Release 1.0)
 
 Neuer Reiter **„Regie“** neben „Listen“. Alles gehört zum Projekt (kein Repertoire in der Bibliothek); „Neues Projekt aus diesem“ übernimmt Ablauf, Texte, Szenen und Medien.
 
@@ -475,7 +475,7 @@ ChangeLogEntry {
 // Lokal: in der .steckplan-Datei (Abschnitt changeLog, auf die letzten N Einträge begrenzt)
 
 DesktopKey {                           // nur auf dem Docker-Server
-  id, label, access: 'edit'|'direction'|'read', keyHash, createdAt, lastUsedAt?, revoked?: boolean   // 'direction' = Regie (ab M10a)
+  id, label, access: 'edit'|'direction'|'read', keyHash, createdAt, lastUsedAt?, revoked?: boolean   // 'direction' = Regie (ab M11a)
 }
 
 // ---------- Regie (ab Format 9) ----------
@@ -656,12 +656,12 @@ Jeder Meilenstein endet mit grünen Tests, lauffähigem Build (Desktop **und** D
 | **M8b** | Desktop ↔ Server-Verbindung | Desktop-Zugangsschlüssel auf dem Docker-Server (erzeugen, Zugangsstufe, widerrufen); Desktop „Mit Server verbinden“ (mehrere Server, Schlüssel im OS-Schlüsselbund), Live-Arbeit auf Server-Projekten/Bibliothek/Stammdaten, Verbindungsstatus, Sperre bei Verbindungsabbruch; lokales Projekt hochladen (mit Konfliktabfrage) / Server-Projekt herunterladen |
 | **M9** | Phase 2a: Ton-Patch | Stagebox-/Pult-Kanalbelegung, Input-Liste als PDF |
 | **M10** | Phase 2b: Strom | Leistung, Stromkreise, Phasen, Überlast-Warnungen, Stromliste als PDF |
-| **M10a** | Regie A: Zugang & Ablauf | Zugangsstufe „Regie“ (Passwort, Desktop-Schlüssel, serverseitige Prüfung, dass nur Regie-Bereiche geändert werden); Reiter „Regie“; Ablauf (Lied/Schauspiel/Pause/Ansage, sortieren, Dauer, Startzeiten, Personen); strukturierte Texte mit Abschnitten, Rollen, Regieanweisungen, Einfügen aus der Zwischenablage; Format 9 + Migration |
-| **M10b** | Regie B: Medien & Player | Medienspeicher (Docker, Desktop lokal neben der Datei, Desktop mit Server), Hochladen ohne Größengrenze in Teilen mit Fortschritt und Fortsetzen, Dateien unverändert, mehrere Dateien je Lied, Player mit Zeitleiste; Text mitlaufen inkl. „Mitschreiben“ der Zeitpunkte; Herunterladen/Hochladen als `.steckplan.zip`; „Neues Projekt aus diesem“ kopiert Medien; Papierkorb für Medien |
-| **M10c** | Regie C: Lichtfähigkeiten & Grid | Abschnitt „Licht“ im Vorlagen-Editor (ausführlich, Gobo-Bilder im Medienspeicher der Bibliothek); Grid je Projekt mit Ziehen, Zeilennamen, „aus dem Bühnenplan anordnen“, Geräte ausblenden; benannte Ziele mit optionalem Punkt im Bühnenplan |
-| **M10d** | Regie D: Lichtszenen | Szenen je Stück (anlegen, sortieren, duplizieren, „wie vorige“), Angaben je Gerät passend zu den Fähigkeiten, Mehrfachauswahl, Auslöser per Zeitpunkt/Textstelle, Marken im Player, aktuelle Szene beim Abspielen; Handy-Bedienung |
-| **M10e** | Regie E: Vorstellung & PDF | Vorstellungs-Ansicht (Vollbild, Weiter/Zurück, Text, aktuelle/nächste Szene, Player) mit „Folgen“-Modus; PDF Ablaufplan, Lichtszenen (Grid-Bild + Tabelle), Textbuch; Export-Vorschau |
-| **M11** | Release 1.0 | Installer (.dmg Universal ad-hoc signiert, .exe), Docker-Image (amd64/arm64) auf GHCR, Update-Hinweis (Desktop) über GitHub Releases, Benutzerhandbuch, Docker-Anleitung inkl. Aktualisieren, Beispielprojekt (nur in `docs/`, nicht in der Bibliothek), Bugfixing |
+| **M11a** | Regie A: Zugang & Ablauf | Zugangsstufe „Regie“ (Passwort, Desktop-Schlüssel, serverseitige Prüfung, dass nur Regie-Bereiche geändert werden); Reiter „Regie“; Ablauf (Lied/Schauspiel/Pause/Ansage, sortieren, Dauer, Startzeiten, Personen); strukturierte Texte mit Abschnitten, Rollen, Regieanweisungen, Einfügen aus der Zwischenablage; Format 9 + Migration |
+| **M11b** | Regie B: Medien & Player | Medienspeicher (Docker, Desktop lokal neben der Datei, Desktop mit Server), Hochladen ohne Größengrenze in Teilen mit Fortschritt und Fortsetzen, Dateien unverändert, mehrere Dateien je Lied, Player mit Zeitleiste; Text mitlaufen inkl. „Mitschreiben“ der Zeitpunkte; Herunterladen/Hochladen als `.steckplan.zip`; „Neues Projekt aus diesem“ kopiert Medien; Papierkorb für Medien |
+| **M11c** | Regie C: Lichtfähigkeiten & Grid | Abschnitt „Licht“ im Vorlagen-Editor (ausführlich, Gobo-Bilder im Medienspeicher der Bibliothek); Grid je Projekt mit Ziehen, Zeilennamen, „aus dem Bühnenplan anordnen“, Geräte ausblenden; benannte Ziele mit optionalem Punkt im Bühnenplan |
+| **M11d** | Regie D: Lichtszenen | Szenen je Stück (anlegen, sortieren, duplizieren, „wie vorige“), Angaben je Gerät passend zu den Fähigkeiten, Mehrfachauswahl, Auslöser per Zeitpunkt/Textstelle, Marken im Player, aktuelle Szene beim Abspielen; Handy-Bedienung |
+| **M11e** | Regie E: Vorstellung & PDF | Vorstellungs-Ansicht (Vollbild, Weiter/Zurück, Text, aktuelle/nächste Szene, Player) mit „Folgen“-Modus; PDF Ablaufplan, Lichtszenen (Grid-Bild + Tabelle), Textbuch; Export-Vorschau |
+| **M12** | Release 1.0 | Installer (.dmg Universal ad-hoc signiert, .exe), Docker-Image (amd64/arm64) auf GHCR, Update-Hinweis (Desktop) über GitHub Releases, Benutzerhandbuch, Docker-Anleitung inkl. Aktualisieren, Beispielprojekt (nur in `docs/`, nicht in der Bibliothek), Bugfixing |
 
 ---
 
@@ -674,7 +674,7 @@ Jeder Meilenstein endet mit grünen Tests, lauffähigem Build (Desktop **und** D
 - **Release:** Merge `develop` → `main` + Versions-Tag `vX.Y.Z` erzeugt per GitHub Actions ein GitHub-Release mit `.dmg` und `.exe` sowie das Docker-Image auf GHCR (`latest` + `X.Y.Z`).
 - **Versionierung (führt Claude Code selbständig mit):**
   - SemVer (`MAJOR.MINOR.PATCH`), **eine** Versionsnummer für das ganze Projekt: in der Root-`package.json` gepflegt und per Skript in alle Pakete, die Electron-App und das Docker-Image übernommen; in der App unter „Über Steckplan“ angezeigt.
-  - Vor 1.0: Start mit `0.1.0` (M0); jeder abgeschlossene Meilenstein erhöht MINOR (M1 → `0.2.0`, M2 → `0.3.0` …); Fehlerbehebungen dazwischen erhöhen PATCH. **M11 = `1.0.0`.** Danach: neue Funktionen MINOR, Fehlerbehebungen PATCH, inkompatible Änderungen (z. B. Dateiformat ohne Migration, API-Bruch) MAJOR.
+  - Vor 1.0: Start mit `0.1.0` (M0); jeder abgeschlossene Meilenstein erhöht MINOR (M1 → `0.2.0`, M2 → `0.3.0` …); Fehlerbehebungen dazwischen erhöhen PATCH. **M12 = `1.0.0`.** Danach: neue Funktionen MINOR, Fehlerbehebungen PATCH, inkompatible Änderungen (z. B. Dateiformat ohne Migration, API-Bruch) MAJOR.
   - `CHANGELOG.md` nach „Keep a Changelog“: Änderungen laufend unter „Unreleased“ eintragen, beim Versionssprung in einen Abschnitt mit Version und Datum überführen.
   - Unabhängig davon: `schemaVersion` des Dateiformats wird bei jeder Änderung am Projekt-Datenmodell erhöht – immer zusammen mit einer Migration und Test.
   - Git-Tags `vX.Y.Z` werden auf `main` gesetzt (siehe Release).
@@ -767,8 +767,9 @@ Jeder Meilenstein endet mit grünen Tests, lauffähigem Build (Desktop **und** D
 - Strom im Signalfluss (03.11.2026): Mehrfachsteckdosen = Gerätevorlage mit Strom-Eingang und Strom-Ausgängen (Unterverteiler, Last wird bis zur Einspeisung summiert); Anzeige in den Kästen (Summe je Verteiler/Leiste, Strom je Abgang, Leistung je Verbraucher), Warnfarben ab 80/100 %, ein-/ausblendbar; an den Kabeln vorerst nicht
 - Strom-Einspeisung und Mehrfachsteckdosen (03.11.2026): Hauptverteiler ohne Phasenangabe nur bei erkennbarem Drehstrom als 3P, sonst einphasig (Wandsteckdose); Mehrfachsteckdose = Unterverteiler ohne abgesicherte Abgänge; Hinweis (info) ab 4 Mehrfachsteckdosen je Stromkreis (Stromkreis beginnt an einem abgesicherten Abgang bzw. der Einspeisung)
 - Export-Vorschau (02.11.2026): im Export-Dialog daneben, live bei jeder Änderung; PDF blättern/vergrößern, CSV als Tabelle
-- Regie (05.11.2026, Eigentümer): kommt **vor** Release 1.0 als M10a–M10e (siehe 3.4). Lichtszenen nur Planung/Doku, keine DMX-Ausgabe (Nicht-Ziel bleibt). Ein Ablauf je Projekt, Lieder/Stücke im Projekt (kein Repertoire). Szenen für Lieder und Schauspiel. Audio in einem eigenen Medienspeicher (nicht in der Projektdatei), mehrere Dateien je Lied, Player mit Szenen-Marken und mitlaufendem Text. Texte strukturiert (Abschnitte, Rollen ↔ Personen). Eigene Zugangsstufe „Regie“: nur Regie bearbeiten, sonst lesen, keine Häkchen. Grid je Projekt, frei angeordnet, Vorschlag aus dem Bühnenplan. Geräte über das Merkmal „In Lichtszenen anzeigen“ an der Vorlage, Fähigkeiten ausführlich. Angaben je Gerät: Helligkeit, Farbe, Gobo, Bewegung/Effekt (plus Prisma, Zoom, Fokus, Iris, Frost, Strobe aus den Fähigkeiten); Position über benannte Ziele. Ausgaben: Vorstellungs-Ansicht, PDF Ablaufplan, Lichtszenen, Textbuch
-- Regie, Nachtrag (05.11.2026, Eigentümer): keine Größengrenze für Audiodateien (vor allem MP3), Dateien unverändert speichern; Vorstellungs-Ansicht mit „Folgen“-Modus (in M10e); Zugangsstufe heißt „Regie“ (intern `direction`) – Regie bearbeiten, alles andere lesen
+- Regie (05.11.2026, Eigentümer): kommt **vor** Release 1.0 als M11a–M11e (siehe 3.4). Lichtszenen nur Planung/Doku, keine DMX-Ausgabe (Nicht-Ziel bleibt). Ein Ablauf je Projekt, Lieder/Stücke im Projekt (kein Repertoire). Szenen für Lieder und Schauspiel. Audio in einem eigenen Medienspeicher (nicht in der Projektdatei), mehrere Dateien je Lied, Player mit Szenen-Marken und mitlaufendem Text. Texte strukturiert (Abschnitte, Rollen ↔ Personen). Eigene Zugangsstufe „Regie“: nur Regie bearbeiten, sonst lesen, keine Häkchen. Grid je Projekt, frei angeordnet, Vorschlag aus dem Bühnenplan. Geräte über das Merkmal „In Lichtszenen anzeigen“ an der Vorlage, Fähigkeiten ausführlich. Angaben je Gerät: Helligkeit, Farbe, Gobo, Bewegung/Effekt (plus Prisma, Zoom, Fokus, Iris, Frost, Strobe aus den Fähigkeiten); Position über benannte Ziele. Ausgaben: Vorstellungs-Ansicht, PDF Ablaufplan, Lichtszenen, Textbuch
+- Meilensteine umbenannt (05.11.2026, Eigentümer): Regie = **M11** (Teilschritte M11a–M11e), Release 1.0 = **M12**
+- Regie, Nachtrag (05.11.2026, Eigentümer): keine Größengrenze für Audiodateien (vor allem MP3), Dateien unverändert speichern; Vorstellungs-Ansicht mit „Folgen“-Modus (in M11e); Zugangsstufe heißt „Regie“ (intern `direction`) – Regie bearbeiten, alles andere lesen
 
 ---
 
