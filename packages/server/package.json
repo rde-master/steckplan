@@ -21,6 +21,7 @@
     "@fastify/websocket": "^11.3.6",
     "@steckplan/core": "workspace:*",
     "fastify": "^5.12.7",
+    "fflate": "0.8.3",
     "lib0": "^0.2.119",
     "qrcode": "^1.5.4",
     "y-protocols": "^1.0.7",

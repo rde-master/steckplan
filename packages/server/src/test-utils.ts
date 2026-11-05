@@ -14,6 +14,7 @@ import { LibraryStore } from './library/library-store';
 import { UsageTracker } from './library/usage-tracker';
 import { DataDirProjectStore } from './storage/data-dir-store';
 import { VersionStore } from './storage/version-store';
+import { MediaStore } from './storage/media-store';
 import type { ProjectStore } from './storage/types';
 
 export const EDIT_PASSWORD = 'bearbeiten-geheim';
@@ -54,6 +55,7 @@ export async function startTestServer(overrides: Partial<ServerOptions> = {}): P
     passwords: new PasswordChecker({ edit: EDIT_PASSWORD, read: READ_PASSWORD, direction: DIRECTION_PASSWORD }),
     rateLimiter: new LoginRateLimiter({ maxFailures: 3 }),
     desktopKeys: new DesktopKeyStore({ file: join(dataDir, 'desktop-keys.json') }),
+    media: new MediaStore((id) => join(dataDir, 'media', id)),
     saveDelayMs: 20,
     idleMs: 50,
     ...overrides,
