@@ -3,7 +3,7 @@ import { dirname, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { createEmptyLibrary, createEmptyProject, EMPTY_FILTER, type Library, type Template } from '@steckplan/core';
 import type { ProjectData } from '../lib/useProjectData';
-import { drawableArea, pdfText, tilePlan, worldPerPtForScale, type DocDefinition } from './documents';
+import { drawableArea, fitText, LABEL_FORMATS, pdfText, textWidth, tilePlan, worldPerPtForScale, type DocDefinition } from './documents';
 import { buildCsv, buildExportDoc, DEFAULT_OPTIONS, exportFileName, type ExportOptions } from './export';
 
 const require = createRequire(import.meta.url);
@@ -28,6 +28,36 @@ async function render(doc: DocDefinition): Promise<{ pages: number; text: string
     text += content.items.map((x) => ('str' in x ? x.str : '')).join(' ') + '\n';
   }
   return { pages: pdf.numPages, text };
+}
+
+interface TextItem {
+  page: number;
+  text: string;
+  x: number;
+  /** von oben gemessen */
+  top: number;
+  right: number;
+  pageWidth: number;
+  pageHeight: number;
+}
+
+/** Textstücke mit Position (pt), um Ränder zu prüfen; optional die PDF-Datei ablegen (STECKPLAN_PDF_OUT). */
+async function renderItems(doc: DocDefinition, name: string): Promise<{ pages: number; items: TextItem[] }> {
+  const buffer = await pdfmake.createPdf(doc).getBuffer();
+  if (process.env.STECKPLAN_PDF_OUT) (await import('node:fs')).writeFileSync(join(process.env.STECKPLAN_PDF_OUT, `${name}.pdf`), buffer);
+  const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
+  const pdf = await pdfjs.getDocument({ data: new Uint8Array(buffer) }).promise;
+  const items: TextItem[] = [];
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const [, , pageWidth, pageHeight] = page.view as [number, number, number, number];
+    for (const x of (await page.getTextContent()).items) {
+      if (!('str' in x) || !x.str.trim()) continue;
+      const [, , , , e, f] = x.transform as number[];
+      items.push({ page: i, text: x.str, x: e!, top: pageHeight - f!, right: e! + x.width, pageWidth, pageHeight });
+    }
+  }
+  return { pages: pdf.numPages, items };
 }
 
 const T0 = '2026-01-01T00:00:00.000Z';
@@ -187,6 +217,67 @@ describe('PDF-Export', () => {
     expect((await render(await exportDoc({ kind: 'network' }))).text).toContain('Keine Einträge');
   });
 
+  it('Planköpfchen: viele Kategorien mehrzeilig (höchstens 3 Zeilen), nichts über den Rand', async () => {
+    const { data, library } = setup();
+    const categories = Array.from({ length: 45 }, (_, i) => ({ id: `k${i}`, name: `Kategorie mit langem Namen ${i + 1}`, color: `#${(0x123456 + i * 0x0a0b0c).toString(16).slice(-6)}` }));
+    library.masterData.categories.push(...categories);
+    library.templates.push(...categories.map((c) => t({ id: `t-${c.id}`, kind: 'device', name: `Gerät ${c.id}`, categoryId: c.id, shape: { form: 'rect', widthMm: 400, depthMm: 400 }, ports: [] })));
+    data.devices.push(...categories.map((c, i) => ({ id: `x${i}`, templateId: `t-${c.id}`, layerId: data.layers[0]!.id, label: `X ${i}`, stagePlan: { position: { x: i * 500, y: 20000 }, rotationDeg: 0 }, signalFlow: { position: { x: i * 220, y: 900 } } })));
+    const input = { data, library, meta: { name: 'Stadtfest', venue: 'Marktplatz', date: '2026-07-04', planner: 'Ralf', version: '3' }, filter: EMPTY_FILTER, colorMode: 'device' as const, issues: [], appTitle: 'Steckplan 0.8.0', by: 'Ralf', fetchQr: async () => QR_SVG, now: new Date(T0) };
+    for (const [kind, orientation] of [
+      ['stageplan', 'portrait'],
+      ['stageplan', 'landscape'],
+      ['signalflow', 'portrait'],
+    ] as const) {
+      const { pages, items } = await renderItems(await buildExportDoc({ ...DEFAULT_OPTIONS, kind, scale: 'fill', format: 'A4', orientation }, input), `plan-${kind}-${orientation}`);
+      expect(pages, `${kind} ${orientation}`).toBe(1);
+      expect(items.map((i) => i.text).join(' ')).toMatch(/\+ \d+ weitere/);
+      for (const item of items) {
+        expect(item.x, item.text).toBeGreaterThanOrEqual(30);
+        expect(item.right, item.text).toBeLessThanOrEqual(item.pageWidth - 30);
+        expect(item.top, item.text).toBeLessThanOrEqual(item.pageHeight - 4);
+      }
+    }
+  });
+
+  it('Fußzeile: höchstens zwei Zeilen, auch bei langem Namen', async () => {
+    const { data, library } = setup();
+    const input = { data, library, meta: { name: 'Stadtfest' }, filter: EMPTY_FILTER, colorMode: 'device' as const, issues: [], appTitle: 'Steckplan 0.8.0', by: 'Jemand mit einem wirklich sehr sehr langen Namen '.repeat(6), fetchQr: async () => QR_SVG, now: new Date(T0) };
+    const { items } = await renderItems(await buildExportDoc({ ...DEFAULT_OPTIONS, kind: 'devices', format: 'A4', orientation: 'portrait' }, input), 'footer');
+    const footer = items.filter((i) => i.page === 1 && i.top > i.pageHeight - 38);
+    expect(footer.length).toBeGreaterThan(0);
+    for (const item of footer) {
+      expect(item.top, item.text).toBeLessThanOrEqual(item.pageHeight - 4);
+      expect(item.right, item.text).toBeLessThanOrEqual(item.pageWidth - 30);
+    }
+  });
+
+  it('Geräte-Etiketten: Sicherheitsabstand zum Etiketten- und Blattrand, auch bei langen Texten', async () => {
+    const { data, library } = setup();
+    data.people[0]!.firstName = 'Anna-Maria Konstanze';
+    data.people[0]!.kind = 'Sängerin und Gitarristin im Hintergrundchor';
+    data.devices.find((d) => d.id === 'm1')!.label = 'Funkmikrofon Hauptgesang links Bühnenrand';
+    data.cables.push(...Array.from({ length: 12 }, (_, i) => ({ id: `extra${i}`, templateId: 'xlr', from: { deviceId: 'm1', portId: 'o' }, to: { deviceId: `d${10 + i}`, portId: 'i' }, waypoints: [], manualLengthMm: 20000, label: `Sehr lange Kabelbezeichnung ${i}` })));
+    for (const formatId of ['70x37', '63x38', '105x48', '105x74']) {
+      const format = LABEL_FORMATS.find((f) => f.id === formatId)!;
+      const input = { data, library, meta: { name: 'Stadtfest' }, filter: EMPTY_FILTER, colorMode: 'device' as const, issues: [], appTitle: 'Steckplan 0.8.0', by: 'Ralf', fetchQr: async () => QR_SVG, now: new Date(T0) };
+      const { items } = await renderItems(await buildExportDoc({ ...DEFAULT_OPTIONS, kind: 'labels', labelFormat: formatId, cutLines: true }, input), `labels-${formatId}`);
+      const mm = 72 / 25.4;
+      for (const item of items) {
+        expect(item.x, `${formatId}: ${item.text}`).toBeGreaterThanOrEqual(5 * mm - 0.5);
+        expect(item.right, `${formatId}: ${item.text}`).toBeLessThanOrEqual(item.pageWidth - 5 * mm + 0.5);
+        // innerhalb des eigenen Etiketts (mit Abstand)
+        const col = Math.floor((item.x / mm - format.marginLeftMm) / (format.widthMm + format.gapXMm));
+        const right = (format.marginLeftMm + col * (format.widthMm + format.gapXMm) + format.widthMm - 3) * mm;
+        expect(item.right, `${formatId}: ${item.text}`).toBeLessThanOrEqual(right + 0.5);
+        const row = Math.floor(((item.top - 2) / mm - format.marginTopMm) / (format.heightMm + format.gapYMm));
+        const bottom = (format.marginTopMm + row * (format.heightMm + format.gapYMm) + format.heightMm - 3) * mm;
+        expect(item.top, `${formatId}: ${item.text}`).toBeLessThanOrEqual(bottom + 1);
+      }
+      expect(items.map((i) => i.text).join(' ')).toMatch(/und \d+ weitere/);
+    }
+  });
+
   it('Personenliste und Geräte-Etiketten', async () => {
     const people = (await render(await exportDoc({ kind: 'people' }))).text;
     expect(people).toContain('Muster, Anna');
@@ -197,7 +288,9 @@ describe('PDF-Export', () => {
     expect(labels.pages).toBe(1);
     expect(labels.text).toContain('Mikro 1');
     expect(labels.text).toContain('Anna Muster');
-    expect(labels.text).toContain('Out –> Spot 6 · In (XLR 10 m, A5)');
+    expect(labels.text).toContain('Out');
+    expect(labels.text).toContain('Spot 6 · In');
+    expect(labels.text).toContain('XLR 10 m, A5');
     expect(labels.text).toContain('Person nicht zugeordnet');
   });
 
@@ -270,5 +363,15 @@ describe('CSV und Dateinamen', () => {
     expect(exportFileName({ name: 'Fest: Süd/Nord' }, 'packing', 'pdf')).toBe('Fest_ Sued_Nord - Packliste.pdf');
     expect(exportFileName({ name: 'Straße – Bühne Ø' }, 'stageplan', 'pdf')).toBe('Strasse - Buehne - Buehnenplan.pdf');
     expect(exportFileName({ name: '' }, 'wifi', 'pdf')).toBe('Projekt - WLAN-Aushang.pdf');
+  });
+});
+
+describe('Textbreite schätzen und kürzen', () => {
+  it('kürzt mit „…“ auf die verfügbare Breite, lässt Passendes unverändert', () => {
+    expect(fitText('Kurz', 8, 100)).toBe('Kurz');
+    const cut = fitText('Ein sehr langer Gerätename, der nicht passt', 8, 60);
+    expect(cut.endsWith('…')).toBe(true);
+    expect(textWidth(cut, 8)).toBeLessThanOrEqual(60);
+    expect(fitText('Egal', 8, 1)).toBe('');
   });
 });

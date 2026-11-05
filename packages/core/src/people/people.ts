@@ -6,7 +6,7 @@ import { computeCableLength, lengthContext } from '../logistics/length';
 import { newId } from '../model/project';
 import type { Cable, CaseTrailer, DeviceInstance, Person, Project, Template } from '../model/schema';
 import type { Issue } from '../signalflow/checks';
-import { findPort } from '../signalflow/ports';
+import { findPort, signalKind, type PortRole, type SignalKind } from '../signalflow/ports';
 
 type Json = Record<string, unknown>;
 
@@ -107,6 +107,9 @@ export interface Connection {
   /** Kabel, z. B. „XLR 10 m“ (leer bei direkt gesteckt) */
   cable: string;
   cableLabel?: string;
+  /** Signalart und Richtung am eigenen Anschluss (für Farben/Symbole) */
+  signal: SignalKind;
+  role: PortRole;
 }
 
 export interface PersonDevice {
@@ -139,11 +142,14 @@ export function deviceConnections(device: DeviceInstance, project: Pick<Project,
     const otherPort = findPort(templates.get(otherDevice?.templateId ?? ''), other.portId);
     const type = cable.templateId ? templates.get(cable.templateId) : undefined;
     const length = cable.direct ? null : computeCableLength(cable, ctx).chosenMm;
+    const ownPort = findPort(own, mine.portId);
     result.push({
-      port: findPort(own, mine.portId)?.label ?? mine.portId,
+      port: ownPort?.label ?? mine.portId,
       target: `${otherDevice?.label ?? '?'} · ${otherPort?.label ?? other.portId}`,
       cable: cable.direct ? 'direkt gesteckt' : [type?.name ?? 'Kabel', lengthText(length)].filter(Boolean).join(' '),
       ...(cable.label ? { cableLabel: cable.label } : {}),
+      signal: signalKind(ownPort ?? otherPort),
+      role: ownPort?.role ?? 'bi',
     });
   };
   for (const cable of project.cables) {
@@ -204,6 +210,7 @@ export interface DeviceLabel {
   person: string;
   personKind: string;
   lines: string[];
+  connections: Connection[];
 }
 
 /** Etiketten: Gerät, Person und wo das Gerät mit welchem Kabel einzustecken ist. */
@@ -220,6 +227,7 @@ export function buildDeviceLabels(project: ProjectLike, library: Pick<Library, '
         person: personName(entry.person),
         personKind: entry.person?.kind ?? '',
         lines: item.connections.map((c) => `${c.port} → ${c.target}${c.cable ? ` (${c.cable}${c.cableLabel ? `, ${c.cableLabel}` : ''})` : ''}`),
+        connections: item.connections,
       });
     }
   }
