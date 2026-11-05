@@ -124,7 +124,7 @@ export const texts = {
       pan: 'Schwenken (°)',
       tilt: 'Neigen (°)',
     },
-    views: { show: 'Ablauf', scenes: 'Lichtszenen', light: 'Lichtaufbau' },
+    views: { show: 'Ablauf', texts: 'Texte', scenes: 'Lichtszenen', light: 'Lichtaufbau' },
     scenesView: {
       items: 'Lieder und Schauspielstücke',
       count: (n: number) => (n === 0 ? 'keine Szene' : n === 1 ? '1 Szene' : `${n} Szenen`),
@@ -300,6 +300,12 @@ export const texts = {
     noText: 'Noch kein Text.',
     lines: (n: number) => (n === 1 ? '1 Zeile' : `${n} Zeilen`),
     textModes: { edit: 'Bearbeiten', read: 'Mitlesen', record: 'Mitschreiben' },
+    textsView: {
+      items: 'Lieder, Schauspiel und Ansagen',
+      empty: 'Noch keine Lieder, Schauspielstücke oder Ansagen im Ablauf.',
+      back: 'Zurück zur Liste',
+      noAudio: 'Mitlesen und Mitschreiben gibt es, sobald das Lied eine Audiodatei hat (im Ablauf hinzufügen).',
+    },
     performance: {
       open: 'Vorstellung',
       openTitle: 'Vorstellungs-Ansicht im Vollbild (Weiter/Zurück, Text, Lichtszenen, Führen/Folgen)',
