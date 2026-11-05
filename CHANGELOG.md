@@ -7,6 +7,20 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+### Hinzugefügt
+
+- Lichtszenen: „Kopieren nach …“ übernimmt alle Werte einer Szene in beliebige andere Szenen – auch in andere Lieder und Stücke (Werte der Ziele werden vollständig ersetzt); „Werte kopieren“ und „Einfügen“ (Strg/⌘+C, Strg/⌘+V) über Stücke hinweg
+- Lichtszenen: Tastenkürzel – ←/→ Szene wechseln, Alt+←/→ Szene verschieben, N neue Szene, Umschalt+N leere Szene, Strg/⌘+D duplizieren, Strg/⌘+A alle Geräte, Esc Auswahl aufheben, 1–9/0 Helligkeit 10–100 %, „−“ aus, Entf Werte löschen; Kürzel stehen beim Überfahren an den Knöpfen, die Übersicht am Tastatur-Symbol
+- Lichtszenen: Liste der Gerätearten mit Anzahl (z. B. „Moving Head (4)“) – Antippen wählt alle Geräte dieser Art, mit Strg/⌘ dazu bzw. weg; auf schmalen Bildschirmen als Leiste über dem Raster
+
+### Geändert
+
+- Lichtszenen: breitere Ansicht, ein Raster mit 8×8 Feldern passt neben die Werte
+
+### Behoben
+
+- Handy und Tablet: Zwei-Finger-Zoom in Signalfluss und Bühnenplan funktioniert – vorher übernahm der erste Finger das Verschieben, und der zweite wurde nicht mehr bemerkt
+
 ## [0.22.0] - 2026-11-05
 
 ### Geändert
