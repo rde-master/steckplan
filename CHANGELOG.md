@@ -7,14 +7,11 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
-### Hinzugefügt
-
-- Signalfluss: Kabel umstecken – ein bestehendes Kabel nahe einem Ende anfassen und auf einen anderen Anschluss ziehen; Kabeltyp, Besitzer, Case und Notizen bleiben, Rückgängig geht. Loslassen im Leeren ändert nichts, ein einfacher Klick wählt das Kabel wie bisher aus
-
 ## [0.23.2] - 2026-11-05
 
 ### Hinzugefügt
 
+- Signalfluss: Kabel umstecken – ein bestehendes Kabel nahe einem Ende anfassen und auf einen anderen Anschluss ziehen; Kabeltyp, Besitzer, Case und Notizen bleiben, Rückgängig geht. Loslassen im Leeren ändert nichts, ein einfacher Klick wählt das Kabel wie bisher aus
 - Regie: Leertaste startet und stoppt die Wiedergabe (Ablauf, Texte, Lichtszenen, Vorstellung) – nicht beim Tippen in Feldern, beim Mitschreiben setzt sie wie bisher die nächste Zeile
 
 ## [0.23.1] - 2026-11-05
