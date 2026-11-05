@@ -1,6 +1,6 @@
 // Regie (M11a): Ablauf links, gewählter Eintrag rechts (Angaben, Rollen, Texte).
 // Auf dem Handy erst der Ablauf, Antippen öffnet den Eintrag.
-import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Clapperboard, Coffee, Copy, Drama, GripVertical, Megaphone, Music, Trash2, type LucideIcon } from 'lucide-react';
+import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Clapperboard, Coffee, Copy, Drama, GripVertical, Link2, Megaphone, Monitor, Music, Trash2, type LucideIcon } from 'lucide-react';
 import { useState, type DragEvent, type ReactNode } from 'react';
 import type * as Y from 'yjs';
 import {
@@ -36,6 +36,7 @@ import { ScenesView } from './ScenesView';
 import { TextsView } from './TextsView';
 import { PerformanceView } from './PerformanceView';
 import { MediaSection, PlayerBar, usePlayerTime } from './SongMedia';
+import { lyricsUrl, openLyricsWindow } from './LyricsWindow';
 
 const t = texts.regie;
 
@@ -72,6 +73,7 @@ export function RegieView(
           ))}
         </div>
         <div className="flex-1" />
+        <LyricsButtons projectId={props.projectId} />
         <Button variant="secondary" className="shrink-0 text-sm" title={t.performance.openTitle} aria-label={t.performance.open} onClick={() => setPerforming(true)} disabled={props.data.show.items.length === 0}>
           <Clapperboard {...ICON} /> <span className="hidden sm:inline">{t.performance.open}</span>
         </Button>
@@ -425,3 +427,30 @@ function PeoplePicker({ people, selected, editable, onChange }: { people: Person
   );
 }
 
+
+/** Textfenster öffnen bzw. den Link dazu kopieren (für andere Geräte) */
+function LyricsButtons({ projectId }: { projectId: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <span className="flex shrink-0">
+      <Button variant="secondary" className="rounded-r-none text-sm" title={t.lyricsPage.openTitle} aria-label={t.lyricsPage.open} onClick={() => openLyricsWindow(projectId)}>
+        <Monitor {...ICON} /> <span className="hidden sm:inline">{t.lyricsPage.open}</span>
+      </Button>
+      <Button
+        variant="secondary"
+        className="-ml-px rounded-l-none px-2 text-sm"
+        title={copied ? t.lyricsPage.copied : `${t.lyricsPage.copyLink}: ${lyricsUrl(projectId)}`}
+        aria-label={t.lyricsPage.copyLink}
+        onClick={() => {
+          void navigator.clipboard?.writeText(lyricsUrl(projectId)).then(() => {
+            setCopied(true);
+            window.setTimeout(() => setCopied(false), 2000);
+          });
+        }}
+      >
+        <Link2 {...ICON} />
+        {copied && <span className="text-xs">{t.lyricsPage.copied}</span>}
+      </Button>
+    </span>
+  );
+}

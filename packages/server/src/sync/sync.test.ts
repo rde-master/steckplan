@@ -124,6 +124,21 @@ describe('Live-Sync', () => {
     regie.sendCue({ itemId: 'song', sceneId: 's3' });
     await waitFor(() => reader.state.lead?.sceneId === 's3');
 
+    // Abspielposition: läuft die Wiedergabe, bekommen Nachzügler die weitergerechnete Position
+    regie.sendCue({ itemId: 'song', sceneId: 's3', at: 10, playing: true });
+    await waitFor(() => reader.state.lead?.at === 10);
+    expect(reader.state.lead).toMatchObject({ at: 10, playing: true });
+    await new Promise((r) => setTimeout(r, 300));
+    const later = track(connect(server, id, await login(server, 'read', 'Lea')));
+    await later.whenSynced();
+    await waitFor(() => later.state.lead !== null);
+    expect(later.state.lead!.at!).toBeGreaterThan(10.25);
+    expect(later.state.lead!.at!).toBeLessThan(12);
+    // unsinnige Position wird verworfen, die Stelle bleibt gültig
+    regie.sendCue({ itemId: 'song', sceneId: 's3', at: -5, playing: true });
+    await waitFor(() => reader.state.lead?.at === undefined);
+    expect(reader.state.lead).toMatchObject({ sceneId: 's3' });
+
     // führende Person geht → niemand führt
     regie.destroy();
     await waitFor(() => reader.state.lead === null);

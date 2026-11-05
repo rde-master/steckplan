@@ -40,6 +40,8 @@ export interface SyncClientState {
   everSynced?: boolean;
   /** Vorstellung: wer führt und wo sie steht (null = niemand führt) */
   lead: LeadInfo | null;
+  /** Empfangszeitpunkt der Stelle (performance.now) – Folgende rechnen die Abspielposition damit weiter */
+  leadReceivedAt?: number;
 }
 
 export interface SyncClientOptions {
@@ -204,7 +206,7 @@ export class SyncClient {
         this.setState({ notice: info.message });
         break;
       case 'lead':
-        this.setState({ lead: info.lead });
+        this.setState({ lead: info.lead, leadReceivedAt: performance.now() });
         break;
     }
   }
