@@ -37,7 +37,7 @@ import { ICON } from '../icons';
 import { Button, Field, Modal, TextArea, TextInput } from '../ui';
 import { SectionsEditor } from './SectionsEditor';
 import { LightSetupView } from './LightSetupView';
-import { ScenesSection } from './ScenesSection';
+import { ScenesView } from './ScenesView';
 import { PerformanceView } from './PerformanceView';
 import { LyricsView, MediaSection, PlayerBar, seekAudio, usePlayerTime, useRecordKey } from './SongMedia';
 
@@ -54,9 +54,9 @@ export function RegieView(
     canLead: boolean;
   },
 ) {
-  const [area, setArea] = useState<'show' | 'light'>(readArea);
+  const [area, setArea] = useState<Area>(readArea);
   const [performing, setPerforming] = useState(false);
-  const choose = (next: 'show' | 'light') => {
+  const choose = (next: Area) => {
     setArea(next);
     try {
       localStorage.setItem(AREA_KEY, next);
@@ -68,7 +68,7 @@ export function RegieView(
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex shrink-0 items-center gap-2 border-b border-slate-200 bg-white px-3 py-1.5 dark:border-slate-700 dark:bg-slate-900">
         <div className="flex overflow-hidden rounded-md border border-slate-300 text-sm dark:border-slate-600" role="radiogroup" aria-label={texts.light.viewsLabel}>
-          {(['show', 'light'] as const).map((a) => (
+          {AREAS.map((a) => (
             <button key={a} type="button" role="radio" aria-checked={area === a} onClick={() => choose(a)} className={`px-3 py-1 ${area === a ? 'bg-sky-600 text-white' : ''}`}>
               {texts.light.views[a]}
             </button>
@@ -82,7 +82,9 @@ export function RegieView(
       {performing && (
         <PerformanceView projectId={props.projectId} data={props.data} library={props.library} sync={props.sync} sendCue={props.sendCue} canLead={props.canLead} onClose={() => setPerforming(false)} />
       )}
-      {area === 'light' ? (
+      {area === 'scenes' ? (
+        <ScenesView projectId={props.projectId} doc={props.doc} origin={props.origin} data={props.data} library={props.library} editable={props.editable} />
+      ) : area === 'light' ? (
         <div className="min-h-0 flex-1 overflow-y-auto">
           <LightSetupView doc={props.doc} origin={props.origin} data={props.data} library={props.library} editable={props.editable} />
         </div>
@@ -93,16 +95,19 @@ export function RegieView(
   );
 }
 
+type Area = 'show' | 'scenes' | 'light';
+const AREAS: Area[] = ['show', 'scenes', 'light'];
 const AREA_KEY = 'steckplan.regieArea';
-function readArea(): 'show' | 'light' {
+function readArea(): Area {
   try {
-    return localStorage.getItem(AREA_KEY) === 'light' ? 'light' : 'show';
+    const saved = localStorage.getItem(AREA_KEY);
+    return AREAS.find((a) => a === saved) ?? 'show';
   } catch {
     return 'show';
   }
 }
 
-function ShowView({ projectId, doc, origin, data, library, editable }: { projectId: string; doc: Y.Doc; origin: object; data: ProjectData; library: Library | null; editable: boolean }) {
+function ShowView({ projectId, doc, origin, data, editable }: { projectId: string; doc: Y.Doc; origin: object; data: ProjectData; library: Library | null; editable: boolean }) {
   const narrow = useIsNarrow(900);
   const { items, sections } = data.show;
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -195,7 +200,6 @@ function ShowView({ projectId, doc, origin, data, library, editable }: { project
       key={selected.id}
       projectId={projectId}
       data={data}
-      library={library}
       media={data.media}
       doc={doc}
       origin={origin}
@@ -224,7 +228,6 @@ function ShowView({ projectId, doc, origin, data, library, editable }: { project
 function ItemDetail({
   projectId,
   data,
-  library,
   media,
   doc,
   origin,
@@ -239,7 +242,6 @@ function ItemDetail({
 }: {
   projectId: string;
   data: ProjectData;
-  library: Library | null;
   media: MediaRef[];
   doc: Y.Doc;
   origin: object;
@@ -380,10 +382,6 @@ function ItemDetail({
             />
           )}
         </section>
-      )}
-
-      {(item.kind === 'song' || item.kind === 'play') && (
-        <ScenesSection doc={doc} origin={origin} item={item} data={data} library={library} lines={lines} time={time} audio={hasAudio ? audio : null} editable={editable} />
       )}
 
       {hasAudio && (
