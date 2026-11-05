@@ -43,30 +43,32 @@ test('Regie Medien: Audio hochladen, abspielen, Zeiten mitschreiben, mitlesen; m
   await expect(detail.getByLabel('Dauer')).toHaveValue('0:06');
   await expect(detail.getByTestId('regie-player')).toBeVisible();
 
-  // Text
-  await detail.getByRole('button', { name: 'Text einfügen …' }).click();
+  // Text im Bereich „Texte“ (dort auch Mitlesen und Mitschreiben mit Player)
+  await page.getByRole('radio', { name: 'Texte', exact: true }).click();
+  const textDetail = page.getByTestId('texts-detail');
+  await textDetail.getByRole('button', { name: 'Text einfügen …' }).click();
   await page.getByRole('dialog').getByRole('textbox').fill('Erste Zeile\nZweite Zeile\nDritte Zeile');
   await page.getByRole('dialog').getByRole('button', { name: 'Einfügen' }).click();
 
   // Mitschreiben: abspielen, „Nächste Zeile“ dreimal
-  await detail.getByRole('radio', { name: 'Mitschreiben' }).click();
-  await detail.getByRole('button', { name: 'Abspielen' }).click();
-  const next = detail.getByRole('button', { name: /Nächste Zeile/ });
+  await textDetail.getByRole('radio', { name: 'Mitschreiben' }).click();
+  await textDetail.getByRole('button', { name: 'Abspielen' }).click();
+  const next = textDetail.getByRole('button', { name: /Nächste Zeile/ });
   await expect(next).toContainText('Erste Zeile');
   for (const wait of [500, 900, 900]) {
     await page.waitForTimeout(wait);
     await next.click();
   }
   await expect(next).toBeDisabled();
-  const lyrics = detail.getByTestId('regie-lyrics');
+  const lyrics = textDetail.getByTestId('regie-lyrics');
   await expect(lyrics.locator('li')).toHaveCount(3);
   for (const li of await lyrics.locator('li').all()) await expect(li).not.toContainText('–');
   // fein verschieben
   await lyrics.getByRole('button', { name: 'Später: Dritte Zeile' }).click();
 
   // Mitlesen: Sprung auf eine Zeile setzt die Position, die Zeile ist die aktuelle
-  await detail.getByRole('radio', { name: 'Mitlesen' }).click();
-  await detail.getByRole('button', { name: 'Pause' }).click().catch(() => undefined);
+  await textDetail.getByRole('radio', { name: 'Mitlesen' }).click();
+  await textDetail.getByRole('button', { name: 'Pause' }).click().catch(() => undefined);
   await lyrics.getByRole('button', { name: 'Zweite Zeile' }).click();
   await expect(lyrics.locator('li[data-current]')).toContainText('Zweite Zeile');
 

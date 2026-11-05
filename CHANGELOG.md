@@ -9,6 +9,7 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Geändert
 
+- Regie: Texte in einem eigenen Bereich (Ablauf | Texte | Lichtszenen | Lichtaufbau) – links Lieder, Schauspielstücke und Ansagen mit der Zahl ihrer Zeilen, rechts Text, Rollen und „Text einfügen“, bei Liedern mit Audio Mitlesen und Mitschreiben mit Player; im Ablauf bleiben Angaben, Personen, Notiz und Audio
 - Regie: Lichtszenen in einem eigenen Bereich (Ablauf | Lichtszenen | Lichtaufbau) – links die Lieder und Schauspielstücke mit der Zahl ihrer Szenen, rechts die Szenen des gewählten Stücks, unten der Player für seine Musik (Szenen als Marken auf der Zeitleiste, „Jetzt“ übernimmt die Abspielzeit)
 - Regie: „Beteiligte Personen“ und „Notiz“ eines Ablauf-Eintrags sind eingeklappt und öffnen sich bei Bedarf; geschlossen zeigt die Zeile die Namen bzw. den Anfang der Notiz
 
