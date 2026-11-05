@@ -7,6 +7,8 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.23.2] - 2026-11-05
+
 ### Hinzugefügt
 
 - Regie: Leertaste startet und stoppt die Wiedergabe (Ablauf, Texte, Lichtszenen, Vorstellung) – nicht beim Tippen in Feldern, beim Mitschreiben setzt sie wie bisher die nächste Zeile
@@ -484,7 +486,8 @@ Meilenstein M0 – Projektgerüst.
 - Docker-Image mit Datenvolume `/data` und Beispiel-`docker-compose.yml`
 - GitHub Actions: Tests und Smoke-Test bei jedem Push, Installer als Artefakte, Docker-Image `:develop`, Release-Workflow für Tags `vX.Y.Z`
 
-[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.23.1...develop
+[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.23.2...develop
+[0.23.2]: https://github.com/rde-master/steckplan/compare/v0.23.1...v0.23.2
 [0.23.1]: https://github.com/rde-master/steckplan/compare/v0.23.0...v0.23.1
 [0.23.0]: https://github.com/rde-master/steckplan/compare/v0.22.0...v0.23.0
 [0.22.0]: https://github.com/rde-master/steckplan/compare/v0.21.0...v0.22.0
