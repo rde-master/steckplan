@@ -5,7 +5,8 @@ import { useEffect, type RefObject } from 'react';
 export const LONG_PRESS_MS = 500;
 const MAX_MOVE_PX = 10;
 
-export function useLongPress(ref: RefObject<HTMLElement | null>, onLongPress: () => void, ms = LONG_PRESS_MS): void {
+/** onTap: kurzes Antippen ohne Bewegung (z. B. Handy: Eigenschaften öffnen, auch wenn das Objekt schon ausgewählt war) */
+export function useLongPress(ref: RefObject<HTMLElement | null>, onLongPress: () => void, ms = LONG_PRESS_MS, onTap?: () => void): void {
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
@@ -33,8 +34,10 @@ export function useLongPress(ref: RefObject<HTMLElement | null>, onLongPress: ()
     };
     const onEnd = () => {
       const wasLong = fired && start !== null;
+      const wasTap = !fired && start !== null;
       cancel();
       if (wasLong) onLongPress();
+      else if (wasTap) onTap?.();
     };
     el.addEventListener('touchstart', onStart, { passive: true });
     el.addEventListener('touchmove', onMove, { passive: true });
@@ -47,5 +50,5 @@ export function useLongPress(ref: RefObject<HTMLElement | null>, onLongPress: ()
       el.removeEventListener('touchend', onEnd);
       el.removeEventListener('touchcancel', cancel);
     };
-  }, [ref, onLongPress, ms]);
+  }, [ref, onLongPress, ms, onTap]);
 }
