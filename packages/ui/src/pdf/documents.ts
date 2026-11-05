@@ -2,7 +2,7 @@
 import type { CheckMark, PackGroup, PackingList, PackRow, ProjectMeta } from '@steckplan/core';
 import { LOGO_PNG } from './logo';
 import { sortRows, type SortKey } from './sorting';
-import { formatCableLength } from '@steckplan/core';
+import { contrastText, formatCableLength } from '@steckplan/core';
 import type { Rect } from './svg';
 
 export type PageFormat = 'A4' | 'A3';
@@ -266,6 +266,9 @@ export interface PatchSection {
   headers: string[];
   widths: (number | string)[];
   rows: (string | number)[][];
+  /** je Zeile die Gruppe (farbiges Etikett in Spalte groupColumn) */
+  rowGroups?: ({ name: string; color?: string } | undefined)[];
+  groupColumn?: number;
 }
 
 export function patchDoc(sections: PatchSection[], ctx: DocContext): DocDefinition {
@@ -287,7 +290,19 @@ export function sectionsDoc(title: string, sections: PatchSection[], ctx: DocCon
         widths: section.widths,
         body: [
           section.headers.map((h) => ({ text: h, style: 'th' })),
-          ...sortRows(section.headers, section.rows, ctx.sort).map((r) => r.map((cell, i) => (i === 0 ? { text: String(cell), bold: true, alignment: 'right' } : pdfText(String(cell))))),
+          // Zeilennummer hinten anhängen, damit die Gruppe nach dem Sortieren zur Zeile passt
+          ...sortRows(section.headers, section.rows.map((r, index) => [...r, index]), ctx.sort).map((sorted) => {
+            const index = sorted[sorted.length - 1] as number;
+            const group = section.rowGroups?.[index];
+            return sorted.slice(0, -1).map((cell, i): Content => {
+              if (i === 0) return { text: String(cell), bold: true, alignment: 'right' };
+              if (group && i === section.groupColumn) {
+                const color = group.color ?? '#64748b';
+                return { stack: [{ text: ` ${pdfText(group.name)} `, background: color, color: contrastText(color), bold: true, fontSize: 7 }, pdfText(String(cell))] };
+              }
+              return pdfText(String(cell));
+            });
+          }),
         ],
       },
       layout: { hLineWidth: () => 0.4, vLineWidth: () => 0, hLineColor: () => '#cbd5e1', fillColor: (i: number) => (i > 0 && i % 2 === 0 ? '#f8fafc' : null), paddingTop: () => 4, paddingBottom: () => 4 },

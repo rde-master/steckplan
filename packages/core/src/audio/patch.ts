@@ -5,7 +5,7 @@
 // Zusatzangaben (Kanalname, 48 V, Stativ, Bemerkung) stehen je Pult-Anschluss in project.patch.
 import * as Y from 'yjs';
 import type { Library } from '../library/library';
-import type { Cable, DeviceInstance, PatchEntry, Person, Project, Template } from '../model/schema';
+import type { Cable, DeviceInstance, Group, PatchEntry, Person, Project, Template } from '../model/schema';
 import { devicePerson, personName } from '../people/people';
 import type { Issue } from '../signalflow/checks';
 import { endNames, isMulticore, templatePorts, type EffectivePort } from '../signalflow/ports';
@@ -39,6 +39,10 @@ export interface PatchRow {
   devicePort?: string;
   /** Person, die das Quell-/Zielgerät benutzt */
   person?: string;
+  /** Art der Person, z. B. „Sängerin“ */
+  personKind?: string;
+  /** Gruppe des Quell-/Zielgeräts im Signalfluss */
+  group?: Pick<Group, 'id' | 'name' | 'color'>;
   /** über welche Multicores/Stageboxen */
   via: PatchHop[];
   /** defekte Anschlüsse/Adern auf dem Weg, z. B. „MC 1 · Send 3“ */
@@ -63,7 +67,7 @@ export interface PatchList {
   network: PatchRow[];
 }
 
-type ProjectLike = Pick<Project, 'devices' | 'cables'> & Partial<Pick<Project, 'patch' | 'people'>>;
+type ProjectLike = Pick<Project, 'devices' | 'cables'> & Partial<Pick<Project, 'patch' | 'people' | 'groups'>>;
 
 interface End {
   deviceId: string;
@@ -135,6 +139,14 @@ function defectTexts(ends: End[], devices: Map<string, DeviceInstance>, template
   return texts;
 }
 
+/** Vorschlag für den Kanalnamen: mit Person „Anna Muster (Sängerin)“, sonst der Gerätename. */
+function suggestName(label: string, person: Person | undefined): string {
+  const name = personName(person);
+  if (!name) return label;
+  const kind = person!.kind.trim();
+  return kind ? `${name} (${kind})` : name;
+}
+
 /** Input- und Output-Liste für alle Mischpulte im Projekt (nach Kennung sortiert). */
 export function buildPatchLists(project: ProjectLike, library: Pick<Library, 'templates'>): PatchList[] {
   const templates = new Map(library.templates.map((t) => [t.id, t]));
@@ -142,6 +154,22 @@ export function buildPatchLists(project: ProjectLike, library: Pick<Library, 'te
   const index = cableIndex(project.cables);
   const entries = new Map((project.patch ?? []).map((e) => [e.id, e]));
   const people: Person[] = project.people ?? [];
+  const groups = new Map((project.groups ?? []).map((g) => [g.id, g]));
+  /** Person (mit Art) und Gruppe des Geräts am anderen Ende */
+  const about = (device: DeviceInstance | undefined, template: Template | undefined) => {
+    const p = device ? devicePerson(device, template, people) : undefined;
+    const person = personName(p);
+    const kind = p?.kind.trim() ?? '';
+    const g = device?.groupId ? groups.get(device.groupId) : undefined;
+    return {
+      p,
+      fields: {
+        ...(person ? { person } : {}),
+        ...(person && kind ? { personKind: kind } : {}),
+        ...(g ? { group: { id: g.id, name: g.name, ...(g.color ? { color: g.color } : {}) } } : {}),
+      },
+    };
+  };
 
   const row = (mixer: DeviceInstance, port: EffectivePort, channel: number): PatchRow => {
     const traced = trace({ deviceId: mixer.id, portId: port.id }, devices, templates, index);
@@ -156,16 +184,16 @@ export function buildPatchLists(project: ProjectLike, library: Pick<Library, 'te
     const carrierId = device?.mountedOnId ?? device?.stagePlan?.standsOnId;
     const carrier = carrierId ? devices.get(carrierId) : undefined;
     const carrierText = carrier ? (templates.get(carrier.templateId)?.name ?? carrier.label) : undefined;
-    const person = device ? personName(devicePerson(device, template, people)) : '';
+    const { p, fields } = about(device, template);
     const entry: PatchEntry | undefined = entries.get(patchId(mixer.id, port.id));
-    const suggestedName = device ? (person ? `${device.label} (${person})` : device.label) : '';
+    const suggestedName = device ? suggestName(device.label, p) : '';
     return {
       id: patchId(mixer.id, port.id),
       channel,
       port: port.label,
       ...(device ? { device, deviceTemplate: template?.name ?? '' } : {}),
       ...(devicePortLabel ? { devicePort: devicePortLabel } : {}),
-      ...(person ? { person } : {}),
+      ...fields,
       via,
       defects,
       ...(carrierText ? { carrier: carrierText } : {}),
@@ -186,7 +214,7 @@ export function buildPatchLists(project: ProjectLike, library: Pick<Library, 'te
     const carrierId = device?.mountedOnId ?? device?.stagePlan?.standsOnId;
     const carrier = carrierId ? devices.get(carrierId) : undefined;
     const carrierText = carrier ? (templates.get(carrier.templateId)?.name ?? carrier.label) : undefined;
-    const person = device ? personName(devicePerson(device, template, people)) : '';
+    const { p, fields } = about(device, template);
     const entry = entries.get(id);
     const label = found ? assignmentLabel(found, assignments) : '';
     return {
@@ -195,11 +223,11 @@ export function buildPatchLists(project: ProjectLike, library: Pick<Library, 'te
       port: `Netz ${channel}`,
       ...(device ? { device, deviceTemplate: template?.name ?? '' } : {}),
       ...(found ? { devicePort: found.route.sourcePort } : {}),
-      ...(person ? { person } : {}),
+      ...fields,
       via: found ? networkRouteHops(found.route) : [],
       defects: found ? defectTexts(found.route.touched, devices, templates) : [],
       ...(carrierText ? { carrier: carrierText } : {}),
-      name: entry?.name ?? (device ? (person ? `${label} (${person})` : label) : ''),
+      name: entry?.name ?? (device ? suggestName(label, p) : ''),
       phantom: entry?.phantom ?? template?.phantomPower ?? false,
       stand: entry?.stand ?? carrierText ?? '',
       notes: entry?.notes ?? '',

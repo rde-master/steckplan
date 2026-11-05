@@ -87,16 +87,31 @@ describe('Ton-Patch: Input- und Output-Liste', () => {
   it('Vorschläge: Name mit Person, 48 V aus der Vorlage, Stativ vom Träger; Angaben überschreiben', () => {
     const [list] = buildPatchLists(project(), { templates });
     expect(list!.inputs[0]).toMatchObject({ name: 'Gesang', phantom: true, stand: 'Galgenstativ', edited: { name: false, phantom: false, stand: false } });
-    expect(list!.outputs[0]!.name).toBe('IEM Anna (Anna Muster)');
+    expect(list!.outputs[0]!.name).toBe('Anna Muster (Sängerin)');
     const edited = buildPatchLists(project({ patch: [{ id: patchId('FOH', 'in1'), name: 'Lead Vox', phantom: false, notes: 'Pop-Schutz' }] }), { templates })[0]!;
     expect(edited.inputs[0]).toMatchObject({ name: 'Lead Vox', phantom: false, stand: 'Galgenstativ', notes: 'Pop-Schutz', edited: { name: true, phantom: true, stand: false } });
+  });
+
+  it('Gruppe des Geräts und Art der Person; ohne Art nur der Name', () => {
+    const base = project();
+    const withGroup = project({
+      groups: [{ id: 'g1', name: 'Band', color: '#dc2626' }],
+      devices: base.devices.map((d) => (d.id === 'Gesang' || d.id === 'IEM Anna' ? { ...d, groupId: 'g1' } : d)),
+    });
+    const [list] = buildPatchLists(withGroup, { templates });
+    expect(list!.inputs[0]!.group).toEqual({ id: 'g1', name: 'Band', color: '#dc2626' });
+    expect(list!.inputs[1]!.group).toBeUndefined();
+    expect(list!.outputs[0]).toMatchObject({ person: 'Anna Muster', personKind: 'Sängerin', group: { name: 'Band' } });
+    const noKind = buildPatchLists(project({ people: [{ id: 'anna', lastName: 'Muster', firstName: 'Anna', kind: ' ' }] }), { templates })[0]!;
+    expect(noKind.outputs[0]!.name).toBe('Anna Muster');
+    expect(noKind.outputs[0]!.personKind).toBeUndefined();
   });
 
   it('CSV mit Ein- und Ausgängen', () => {
     const csv = listCsv('patch', project(), { ...createEmptyLibrary('l'), templates });
     expect(csv).toContain('FOH;Eingang;1;In 1;Gesang;Gesang · Out;Kondensatormikro;;MC 1 · Send 1 (Bühne) → FOH · In 1;ja;');
     expect(csv).toContain('FOH;Eingang;3;In 3;;offen;');
-    expect(csv).toContain('FOH;Ausgang;1;Aux 1;IEM Anna (Anna Muster);IEM Anna · In;In-Ear-Sender;Anna Muster;FOH · Aux 1 → MC 1 · Return 1 (Bühne);;');
+    expect(csv).toContain('FOH;Ausgang;1;Aux 1;Anna Muster (Sängerin);IEM Anna · In;In-Ear-Sender;Anna Muster;FOH · Aux 1 → MC 1 · Return 1 (Bühne);;');
   });
 
   it('ohne Mischpult keine Liste; Kreise führen nicht in eine Endlosschleife', () => {
@@ -200,7 +215,7 @@ describe('Netzwerk-Kanäle: Kette mit Multicore davor und zweiter Stagebox dazwi
     // Anzeige: an der Stagebox Quelle mit Person und Kanal (ein Pult → nur Nummer), am Pult die belegten Kanäle
     const withPerson = { ...project1, devices: project1.devices.map((d) => (d.id === 'Mikro' ? { ...d, usedByPerson: true, personId: 'anna' } : d)) };
     expect([...stageboxInputInfo(withPerson, { templates: tpl })]).toEqual([['SB1/i5', { source: 'Mikro (Anna Muster)', channel: '12' }]]);
-    expect(mixerNetworkRows(withPerson, { templates: tpl }).get('Pult')).toEqual([{ channel: 12, name: 'Mikro (Anna Muster)', source: 'Mikro', stagebox: 'SB1', stageboxPort: 'In 5' }]);
+    expect(mixerNetworkRows(withPerson, { templates: tpl }).get('Pult')).toEqual([{ channel: 12, name: 'Anna Muster (Sängerin)', source: 'Mikro', stagebox: 'SB1', stageboxPort: 'In 5' }]);
     expect(checkNetworkChannels(project1, { templates: tpl })).toEqual([]);
   });
 

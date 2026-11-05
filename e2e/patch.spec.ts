@@ -34,7 +34,8 @@ test('Ton-Patch: Input-/Output-Liste aus dem Signalfluss, Angaben bearbeiten, PD
         meta: { name: 'Ton-Patch' },
         layers: [{ id: 'l1', name: 'Ton', order: 0 }],
         people: [{ id: 'anna', lastName: 'Muster', firstName: 'Anna', kind: 'Sängerin' }],
-        devices: [d('Gesang 1', mic, 20), d('Snake', snake, 300), d('FOH', desk, 600), d('IEM 1', iem, 20, { personId: 'anna', signalFlow: { position: { x: 20, y: 300 } } })],
+        groups: [{ id: 'band', name: 'Band M9', color: '#dc2626' }],
+        devices: [d('Gesang 1', mic, 20, { groupId: 'band' }), d('Snake', snake, 300), d('FOH', desk, 600), d('IEM 1', iem, 20, { personId: 'anna', signalFlow: { position: { x: 20, y: 300 } } })],
         cables: [c('a', ['Gesang 1', 'out'], ['Snake', 's1:a']), c('b', ['Snake', 's1:b'], ['FOH', 'i1']), c('r', ['FOH', 'o1'], ['Snake', 'r1:b']), c('s', ['Snake', 'r1:a'], ['IEM 1', 'in'])],
       },
     })
@@ -47,6 +48,10 @@ test('Ton-Patch: Input-/Output-Liste aus dem Signalfluss, Angaben bearbeiten, PD
   await expect(first).toContainText('Gesang 1');
   await expect(first).toContainText('Snake · Send 1 (Bühne) → FOH · In 1');
   await expect(first.getByLabel('48 V In 1')).toBeChecked();
+  // Gruppe: farbiger Rahmen mit Namen
+  await expect(first).toHaveAttribute('data-group', 'Band M9');
+  await expect(first.getByTestId('patch-group')).toHaveText('Band M9');
+  await expect(first.locator('td').first()).toHaveCSS('border-left-color', 'rgb(220, 38, 38)');
   // nur belegte Kanäle (Vorgabe); alle Kanäle zeigt die Liste nach Abwählen
   await expect(inputs.getByTestId('patch-row')).toHaveCount(1);
   await page.getByLabel('Nur belegte Kanäle').uncheck();
@@ -59,7 +64,9 @@ test('Ton-Patch: Input-/Output-Liste aus dem Signalfluss, Angaben bearbeiten, PD
 
   // Outputs mit Person
   await page.getByRole('radio', { name: 'Outputs' }).click();
-  await expect(page.getByTestId('patch-outputs').getByTestId('patch-row').first()).toContainText('Anna Muster');
+  const out = page.getByTestId('patch-outputs').getByTestId('patch-row').first();
+  await expect(out.getByLabel('Name Mix 1')).toHaveValue('Anna Muster (Sängerin)');
+  await expect(out).toContainText('👤 Anna Muster (Sängerin)');
 
   // PDF
   await page.getByRole('button', { name: 'Exportieren' }).click();
@@ -75,6 +82,8 @@ test('Ton-Patch: Input-/Output-Liste aus dem Signalfluss, Angaben bearbeiten, PD
   expect(text).toContain('Input-Liste – FOH');
   expect(text).toContain('Lead Vox');
   expect(text).toContain('Output-Liste – FOH');
+  expect(text).toContain('Band M9');
+  expect(text).toContain('Anna Muster (Sängerin)');
 });
 
 test('Ton-Patch: Netzwerk-Kanäle – Quelle über digitale Stagebox einem Pult-Kanal zuordnen', async ({ page }) => {

@@ -334,7 +334,11 @@ export async function buildExportDoc(opts: ExportOptions, input: ExportInput): P
     }
     case 'patch': {
       const sections = buildPatchLists(projectLike(data), library).flatMap((list) => {
-        const target = (r: (typeof list.inputs)[number]) => (r.device ? `${r.device.label}${r.devicePort ? ` · ${r.devicePort}` : ''}${r.deviceTemplate ? `\n${r.deviceTemplate}` : ''}` : 'offen');
+        type Row = (typeof list.inputs)[number];
+        const target = (r: Row) => (r.device ? `${r.device.label}${r.devicePort ? ` · ${r.devicePort}` : ''}${r.deviceTemplate ? `\n${r.deviceTemplate}` : ''}` : 'offen');
+        const person = (r: Row) => (r.person ? (r.personKind ? `${r.person} (${r.personKind})` : r.person) : '');
+        // Gruppe als farbiges Etikett in der Spalte Quelle/Ziel
+        const grouped = (rows: Row[]) => ({ rowGroups: rows.map((r) => r.group), groupColumn: 3 });
         return [
           {
             title: `Input-Liste – ${list.mixer.label}`,
@@ -342,6 +346,7 @@ export async function buildExportDoc(opts: ExportOptions, input: ExportInput): P
             headers: ['Kanal', 'Anschluss', 'Name', 'Quelle', 'Über', '48 V', 'Bemerkung'],
             widths: [30, 50, '*', '*', '*', 28, '*'],
             rows: list.inputs.map((r) => [r.channel, r.port, r.name, target(r), viaText(r), r.phantom ? '48 V' : '', r.notes]),
+            ...grouped(list.inputs),
           },
           ...(list.network.length
             ? [
@@ -351,6 +356,7 @@ export async function buildExportDoc(opts: ExportOptions, input: ExportInput): P
                   headers: ['Kanal', 'Anschluss', 'Name', 'Quelle', 'Über', '48 V', 'Bemerkung'],
                   widths: [30, 50, '*', '*', '*', 28, '*'],
                   rows: list.network.map((r) => [r.channel, r.port, r.name, target(r), viaText(r), r.phantom ? '48 V' : '', r.notes]),
+                  ...grouped(list.network),
                 },
               ]
             : []),
@@ -361,7 +367,8 @@ export async function buildExportDoc(opts: ExportOptions, input: ExportInput): P
                   subtitle: `${list.mixerTemplate.name} · ${list.outputs.length} Ausgänge, ${list.outputs.filter((r) => r.device).length} belegt`,
                   headers: ['Weg', 'Anschluss', 'Name', 'Ziel', 'Person', 'Über', 'Bemerkung'],
                   widths: [30, 50, '*', '*', 80, '*', '*'],
-                  rows: list.outputs.map((r) => [r.channel, r.port, r.name, target(r), r.person ?? '', viaText(r), r.notes]),
+                  rows: list.outputs.map((r) => [r.channel, r.port, r.name, target(r), person(r), viaText(r), r.notes]),
+                  ...grouped(list.outputs),
                 },
               ]
             : []),
