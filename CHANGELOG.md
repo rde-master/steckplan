@@ -7,6 +7,16 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.23.1] - 2026-11-05
+
+### Hinzugefügt
+
+- Lichtszenen: „+ Szene jetzt“ (Taste J) legt beim Abspielen eine neue Szene an der aktuellen Abspielzeit an – eingereiht nach der Szene davor und mit deren Werten
+
+### Geändert
+
+- Lichtszenen: Gerätearten stehen links neben dem Raster (auf dem Handy als Leiste darüber); die Werte rechts erscheinen erst, wenn ein Gerät gewählt ist – sonst hat das Raster die ganze Breite
+
 ## [0.23.0] - 2026-11-05
 
 ### Hinzugefügt
@@ -470,7 +480,8 @@ Meilenstein M0 – Projektgerüst.
 - Docker-Image mit Datenvolume `/data` und Beispiel-`docker-compose.yml`
 - GitHub Actions: Tests und Smoke-Test bei jedem Push, Installer als Artefakte, Docker-Image `:develop`, Release-Workflow für Tags `vX.Y.Z`
 
-[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.23.0...develop
+[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.23.1...develop
+[0.23.1]: https://github.com/rde-master/steckplan/compare/v0.23.0...v0.23.1
 [0.23.0]: https://github.com/rde-master/steckplan/compare/v0.22.0...v0.23.0
 [0.22.0]: https://github.com/rde-master/steckplan/compare/v0.21.0...v0.22.0
 [0.21.0]: https://github.com/rde-master/steckplan/compare/v0.20.0...v0.21.0
