@@ -67,7 +67,7 @@ test('Regie Lichtszenen: Werte je Gerät, „wie vorige“, Auslöser, Marken im
   await expect(page.getByTestId('scenes-items')).toContainText('keine Szene');
   await expect(sceneDetail.getByTestId('regie-player')).toBeVisible();
   const scenes = sceneDetail.getByTestId('regie-scenes');
-  await scenes.getByRole('button', { name: '+ Szene' }).click();
+  await scenes.getByRole('button', { name: '+ Szene', exact: true }).click();
   const fixture = (name: string) => scenes.getByTestId('scene-fixture').and(scenes.locator(`[data-device="${name}"]`));
   await expect(fixture('MH 1')).toContainText('–');
   await fixture('MH 1').click();
@@ -91,7 +91,7 @@ test('Regie Lichtszenen: Werte je Gerät, „wie vorige“, Auslöser, Marken im
   await scenes.getByLabel('Zeitpunkt').press('Enter');
 
   // zweite Szene übernimmt die Werte („wie vorige“), MH 1 aus, Auslöser an Textzeile 2
-  await scenes.getByRole('button', { name: '+ Szene' }).click();
+  await scenes.getByRole('button', { name: '+ Szene', exact: true }).click();
   await expect(scenes.getByTestId('scene-tab')).toHaveCount(2);
   await expect(fixture('MH 2')).toContainText('80 %');
   await scenes.getByRole('button', { name: 'Keine', exact: true }).click();
@@ -120,4 +120,16 @@ test('Regie Lichtszenen: Werte je Gerät, „wie vorige“, Auslöser, Marken im
       return [p.lightScenes.length, second?.lineId, mh1?.dimmer, mh1?.gobo?.name, mh1?.effect?.speed];
     })
     .toEqual([2, 'z2', 0, 'Sterne', 'slow']);
+
+  // „+ Szene jetzt“: neue Szene an der Abspielzeit, eingereiht nach der Szene davor, mit deren Werten
+  await page.evaluate(() => {
+    const audio = document.querySelector('audio')!;
+    audio.pause();
+    audio.currentTime = 1.2;
+  });
+  await scenes.getByRole('button', { name: '+ Szene jetzt' }).click();
+  await expect(scenes.getByTestId('scene-tab')).toHaveCount(3);
+  await expect(scenes.getByTestId('scene-tab').nth(1)).toHaveAttribute('aria-selected', 'true');
+  await expect(scenes.getByTestId('scene-tab').nth(1)).toContainText('0:01.2');
+  await expect(fixture('MH 2')).toContainText('80 %');
 });

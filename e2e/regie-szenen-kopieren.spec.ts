@@ -49,6 +49,13 @@ test('Lichtszenen: Gerätearten wählen, Tastenkürzel, in andere Szenen kopiere
   const gridBox = scenes.getByTestId('scene-grid').locator('..');
   expect(await gridBox.evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(0);
 
+  // Werte erst mit gewähltem Gerät; Gerätearten links neben dem Raster
+  const panel = scenes.getByTestId('fixture-panel');
+  await expect(panel).toBeHidden();
+  const typesBox = (await scenes.getByTestId('scene-types').boundingBox())!;
+  const gridBoxRect = (await scenes.getByTestId('scene-grid').boundingBox())!;
+  expect(typesBox.x + typesBox.width).toBeLessThanOrEqual(gridBoxRect.x);
+
   // Gerätearten mit Anzahl; Antippen wählt alle dieser Art, Strg dazu
   const types = scenes.getByTestId('scene-types');
   await expect(types.getByRole('button')).toHaveText(['Moving Head K (4)', 'PAR K (8)']);
@@ -56,6 +63,8 @@ test('Lichtszenen: Gerätearten wählen, Tastenkürzel, in andere Szenen kopiere
   await expect(scenes).toContainText('4 Geräte gewählt');
   await expect(fixture('MH 3')).toHaveAttribute('aria-pressed', 'true');
   await expect(fixture('PAR 1')).toHaveAttribute('aria-pressed', 'false');
+  await expect(panel).toBeVisible();
+  expect(await gridBox.evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(0); // 8×8 auch neben den Werten
   await page.screenshot({ path: 'test-results/szenen-1440.png' });
   await page.setViewportSize({ width: 1920, height: 1000 });
   await page.screenshot({ path: 'test-results/szenen-1920.png' });

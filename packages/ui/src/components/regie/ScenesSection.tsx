@@ -99,6 +99,15 @@ export function ScenesSection({
   };
 
   const add = (copyFrom: string | null | undefined) => setChosen(addScene(doc, item.id, origin, { ...(scene ? { afterId: scene.id } : {}), ...(copyFrom === null ? { copyFrom: null } : copyFrom ? { copyFrom } : {}) }));
+  // neue Szene am aktuellen Zeitpunkt (eingereiht nach der letzten Szene davor, Werte wie diese)
+  const addNow = () => {
+    if (!audio) return;
+    const at = Math.round(audio.currentTime * 10) / 10;
+    const before = scenes.filter((x) => (sceneTime(x, plainLines) ?? -1) <= at).pop() ?? scene;
+    const id = addScene(doc, item.id, origin, before ? { afterId: before.id, copyFrom: before.id } : {});
+    updateScene(doc, id, { atSec: at }, origin);
+    setChosen(id);
+  };
   const go = (delta: -1 | 1) => {
     const index = scenes.findIndex((x) => x.id === sceneId);
     const next = scenes[index + delta];
@@ -150,6 +159,10 @@ export function ScenesSection({
     if (mod) return false;
     if (e.altKey && scene && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
       moveScene(doc, scene.id, e.key === 'ArrowLeft' ? -1 : 1, origin);
+      return true;
+    }
+    if (key === 'j' && !e.altKey && audio) {
+      addNow();
       return true;
     }
     if (key === 'n' && !e.altKey) {
@@ -205,6 +218,11 @@ export function ScenesSection({
             <Button variant="secondary" className="text-xs" title={`${t.addTitle} (N)`} onClick={() => add(scene?.id)}>
               {t.add}
             </Button>
+            {audio && (
+              <Button variant="secondary" className="text-xs" title={`${t.addNowTitle} (J)`} onClick={addNow}>
+                {t.addNow}
+              </Button>
+            )}
             <Button variant="ghost" className="text-xs" title={`${t.addEmpty} (Umschalt+N)`} onClick={() => add(null)}>
               {t.addEmpty}
             </Button>
@@ -334,7 +352,7 @@ export function ScenesSection({
                 onChange={(e) => updateScene(doc, scene.id, { notes: e.target.value || undefined }, origin)}
               />
 
-              <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_19rem] 2xl:grid-cols-[11rem_minmax(0,1fr)_19rem]">
+              <div className={`grid gap-4 sm:grid-cols-[9rem_minmax(0,1fr)] ${selectedDevices.length > 0 ? 'xl:grid-cols-[9rem_minmax(0,1fr)_19rem]' : ''}`}>
                 <DeviceTypes devices={visible} templates={templates} selected={selected} onSelect={setSelected} />
                 <div className="min-w-0 space-y-2">
                   <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
@@ -361,9 +379,12 @@ export function ScenesSection({
                     }}
                   />
                 </div>
-                <aside className="rounded-md border border-slate-200 p-2 dark:border-slate-700" aria-label={texts.light.fixture.title}>
-                  <FixturePanel doc={doc} origin={origin} sceneId={scene.id} devices={selectedDevices} templates={templates} states={states} targets={data.lightTargets} editable={editable} />
-                </aside>
+                {/* Werte erst, wenn ein Gerät gewählt ist – sonst hat das Raster die ganze Breite */}
+                {selectedDevices.length > 0 && (
+                  <aside className="rounded-md border border-slate-200 p-2 sm:col-span-2 xl:col-span-1 dark:border-slate-700" aria-label={texts.light.fixture.title}>
+                    <FixturePanel doc={doc} origin={origin} sceneId={scene.id} devices={selectedDevices} templates={templates} states={states} targets={data.lightTargets} editable={editable} />
+                  </aside>
+                )}
               </div>
             </div>
           )}
@@ -393,9 +414,9 @@ function DeviceTypes({ devices, templates, selected, onSelect }: { devices: Devi
   const list = [...groups].map(([id, ds]) => ({ id, name: templates.get(id)?.name ?? t.otherType, devices: ds })).sort((a, b) => a.name.localeCompare(b.name, 'de', { numeric: true }));
   if (list.length === 0) return null;
   return (
-    <div className="min-w-0 xl:col-span-2 2xl:col-span-1" role="group" aria-label={t.types} data-testid="scene-types">
-      <div className="mb-1 hidden text-xs font-medium text-slate-500 2xl:block">{t.types}</div>
-      <div className="flex gap-1 overflow-x-auto pb-1 2xl:flex-col 2xl:overflow-visible">
+    <div className="min-w-0" role="group" aria-label={t.types} data-testid="scene-types">
+      <div className="mb-1 hidden text-xs font-medium text-slate-500 sm:block">{t.types}</div>
+      <div className="flex gap-1 overflow-x-auto pb-1 sm:flex-col sm:overflow-visible">
         {list.map((g) => {
           const all = g.devices.every((d) => selected.has(d.id));
           const some = !all && g.devices.some((d) => selected.has(d.id));
@@ -404,7 +425,7 @@ function DeviceTypes({ devices, templates, selected, onSelect }: { devices: Devi
               key={g.id}
               type="button"
               aria-pressed={all}
-              title={t.typesHint(MOD_KEY)}
+              title={`${t.typeCount(g.name, g.devices.length)} – ${t.typesHint(MOD_KEY)}`}
               onClick={(e) => {
                 const ids = g.devices.map((d) => d.id);
                 if (e.ctrlKey || e.metaKey) {
@@ -416,7 +437,7 @@ function DeviceTypes({ devices, templates, selected, onSelect }: { devices: Devi
                   onSelect(next);
                 } else onSelect(new Set(ids));
               }}
-              className={`shrink-0 rounded-md border px-2 py-1 text-left text-xs whitespace-nowrap 2xl:truncate 2xl:whitespace-normal ${
+              className={`shrink-0 rounded-md border px-2 py-1 text-left text-xs whitespace-nowrap sm:truncate ${
                 all ? 'border-sky-600 bg-sky-600 text-white' : some ? 'border-sky-400 bg-sky-50 dark:bg-sky-950' : 'border-slate-300 hover:border-sky-400 dark:border-slate-600'
               }`}
             >
