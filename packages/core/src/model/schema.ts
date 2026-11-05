@@ -570,6 +570,8 @@ export type FixtureValues = Omit<FixtureState, 'id' | 'sceneId' | 'deviceId'>;
 export const ShowSettingsSchema = z.object({
   /** Beginn des Ablaufs „HH:MM“ */
   startTime: z.string().optional(),
+  /** Hintergrundbild des Textfensters (Datei im Medienspeicher), abgedunkelt um dim (0–1) */
+  lyricsBackground: z.object({ mediaId: id, dim: z.number().min(0).max(1).default(0.5) }).optional(),
 });
 export type ShowSettings = z.infer<typeof ShowSettingsSchema>;
 

@@ -7,6 +7,15 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+### Hinzugefügt
+
+- Textfenster: Hintergrundbild (Zahnrad neben „Textfenster“ im Regie-Menü) mit einstellbarem Abdunkeln; das Bild liegt im Medienspeicher und kommt beim Herunterladen mit Medien mit
+- Player: Spulen auch um ±0,5 Sekunden
+
+### Geändert
+
+- Textfenster: Zeilenwechsel animiert – der Text gleitet weich nach oben, die aktuelle Zeile wächst und wird hervorgehoben, Zeilen blenden weich ein und aus
+
 ## [0.23.3] - 2026-11-05
 
 ### Hinzugefügt

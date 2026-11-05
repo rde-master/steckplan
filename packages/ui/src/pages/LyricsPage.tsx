@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { currentLineId, itemLines } from '@steckplan/core';
 import { LyricsDisplay, useCueClock, useLocalCue, type ReceivedCue } from '../components/regie/LyricsWindow';
+import { api } from '../lib/api';
 import { useProjectData } from '../lib/useProjectData';
 import { useProjectDoc } from '../lib/useProjectDoc';
 import { texts } from '../texts';
@@ -50,8 +51,17 @@ export function LyricsPage({ id }: { id: string }) {
   const status = state?.status;
   const message = status === 'unauthorized' || status === 'notFound' ? t.noAccess : !item ? (lead || local ? t.waiting : t.nobodyLeads) : null;
 
+  const background = data.showSettings.lyricsBackground;
+
   return (
-    <div className="dark fixed inset-0 cursor-pointer bg-slate-950 text-slate-100 select-none" onClick={toggleFullscreen} title={t.fullscreenHint} data-testid="lyrics-page">
+    <div className="dark fixed inset-0 cursor-pointer overflow-hidden bg-slate-950 text-slate-100 select-none" onClick={toggleFullscreen} title={t.fullscreenHint} data-testid="lyrics-page">
+      {background && (
+        <>
+          <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url("${api.mediaUrl(id, background.mediaId)}")` }} data-testid="lyrics-background" />
+          <div className="absolute inset-0 bg-black" style={{ opacity: background.dim }} />
+        </>
+      )}
+      <div className="relative h-full">
       {message ? (
         <p className="flex h-full items-center justify-center p-8 text-center text-[3vw] text-slate-500">{message}</p>
       ) : lines.length === 0 ? (
@@ -59,7 +69,8 @@ export function LyricsPage({ id }: { id: string }) {
       ) : (
         <LyricsDisplay title={title} lines={lines} currentLineId={current} roleNames={roleNames} />
       )}
-      {!fullscreen && <div className="pointer-events-none absolute right-0 bottom-2 left-0 text-center text-sm text-slate-600">{t.fullscreenHint}</div>}
+      </div>
+      {!fullscreen && <div className="pointer-events-none absolute right-0 bottom-2 left-0 text-center text-sm text-slate-500">{t.fullscreenHint}</div>}
     </div>
   );
 }

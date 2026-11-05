@@ -50,12 +50,26 @@ test('Textfenster: eigene Seite, im selben Browser und auf anderen Geräten (Fü
   await expect(popup).toHaveURL(new RegExp(`/projekt/${id}/text$`));
   await expect(popup.getByTestId('lyrics-page')).toContainText('Warte auf die Vorstellung');
 
+  // Hintergrundbild einrichten (Medienspeicher), abdunkeln
+  await page.getByRole('button', { name: 'Textfenster einrichten' }).click();
+  const setup = page.getByTestId('lyrics-settings');
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64');
+  await setup.locator('input[type=file]').setInputFiles({ name: 'Buehne.png', mimeType: 'image/png', buffer: png });
+  await expect(setup.getByRole('img', { name: 'Hintergrundbild' })).toBeVisible();
+  await setup.getByRole('slider').fill('0.7');
+  await page.getByRole('button', { name: 'Fertig' }).click();
+  await expect(popup.getByTestId('lyrics-background')).toHaveAttribute('style', /\/media\//);
+  const bg = await (await page.request.get(`/api/projects/${id}/download`)).json();
+  expect(bg.showSettings.lyricsBackground).toMatchObject({ dim: 0.7 });
+  expect(bg.media.some((m: { id: string; mime: string }) => m.id === bg.showSettings.lyricsBackground.mediaId && m.mime === 'image/png')).toBe(true);
+
   // Vorstellung (ohne Führen): das Fenster im selben Browser folgt
   await page.getByRole('button', { name: 'Vorstellung' }).click();
   const perf = page.getByTestId('performance');
   await expect(perf.getByTestId('regie-player')).toBeVisible();
   const rows = popup.getByTestId('lyrics-row');
-  await expect(rows).toHaveText(['\u00a0', '\u00a0', 'Zeile 1', 'Zeile 2', 'Zeile 3']);
+  // vor dem Start: die ersten Zeilen auf den Plätzen 3–5
+  await expect(rows).toHaveText(['Zeile 1', 'Zeile 2', 'Zeile 3']);
   // Countdown zu den nächsten fünf Zeilen, danach feste Zeiten
   await expect(perf.getByTestId('line-countdown')).toHaveCount(5);
   await expect(perf.getByTestId('line-countdown').first()).toHaveText('0,5 s');
@@ -70,6 +84,7 @@ test('Textfenster: eigene Seite, im selben Browser und auf anderen Geräten (Fü
   await expect(popup.locator('[data-current]')).toHaveCSS('text-align', 'center');
   await expect(perf.getByTestId('line-countdown').first()).toHaveText('0,5 s');
   await popup.setViewportSize({ width: 1100, height: 600 });
+  await popup.waitForTimeout(900); // Animation abwarten
   await popup.screenshot({ path: 'test-results/textfenster.png' });
   await page.screenshot({ path: 'test-results/vorstellung-countdown.png' });
 
@@ -82,9 +97,13 @@ test('Textfenster: eigene Seite, im selben Browser und auf anderen Geräten (Fü
   const otherCurrent = other.locator('[data-current]');
   await expect(otherCurrent).toHaveText('Zeile 2');
   // Spulen: +5 s, −1 s (Knöpfe), Umschalt+→ (+1 s) – wirkt auch auf dem anderen Gerät
-  await perf.getByRole('button', { name: '5 s vor' }).click();
+  await perf.getByRole('button', { name: '5 s vor', exact: true }).click();
   await expect.poll(() => page.evaluate(() => document.querySelector('audio')!.currentTime)).toBeCloseTo(7, 1);
-  await perf.getByRole('button', { name: '1 s zurück' }).click();
+  await perf.getByRole('button', { name: '1 s zurück', exact: true }).click();
+  await expect.poll(() => page.evaluate(() => document.querySelector('audio')!.currentTime)).toBeCloseTo(6, 1);
+  await perf.getByRole('button', { name: '0,5 s vor' }).click();
+  await expect.poll(() => page.evaluate(() => document.querySelector('audio')!.currentTime)).toBeCloseTo(6.5, 1);
+  await perf.getByRole('button', { name: '0,5 s zurück' }).click();
   await expect.poll(() => page.evaluate(() => document.querySelector('audio')!.currentTime)).toBeCloseTo(6, 1);
   await page.keyboard.press('Shift+ArrowRight');
   await expect.poll(() => page.evaluate(() => document.querySelector('audio')!.currentTime)).toBeCloseTo(7, 1);

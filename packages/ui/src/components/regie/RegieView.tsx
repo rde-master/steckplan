@@ -1,6 +1,6 @@
 // Regie (M11a): Ablauf links, gewählter Eintrag rechts (Angaben, Rollen, Texte).
 // Auf dem Handy erst der Ablauf, Antippen öffnet den Eintrag.
-import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Clapperboard, Coffee, Copy, Drama, GripVertical, Link2, Megaphone, Monitor, Music, Trash2, type LucideIcon } from 'lucide-react';
+import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Clapperboard, Coffee, Copy, Drama, GripVertical, Link2, Megaphone, Monitor, Music, Settings2, Trash2, type LucideIcon } from 'lucide-react';
 import { useState, type DragEvent, type ReactNode } from 'react';
 import type * as Y from 'yjs';
 import {
@@ -25,6 +25,7 @@ import {
   type Person,
   type ShowItem,
   type ShowItemKind,
+  type ShowSettings,
 } from '@steckplan/core';
 import { useIsNarrow } from '../../lib/useProjectDoc';
 import type { ProjectData } from '../../lib/useProjectData';
@@ -37,6 +38,7 @@ import { TextsView } from './TextsView';
 import { PerformanceView } from './PerformanceView';
 import { MediaSection, PlayerBar, usePlayerTime } from './SongMedia';
 import { lyricsUrl, openLyricsWindow } from './LyricsWindow';
+import { LyricsSettings } from './LyricsSettings';
 
 const t = texts.regie;
 
@@ -73,7 +75,7 @@ export function RegieView(
           ))}
         </div>
         <div className="flex-1" />
-        <LyricsButtons projectId={props.projectId} />
+        <LyricsButtons projectId={props.projectId} doc={props.doc} origin={props.origin} settings={props.data.showSettings} editable={props.editable} />
         <Button variant="secondary" className="shrink-0 text-sm" title={t.performance.openTitle} aria-label={t.performance.open} onClick={() => setPerforming(true)} disabled={props.data.show.items.length === 0}>
           <Clapperboard {...ICON} /> <span className="hidden sm:inline">{t.performance.open}</span>
         </Button>
@@ -429,8 +431,9 @@ function PeoplePicker({ people, selected, editable, onChange }: { people: Person
 
 
 /** Textfenster öffnen bzw. den Link dazu kopieren (für andere Geräte) */
-function LyricsButtons({ projectId }: { projectId: string }) {
+function LyricsButtons({ projectId, doc, origin, settings, editable }: { projectId: string; doc: Y.Doc; origin: object; settings: ShowSettings; editable: boolean }) {
   const [copied, setCopied] = useState(false);
+  const [setup, setSetup] = useState(false);
   return (
     <span className="flex shrink-0">
       <Button variant="secondary" className="rounded-r-none text-sm" title={t.lyricsPage.openTitle} aria-label={t.lyricsPage.open} onClick={() => openLyricsWindow(projectId)}>
@@ -438,7 +441,7 @@ function LyricsButtons({ projectId }: { projectId: string }) {
       </Button>
       <Button
         variant="secondary"
-        className="-ml-px rounded-l-none px-2 text-sm"
+        className={`-ml-px px-2 text-sm ${editable ? 'rounded-none' : 'rounded-l-none'}`}
         title={copied ? t.lyricsPage.copied : `${t.lyricsPage.copyLink}: ${lyricsUrl(projectId)}`}
         aria-label={t.lyricsPage.copyLink}
         onClick={() => {
@@ -451,6 +454,12 @@ function LyricsButtons({ projectId }: { projectId: string }) {
         <Link2 {...ICON} />
         {copied && <span className="text-xs">{t.lyricsPage.copied}</span>}
       </Button>
+      {editable && (
+        <Button variant="secondary" className="-ml-px rounded-l-none px-2 text-sm" title={t.lyricsPage.settings} aria-label={t.lyricsPage.settings} onClick={() => setSetup(true)}>
+          <Settings2 {...ICON} />
+        </Button>
+      )}
+      {setup && <LyricsSettings projectId={projectId} doc={doc} origin={origin} settings={settings} onClose={() => setSetup(false)} />}
     </span>
   );
 }
