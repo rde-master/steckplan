@@ -10,6 +10,7 @@ import {
   itemLines,
   nextUntimedLine,
   setLineTime,
+  type Library,
   type MediaRef,
   formatDuration,
   itemSections,
@@ -31,6 +32,7 @@ import { texts } from '../../texts';
 import { ICON } from '../icons';
 import { Button, Field, Modal, TextArea, TextInput } from '../ui';
 import { SectionsEditor } from './SectionsEditor';
+import { LightSetupView } from './LightSetupView';
 import { LyricsView, MediaSection, PlayerBar, seekAudio, usePlayerTime, useRecordKey } from './SongMedia';
 
 const t = texts.regie;
@@ -38,7 +40,49 @@ const t = texts.regie;
 export const KIND_ICONS: Record<ShowItemKind, LucideIcon> = { song: Music, play: Drama, break: Coffee, announcement: Megaphone };
 const KINDS: ShowItemKind[] = ['song', 'play', 'break', 'announcement'];
 
-export function RegieView({ projectId, doc, origin, data, editable }: { projectId: string; doc: Y.Doc; origin: object; data: ProjectData; editable: boolean }) {
+/** Regie: oben Umschalter Ablauf | Lichtaufbau */
+export function RegieView(props: { projectId: string; doc: Y.Doc; origin: object; data: ProjectData; library: Library | null; editable: boolean }) {
+  const [area, setArea] = useState<'show' | 'light'>(readArea);
+  const choose = (next: 'show' | 'light') => {
+    setArea(next);
+    try {
+      localStorage.setItem(AREA_KEY, next);
+    } catch {
+      // ohne Speicher gilt die Wahl bis zum Neuladen
+    }
+  };
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex shrink-0 items-center gap-2 border-b border-slate-200 bg-white px-3 py-1.5 dark:border-slate-700 dark:bg-slate-900">
+        <div className="flex overflow-hidden rounded-md border border-slate-300 text-sm dark:border-slate-600" role="radiogroup" aria-label={texts.light.viewsLabel}>
+          {(['show', 'light'] as const).map((a) => (
+            <button key={a} type="button" role="radio" aria-checked={area === a} onClick={() => choose(a)} className={`px-3 py-1 ${area === a ? 'bg-sky-600 text-white' : ''}`}>
+              {texts.light.views[a]}
+            </button>
+          ))}
+        </div>
+      </div>
+      {area === 'light' ? (
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <LightSetupView doc={props.doc} origin={props.origin} data={props.data} library={props.library} editable={props.editable} />
+        </div>
+      ) : (
+        <ShowView {...props} />
+      )}
+    </div>
+  );
+}
+
+const AREA_KEY = 'steckplan.regieArea';
+function readArea(): 'show' | 'light' {
+  try {
+    return localStorage.getItem(AREA_KEY) === 'light' ? 'light' : 'show';
+  } catch {
+    return 'show';
+  }
+}
+
+function ShowView({ projectId, doc, origin, data, editable }: { projectId: string; doc: Y.Doc; origin: object; data: ProjectData; library: Library | null; editable: boolean }) {
   const narrow = useIsNarrow(900);
   const { items, sections } = data.show;
   const [selectedId, setSelectedId] = useState<string | null>(null);

@@ -11,6 +11,7 @@ import { texts } from '../../texts';
 import { Banner, Button, Field, TextArea, TextInput } from '../ui';
 import { BulkPortsForm } from './BulkPortsForm';
 import { ChannelsEditor } from './ChannelsEditor';
+import { LightFields } from './LightFields';
 import { ColorField, MasterSelect, MeterField, NumberField, selectClass, SelectField } from './fields';
 
 const t = texts.library.fields;
@@ -514,6 +515,8 @@ export function TemplateEditor({
           <div className="grid gap-3 sm:grid-cols-3">
             <NumberField label={t.power} value={draft.powerW} onChange={(powerW) => set({ powerW })} disabled={disabled} />
           </div>
+
+          <LightFields light={draft.light} disabled={disabled} onChange={(light) => set({ light })} />
         </>
       )}
 
