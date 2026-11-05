@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -9,9 +9,20 @@ import { E2E } from '../playwright.config';
 const appDir = join(process.cwd(), 'apps/desktop');
 const electronPath = createRequire(join(appDir, 'package.json'))('electron') as unknown as string;
 
+// Temporäre Ordner nach den Tests wieder entfernen (/tmp liegt oft im Arbeitsspeicher)
+const tempDirs: string[] = [];
+function tempDir(prefix: string): string {
+  const dir = mkdtempSync(join(tmpdir(), prefix));
+  tempDirs.push(dir);
+  return dir;
+}
+test.afterAll(() => {
+  for (const dir of tempDirs.splice(0)) rmSync(dir, { recursive: true, force: true, maxRetries: 3 });
+});
+
 test('Desktop: Name beim ersten Start, Datei öffnen, Autosave, Sperrdatei', async () => {
-  const userData = mkdtempSync(join(tmpdir(), 'steckplan-userdata-'));
-  const projectDir = mkdtempSync(join(tmpdir(), 'steckplan-projekte-'));
+  const userData = tempDir('steckplan-userdata-');
+  const projectDir = tempDir('steckplan-projekte-');
   const file = join(projectDir, 'Halle.steckplan');
   writeFileSync(file, JSON.stringify({ schemaVersion: 1, id: 'e2e-projekt', meta: { name: 'Hallenfest' } }));
 
@@ -71,8 +82,8 @@ test('Desktop: Name beim ersten Start, Datei öffnen, Autosave, Sperrdatei', asy
 });
 
 test('Desktop: Weboberfläche per QR starten, im Browser lesend anmelden, trennen', async ({ browser }) => {
-  const userData = mkdtempSync(join(tmpdir(), 'steckplan-userdata-'));
-  const projectDir = mkdtempSync(join(tmpdir(), 'steckplan-projekte-'));
+  const userData = tempDir('steckplan-userdata-');
+  const projectDir = tempDir('steckplan-projekte-');
   const file = join(projectDir, 'Open-Air.steckplan');
   writeFileSync(file, JSON.stringify({ schemaVersion: 3, id: 'e2e-web', meta: { name: 'Open Air' } }));
   writeFileSync(join(userData, 'settings.json'), JSON.stringify({ name: 'Ralf Pult', recentFiles: [] }));
@@ -150,8 +161,8 @@ test('Desktop: mit Server verbinden (Zugangsschlüssel), Projekt hochladen, Wide
   const created = await (await request.post('/api/settings/desktop-keys', { data: { label: 'E2E-Desktop', access: 'edit' } })).json();
   const key: string = created.key;
 
-  const userData = mkdtempSync(join(tmpdir(), 'steckplan-userdata-'));
-  const projectDir = mkdtempSync(join(tmpdir(), 'steckplan-projekte-'));
+  const userData = tempDir('steckplan-userdata-');
+  const projectDir = tempDir('steckplan-projekte-');
   const file = join(projectDir, 'Hochladen.steckplan');
   writeFileSync(file, JSON.stringify({ schemaVersion: 4, id: 'e2e-upload', meta: { name: 'Vom Desktop hochgeladen' } }));
   writeFileSync(join(userData, 'settings.json'), JSON.stringify({ name: 'Ralf Desktop', recentFiles: [] }));

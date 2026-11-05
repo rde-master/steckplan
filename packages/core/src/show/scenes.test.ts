@@ -5,6 +5,7 @@ import { addSection, addShowItem, duplicateShowItem, itemLines, readShow, remove
 import {
   addScene,
   clearFixtureValues,
+  copySceneTo,
   currentSceneId,
   duplicateScene,
   itemScenes,
@@ -12,8 +13,10 @@ import {
   readScenes,
   readSceneStates,
   removeScene,
+  replaceSceneValues,
   sceneStates,
   sceneTime,
+  sceneValues,
   setFixtureValues,
   updateScene,
 } from './scenes';
@@ -53,6 +56,32 @@ describe('Lichtszenen', () => {
     removeShowItem(d, song, null);
     expect(readScenes(d)).toEqual([]);
     expect(readSceneStates(d)).toEqual([]);
+  });
+
+  it('Szene komplett in andere Szenen (auch anderer Stücke) kopieren und einfügen', () => {
+    const d = doc();
+    const a = addShowItem(d, 'song', null, { title: 'A' });
+    const b = addShowItem(d, 'play', null, { title: 'B' });
+    const src = addScene(d, a, null);
+    setFixtureValues(d, src, ['MH1', 'MH2'], { dimmer: 50, color: { hex: '#00f', name: 'Blau' } }, null);
+    const sameItem = addScene(d, a, null, { copyFrom: null });
+    setFixtureValues(d, sameItem, ['PAR9'], { dimmer: 100 }, null);
+    const other = addScene(d, b, null, { copyFrom: null });
+    copySceneTo(d, src, [sameItem, other, src, 'gibt-es-nicht'], null);
+    for (const id of [sameItem, other]) {
+      const m = sceneStates(readSceneStates(d), id);
+      expect([...m.keys()].sort()).toEqual(['MH1', 'MH2']); // PAR9 ersetzt, nicht ergänzt
+      expect(m.get('MH1')).toMatchObject({ dimmer: 50, color: { name: 'Blau' }, sceneId: id });
+    }
+    expect(sceneStates(readSceneStates(d), src).size).toBe(2);
+    // Einfügen aus einer Zwischenablage, auch nachdem die Quelle sich geändert hat
+    const clip = sceneValues(readSceneStates(d), src);
+    clearFixtureValues(d, src, ['MH1', 'MH2'], null);
+    replaceSceneValues(d, clip, [src], null);
+    expect(sceneStates(readSceneStates(d), src).get('MH2')).toMatchObject({ dimmer: 50 });
+    // leere Werte = Szene leeren
+    replaceSceneValues(d, [], [other], null);
+    expect(sceneStates(readSceneStates(d), other).size).toBe(0);
   });
 
   it('Auslöser: Zeitpunkt oder Textzeile; aktuelle Szene zur Abspielzeit; Kopie des Eintrags schlüsselt Zeilen um', () => {

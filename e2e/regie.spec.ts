@@ -121,4 +121,6 @@ test('Regie: Ablauf, Texte, Rollen; Regie-Zugang bearbeitet nur die Regie', asyn
   await reader.getByTestId('regie-item').first().click();
   await expect(reader.getByTestId('regie-detail').getByLabel('Titel')).toBeDisabled();
   await expect(reader.getByRole('button', { name: '+ Lied' })).toHaveCount(0);
+  await regie.context().close();
+  await reader.context().close();
 });

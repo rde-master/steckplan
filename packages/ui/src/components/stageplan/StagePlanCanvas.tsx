@@ -17,6 +17,7 @@ import {
   type Template,
 } from '@steckplan/core';
 import { useEditor } from '../../lib/editor';
+import { usePinchZoom } from '../../lib/usePinchZoom';
 import { useLongPress } from '../../lib/useLongPress';
 import { useEdgeScroll } from '../../lib/useEdgeScroll';
 import { DIMMED_OPACITY } from '../../lib/display';
@@ -227,24 +228,13 @@ export function StagePlanCanvas(props: StageCanvasProps) {
     setView({ zoom, x: point.x - wx * zoom, y: point.y - wy * zoom });
   }
 
-  // Touch: Zwei-Finger-Zoom (Geste) – Verschieben mit einem Finger übernimmt Konva (draggable)
-  const pinch = useRef<{ distance: number; zoom: number } | null>(null);
+  // Touch: Verschieben mit einem Finger übernimmt Konva (draggable), Zwei-Finger-Zoom usePinchZoom
+  usePinchZoom(container, stageRef, () => view.zoom, zoomAt);
   function handleTouchMove(e: Konva.KonvaEventObject<TouchEvent>) {
-    const touches = e.evt.touches;
-    if (touches.length !== 2) {
-      const p = world();
-      setPointer(p);
-      if (band && p) setBand({ ...band, x2: p.x, y2: p.y });
-      return;
-    }
-    e.evt.preventDefault();
-    if (stageRef.current?.isDragging()) stageRef.current.stopDrag();
-    const [t1, t2] = [touches[0]!, touches[1]!];
-    const distance = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
-    const rect = container.current!.getBoundingClientRect();
-    const center = { x: (t1.clientX + t2.clientX) / 2 - rect.left, y: (t1.clientY + t2.clientY) / 2 - rect.top };
-    if (!pinch.current) pinch.current = { distance, zoom: view.zoom };
-    zoomAt(center, pinch.current.zoom * (distance / pinch.current.distance));
+    if (e.evt.touches.length !== 1) return;
+    const p = world();
+    setPointer(p);
+    if (band && p) setBand({ ...band, x2: p.x, y2: p.y });
   }
 
   // ---------- Markieren: Rahmen aufziehen ----------
@@ -430,10 +420,7 @@ export function StagePlanCanvas(props: StageCanvasProps) {
         }}
         onMouseUp={() => finishBand()}
         onTouchMove={handleTouchMove}
-        onTouchEnd={() => {
-          pinch.current = null;
-          finishBand();
-        }}
+        onTouchEnd={() => finishBand()}
         onClick={(e) => {
           if (!pointerTool) {
             handleToolClick(e);
