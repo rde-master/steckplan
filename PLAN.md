@@ -177,16 +177,78 @@ Mit Steckplan kann man:
 
 1. **Ton-Patch / Stagebox-Kanäle** – Quelle → Stagebox-Kanal → Multicore → Pult-Kanal; Input-Liste als PDF
 2. **Stromberechnung** – Leistung pro Gerät, Stromkreise/Verteiler mit Absicherung, Phasen L1/L2/L3, Überlast-/Schieflast-Warnungen, Stromliste als PDF
-3. Weitere Ideen (unpriorisiert): Gerätegruppen als Vorlage, Kabel-Etiketten mit QR, mehrere Pläne pro Projekt
+3. **Regie** – Ablauf aus Liedern und Schauspielstücken mit Texten, Audiodateien und Lichtszenen (Planung, keine Lichtsteuerung); Details in 3.4
+4. Weitere Ideen (unpriorisiert): Gerätegruppen als Vorlage, Kabel-Etiketten mit QR, mehrere Pläne pro Projekt
 
 ### 3.3 Nicht-Ziele
 
-- 3D-Darstellung, Live-DMX-Ausgabe / Lichtsteuerung
+- 3D-Darstellung, Live-DMX-Ausgabe / Lichtsteuerung (auch die Lichtszenen der Regie sind nur Planung und Dokumentation – der Lichttechniker programmiert danach am Pult)
 - Cloud-Dienst, Benutzerkonten im Internet
 - MVR/GDTF-Import/Export (kann später neu bewertet werden)
 - Zubehör ohne Platz auf dem Canvas (z. B. Gaffa, Ersatzkabel) – alles in den Listen stammt aus dem Plan
 - Mehrsprachigkeit im MVP
 - Switch-Port-/VLAN-Verwaltung als eigene Funktion (nur Notizfelder)
+
+### 3.4 Regie (Phase 2c, vor Release 1.0)
+
+Neuer Reiter **„Regie“** neben „Listen“. Alles gehört zum Projekt (kein Repertoire in der Bibliothek); „Neues Projekt aus diesem“ übernimmt Ablauf, Texte, Szenen und Medien.
+
+**Ablauf**
+- Ein Ablauf je Projekt: geordnete Liste von Einträgen der Art **Lied**, **Schauspiel**, **Pause**, **Ansage**; Reihenfolge per Ziehen (Pfeile auf dem Handy)
+- Je Eintrag: Titel, bei Liedern Interpret/Komponist, Dauer (aus der Standard-Audiodatei vorgeschlagen, änderbar), beteiligte Personen (aus den Personen des Projekts), Notiz
+- Gesamtdauer und laufende Startzeiten im Ablauf (ab einer frei setzbaren Anfangszeit)
+
+**Texte (strukturiert)**
+- Lied: Abschnitte (Intro, Strophe, Refrain, Bridge, Solo, Outro, Sonstiges) mit eigener Bezeichnung („Strophe 2“) und Zeilen; Abschnitte kopierbar (Refrain wiederholen)
+- Schauspiel: Rollen (Name, optional mit einer Person des Projekts verknüpft) und Zeilen „Rolle: Text“ sowie Regieanweisungen (kursiv, ohne Rolle)
+- Einfügen von Text aus der Zwischenablage zerlegt ihn in Zeilen; Leerzeilen trennen Abschnitte
+- Jede Zeile kann einen Zeitpunkt im Lied bekommen (für „Text mitlaufen“); setzbar per Tippen auf die Zeile während des Abspielens („Mitschreiben“), danach fein verschiebbar
+
+**Medien (Audio)**
+- Mehrere Audiodateien je Lied (z. B. Playback, Klick, Original), eine davon Standard; vor allem MP3, außerdem WAV, M4A/AAC, OGG/Opus, FLAC (was der Browser abspielt)
+- **Keine Größengrenze** je Datei oder Projekt; Dateien werden **unverändert** gespeichert (keine Umwandlung). Hochladen in Teilen mit Fortschritt und Fortsetzen nach Abbruch, damit auch große Dateien zuverlässig ankommen
+- Gespeichert in einem **eigenen Medienspeicher**, nicht in der Projektdatei: Docker im Datenordner je Projekt, Desktop lokal in einem Ordner neben der Datei (`Fest.steckplan` → `Fest.medien/`), Desktop mit Server auf dem Server. Das Projekt enthält nur Verweise (Kennung, Name, Größe, Dauer, Prüfsumme)
+- Herunterladen eines Projekts wahlweise ohne Medien (`.steckplan`) oder mit Medien (`.steckplan.zip`); Hochladen/Öffnen nimmt beides an
+- Player: Abspielen/Pause, Zeitleiste zum Spulen, Lautstärke, Dateiwahl; Szenen-Zeitpunkte als Marken auf der Zeitleiste, die aktuelle Szene und die aktuelle Textzeile werden hervorgehoben, der Text scrollt mit
+- Gelöschte Medien landen im Papierkorb (wie Projekte, 30 Tage); Versionen verweisen nur auf Medien, die Dateien selbst werden nicht versioniert
+
+**Lichtfähigkeiten in der Bibliothek (ausführlich)**
+- Gerätevorlage bekommt einen Abschnitt „Licht“ mit Merkmal **„In Lichtszenen anzeigen“** und den Fähigkeiten:
+  - Dimmer (ja/nein), Strobe (ja/nein, max. Hz)
+  - Farbe: keine / RGB / RGBW / CMY / Farbrad(er) mit benannten Farben (Name + Anzeigefarbe), optional CTO/CTB
+  - Gobo-Räder: mehrere, je Rad Name, statisch/rotierend, Gobos mit Namen und optional Bild (im Medienspeicher der Bibliothek)
+  - Prisma (Anzahl Facetten, rotierend), Zoom (Winkelbereich), Fokus, Iris, Frost
+  - beweglich (Moving Head/Scanner) mit Pan/Tilt-Bereich
+- Alle Geräte im Projekt mit diesem Merkmal erscheinen in der Regie; einzelne lassen sich je Projekt ausblenden
+
+**Grid**
+- Ein Raster je Projekt (Spalten × Zeilen frei, z. B. 12 × 6, Zeilen optional benannt wie „Traverse hinten“); Geräte per Ziehen auf Kästchen, gilt für alle Szenen
+- Vorschlag „aus dem Bühnenplan anordnen“: Positionen werden auf das Raster abgebildet (je Traverse/Stativ eine Zeile, links nach rechts wie im Plan)
+- Darstellung je Gerät: Kästchen mit Kennung; in einer Szene eingefärbt (Farbe × Helligkeit, aus = grau), Gobo-Symbol, Ziel als Pfeil mit Name, Bewegung als kleines Symbol
+
+**Benannte Ziele**
+- Je Projekt eine Liste von Zielen (z. B. „Sängerin“, „Schlagzeug“, „Publikum“, „Bühne Mitte“), optional als Punkt im Bühnenplan gesetzt; bewegliche Geräte zeigen je Szene auf ein Ziel
+
+**Lichtszenen**
+- Je Lied und Schauspielstück beliebig viele Szenen in Reihenfolge, mit Name, Notiz und optional Auslöser: Zeitpunkt im Lied und/oder Textabschnitt/-zeile
+- Je Gerät in der Szene: Helligkeit (0–100 %), Farbe (frei oder aus dem Farbrad, je nach Fähigkeit), Gobo (je Rad, Rotation), Prisma, Zoom, Fokus, Iris, Frost, Strobe, Ziel, Bewegung/Effekt (Kreis, Acht, Schwenk, Welle, Zufall, Freitext; Tempo langsam/mittel/schnell), Notiz
+- Nur angebotene Angaben passen zu den Fähigkeiten der Vorlage; nicht gesetzte Angaben heißen „unverändert/egal“
+- Bearbeiten: mehrere Geräte im Grid auswählen (Ziehen, Strg/Umschalt, auf dem Handy Mehrfachauswahl-Modus) und gemeinsam setzen; Szene duplizieren; Werte einer Szene auf eine andere übertragen; „wie vorige Szene“ als Ausgangspunkt
+
+**Vorstellungs-Ansicht**
+- Vollbild für Tablet/Handy während der Show: aktueller Ablaufeintrag, Text (mitlaufend), aktuelle und nächste Szene als Grid, Player; große Knöpfe „Weiter/Zurück“ (Eintrag und Szene); dunkle Darstellung
+- Standard: jedes Gerät blättert für sich. **„Folgen“-Modus:** Eine Person führt (z. B. Regie oder Inspizienz), alle, die „Folgen“ einschalten, springen live mit zu Eintrag und Szene (über den Live-Abgleich, nicht im Projekt gespeichert); Folgen lässt sich jederzeit verlassen, wer führt, ist sichtbar
+
+**Ausgaben (PDF)**
+- **Ablaufplan:** Reihenfolge mit Startzeit, Dauer, Art, Personen, Anzahl Szenen, Notizen
+- **Lichtszenen:** je Stück die Szenen als Grid-Bild (Farben, Gobos, Ziele) mit Tabelle je Gerät, für den Lichttechniker
+- **Textbuch:** Texte aller Stücke in Ablauf-Reihenfolge, Rollen fett, Regieanweisungen kursiv, Szenenwechsel am Rand
+
+**Zugang „Regie“ (dritte Zugangsstufe)**
+- Eigenes Passwort (Docker-Einstellungen, Desktop-Weboberfläche) und als Stufe für Desktop-Zugangsschlüssel
+- In der Oberfläche heißt die Stufe **„Regie“**: darf den Regie-Bereich ändern (Ablauf, Texte, Medien, Szenen, Grid, Ziele, ausgeblendete Geräte) und **alles andere lesen** (Pläne, Listen, Bibliothek) – keine Häkchen in der Packliste
+- Bearbeiten-Zugang darf weiterhin alles, Lese-Zugang sieht die Regie (auch abspielen, Vorstellungs-Ansicht), ändert nichts
+- Serverseitig durchgesetzt: Änderungen eines Regie-Clients werden nur übernommen, wenn sie ausschließlich die Regie-Bereiche des Dokuments betreffen; sonst verworfen (wie heute bei Lese-Clients)
 
 ---
 
@@ -413,7 +475,46 @@ ChangeLogEntry {
 // Lokal: in der .steckplan-Datei (Abschnitt changeLog, auf die letzten N Einträge begrenzt)
 
 DesktopKey {                           // nur auf dem Docker-Server
-  id, label, access: 'edit'|'read', keyHash, createdAt, lastUsedAt?, revoked?: boolean
+  id, label, access: 'edit'|'direction'|'read', keyHash, createdAt, lastUsedAt?, revoked?: boolean   // 'direction' = Regie (ab M10a)
+}
+
+// ---------- Regie (ab Format 9) ----------
+// eigene Bereiche im Yjs-Dokument, damit der Server Regie-Änderungen sauber erkennt:
+//   show (Ablauf), showTargets (Ziele), showGrid (Raster), media (Verweise)
+
+ShowItem {
+  id, order: number,
+  kind: 'song'|'play'|'break'|'announcement',
+  title, artist?, durationSec?, personIds: string[], notes?,
+  media: { mediaId, label, isDefault }[],      // nur Lieder
+  roles?: { id, name, personId? }[],             // nur Schauspiel
+  sections: TextSection[],
+  scenes: LightScene[]
+}
+TextSection { id, kind: 'intro'|'verse'|'chorus'|'bridge'|'solo'|'outro'|'other', label, lines: TextLine[] }
+TextLine { id, text, roleId?, direction?: boolean, atSec?: number }   // direction = Regieanweisung
+
+LightScene { id, order, name, notes?, atSec?, sectionId?, lineId?, fixtures: FixtureState[] }
+FixtureState {
+  deviceId,
+  dimmer?: number,                                       // 0–100
+  color?: { kind: 'rgb', hex } | { kind: 'wheel', wheel: number, name } | { kind: 'cmy', c, m, y },
+  gobos?: { wheel: number, name, rotate?: 'cw'|'ccw', speed?: 'slow'|'medium'|'fast' }[],
+  prism?: { on: boolean, rotate?: boolean }, zoomDeg?, focus?, iris?, frost?, strobeHz?,
+  targetId?, effect?: { kind: 'circle'|'eight'|'pan'|'tilt'|'wave'|'random'|'other', speed?, text? },
+  notes?
+}
+LightTarget { id, name, color?, stagePoint?: { x, y } }       // Punkt im Bühnenplan (mm)
+ShowGrid { cols, rows, rowLabels?: string[], cells: { deviceId, col, row }[], hiddenDeviceIds: string[] }
+MediaRef { id, name, mime, sizeBytes, durationSec?, sha256, addedAt, addedBy }
+
+Template.light? {                                         // Bibliothek, ausführlich
+  showInScenes: boolean,
+  dimmer: boolean, strobeMaxHz?: number,
+  color: 'none'|'rgb'|'rgbw'|'cmy'|'wheel', colorWheels?: { name, colors: { name, hex }[] }[], cto?: boolean,
+  goboWheels?: { name, rotating: boolean, gobos: { name, imageId? }[] }[],
+  prism?: { facets: number, rotating: boolean }, zoomDeg?: [min, max], focus?: boolean, iris?: boolean, frost?: boolean,
+  moving?: { panDeg: number, tiltDeg: number }
 }
 
 Subnet { id, name, cidr, gateway?, vlanNote? }
@@ -555,6 +656,11 @@ Jeder Meilenstein endet mit grünen Tests, lauffähigem Build (Desktop **und** D
 | **M8b** | Desktop ↔ Server-Verbindung | Desktop-Zugangsschlüssel auf dem Docker-Server (erzeugen, Zugangsstufe, widerrufen); Desktop „Mit Server verbinden“ (mehrere Server, Schlüssel im OS-Schlüsselbund), Live-Arbeit auf Server-Projekten/Bibliothek/Stammdaten, Verbindungsstatus, Sperre bei Verbindungsabbruch; lokales Projekt hochladen (mit Konfliktabfrage) / Server-Projekt herunterladen |
 | **M9** | Phase 2a: Ton-Patch | Stagebox-/Pult-Kanalbelegung, Input-Liste als PDF |
 | **M10** | Phase 2b: Strom | Leistung, Stromkreise, Phasen, Überlast-Warnungen, Stromliste als PDF |
+| **M10a** | Regie A: Zugang & Ablauf | Zugangsstufe „Regie“ (Passwort, Desktop-Schlüssel, serverseitige Prüfung, dass nur Regie-Bereiche geändert werden); Reiter „Regie“; Ablauf (Lied/Schauspiel/Pause/Ansage, sortieren, Dauer, Startzeiten, Personen); strukturierte Texte mit Abschnitten, Rollen, Regieanweisungen, Einfügen aus der Zwischenablage; Format 9 + Migration |
+| **M10b** | Regie B: Medien & Player | Medienspeicher (Docker, Desktop lokal neben der Datei, Desktop mit Server), Hochladen ohne Größengrenze in Teilen mit Fortschritt und Fortsetzen, Dateien unverändert, mehrere Dateien je Lied, Player mit Zeitleiste; Text mitlaufen inkl. „Mitschreiben“ der Zeitpunkte; Herunterladen/Hochladen als `.steckplan.zip`; „Neues Projekt aus diesem“ kopiert Medien; Papierkorb für Medien |
+| **M10c** | Regie C: Lichtfähigkeiten & Grid | Abschnitt „Licht“ im Vorlagen-Editor (ausführlich, Gobo-Bilder im Medienspeicher der Bibliothek); Grid je Projekt mit Ziehen, Zeilennamen, „aus dem Bühnenplan anordnen“, Geräte ausblenden; benannte Ziele mit optionalem Punkt im Bühnenplan |
+| **M10d** | Regie D: Lichtszenen | Szenen je Stück (anlegen, sortieren, duplizieren, „wie vorige“), Angaben je Gerät passend zu den Fähigkeiten, Mehrfachauswahl, Auslöser per Zeitpunkt/Textstelle, Marken im Player, aktuelle Szene beim Abspielen; Handy-Bedienung |
+| **M10e** | Regie E: Vorstellung & PDF | Vorstellungs-Ansicht (Vollbild, Weiter/Zurück, Text, aktuelle/nächste Szene, Player) mit „Folgen“-Modus; PDF Ablaufplan, Lichtszenen (Grid-Bild + Tabelle), Textbuch; Export-Vorschau |
 | **M11** | Release 1.0 | Installer (.dmg Universal ad-hoc signiert, .exe), Docker-Image (amd64/arm64) auf GHCR, Update-Hinweis (Desktop) über GitHub Releases, Benutzerhandbuch, Docker-Anleitung inkl. Aktualisieren, Beispielprojekt (nur in `docs/`, nicht in der Bibliothek), Bugfixing |
 
 ---
@@ -661,12 +767,16 @@ Jeder Meilenstein endet mit grünen Tests, lauffähigem Build (Desktop **und** D
 - Strom im Signalfluss (03.11.2026): Mehrfachsteckdosen = Gerätevorlage mit Strom-Eingang und Strom-Ausgängen (Unterverteiler, Last wird bis zur Einspeisung summiert); Anzeige in den Kästen (Summe je Verteiler/Leiste, Strom je Abgang, Leistung je Verbraucher), Warnfarben ab 80/100 %, ein-/ausblendbar; an den Kabeln vorerst nicht
 - Strom-Einspeisung und Mehrfachsteckdosen (03.11.2026): Hauptverteiler ohne Phasenangabe nur bei erkennbarem Drehstrom als 3P, sonst einphasig (Wandsteckdose); Mehrfachsteckdose = Unterverteiler ohne abgesicherte Abgänge; Hinweis (info) ab 4 Mehrfachsteckdosen je Stromkreis (Stromkreis beginnt an einem abgesicherten Abgang bzw. der Einspeisung)
 - Export-Vorschau (02.11.2026): im Export-Dialog daneben, live bei jeder Änderung; PDF blättern/vergrößern, CSV als Tabelle
+- Regie (05.11.2026, Eigentümer): kommt **vor** Release 1.0 als M10a–M10e (siehe 3.4). Lichtszenen nur Planung/Doku, keine DMX-Ausgabe (Nicht-Ziel bleibt). Ein Ablauf je Projekt, Lieder/Stücke im Projekt (kein Repertoire). Szenen für Lieder und Schauspiel. Audio in einem eigenen Medienspeicher (nicht in der Projektdatei), mehrere Dateien je Lied, Player mit Szenen-Marken und mitlaufendem Text. Texte strukturiert (Abschnitte, Rollen ↔ Personen). Eigene Zugangsstufe „Regie“: nur Regie bearbeiten, sonst lesen, keine Häkchen. Grid je Projekt, frei angeordnet, Vorschlag aus dem Bühnenplan. Geräte über das Merkmal „In Lichtszenen anzeigen“ an der Vorlage, Fähigkeiten ausführlich. Angaben je Gerät: Helligkeit, Farbe, Gobo, Bewegung/Effekt (plus Prisma, Zoom, Fokus, Iris, Frost, Strobe aus den Fähigkeiten); Position über benannte Ziele. Ausgaben: Vorstellungs-Ansicht, PDF Ablaufplan, Lichtszenen, Textbuch
+- Regie, Nachtrag (05.11.2026, Eigentümer): keine Größengrenze für Audiodateien (vor allem MP3), Dateien unverändert speichern; Vorstellungs-Ansicht mit „Folgen“-Modus (in M10e); Zugangsstufe heißt „Regie“ (intern `direction`) – Regie bearbeiten, alles andere lesen
 
 ---
 
 ## 13. Offene Fragen
 
-Derzeit keine. Neue Fragen, die während der Umsetzung entstehen, hier ergänzen und vor der Entscheidung mit dem Projektinhaber klären.
+Neue Fragen, die während der Umsetzung entstehen, hier ergänzen und vor der Entscheidung mit dem Projektinhaber klären.
+
+Derzeit keine.
 
 Name „Steckplan“: auf GitHub am 01.11.2026 kein Repository mit diesem Namen gefunden. Vor der Veröffentlichung optional noch eine Markenrecherche (DPMA/EUIPO).
 
