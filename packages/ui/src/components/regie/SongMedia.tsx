@@ -291,6 +291,7 @@ export function PlayerBar({
       for (const e of ['play', 'pause', 'ended', 'loadedmetadata', 'durationchange']) el.removeEventListener(e, sync);
     };
   }, [audio]);
+  usePlayPauseKey(audio, !recording && !!current);
   if (!current) return null;
   const toggle = () => {
     const el = audio;
@@ -302,7 +303,7 @@ export function PlayerBar({
     <div className="sticky bottom-0 z-10 -mx-4 space-y-1.5 border-t border-slate-200 bg-white/95 px-4 py-2 backdrop-blur dark:border-slate-700 dark:bg-slate-900/95" data-testid="regie-player">
       <audio ref={setAudio} src={api.mediaUrl(projectId, current.mediaId)} preload="metadata" />
       <div className="flex items-center gap-2">
-        <Button variant="primary" className="h-10 w-10 shrink-0 rounded-full p-0" aria-label={playing ? t.pause : t.play} onClick={toggle}>
+        <Button variant="primary" className="h-10 w-10 shrink-0 rounded-full p-0" aria-label={playing ? t.pause : t.play} title={t.playKey} onClick={toggle}>
           {playing ? <Pause size={18} aria-hidden /> : <Play size={18} aria-hidden />}
         </Button>
         <div className="relative min-w-0 flex-1">
@@ -466,6 +467,34 @@ export function LyricsView({
       })}
     </ol>
   );
+}
+
+/**
+ * Leertaste startet und stoppt die Wiedergabe (außer beim Tippen in Feldern; beim Mitschreiben setzt sie die Zeile).
+ * Auch auf einem fokussierten Knopf: der Knopf wird dann nicht zusätzlich ausgelöst.
+ */
+function usePlayPauseKey(audio: HTMLAudioElement | null, active: boolean): void {
+  useEffect(() => {
+    if (!audio || !active) return;
+    const isSpace = (e: KeyboardEvent) => e.code === 'Space' && !e.ctrlKey && !e.metaKey && !e.altKey;
+    const typing = (e: KeyboardEvent) => !!(e.target as HTMLElement | null)?.closest('textarea, select, [contenteditable="true"], input:not([type=range]), dialog');
+    const onDown = (e: KeyboardEvent) => {
+      if (!isSpace(e) || e.defaultPrevented || typing(e)) return;
+      e.preventDefault();
+      if (e.repeat) return;
+      if (audio.paused) void audio.play().catch(() => undefined);
+      else audio.pause();
+    };
+    const onUp = (e: KeyboardEvent) => {
+      if (isSpace(e) && !typing(e)) e.preventDefault(); // Knopf-Klick per Leertaste unterdrücken
+    };
+    window.addEventListener('keydown', onDown);
+    window.addEventListener('keyup', onUp);
+    return () => {
+      window.removeEventListener('keydown', onDown);
+      window.removeEventListener('keyup', onUp);
+    };
+  }, [audio, active]);
 }
 
 /** Mitschreiben: Leertaste setzt die nächste Zeile (außer beim Tippen in Feldern). */
