@@ -25,10 +25,11 @@ export const Y_COLLECTIONS = {
   wifi: ['network', 'wifi'],
   showItems: ['show', 'items'],
   showSections: ['show', 'sections'],
+  media: ['media'],
 } as const satisfies Record<string, CollectionPath>;
 
 /** Bereiche des Dokuments, die der Zugang „Regie“ ändern darf */
-export const DIRECTION_ROOTS: ReadonlySet<string> = new Set(['showItems', 'showSections', 'showSettings']);
+export const DIRECTION_ROOTS: ReadonlySet<string> = new Set(['showItems', 'showSections', 'showSettings', 'media']);
 export type YCollectionName = keyof typeof Y_COLLECTIONS;
 
 type Json = Record<string, unknown>;

@@ -4,8 +4,18 @@ import { can } from '../model/access';
 import { createEmptyProject } from '../model/project';
 import { createYDocFromProject, DIRECTION_ROOTS, readProjectFromYDoc, updateTouchesOnly } from '../model/ydoc';
 import {
+  addItemMedia,
   addSection,
   addShowItem,
+  clearLineTimes,
+  currentLineId,
+  defaultItemMedia,
+  itemLines,
+  nextUntimedLine,
+  readMedia,
+  removeItemMedia,
+  setLineTime,
+  updateItemMedia,
   appendPastedText,
   duplicateSection,
   duplicateShowItem,
@@ -181,5 +191,61 @@ describe('Regie: Texte', () => {
     const changed = readShow(d).sections.find((s) => s.id === secs[0]!.id)!;
     expect(changed.lines[0]!.id).toBe(lineId);
     expect(changed.lines.map((l) => l.text)).toEqual(['Sein', 'oder nicht']);
+  });
+});
+
+describe('Regie: Audio und Zeitpunkte', () => {
+  const ref = (id: string) => ({ id, name: `${id}.mp3`, mime: 'audio/mpeg', sizeBytes: 1000, durationSec: 200, sha256: 'x', addedAt: '2026-11-05T10:00:00Z', addedBy: 'Ralf' });
+
+  it('Audio anhängen, Standard wechseln, lösen; Verweis bleibt, solange ein anderes Lied ihn nutzt', () => {
+    const d = doc();
+    const a = addShowItem(d, 'song', null, { title: 'A' });
+    const b = addShowItem(d, 'song', null, { title: 'B' });
+    addItemMedia(d, a, ref('m1'), 'Playback', null);
+    addItemMedia(d, a, ref('m2'), 'Klick', null);
+    addItemMedia(d, b, ref('m1'), 'Playback', null);
+    let item = readShow(d).items.find((i) => i.id === a)!;
+    expect(item.media).toEqual([
+      { mediaId: 'm1', label: 'Playback', isDefault: true },
+      { mediaId: 'm2', label: 'Klick' },
+    ]);
+    expect(readMedia(d).map((m) => m.id)).toEqual(['m1', 'm2']);
+    updateItemMedia(d, a, 'm2', { isDefault: true, label: 'Click' }, null);
+    item = readShow(d).items.find((i) => i.id === a)!;
+    expect(defaultItemMedia(item)).toEqual({ mediaId: 'm2', label: 'Click', isDefault: true });
+    removeItemMedia(d, a, 'm2', null);
+    expect(defaultItemMedia(readShow(d).items.find((i) => i.id === a)!)?.mediaId).toBe('m1');
+    expect(readMedia(d).map((m) => m.id)).toEqual(['m1']);
+    removeItemMedia(d, a, 'm1', null);
+    expect(readMedia(d).map((m) => m.id)).toEqual(['m1']); // B nutzt sie noch
+    removeItemMedia(d, b, 'm1', null);
+    expect(readMedia(d)).toEqual([]);
+    expect(readProjectFromYDoc(d).ok).toBe(true);
+  });
+
+  it('Mitschreiben: nächste Zeile ohne Zeit, aktuelle Zeile zur Abspielzeit, Zeiten löschen', () => {
+    const d = doc();
+    const song = addShowItem(d, 'song', null, { title: 'Lied' });
+    const s1 = addSection(d, song, 'verse', 'Strophe 1', null);
+    const s2 = addSection(d, song, 'chorus', 'Refrain', null);
+    setSectionText(d, s1, 'Eins\nZwei', null);
+    setSectionText(d, s2, 'Drei', null);
+    let lines = itemLines(readShow(d).sections, song);
+    expect(lines.map((l) => [l.sectionLabel, l.line.text])).toEqual([['Strophe 1', 'Eins'], ['Strophe 1', 'Zwei'], ['Refrain', 'Drei']]);
+    expect(nextUntimedLine(lines)?.line.text).toBe('Eins');
+    setLineTime(d, s1, lines[0]!.line.id, 3.14159, null);
+    setLineTime(d, s2, lines[2]!.line.id, 20, null);
+    lines = itemLines(readShow(d).sections, song);
+    expect(lines[0]!.line.atSec).toBe(3.1);
+    // nach der zuletzt gesetzten Zeile gibt es keine ohne Zeit mehr
+    expect(nextUntimedLine(lines)).toBeUndefined();
+    expect(currentLineId(lines, 1)).toBeUndefined();
+    expect(currentLineId(lines, 10)).toBe(lines[0]!.line.id);
+    expect(currentLineId(lines, 25)).toBe(lines[2]!.line.id);
+    // Text korrigieren behält die Zeit
+    setSectionText(d, s1, 'Einz\nZwei', null);
+    expect(itemLines(readShow(d).sections, song)[0]!.line.atSec).toBe(3.1);
+    clearLineTimes(d, song, null);
+    expect(itemLines(readShow(d).sections, song).every((l) => l.line.atSec === undefined)).toBe(true);
   });
 });
