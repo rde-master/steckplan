@@ -4,6 +4,7 @@ import { useCallback, useRef, useState } from 'react';
 import { can } from '@steckplan/core';
 import { api, errorMessage, type ProjectSummary } from '../lib/api';
 import { useLoader } from '../lib/useLoader';
+import { isZip, uploadProjectZip } from '../lib/projectZip';
 import { formatDate, formatDateTime } from '../lib/format';
 import { navigate } from '../lib/router';
 import { useSession } from '../lib/session';
@@ -29,7 +30,10 @@ export function ProjectListPage() {
   async function upload(file: File) {
     setError(null);
     try {
-      const { id } = await api.uploadProject(await file.text());
+      // .steckplan.zip: Projekt mit Medien
+      const id = isZip(file)
+        ? await uploadProjectZip(file, (done, total) => setMessage(texts.projects.uploadingMedia(done, total)))
+        : (await api.uploadProject(await file.text())).id;
       setMessage(texts.projects.uploaded);
       load();
       navigate(`/projekt/${id}`);
@@ -53,7 +57,7 @@ export function ProjectListPage() {
             <input
               ref={fileInput}
               type="file"
-              accept=".steckplan,application/json"
+              accept=".steckplan,.zip,application/json,application/zip"
               className="hidden"
               onChange={(e) => {
                 const file = e.target.files?.[0];

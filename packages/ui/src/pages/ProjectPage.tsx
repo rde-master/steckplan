@@ -189,6 +189,11 @@ export function ProjectPage({ id }: { id: string }) {
                 <Download {...ICON} /> {texts.project.download}
               </a>
             )}
+            {!isDesktop && data.media.length > 0 && (
+              <a className="flex min-h-10 items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-800" href={api.downloadUrl(id, true)}>
+                <Download {...ICON} /> {texts.project.downloadWithMedia}
+              </a>
+            )}
             {!isDesktop && (
               <MenuItem icon={<ArrowLeft {...ICON} />} onClick={() => navigate('/')}>
                 {texts.project.toList}
@@ -232,6 +237,11 @@ export function ProjectPage({ id }: { id: string }) {
             {!isDesktop && (
               <a className="hidden rounded-md px-3 py-2 text-sm text-slate-600 hover:bg-slate-200 sm:inline dark:text-slate-300 dark:hover:bg-slate-700" href={api.downloadUrl(id)}>
                 {texts.project.download}
+              </a>
+            )}
+            {!isDesktop && data.media.length > 0 && (
+              <a className="hidden rounded-md px-3 py-2 text-sm text-slate-600 hover:bg-slate-200 sm:inline dark:text-slate-300 dark:hover:bg-slate-700" href={api.downloadUrl(id, true)} title={texts.project.downloadWithMediaTitle}>
+                {texts.project.downloadWithMedia}
               </a>
             )}
           </div>
@@ -299,7 +309,7 @@ export function ProjectPage({ id }: { id: string }) {
           canSeeSecrets={!!session && can(session.access, 'viewSecrets')}
         />
       ) : tab === 'regie' ? (
-        <RegieView doc={project.doc} origin={undo.origin} data={data} editable={showEditable} />
+        <RegieView projectId={id} doc={project.doc} origin={undo.origin} data={data} editable={showEditable} />
       ) : tab === 'lists' ? (
         <ListsView
           projectId={id}

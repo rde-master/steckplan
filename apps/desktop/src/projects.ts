@@ -163,6 +163,8 @@ export class ProjectActions {
     const path = ensureExtension(result.filePath);
     const copy = copyAsNewProject(source, basename(path).slice(0, -FILE_EXTENSION.length));
     const id = await this.deps.server.store.create(path, copy);
+    // Medien in den Ordner neben der neuen Datei
+    await this.deps.server.media.copyTo(projectId, id, copy.media.map((m) => m.id));
     await this.remember(path);
     this.deps.openWindow(id, path);
   }

@@ -3,7 +3,7 @@
 // (wichtig für Zeitpunkte und Lichtszenen), auch wenn Zeilen eingefügt, gelöscht oder korrigiert werden.
 import * as Y from 'yjs';
 import { newId } from '../model/project';
-import type { SectionKind, ShowItem, ShowItemKind, ShowRole, ShowSettings, TextLine, TextSection } from '../model/schema';
+import type { ItemMedia, MediaRef, SectionKind, ShowItem, ShowItemKind, ShowRole, ShowSettings, TextLine, TextSection } from '../model/schema';
 
 // ---------- Lesen ----------
 
@@ -415,4 +415,111 @@ export function appendPastedText(doc: Y.Doc, itemId: string, text: string, origi
     }
   }, origin);
   return ids;
+}
+
+// ---------- Medien (Audio) am Lied ----------
+
+export function readMedia(doc: Y.Doc): MediaRef[] {
+  return Object.values(doc.getMap('media').toJSON() as Record<string, MediaRef>).sort((a, b) => a.addedAt.localeCompare(b.addedAt) || a.id.localeCompare(b.id));
+}
+
+/** Standard-Audio eines Eintrags (markiert, sonst das erste). */
+export function defaultItemMedia(item: ShowItem): ItemMedia | undefined {
+  return item.media?.find((m) => m.isDefault) ?? item.media?.[0];
+}
+
+/** Hochgeladene Datei am Eintrag anhängen (Verweis im Projekt + Eintrag); die erste wird Standard. */
+export function addItemMedia(doc: Y.Doc, itemId: string, ref: MediaRef, label: string, origin: unknown): void {
+  const item = readShow(doc).items.find((i) => i.id === itemId);
+  if (!item) return;
+  doc.transact(() => {
+    const media = doc.getMap<Y.Map<unknown>>('media');
+    if (!media.has(ref.id)) {
+      const map = new Y.Map<unknown>();
+      media.set(ref.id, map);
+      setFields(map, { ...ref });
+    }
+    const list = (item.media ?? []).filter((m) => m.mediaId !== ref.id);
+    list.push({ mediaId: ref.id, label, ...(list.length === 0 ? { isDefault: true } : {}) });
+    itemsMap(doc).get(itemId)?.set('media', list);
+  }, origin);
+}
+
+/** Datei vom Eintrag lösen; wird sie nirgends mehr verwendet, auch den Verweis (die Datei kommt in den Papierkorb). */
+export function removeItemMedia(doc: Y.Doc, itemId: string, mediaId: string, origin: unknown): void {
+  const { items } = readShow(doc);
+  const item = items.find((i) => i.id === itemId);
+  if (!item) return;
+  doc.transact(() => {
+    let list = (item.media ?? []).filter((m) => m.mediaId !== mediaId);
+    if (list.length && !list.some((m) => m.isDefault)) list = list.map((m, i) => (i === 0 ? { ...m, isDefault: true } : m));
+    itemsMap(doc).get(itemId)?.set('media', list);
+    const stillUsed = items.some((i) => i.id !== itemId && i.media?.some((m) => m.mediaId === mediaId));
+    if (!stillUsed) doc.getMap('media').delete(mediaId);
+  }, origin);
+}
+
+export function updateItemMedia(doc: Y.Doc, itemId: string, mediaId: string, patch: { label?: string; isDefault?: true }, origin: unknown): void {
+  const item = readShow(doc).items.find((i) => i.id === itemId);
+  if (!item?.media) return;
+  const list = item.media.map((m) => {
+    if (m.mediaId === mediaId) return { ...m, ...(patch.label !== undefined ? { label: patch.label } : {}), ...(patch.isDefault ? { isDefault: true } : {}) };
+    if (patch.isDefault) {
+      const { isDefault: _d, ...rest } = m;
+      return rest;
+    }
+    return m;
+  });
+  doc.transact(() => itemsMap(doc).get(itemId)?.set('media', list), origin);
+}
+
+// ---------- Zeitpunkte der Textzeilen (mitlaufender Text) ----------
+
+export interface TimedLine {
+  sectionId: string;
+  sectionLabel: string;
+  line: TextLine;
+}
+
+/** Alle Zeilen eines Eintrags in Reihenfolge (über die Abschnitte). */
+export function itemLines(sections: TextSection[], itemId: string): TimedLine[] {
+  return itemSections(sections, itemId).flatMap((s) => s.lines.map((line) => ({ sectionId: s.id, sectionLabel: s.label, line })));
+}
+
+/** Aktuelle Zeile zur Abspielzeit: die letzte Zeile mit Zeitpunkt ≤ t (Reihenfolge des Textes). */
+export function currentLineId(lines: TimedLine[], t: number): string | undefined {
+  let current: string | undefined;
+  for (const { line } of lines) if (line.atSec !== undefined && line.atSec <= t + 0.05) current = line.id;
+  return current;
+}
+
+/** Erste Zeile ohne Zeitpunkt nach der letzten Zeile mit Zeitpunkt („Nächste Zeile“ beim Mitschreiben). */
+export function nextUntimedLine(lines: TimedLine[]): TimedLine | undefined {
+  let lastTimed = -1;
+  lines.forEach((l, i) => {
+    if (l.line.atSec !== undefined) lastTimed = i;
+  });
+  return lines.slice(lastTimed + 1).find((l) => l.line.atSec === undefined);
+}
+
+/** Zeitpunkt einer Zeile setzen (undefined = entfernen); auf eine Zehntelsekunde gerundet. */
+export function setLineTime(doc: Y.Doc, sectionId: string, lineId: string, atSec: number | undefined, origin: unknown): void {
+  const section = readShow(doc).sections.find((s) => s.id === sectionId);
+  if (!section) return;
+  const lines = section.lines.map((l) => {
+    if (l.id !== lineId) return l;
+    const { atSec: _old, ...rest } = l;
+    return atSec === undefined ? rest : { ...rest, atSec: Math.max(0, Math.round(atSec * 10) / 10) };
+  });
+  doc.transact(() => sectionsMap(doc).get(sectionId)?.set('lines', lines), origin);
+}
+
+/** Alle Zeitpunkte eines Eintrags löschen (neu mitschreiben). */
+export function clearLineTimes(doc: Y.Doc, itemId: string, origin: unknown): void {
+  doc.transact(() => {
+    for (const s of itemSections(readShow(doc).sections, itemId)) {
+      if (!s.lines.some((l) => l.atSec !== undefined)) continue;
+      sectionsMap(doc).get(s.id)?.set('lines', s.lines.map(({ atSec: _a, ...rest }) => rest));
+    }
+  }, origin);
 }

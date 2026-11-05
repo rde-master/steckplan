@@ -403,6 +403,23 @@ export type ShowItemKind = (typeof SHOW_ITEM_KINDS)[number];
 export const ShowRoleSchema = z.object({ id, name: z.string(), personId: id.optional() });
 export type ShowRole = z.infer<typeof ShowRoleSchema>;
 
+/** Datei im Medienspeicher (nicht in der Projektdatei); das Projekt hält nur den Verweis */
+export const MediaRefSchema = z.object({
+  id,
+  name: z.string(),
+  mime: z.string().default(''),
+  sizeBytes: z.number().int().nonnegative(),
+  durationSec: z.number().nonnegative().optional(),
+  sha256: z.string().default(''),
+  addedAt: z.string().default(''),
+  addedBy: z.string().default(''),
+});
+export type MediaRef = z.infer<typeof MediaRefSchema>;
+
+/** Audiodatei an einem Lied (z. B. Playback, Klick) */
+export const ItemMediaSchema = z.object({ mediaId: id, label: z.string().default(''), isDefault: z.boolean().optional() });
+export type ItemMedia = z.infer<typeof ItemMediaSchema>;
+
 /** Eintrag im Ablauf: Lied, Schauspiel, Pause, Ansage */
 export const ShowItemSchema = z.object({
   id,
@@ -416,6 +433,8 @@ export const ShowItemSchema = z.object({
   notes: z.string().optional(),
   /** Schauspiel: Rollen, optional mit Person */
   roles: z.array(ShowRoleSchema).optional(),
+  /** Lied: Audiodateien (eine davon Standard) */
+  media: z.array(ItemMediaSchema).optional(),
 });
 export type ShowItem = z.infer<typeof ShowItemSchema>;
 
@@ -474,6 +493,8 @@ export const ProjectSchema = z.object({
     })
     .default({ items: [], sections: [] }),
   showSettings: ShowSettingsSchema.default({}),
+  /** Verweise auf Dateien im Medienspeicher (seit Format 9) */
+  media: z.array(MediaRefSchema).default([]),
   network: z
     .object({
       subnets: z.array(SubnetSchema).default([]),

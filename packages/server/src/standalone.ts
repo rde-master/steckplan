@@ -10,6 +10,7 @@ import { LibraryStore } from './library/library-store';
 import { UsageTracker } from './library/usage-tracker';
 import { DataDirProjectStore } from './storage/data-dir-store';
 import { VersionStore } from './storage/version-store';
+import { MediaStore } from './storage/media-store';
 
 const TRASH_PURGE_INTERVAL_MS = 12 * 60 * 60 * 1000;
 
@@ -27,6 +28,7 @@ async function main(): Promise<void> {
 
   const passwords = { edit: config.editPassword, read: config.readPassword, direction: config.directionPassword };
   const store = new DataDirProjectStore(config.dataDir);
+  const media = new MediaStore((id) => (/^[A-Za-z0-9-]{1,64}$/.test(id) ? join(config.dataDir, 'media', id) : undefined));
   await store.init();
   const versions = new VersionStore(join(config.dataDir, 'versions'));
   const sessions = new SessionStore({ file: join(config.dataDir, 'sessions.json') });
@@ -49,6 +51,7 @@ async function main(): Promise<void> {
     usage,
     passwords: new PasswordChecker(passwords),
     desktopKeys,
+    media,
     uiDir: config.uiDir,
     logger: true,
     trustProxy: config.trustProxy,
@@ -56,7 +59,11 @@ async function main(): Promise<void> {
 
   const purgeTrash = async (): Promise<void> => {
     try {
-      for (const projectId of await store.purgeTrash()) await versions.removeAll(projectId);
+      for (const projectId of await store.purgeTrash()) {
+        await versions.removeAll(projectId);
+        // Medien nur entfernen, wenn es kein Projekt (mehr) mit dieser Kennung gibt
+        if (!(await store.load(projectId).then(() => true).catch(() => false))) await media.removeAll(projectId);
+      }
     } catch (error) {
       app.log.error(`Papierkorb konnte nicht geleert werden: ${(error as Error).message}`);
     }

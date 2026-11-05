@@ -1,11 +1,16 @@
 // Lokaler Modus der Desktop-App: Projekte sind frei gespeicherte .steckplan-Dateien.
 // Jede geöffnete Datei bekommt für die Laufzeit eine id; der Server speichert in die Datei zurück.
-import { readFile, stat } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { cp, readFile, stat } from 'node:fs/promises';
+import { basename, dirname, join, resolve } from 'node:path';
 import { newId, parseProjectFile, serializeProject, type Project } from '@steckplan/core';
 import { isNotFound, writeFileAtomic } from './fs-utils';
 import { FileLock } from './lock-file';
 import { ProjectNotFoundError, summarize, type ProjectStore, type ProjectSummary } from './types';
+
+/** Medienordner neben der Datei: „Fest.steckplan“ → „Fest.medien“ */
+export function mediaDirFor(path: string): string {
+  return join(dirname(path), `${basename(path).replace(/\.steckplan$/i, '')}.medien`);
+}
 
 interface OpenFile {
   id: string;
@@ -87,6 +92,10 @@ export class LocalFileStore implements ProjectStore {
       return;
     }
     await writeFileAtomic(full, serializeProject(project));
+    // Medien neben die neue Datei kopieren (vorhandene Dateien dort bleiben)
+    await cp(mediaDirFor(file.path), mediaDirFor(full), { recursive: true, force: false, errorOnExist: false }).catch((error: unknown) => {
+      if (!isNotFound(error)) throw error;
+    });
     const lock = new FileLock(full, this.userName);
     await lock.acquire({ takeOver: true });
     await file.lock?.release();
