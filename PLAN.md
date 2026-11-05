@@ -205,7 +205,8 @@ Neuer Reiter **„Regie“** neben „Listen“. Alles gehört zum Projekt (kein
 - Jede Zeile kann einen Zeitpunkt im Lied bekommen (für „Text mitlaufen“); setzbar per Tippen auf die Zeile während des Abspielens („Mitschreiben“), danach fein verschiebbar
 
 **Medien (Audio)**
-- Mehrere Audiodateien je Lied (z. B. Playback, Klick, Original), eine davon Standard; Formate MP3, WAV, M4A/AAC, OGG/Opus, FLAC (was der Browser abspielt)
+- Mehrere Audiodateien je Lied (z. B. Playback, Klick, Original), eine davon Standard; vor allem MP3, außerdem WAV, M4A/AAC, OGG/Opus, FLAC (was der Browser abspielt)
+- **Keine Größengrenze** je Datei oder Projekt; Dateien werden **unverändert** gespeichert (keine Umwandlung). Hochladen in Teilen mit Fortschritt und Fortsetzen nach Abbruch, damit auch große Dateien zuverlässig ankommen
 - Gespeichert in einem **eigenen Medienspeicher**, nicht in der Projektdatei: Docker im Datenordner je Projekt, Desktop lokal in einem Ordner neben der Datei (`Fest.steckplan` → `Fest.medien/`), Desktop mit Server auf dem Server. Das Projekt enthält nur Verweise (Kennung, Name, Größe, Dauer, Prüfsumme)
 - Herunterladen eines Projekts wahlweise ohne Medien (`.steckplan`) oder mit Medien (`.steckplan.zip`); Hochladen/Öffnen nimmt beides an
 - Player: Abspielen/Pause, Zeitleiste zum Spulen, Lautstärke, Dateiwahl; Szenen-Zeitpunkte als Marken auf der Zeitleiste, die aktuelle Szene und die aktuelle Textzeile werden hervorgehoben, der Text scrollt mit
@@ -236,7 +237,7 @@ Neuer Reiter **„Regie“** neben „Listen“. Alles gehört zum Projekt (kein
 
 **Vorstellungs-Ansicht**
 - Vollbild für Tablet/Handy während der Show: aktueller Ablaufeintrag, Text (mitlaufend), aktuelle und nächste Szene als Grid, Player; große Knöpfe „Weiter/Zurück“ (Eintrag und Szene); dunkle Darstellung
-- Die Position in der Vorstellung ist je Gerät lokal (kein gemeinsamer Zeiger für alle) – bei Bedarf später „Folgen“-Modus
+- Standard: jedes Gerät blättert für sich. **„Folgen“-Modus:** Eine Person führt (z. B. Regie oder Inspizienz), alle, die „Folgen“ einschalten, springen live mit zu Eintrag und Szene (über den Live-Abgleich, nicht im Projekt gespeichert); Folgen lässt sich jederzeit verlassen, wer führt, ist sichtbar
 
 **Ausgaben (PDF)**
 - **Ablaufplan:** Reihenfolge mit Startzeit, Dauer, Art, Personen, Anzahl Szenen, Notizen
@@ -245,7 +246,7 @@ Neuer Reiter **„Regie“** neben „Listen“. Alles gehört zum Projekt (kein
 
 **Zugang „Regie“ (dritte Zugangsstufe)**
 - Eigenes Passwort (Docker-Einstellungen, Desktop-Weboberfläche) und als Stufe für Desktop-Zugangsschlüssel
-- Darf den Regie-Bereich ändern (Ablauf, Texte, Medien, Szenen, Grid, Ziele, ausgeblendete Geräte); alles andere nur lesen – keine Häkchen in der Packliste
+- In der Oberfläche heißt die Stufe **„Regie“**: darf den Regie-Bereich ändern (Ablauf, Texte, Medien, Szenen, Grid, Ziele, ausgeblendete Geräte) und **alles andere lesen** (Pläne, Listen, Bibliothek) – keine Häkchen in der Packliste
 - Bearbeiten-Zugang darf weiterhin alles, Lese-Zugang sieht die Regie (auch abspielen, Vorstellungs-Ansicht), ändert nichts
 - Serverseitig durchgesetzt: Änderungen eines Regie-Clients werden nur übernommen, wenn sie ausschließlich die Regie-Bereiche des Dokuments betreffen; sonst verworfen (wie heute bei Lese-Clients)
 
@@ -656,10 +657,10 @@ Jeder Meilenstein endet mit grünen Tests, lauffähigem Build (Desktop **und** D
 | **M9** | Phase 2a: Ton-Patch | Stagebox-/Pult-Kanalbelegung, Input-Liste als PDF |
 | **M10** | Phase 2b: Strom | Leistung, Stromkreise, Phasen, Überlast-Warnungen, Stromliste als PDF |
 | **M10a** | Regie A: Zugang & Ablauf | Zugangsstufe „Regie“ (Passwort, Desktop-Schlüssel, serverseitige Prüfung, dass nur Regie-Bereiche geändert werden); Reiter „Regie“; Ablauf (Lied/Schauspiel/Pause/Ansage, sortieren, Dauer, Startzeiten, Personen); strukturierte Texte mit Abschnitten, Rollen, Regieanweisungen, Einfügen aus der Zwischenablage; Format 9 + Migration |
-| **M10b** | Regie B: Medien & Player | Medienspeicher (Docker, Desktop lokal neben der Datei, Desktop mit Server), Hochladen mit Fortschritt und Größengrenze, mehrere Dateien je Lied, Player mit Zeitleiste; Text mitlaufen inkl. „Mitschreiben“ der Zeitpunkte; Herunterladen/Hochladen als `.steckplan.zip`; „Neues Projekt aus diesem“ kopiert Medien; Papierkorb für Medien |
+| **M10b** | Regie B: Medien & Player | Medienspeicher (Docker, Desktop lokal neben der Datei, Desktop mit Server), Hochladen ohne Größengrenze in Teilen mit Fortschritt und Fortsetzen, Dateien unverändert, mehrere Dateien je Lied, Player mit Zeitleiste; Text mitlaufen inkl. „Mitschreiben“ der Zeitpunkte; Herunterladen/Hochladen als `.steckplan.zip`; „Neues Projekt aus diesem“ kopiert Medien; Papierkorb für Medien |
 | **M10c** | Regie C: Lichtfähigkeiten & Grid | Abschnitt „Licht“ im Vorlagen-Editor (ausführlich, Gobo-Bilder im Medienspeicher der Bibliothek); Grid je Projekt mit Ziehen, Zeilennamen, „aus dem Bühnenplan anordnen“, Geräte ausblenden; benannte Ziele mit optionalem Punkt im Bühnenplan |
 | **M10d** | Regie D: Lichtszenen | Szenen je Stück (anlegen, sortieren, duplizieren, „wie vorige“), Angaben je Gerät passend zu den Fähigkeiten, Mehrfachauswahl, Auslöser per Zeitpunkt/Textstelle, Marken im Player, aktuelle Szene beim Abspielen; Handy-Bedienung |
-| **M10e** | Regie E: Vorstellung & PDF | Vorstellungs-Ansicht (Vollbild, Weiter/Zurück, Text, aktuelle/nächste Szene, Player); PDF Ablaufplan, Lichtszenen (Grid-Bild + Tabelle), Textbuch; Export-Vorschau |
+| **M10e** | Regie E: Vorstellung & PDF | Vorstellungs-Ansicht (Vollbild, Weiter/Zurück, Text, aktuelle/nächste Szene, Player) mit „Folgen“-Modus; PDF Ablaufplan, Lichtszenen (Grid-Bild + Tabelle), Textbuch; Export-Vorschau |
 | **M11** | Release 1.0 | Installer (.dmg Universal ad-hoc signiert, .exe), Docker-Image (amd64/arm64) auf GHCR, Update-Hinweis (Desktop) über GitHub Releases, Benutzerhandbuch, Docker-Anleitung inkl. Aktualisieren, Beispielprojekt (nur in `docs/`, nicht in der Bibliothek), Bugfixing |
 
 ---
@@ -767,6 +768,7 @@ Jeder Meilenstein endet mit grünen Tests, lauffähigem Build (Desktop **und** D
 - Strom-Einspeisung und Mehrfachsteckdosen (03.11.2026): Hauptverteiler ohne Phasenangabe nur bei erkennbarem Drehstrom als 3P, sonst einphasig (Wandsteckdose); Mehrfachsteckdose = Unterverteiler ohne abgesicherte Abgänge; Hinweis (info) ab 4 Mehrfachsteckdosen je Stromkreis (Stromkreis beginnt an einem abgesicherten Abgang bzw. der Einspeisung)
 - Export-Vorschau (02.11.2026): im Export-Dialog daneben, live bei jeder Änderung; PDF blättern/vergrößern, CSV als Tabelle
 - Regie (05.11.2026, Eigentümer): kommt **vor** Release 1.0 als M10a–M10e (siehe 3.4). Lichtszenen nur Planung/Doku, keine DMX-Ausgabe (Nicht-Ziel bleibt). Ein Ablauf je Projekt, Lieder/Stücke im Projekt (kein Repertoire). Szenen für Lieder und Schauspiel. Audio in einem eigenen Medienspeicher (nicht in der Projektdatei), mehrere Dateien je Lied, Player mit Szenen-Marken und mitlaufendem Text. Texte strukturiert (Abschnitte, Rollen ↔ Personen). Eigene Zugangsstufe „Regie“: nur Regie bearbeiten, sonst lesen, keine Häkchen. Grid je Projekt, frei angeordnet, Vorschlag aus dem Bühnenplan. Geräte über das Merkmal „In Lichtszenen anzeigen“ an der Vorlage, Fähigkeiten ausführlich. Angaben je Gerät: Helligkeit, Farbe, Gobo, Bewegung/Effekt (plus Prisma, Zoom, Fokus, Iris, Frost, Strobe aus den Fähigkeiten); Position über benannte Ziele. Ausgaben: Vorstellungs-Ansicht, PDF Ablaufplan, Lichtszenen, Textbuch
+- Regie, Nachtrag (05.11.2026, Eigentümer): keine Größengrenze für Audiodateien (vor allem MP3), Dateien unverändert speichern; Vorstellungs-Ansicht mit „Folgen“-Modus (in M10e); Zugangsstufe heißt „Regie“ (intern `direction`) – Regie bearbeiten, alles andere lesen
 
 ---
 
@@ -774,11 +776,7 @@ Jeder Meilenstein endet mit grünen Tests, lauffähigem Build (Desktop **und** D
 
 Neue Fragen, die während der Umsetzung entstehen, hier ergänzen und vor der Entscheidung mit dem Projektinhaber klären.
 
-Regie (vor Beginn von M10a bzw. im jeweiligen Meilenstein klären):
-- Größengrenze je Audiodatei und je Projekt (Vorschlag: 200 MB je Datei, Docker-Grenze per Umgebungsvariable)
-- Werden Audiodateien beim Hochladen umgewandelt (z. B. WAV → komprimiert, um Platz zu sparen) oder unverändert gespeichert? (Vorschlag: unverändert)
-- Soll die Vorstellungs-Ansicht später einen gemeinsamen Zeiger für alle („Folgen“) bekommen?
-- Name der Zugangsstufe in der Oberfläche: „Regie“ (Vorschlag) – intern `direction`
+Derzeit keine.
 
 Name „Steckplan“: auf GitHub am 01.11.2026 kein Repository mit diesem Namen gefunden. Vor der Veröffentlichung optional noch eine Markenrecherche (DPMA/EUIPO).
 
