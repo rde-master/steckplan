@@ -1,5 +1,15 @@
 @import 'tailwindcss';
 
+/* dunkel nach Systemeinstellung – oder innerhalb eines Elements mit der Klasse „dark“ (z. B. Vorstellungs-Ansicht) */
+@custom-variant dark {
+  @media (prefers-color-scheme: dark) {
+    @slot;
+  }
+  &:where(.dark, .dark *) {
+    @slot;
+  }
+}
+
 html,
 body,
 #root {

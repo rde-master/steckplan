@@ -9,7 +9,7 @@ import { useEditor } from '../lib/editor';
 import { useSession } from '../lib/session';
 import type { ProjectData } from '../lib/useProjectData';
 import { LABEL_FORMATS } from '../pdf/documents';
-import { buildCsv, buildExportDoc, CSV_KINDS, DEFAULT_OPTIONS, EXPORT_TITLES, exportFileName, MAX_SORT_LEVELS, SORT_COLUMNS, type ExportKind, type ExportOptions } from '../pdf/export';
+import { buildCsv, buildExportDoc, CSV_KINDS, DEFAULT_OPTIONS, EXPORT_TITLES, exportFileName, MAX_SORT_LEVELS, SHOW_KINDS, SORT_COLUMNS, type ExportKind, type ExportOptions } from '../pdf/export';
 import type { SortKey } from '../pdf/sorting';
 import { texts } from '../texts';
 import { Banner, Button, Modal } from './ui';
@@ -43,6 +43,9 @@ const DEFAULT_ORIENTATION: Record<ExportKind, 'portrait' | 'landscape'> = {
   people: 'landscape',
   labels: 'portrait',
   wifi: 'portrait',
+  showPlan: 'portrait',
+  lightScenes: 'landscape',
+  scriptBook: 'portrait',
 };
 
 export function ExportDialog({
@@ -135,7 +138,7 @@ export function ExportDialog({
           e.document,
           <select className={selectClass} aria-label={e.document} value={opts.kind} onChange={(ev) => set({ kind: ev.target.value as ExportKind, orientation: DEFAULT_ORIENTATION[ev.target.value as ExportKind], sort: [] })}>
             {kinds.map((k) => (
-              <option key={k} value={k} disabled={k === 'wifi' && data.network.wifi.length === 0}>
+              <option key={k} value={k} disabled={(k === 'wifi' && data.network.wifi.length === 0) || (SHOW_KINDS.includes(k) && data.show.items.length === 0)}>
                 {EXPORT_TITLES[k]}
               </option>
             ))}

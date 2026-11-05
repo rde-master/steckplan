@@ -62,9 +62,13 @@ import {
   type PlanTile,
 } from './documents';
 import { sortCsv, type SortKey } from './sorting';
+import { lightScenesDoc, scriptBookDoc, showPlanDoc } from './show';
 import { signalFlowBounds, signalFlowSvg, stageBounds, stagePlanSvg, usedCategories, type StageDrawing } from './svg';
 
-export type ExportKind = 'stageplan' | 'signalflow' | 'packing' | 'cases' | 'cables' | 'bom' | 'dmx' | 'devices' | 'network' | 'people' | 'patch' | 'power' | 'labels' | 'wifi';
+export type ExportKind = 'stageplan' | 'signalflow' | 'packing' | 'cases' | 'cables' | 'bom' | 'dmx' | 'devices' | 'network' | 'people' | 'patch' | 'power' | 'labels' | 'wifi' | 'showPlan' | 'lightScenes' | 'scriptBook';
+
+/** Ausgaben der Regie (nur sinnvoll, wenn es einen Ablauf gibt) */
+export const SHOW_KINDS: ExportKind[] = ['showPlan', 'lightScenes', 'scriptBook'];
 
 export const CSV_KINDS: ExportKind[] = ['packing', 'cases', 'cables', 'bom', 'dmx', 'devices', 'network', 'people', 'patch', 'power'];
 
@@ -83,6 +87,9 @@ export const EXPORT_TITLES: Record<ExportKind, string> = {
   power: 'Stromliste',
   labels: 'Geräte-Etiketten',
   wifi: 'WLAN-Aushang',
+  showPlan: 'Ablaufplan',
+  lightScenes: 'Lichtszenen',
+  scriptBook: 'Textbuch',
 };
 
 export interface ExportOptions {
@@ -442,6 +449,12 @@ export async function buildExportDoc(opts: ExportOptions, input: ExportInput): P
       );
       return wifiPosterDoc(posters, ctx);
     }
+    case 'showPlan':
+      return showPlanDoc(data, ctx);
+    case 'lightScenes':
+      return lightScenesDoc(data, library, ctx);
+    case 'scriptBook':
+      return scriptBookDoc(data, ctx);
     case 'stageplan': {
       const visibleLayers = new Set(data.layers.filter((l) => l.visible).map((l) => l.id));
       const stageItems = buildStageItems(data.devices, library, data.layers, { colorMode: input.colorMode, filter, people: data.people });

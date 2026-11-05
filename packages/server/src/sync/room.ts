@@ -18,6 +18,9 @@ import {
   missingResolutions,
   projectUsage,
   createYDocFromProject,
+  decodeCue,
+  MESSAGE_CUE,
+  type LeadInfo,
   DIRECTION_ROOTS,
   updateTouchesOnly,
   encodeInfo,
@@ -347,10 +350,38 @@ export class Room {
         reconcilePending: this.reconcilePending,
       }),
     );
+    if (this.lead) this.send(connection, encodeInfo({ type: 'lead', lead: this.lead }));
   }
 
   removeConnection(connection: Connection): void {
     if (this.connections.delete(connection)) this.broadcastPresence();
+    // geht die führende Person, endet das Führen
+    if (this.lead?.connectionId === connection.id) this.setLead(null);
+  }
+
+  // ---------- Vorstellung: führen / folgen (nur im Speicher) ----------
+
+  private lead: LeadInfo | null = null;
+
+  private setLead(lead: LeadInfo | null): void {
+    this.lead = lead;
+    this.broadcast(encodeInfo({ type: 'lead', lead }));
+  }
+
+  private handleCue(connection: Connection, decoder: decoding.Decoder): void {
+    // führen darf, wer die Regie bearbeiten darf; folgen dürfen alle
+    if (!can(connection.session.access, 'editShow')) return;
+    let cue: ReturnType<typeof decodeCue>;
+    try {
+      cue = decodeCue(decoder);
+    } catch {
+      return; // ungültige Stelle ignorieren, Verbindung bleibt
+    }
+    if (cue === null) {
+      if (this.lead?.connectionId === connection.id) this.setLead(null);
+      return;
+    }
+    this.setLead({ ...cue, connectionId: connection.id, name: connection.session.name });
   }
 
   updateSession(session: Session): void {
@@ -372,6 +403,10 @@ export class Room {
     try {
       const decoder = decoding.createDecoder(data);
       const type = decoding.readVarUint(decoder);
+      if (type === MESSAGE_CUE) {
+        this.handleCue(connection, decoder);
+        return;
+      }
       if (type !== MESSAGE_SYNC) return; // Awareness o. Ä. wird (noch) nicht verarbeitet
 
       const syncType = decoding.readVarUint(decoder);

@@ -101,6 +101,34 @@ describe('Live-Sync', () => {
     expect(log.find((e) => e.by === 'Regina')).toMatchObject({ access: 'direction', action: expect.stringContaining('Regie: Ablauf geändert') });
   });
 
+  it('Vorstellung: Regie führt, alle folgen; Nachzügler bekommen die Stelle; Lesen darf nicht führen; Gehen beendet das Führen', async () => {
+    const { server, id } = await setup();
+    const regie = track(connect(server, id, await login(server, 'direction', 'Regina')));
+    const reader = track(connect(server, id, await login(server, 'read', 'Leo')));
+    await Promise.all([regie.whenSynced(), reader.whenSynced()]);
+    expect(reader.state.lead).toBeNull();
+
+    regie.sendCue({ itemId: 'song', sceneId: 's2' });
+    await waitFor(() => reader.state.lead?.sceneId === 's2');
+    expect(reader.state.lead).toMatchObject({ itemId: 'song', sceneId: 's2', name: 'Regina', connectionId: regie.state.connectionId });
+
+    // Lese-Zugang kann nicht übernehmen
+    reader.sendCue({ itemId: 'anderes' });
+    const late = track(connect(server, id, await login(server, 'edit', 'Tom')));
+    await late.whenSynced();
+    await waitFor(() => late.state.lead !== null);
+    expect(late.state.lead).toMatchObject({ itemId: 'song', sceneId: 's2' });
+
+    // ungültige Stelle wird ignoriert (Verbindung bleibt)
+    regie.sendCue({ itemId: '' } as never);
+    regie.sendCue({ itemId: 'song', sceneId: 's3' });
+    await waitFor(() => reader.state.lead?.sceneId === 's3');
+
+    // führende Person geht → niemand führt
+    regie.destroy();
+    await waitFor(() => reader.state.lead === null);
+  });
+
   it('lehnt Verbindungen ohne Anmeldung ab', async () => {
     const { server, id } = await setup();
     const client = track(connect(server, id, null));
