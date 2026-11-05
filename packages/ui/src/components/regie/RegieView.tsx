@@ -1,11 +1,16 @@
 // Regie (M11a): Ablauf links, gewählter Eintrag rechts (Angaben, Rollen, Texte).
 // Auf dem Handy erst der Ablauf, Antippen öffnet den Eintrag.
 import { ArrowDown, ArrowUp, ChevronLeft, ClipboardPaste, Coffee, Copy, Drama, GripVertical, Megaphone, Music, Trash2, type LucideIcon } from 'lucide-react';
-import { useState, type DragEvent } from 'react';
+import { useCallback, useState, type DragEvent } from 'react';
 import type * as Y from 'yjs';
 import {
   addShowItem,
   appendPastedText,
+  clearLineTimes,
+  itemLines,
+  nextUntimedLine,
+  setLineTime,
+  type MediaRef,
   formatDuration,
   itemSections,
   moveShowItem,
@@ -26,13 +31,14 @@ import { texts } from '../../texts';
 import { ICON } from '../icons';
 import { Button, Field, Modal, TextArea, TextInput } from '../ui';
 import { SectionsEditor } from './SectionsEditor';
+import { LyricsView, MediaSection, PlayerBar, seekAudio, usePlayerTime, useRecordKey } from './SongMedia';
 
 const t = texts.regie;
 
 export const KIND_ICONS: Record<ShowItemKind, LucideIcon> = { song: Music, play: Drama, break: Coffee, announcement: Megaphone };
 const KINDS: ShowItemKind[] = ['song', 'play', 'break', 'announcement'];
 
-export function RegieView({ doc, origin, data, editable }: { doc: Y.Doc; origin: object; data: ProjectData; editable: boolean }) {
+export function RegieView({ projectId, doc, origin, data, editable }: { projectId: string; doc: Y.Doc; origin: object; data: ProjectData; editable: boolean }) {
   const narrow = useIsNarrow(900);
   const { items, sections } = data.show;
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -123,6 +129,8 @@ export function RegieView({ doc, origin, data, editable }: { doc: Y.Doc; origin:
   const detail = selected ? (
     <ItemDetail
       key={selected.id}
+      projectId={projectId}
+      media={data.media}
       doc={doc}
       origin={origin}
       item={selected}
@@ -148,6 +156,8 @@ export function RegieView({ doc, origin, data, editable }: { doc: Y.Doc; origin:
 }
 
 function ItemDetail({
+  projectId,
+  media,
   doc,
   origin,
   item,
@@ -159,6 +169,8 @@ function ItemDetail({
   onBack,
   onSelect,
 }: {
+  projectId: string;
+  media: MediaRef[];
   doc: Y.Doc;
   origin: object;
   item: ShowItem;
@@ -174,6 +186,18 @@ function ItemDetail({
   const set = (patch: Partial<Omit<ShowItem, 'id'>>) => updateShowItem(doc, item.id, patch, origin);
   const [pasting, setPasting] = useState(false);
   const hasText = item.kind === 'song' || item.kind === 'play' || item.kind === 'announcement';
+  // Player und Textansicht (nur Lieder mit Audio)
+  const [audio, setAudio] = useState<HTMLAudioElement | null>(null);
+  const time = usePlayerTime(audio);
+  const hasAudio = item.kind === 'song' && (item.media?.length ?? 0) > 0;
+  const [textMode, setTextMode] = useState<'edit' | 'read' | 'record'>('edit');
+  const mode = hasAudio ? textMode : 'edit';
+  const lines = itemLines(sections, item.id);
+  const next = nextUntimedLine(lines);
+  const recordNext = useCallback(() => {
+    if (next && editable) setLineTime(doc, next.sectionId, next.line.id, audio?.currentTime ?? 0, origin);
+  }, [next, editable, doc, origin, audio]);
+  useRecordKey(mode === 'record' && editable, recordNext);
   return (
     <article className="mx-auto max-w-3xl space-y-4 p-4" aria-label={item.title || t.untitled} data-testid="regie-detail">
       <header className="flex flex-wrap items-center gap-2">
@@ -232,21 +256,64 @@ function ItemDetail({
         <TextArea value={item.notes ?? ''} disabled={!editable} onChange={(e) => set({ notes: e.target.value || undefined })} />
       </Field>
 
+      {item.kind === 'song' && <MediaSection projectId={projectId} doc={doc} origin={origin} item={item} media={media} editable={editable} />}
+
       {item.kind === 'play' && <RolesEditor item={item} sections={sections} people={people} editable={editable} onChange={(roles) => set({ roles })} />}
 
       {hasText && (
         <section className="space-y-2" aria-label={t.text}>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 *:whitespace-nowrap">
             <h3 className="text-sm font-semibold tracking-wide text-slate-500 uppercase">{t.text}</h3>
+            {hasAudio && (
+              <div className="flex shrink-0 overflow-hidden rounded-md border border-slate-300 text-xs dark:border-slate-600" role="radiogroup" aria-label={t.textModeLabel}>
+                {(['edit', 'read', 'record'] as const)
+                  .filter((m) => m !== 'record' || editable)
+                  .map((m) => (
+                    <button key={m} type="button" role="radio" aria-checked={mode === m} onClick={() => setTextMode(m)} className={`px-2 py-1 ${mode === m ? 'bg-sky-600 text-white' : ''}`}>
+                      {t.textModes[m]}
+                    </button>
+                  ))}
+              </div>
+            )}
             <div className="flex-1" />
-            {editable && (
+            {editable && mode === 'edit' && (
               <Button variant="ghost" className="text-xs" onClick={() => setPasting(true)}>
                 <ClipboardPaste {...ICON} /> {t.paste}
               </Button>
             )}
           </div>
-          <SectionsEditor doc={doc} origin={origin} item={item} sections={sections} editable={editable} />
+          {mode === 'record' && <p className="text-xs text-slate-500">{t.recordHint}</p>}
+          {mode === 'edit' ? (
+            <SectionsEditor doc={doc} origin={origin} item={item} sections={sections} editable={editable} />
+          ) : (
+            <LyricsView
+              doc={doc}
+              origin={origin}
+              lines={lines}
+              time={time}
+              recording={mode === 'record'}
+              editable={editable}
+              onSeek={(sec) => seekAudio(audio, sec)}
+            />
+          )}
         </section>
+      )}
+
+      {hasAudio && (
+        <PlayerBar
+          projectId={projectId}
+          item={item}
+          media={media}
+          audio={audio}
+          setAudio={setAudio}
+          time={time}
+          recording={mode === 'record' && editable}
+          onNextLine={recordNext}
+          nextLineText={next?.line.text}
+          onClearTimes={() => {
+            if (window.confirm(t.clearTimesConfirm)) clearLineTimes(doc, item.id, origin);
+          }}
+        />
       )}
 
       {pasting && (

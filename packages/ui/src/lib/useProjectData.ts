@@ -13,6 +13,7 @@ import {
   readPeople,
   readSettings,
   readShapes,
+  readMedia,
   readShow,
   readSubnets,
   readWifi,
@@ -27,6 +28,7 @@ import {
   type Project,
   type ProjectSettings,
   type Shape,
+  type MediaRef,
   type ShowData,
   type ShowSettings,
 } from '@steckplan/core';
@@ -47,6 +49,8 @@ export interface ProjectData {
   /** Regie: Ablauf und Texte */
   show: ShowData;
   showSettings: ShowSettings;
+  /** Verweise auf Audiodateien im Medienspeicher */
+  media: MediaRef[];
 }
 
 const EMPTY: ProjectData = {
@@ -64,6 +68,7 @@ const EMPTY: ProjectData = {
   flowPages: [],
   show: { items: [], sections: [] },
   showSettings: {},
+  media: [],
 };
 
 function read(doc: Y.Doc): ProjectData {
@@ -82,6 +87,7 @@ function read(doc: Y.Doc): ProjectData {
     flowPages: readFlowPages(doc),
     show: readShow(doc),
     showSettings: doc.getMap('showSettings').toJSON() as ShowSettings,
+    media: readMedia(doc),
   };
 }
 

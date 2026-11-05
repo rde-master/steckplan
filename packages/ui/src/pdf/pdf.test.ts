@@ -113,6 +113,7 @@ function setup(): { data: ProjectData; library: Library } {
     flowPages: [],
     show: { items: [], sections: [] },
     showSettings: {},
+    media: [],
   };
   return { data, library };
 }
