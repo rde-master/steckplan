@@ -7,6 +7,11 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+### Geändert
+
+- Handy-Ansicht (bis 900 px Breite): Zeichenfläche in Signalfluss und Bühnenplan nimmt fast den ganzen Bildschirm ein. Oben eine Kopfzeile mit Burgermenü (Ansichten, Bibliothek, Exportieren, Versionen, Herunterladen, Werkzeuge, Seiten, Anzeige und Filter, Verbundene, Abmelden), unten eine Fußzeile mit Rückgängig, Wiederholen, Hinzufügen, Einpassen, Prüfungen und Eigenschaften
+- Handy: Antippen eines Objekts öffnet die Eigenschaften als unteres Blatt (halbe Höhe); es bleibt offen, bis man es über ✕ schließt. Bibliothek und Prüfungen erscheinen ebenfalls als unteres Blatt
+
 ## [0.19.0] - 2026-11-03
 
 ### Hinzugefügt

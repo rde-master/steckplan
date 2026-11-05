@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { createProject, loginAs } from './helpers';
+import { createProject, loginAs, openTab } from './helpers';
 
 test('Handy: Anmeldung und Projekt ohne seitliches Scrollen', async ({ page }) => {
   await loginAs(page, 'edit', 'Handy');
@@ -32,12 +32,26 @@ test('Handy: Packliste als Startansicht, langes Drücken zeigt Eigenschaften, Ä
 
   // Ohne Angabe: Packliste
   await page.goto(`/projekt/${id}`);
-  await expect(page.getByRole('tab', { name: 'Listen' })).toHaveAttribute('aria-selected', 'true');
+  const menu = page.getByTestId('mobile-menu');
+  await page.getByRole('button', { name: 'Menü öffnen' }).click();
+  await expect(menu.getByRole('tab', { name: 'Listen' })).toHaveAttribute('aria-selected', 'true');
+  await menu.getByRole('button', { name: 'Menü schließen' }).first().click();
   await expect(page.getByRole('tab', { name: 'Packliste' })).toHaveAttribute('aria-selected', 'true');
   expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
 
-  // Signalfluss: langes Drücken auf das Gerät → Auswahl + Eigenschaften
-  await page.getByRole('tab', { name: 'Signalfluss' }).click();
+  // Signalfluss: Kopfzeile, große Zeichenfläche, Fußzeile; Werkzeuge im Menü
+  await openTab(page, 'Signalfluss');
+  await expect(menu).toBeHidden();
+  await expect(page.getByRole('toolbar', { name: 'Werkzeuge' })).toBeHidden();
+  const footer = page.getByRole('navigation', { name: 'Werkzeuge unten' });
+  await expect(footer.getByRole('button', { name: 'Hinzufügen' })).toBeVisible();
+  const canvasBox = (await page.locator('.konvajs-content').first().boundingBox())!;
+  expect(canvasBox.height).toBeGreaterThan(page.viewportSize()!.height * 0.7);
+  await page.getByRole('button', { name: 'Menü öffnen' }).click();
+  await expect(menu.getByRole('toolbar', { name: 'Werkzeuge' })).toBeVisible();
+  await menu.getByRole('button', { name: 'Menü schließen' }).first().click();
+
+  // Langes Drücken auf das Gerät → Auswahl + Eigenschaften
   await expect.poll(() => page.evaluate(() => window.__steckplanStage?.find('.device').length ?? 0)).toBe(1);
   const center = await page.evaluate(() => {
     const stage = window.__steckplanStage!;
@@ -56,8 +70,17 @@ test('Handy: Packliste als Startansicht, langes Drücken zeigt Eigenschaften, Ä
   await props.getByLabel('Kennung').fill('Spot rechts');
   await expect(props.getByTestId('last-modified')).toContainText('Zuletzt geändert von Handy Ralf');
 
+  // Eigenschaften bleiben offen (auch nach Abwählen), bis man sie über ✕ schließt
+  await page.keyboard.press('Escape');
+  await expect(props).toBeVisible();
+  await page.getByRole('button', { name: 'Eigenschaften schließen' }).click();
+  await expect(props).toBeHidden();
+  // Antippen öffnet die Eigenschaften wieder
+  await page.touchscreen.tap(center.x, center.y);
+  await expect(props.getByRole('heading', { name: 'Spot rechts' })).toBeVisible();
+
   // Änderungsprotokoll als eigene Liste
-  await page.getByRole('tab', { name: 'Listen' }).click();
+  await openTab(page, 'Listen');
   await page.getByRole('tab', { name: 'Änderungen' }).click();
   await expect(page.getByTestId('changelog')).toContainText('Handy Ralf');
   await expect(page.getByTestId('changelog')).toContainText('1 Gerät geändert');

@@ -75,7 +75,8 @@ export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onC
   const selection = useEditor((s) => s.selection);
   const select = useEditor((s) => s.select);
   const requestProperties = useEditor((s) => s.requestProperties);
-  useLongPress(container, requestProperties);
+  // langes Drücken und (Handy) kurzes Antippen eines Objekts öffnen die Eigenschaften
+  useLongPress(container, requestProperties, undefined, requestProperties);
   const toggleDevice = useEditor((s) => s.toggleDevice);
   const toggleCable = useEditor((s) => s.toggleCable);
   const clearSelection = useEditor((s) => s.clearSelection);
