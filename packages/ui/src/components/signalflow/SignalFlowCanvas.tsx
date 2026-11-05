@@ -25,6 +25,8 @@ export interface CanvasProps {
   occupied: Set<string>;
   onMove: (moves: { id: string; x: number; y: number }[], final: boolean) => void;
   onConnect: (from: PortRef, to: PortRef) => void;
+  /** Bestehendes Kabel umstecken: ein Ende an einen anderen Anschluss gezogen */
+  onReconnect?: (cableId: string, from: PortRef, to: PortRef) => void;
   onDropTemplate: (templateId: string, at: { x: number; y: number }) => void;
   onInvalidConnection: (message: string) => void;
   showDmx?: boolean;
@@ -67,7 +69,7 @@ declare global {
   }
 }
 
-export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onConnect, onDropTemplate, onInvalidConnection, showDmx = false, groups = [], pageRefs = [], onPageRef, onResize, onToggleDefect, theme }: CanvasProps) {
+export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onConnect, onReconnect, onDropTemplate, onInvalidConnection, showDmx = false, groups = [], pageRefs = [], onPageRef, onResize, onToggleDefect, theme }: CanvasProps) {
   const container = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
   const [size, setSize] = useState({ width: 800, height: 600 });
@@ -82,7 +84,10 @@ export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onC
   const toggleCable = useEditor((s) => s.toggleCable);
   const clearSelection = useEditor((s) => s.clearSelection);
   const focusRequest = useEditor((s) => s.focusRequest);
-  const [connecting, setConnecting] = useState<{ from: PortRef; pointer: { x: number; y: number } } | null>(null);
+  // move: beim Umstecken das Kabel und sein gezogenes Ende; from ist dann das feste andere Ende
+  const [connecting, setConnecting] = useState<{ from: PortRef; pointer: { x: number; y: number }; move?: { cableId: string; end: 'from' | 'to' } } | null>(null);
+  // Kabel angefasst, aber noch nicht weit genug bewegt (Klick wählt weiterhin nur aus)
+  const grab = useRef<{ cableId: string; end: 'from' | 'to'; fixed: PortRef; start: { x: number; y: number } } | null>(null);
   const [band, setBand] = useState<{ x1: number; y1: number; x2: number; y2: number; additive: boolean } | null>(null);
   const flowMode = useEditor((s) => s.flowMode);
   // Am Rand beim Markieren automatisch scrollen; der Rahmen wächst mit
@@ -196,6 +201,30 @@ export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onC
     if (anchor) setConnecting({ from: ref, pointer: { x: anchor.x, y: anchor.y } });
   }
 
+  function portRef(deviceId: string, portId: string): PortRef | null {
+    const port = boxById.get(deviceId)?.layout.anchors.find((a) => a.port.id === portId)?.port;
+    return port ? { deviceId, portId, port } : null;
+  }
+
+  /** Kabel anfassen: das Ende näher am Zeiger wird gezogen, sobald sich der Zeiger bewegt */
+  function grabCable(line: CableLine, e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) {
+    if (!editable || !onReconnect || flowMode !== 'select') return;
+    if ('button' in e.evt && e.evt.button !== 0) return;
+    if ('touches' in e.evt && e.evt.touches.length > 1) return;
+    const p = pointerWorld();
+    const { from, to } = line.cable;
+    const fromBox = boxById.get(from.deviceId);
+    const toBox = boxById.get(to.deviceId);
+    const a = fromBox && anchorOf(fromBox, from.portId);
+    const b = toBox && anchorOf(toBox, to.portId);
+    if (!p || !a || !b) return;
+    e.cancelBubble = true; // kein Verschieben der Zeichenfläche
+    const end = Math.hypot(p.x - a.x, p.y - a.y) <= Math.hypot(p.x - b.x, p.y - b.y) ? 'from' : 'to';
+    const fixedEnd = end === 'from' ? to : from;
+    const fixed = portRef(fixedEnd.deviceId, fixedEnd.portId);
+    if (fixed) grab.current = { cableId: line.cable.id, end, fixed, start: p };
+  }
+
   function finishConnect() {
     if (!connecting) return;
     const stage = stageRef.current;
@@ -203,8 +232,14 @@ export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onC
     const target = pos ? stage!.getIntersection(pos) : null;
     const ref = portRefAt(target);
     const from = connecting.from;
+    const move = connecting.move;
     setConnecting(null);
     if (!ref || (ref.deviceId === from.deviceId && ref.portId === from.portId)) return;
+    if (move) {
+      const cable = lines.find((l) => l.cable.id === move.cableId)?.cable;
+      const old = cable?.[move.end];
+      if (!cable || (old && old.deviceId === ref.deviceId && old.portId === ref.portId)) return;
+    }
     if (isDefective(ref.deviceId, ref.portId)) {
       onInvalidConnection(DEFECT_MESSAGE);
       return;
@@ -218,7 +253,8 @@ export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onC
       );
       return;
     }
-    onConnect(oriented.from, oriented.to);
+    if (move) onReconnect?.(move.cableId, oriented.from, oriented.to);
+    else onConnect(oriented.from, oriented.to);
   }
 
   function candidateState(deviceId: string, port: EffectivePort): 'ok' | 'invalid' | null {
@@ -243,6 +279,13 @@ export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onC
   function handleStageMove() {
     const p = pointerWorld();
     if (!p) return;
+    const g = grab.current;
+    if (g && !connecting && Math.hypot(p.x - g.start.x, p.y - g.start.y) * view.zoom > 6) {
+      grab.current = null;
+      if (stageRef.current?.isDragging()) stageRef.current.stopDrag();
+      setConnecting({ from: g.fixed, pointer: p, move: { cableId: g.cableId, end: g.end } });
+      return;
+    }
     if (connecting) setConnecting({ ...connecting, pointer: p });
     if (band) setBand({ ...band, x2: p.x, y2: p.y });
   }
@@ -268,6 +311,7 @@ export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onC
   }
 
   function handleStageUp(e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) {
+    grab.current = null;
     if (connecting) finishConnect();
     if (finishBand()) return;
     if (e.target === stageRef.current && !stageMoved.current) clearSelection();
@@ -435,6 +479,7 @@ export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onC
           {/* Kabel */}
           {lines.map((line) => {
             const selected = selectedCables.has(line.cable.id);
+            const moving = connecting?.move?.cableId === line.cable.id;
             const stroke = line.issue === 'error' || line.issue === 'warning' ? '#dc2626' : line.color;
             return (
               <Line
@@ -445,10 +490,13 @@ export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onC
                 bezier={line.curved}
                 stroke={stroke}
                 strokeWidth={selected ? 4 : 2}
-                opacity={line.dimmed && !selected ? DIMMED_OPACITY : 1}
+                opacity={moving ? 0.2 : line.dimmed && !selected ? DIMMED_OPACITY : 1}
+                listening={!moving}
                 dash={line.cable.direct ? [6, 4] : undefined}
                 hitStrokeWidth={12}
                 lineJoin="round"
+                onMouseDown={(e) => grabCable(line, e)}
+                onTouchStart={(e) => grabCable(line, e)}
                 shadowColor={selected ? '#0ea5e9' : undefined}
                 shadowBlur={selected ? 6 : 0}
                 onClick={(e) => {

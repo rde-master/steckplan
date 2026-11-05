@@ -7,6 +7,10 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+### Hinzugefügt
+
+- Signalfluss: Kabel umstecken – ein bestehendes Kabel nahe einem Ende anfassen und auf einen anderen Anschluss ziehen; Kabeltyp, Besitzer, Case und Notizen bleiben, Rückgängig geht. Loslassen im Leeren ändert nichts, ein einfacher Klick wählt das Kabel wie bisher aus
+
 ## [0.23.2] - 2026-11-05
 
 ### Hinzugefügt
