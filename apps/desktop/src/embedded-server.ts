@@ -3,6 +3,7 @@
 import { join } from 'node:path';
 import {
   createServer,
+  LabelQrStore,
   LibraryStore,
   LocalFileStore,
   mediaDirFor,
@@ -37,6 +38,8 @@ export async function startEmbeddedServer(options: {
     return path ? mediaDirFor(path) : undefined;
   });
   const sessions = new SessionStore();
+  const labelQr = new LabelQrStore(join(options.userDataDir, 'label-qr.json'));
+  await labelQr.load();
   const library = new LibraryStore(join(options.userDataDir, 'library.json'));
   await library.load();
   const usage = new UsageTracker(join(options.userDataDir, 'usage.json'));
@@ -51,6 +54,7 @@ export async function startEmbeddedServer(options: {
     usage,
     passwords: options.passwords,
     media,
+    labelQr,
   });
   const { token } = sessions.create(options.userName || 'Desktop', 'local', 'desktop', { persistent: false, expires: false });
   await server.app.listen({ host: '127.0.0.1', port: 0 });

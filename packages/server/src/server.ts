@@ -20,6 +20,8 @@ import { registerSettingsRoutes } from './routes/settings';
 import type { ProjectStore } from './storage/types';
 import type { MediaStore } from './storage/media-store';
 import { registerMediaRoutes } from './routes/media';
+import { registerLabelQrRoutes } from './routes/label-qr';
+import type { LabelQrStore } from './auth/label-qr';
 import type { VersionStore } from './storage/version-store';
 import { RoomManager } from './sync/rooms';
 
@@ -46,6 +48,8 @@ export interface ServerOptions {
   desktopKeys?: DesktopKeyStore;
   /** Medienspeicher (Regie: Audiodateien); fehlt er, gibt es keine Medien-Routen */
   media?: MediaStore;
+  /** QR-Code auf den Geräte-Etiketten (Einstellungen und Lese-Schlüssel je Projekt) */
+  labelQr?: LabelQrStore;
   /** Für Tests: Verzögerungen beim Speichern */
   saveDelayMs?: number;
   versionIntervalMs?: number;
@@ -148,6 +152,18 @@ export async function createServer(options: ServerOptions): Promise<SteckplanSer
   });
 
   registerProjectRoutes(app, rooms, options.usage, options.media);
+  if (options.labelQr) {
+    registerLabelQrRoutes(app, {
+      store: options.store,
+      labelQr: options.labelQr,
+      sessions: options.sessions,
+      disconnect: (sessionId, reason) => {
+        rooms.disconnectSession(sessionId, reason);
+        events.disconnectSession(sessionId);
+      },
+      resolve: async (key) => (await options.store.list()).find((p) => options.store.persistentKey(p.id) === key)?.id,
+    });
+  }
   if (options.media) {
     registerMediaRoutes(app, {
       media: options.media,

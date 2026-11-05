@@ -50,8 +50,12 @@ export function registerProjectRoutes(app: FastifyInstance, rooms: RoomManager, 
   }
 
   app.get('/api/projects', async (request, reply) => {
-    if (!requireSession(request, reply)) return reply;
-    return { projects: await store.list(), canManage: isManagedStore(store) };
+    const session = requireSession(request, reply);
+    if (!session) return reply;
+    const projects = await store.list();
+    // QR-Zugang: nur das eine Projekt
+    if (session.scope) return { projects: projects.filter((p) => p.id === session.scope!.projectId), canManage: false };
+    return { projects, canManage: isManagedStore(store) };
   });
 
   app.post<{ Body: { name?: unknown } }>('/api/projects', async (request, reply) => {

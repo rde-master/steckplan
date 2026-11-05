@@ -11,6 +11,7 @@ import { UsageTracker } from './library/usage-tracker';
 import { DataDirProjectStore } from './storage/data-dir-store';
 import { VersionStore } from './storage/version-store';
 import { MediaStore } from './storage/media-store';
+import { LabelQrStore } from './auth/label-qr';
 
 const TRASH_PURGE_INTERVAL_MS = 12 * 60 * 60 * 1000;
 
@@ -28,6 +29,8 @@ async function main(): Promise<void> {
 
   const passwords = { edit: config.editPassword, read: config.readPassword, direction: config.directionPassword };
   const store = new DataDirProjectStore(config.dataDir);
+  const labelQr = new LabelQrStore(join(config.dataDir, 'label-qr.json'));
+  await labelQr.load();
   const media = new MediaStore((id) => (/^[A-Za-z0-9-]{1,64}$/.test(id) ? join(config.dataDir, 'media', id) : undefined));
   await store.init();
   const versions = new VersionStore(join(config.dataDir, 'versions'));
@@ -52,6 +55,7 @@ async function main(): Promise<void> {
     passwords: new PasswordChecker(passwords),
     desktopKeys,
     media,
+    labelQr,
     uiDir: config.uiDir,
     logger: true,
     trustProxy: config.trustProxy,
