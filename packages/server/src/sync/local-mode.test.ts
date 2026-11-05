@@ -30,8 +30,15 @@ describe('Desktop lokal', () => {
     await client.whenSynced();
     expect(client.state).toMatchObject({ access: 'local', readOnly: false });
     client.doc.getMap('meta').set('venue', 'Festwiese');
-    await sleep(150);
-    expect(JSON.parse(readFileSync(join(dir, 'Fest.steckplan'), 'utf8')).meta.venue).toBe('Festwiese');
+    const venue = () => {
+      try {
+        return JSON.parse(readFileSync(join(dir, 'Fest.steckplan'), 'utf8')).meta.venue;
+      } catch {
+        return undefined; // Datei wird gerade geschrieben
+      }
+    };
+    await waitFor(() => venue() === 'Festwiese');
+    expect(venue()).toBe('Festwiese');
     // Raum bleibt im lokalen Modus offen, auch ohne Verbindung
     client.destroy();
     await sleep(100);
