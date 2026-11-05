@@ -83,6 +83,11 @@ test('Textfenster: eigene Seite, im selben Browser und auf anderen Geräten (Fü
   await expect(popup.locator('[data-current]')).toHaveText('Zeile 2');
   await expect(popup.locator('[data-current]')).toHaveCSS('text-align', 'center');
   await expect(perf.getByTestId('line-countdown').first()).toHaveText('0,5 s');
+  // Balken: aktuelle Zeile 2 (1,5 s) halb um (bis 2,5 s), nächste Zeile 3 noch halb
+  await expect(perf.getByTestId('line-progress-current')).toHaveAttribute('data-progress', '0.50');
+  await expect(perf.getByTestId('line-progress-next')).toHaveAttribute('data-progress', '0.50');
+  await expect(perf.locator('li[data-current]').getByTestId('line-progress-current')).toHaveCount(1);
+  await expect(popup.getByTestId('line-progress-current')).toHaveCount(0);
   await popup.setViewportSize({ width: 1100, height: 600 });
   await popup.waitForTimeout(900); // Animation abwarten
   await popup.screenshot({ path: 'test-results/textfenster.png' });
