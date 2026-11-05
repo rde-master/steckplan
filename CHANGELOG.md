@@ -7,6 +7,16 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+### Hinzugefügt
+
+- Vorstellung: „Textfenster“ – der Text in einem eigenen Fenster (z. B. auf einem zweiten Bildschirm): vorige Zeile ausgegraut, aktuelle hervorgehoben, drei nächste; läuft mit der Wiedergabe mit und schließt mit der Vorstellung (auch in der Desktop-App)
+- Vorstellung: Zeitpunkt jeder Textzeile; für die nächsten fünf Zeilen ein live herunterlaufender Countdown auf die Zehntelsekunde
+- Player: Spulen um −5, −1, +1 und +5 Sekunden, in der Vorstellung auch Umschalt+←/→ (±1 s) – zum Anpassen an den Live-Gesang
+
+### Geändert
+
+- Vorstellung: Mit Audio richtet sich die aktuelle Textzeile auch bei angehaltener Wiedergabe nach der Abspielposition (z. B. nach dem Spulen)
+
 ### Behoben
 
 - Lichtszenen: Beim Wechsel zu einem anderen Lied mit Audiodatei blieben die Szenen des vorigen Lieds stehen (nur die Überschrift wechselte)

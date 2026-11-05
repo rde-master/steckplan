@@ -1,6 +1,6 @@
 // Vorstellung (Regie, M11e): Vollbild, dunkel. Aktueller Eintrag mit mitlaufendem Text, aktuelle und nächste Lichtszene,
 // Player, große Knöpfe und Pfeiltasten. „Führen“ sendet die Stelle an alle, „Folgen“ springt mit (nicht gespeichert).
-import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Radio, UserRound, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Monitor, Radio, UserRound, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   currentLineId,
@@ -19,6 +19,7 @@ import {
 import type { ProjectData } from '../../lib/useProjectData';
 import { texts } from '../../texts';
 import { Button } from '../ui';
+import { LyricsPortal, useLyricsWindow } from './LyricsWindow';
 import { KIND_ICONS } from './RegieView';
 import { SceneGrid } from './SceneGrid';
 import { formatSceneTime } from './ScenesSection';
@@ -73,7 +74,8 @@ export function PerformanceView({
   const scene = scenes[sceneIndex];
   const nextScene = scenes[sceneIndex + 1];
   const nextItem = items[itemIndex + 1];
-  const currentLine = playing ? currentLineId(lines, time) : scene?.lineId;
+  // mit Audio die Abspielposition (auch angehalten, z. B. nach dem Spulen), sonst die Zeile der Szene
+  const currentLine = playing || (audio && time > 0) ? currentLineId(lines, time) : scene?.lineId;
 
   // führen: jede Änderung der Stelle an alle senden
   const itemId = item?.id;
@@ -128,16 +130,22 @@ export function PerformanceView({
     setSceneChoice(delta > 0 ? (nextScenes[0]?.id ?? null) : (nextScenes[nextScenes.length - 1]?.id ?? null));
   };
 
-  // Tasten: ←/→ Szene, ↑/↓ bzw. Bild↑/Bild↓ Eintrag, Esc beendet
-  const keys = useRef({ goItem, goScene, onClose });
+  // Spulen (um im Live den Text an den Gesang anzupassen)
+  const nudge = (sec: number) => {
+    if (audio) seekAudio(audio, audio.currentTime + sec);
+  };
+
+  // Tasten: ←/→ Szene, Umschalt+←/→ eine Sekunde spulen, ↑/↓ bzw. Bild↑/Bild↓ Eintrag, Esc beendet
+  const keys = useRef({ goItem, goScene, nudge, onClose });
   useEffect(() => {
-    keys.current = { goItem, goScene, onClose };
+    keys.current = { goItem, goScene, nudge, onClose };
   });
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement | null)?.closest('input, textarea, select')) return;
       const k = keys.current;
-      if (e.key === 'ArrowRight') k.goScene(1);
+      if (e.shiftKey && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) k.nudge(e.key === 'ArrowRight' ? 1 : -1);
+      else if (e.key === 'ArrowRight') k.goScene(1);
       else if (e.key === 'ArrowLeft') k.goScene(-1);
       else if (e.key === 'ArrowDown' || e.key === 'PageDown') k.goItem(1);
       else if (e.key === 'ArrowUp' || e.key === 'PageUp') k.goItem(-1);
@@ -158,6 +166,16 @@ export function PerformanceView({
   const states = scene ? sceneStates(data.sceneStates, scene.id) : new Map();
   const Icon = item ? KIND_ICONS[item.kind] : null;
   const roleNames = new Map((item?.roles ?? []).map((r) => [r.id, r.name]));
+  const itemTitle = item?.title || (item ? texts.regie.untitled : t.empty);
+  const lyrics = useLyricsWindow(t.lyricsWindowTitle(itemTitle));
+  // Countdown bis zu den nächsten fünf Zeilen (mit Audio), sonst die feste Zeit
+  const currentIndex = lines.findIndex((l) => l.line.id === currentLine);
+  const timeLabel = (i: number, atSec: number | undefined): { text: string; countdown: boolean } | null => {
+    if (atSec === undefined) return null;
+    const ahead = i - currentIndex;
+    if (audio && ahead >= 1 && ahead <= 5 && atSec > time) return { text: t.countdown(atSec - time), countdown: true };
+    return { text: formatSceneTime(atSec), countdown: false };
+  };
 
   return (
     <div className="dark fixed inset-0 z-50 flex flex-col bg-slate-950 text-slate-100" role="dialog" aria-label={t.title} data-testid="performance">
@@ -187,6 +205,9 @@ export function PerformanceView({
             </button>
           ))}
         </div>
+        <Button variant="ghost" className="text-sm" title={t.lyricsWindowHint} onClick={lyrics.open}>
+          <Monitor size={18} aria-hidden /> {t.lyricsWindow}
+        </Button>
         <span className="flex items-center gap-1 text-xs text-slate-400" data-testid="performance-lead">
           {lead ? (
             <>
@@ -213,13 +234,22 @@ export function PerformanceView({
                   const header = i === 0 || lines[i - 1]!.sectionId !== sectionId ? sectionLabel : null;
                   const isCurrent = line.id === currentLine;
                   const speaker = line.roleId && (i === 0 || lines[i - 1]!.line.roleId !== line.roleId || lines[i - 1]!.line.direction) ? roleNames.get(line.roleId) : undefined;
+                  const at = timeLabel(i, line.atSec);
                   return (
                     <li key={line.id} ref={(el) => void (el ? lineRefs.current.set(line.id, el) : lineRefs.current.delete(line.id))} data-current={isCurrent || undefined}>
                       {header !== null && <div className="mt-4 mb-1 text-xs font-semibold tracking-wide text-slate-500 uppercase">{header}</div>}
-                      <p className={`rounded-md px-2 py-1 leading-snug transition-colors ${isCurrent ? 'bg-sky-900 text-2xl font-semibold text-white' : 'text-xl text-slate-200'} ${line.direction ? 'italic text-slate-400' : ''}`}>
-                        {speaker && <span className="mr-2 font-semibold text-sky-300">{speaker}:</span>}
-                        {line.direction ? `(${line.text})` : line.text || ' '}
-                      </p>
+                      <div className="flex items-baseline gap-2">
+                        <span
+                          className={`w-16 shrink-0 text-right text-sm tabular-nums ${at?.countdown ? 'font-semibold text-amber-400' : 'text-slate-500'}`}
+                          data-testid={at?.countdown ? 'line-countdown' : 'line-time'}
+                        >
+                          {at?.text ?? ''}
+                        </span>
+                        <p className={`min-w-0 flex-1 rounded-md px-2 py-1 leading-snug transition-colors ${isCurrent ? 'bg-sky-900 text-2xl font-semibold text-white' : 'text-xl text-slate-200'} ${line.direction ? 'italic text-slate-400' : ''}`}>
+                          {speaker && <span className="mr-2 font-semibold text-sky-300">{speaker}:</span>}
+                          {line.direction ? `(${line.text})` : line.text || ' '}
+                        </p>
+                      </div>
                     </li>
                   );
                 })}
@@ -288,6 +318,7 @@ export function PerformanceView({
           </NavButton>
         </div>
       </footer>
+      {lyrics.win && item && <LyricsPortal win={lyrics.win} title={itemTitle} lines={lines} currentLineId={currentLine} roleNames={roleNames} />}
     </div>
   );
 }

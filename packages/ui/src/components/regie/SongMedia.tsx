@@ -303,9 +303,21 @@ export function PlayerBar({
     <div className="sticky bottom-0 z-10 -mx-4 space-y-1.5 border-t border-slate-200 bg-white/95 px-4 py-2 backdrop-blur dark:border-slate-700 dark:bg-slate-900/95" data-testid="regie-player">
       <audio ref={setAudio} src={api.mediaUrl(projectId, current.mediaId)} preload="metadata" />
       <div className="flex items-center gap-2">
-        <Button variant="primary" className="h-10 w-10 shrink-0 rounded-full p-0" aria-label={playing ? t.pause : t.play} title={t.playKey} onClick={toggle}>
-          {playing ? <Pause size={18} aria-hidden /> : <Play size={18} aria-hidden />}
-        </Button>
+        <span className="flex shrink-0 items-center gap-0.5">
+          {[-5, -1].map((d) => (
+            <Button key={d} variant="ghost" className="min-h-8 px-1 text-xs tabular-nums" aria-label={t.back(-d)} title={`${t.back(-d)}${d === -1 ? ` (${t.nudgeKey})` : ''}`} onClick={() => audio && seekAudio(audio, audio.currentTime + d)}>
+              {d}
+            </Button>
+          ))}
+          <Button variant="primary" className="h-10 w-10 shrink-0 rounded-full p-0" aria-label={playing ? t.pause : t.play} title={t.playKey} onClick={toggle}>
+            {playing ? <Pause size={18} aria-hidden /> : <Play size={18} aria-hidden />}
+          </Button>
+          {[1, 5].map((d) => (
+            <Button key={d} variant="ghost" className="min-h-8 px-1 text-xs tabular-nums" aria-label={t.forward(d)} title={`${t.forward(d)}${d === 1 ? ` (${t.nudgeKey})` : ''}`} onClick={() => audio && seekAudio(audio, audio.currentTime + d)}>
+              +{d}
+            </Button>
+          ))}
+        </span>
         <div className="relative min-w-0 flex-1">
           <input
             type="range"
