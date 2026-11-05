@@ -7,6 +7,20 @@ import type { Access } from '../model/access';
 export const MESSAGE_SYNC = 0;
 export const MESSAGE_AWARENESS = 1;
 export const MESSAGE_INFO = 100;
+/** Vorstellung (Regie): Client → Server „ich führe, wir sind bei …“ – nicht im Projekt gespeichert */
+export const MESSAGE_CUE = 101;
+
+/** Stelle in der Vorstellung */
+export interface Cue {
+  itemId: string;
+  sceneId?: string;
+}
+
+/** Wer führt und wo die Vorstellung gerade steht */
+export interface LeadInfo extends Cue {
+  connectionId: string;
+  name: string;
+}
 
 /** Gründe für das Schließen der Verbindung durch den Server (WebSocket-Close-Codes). */
 export const CloseCode = {
@@ -38,13 +52,32 @@ export type ServerInfo =
       reconcilePending?: boolean;
     }
   | { type: 'presence'; users: PresenceUser[] }
-  | { type: 'notice'; message: string };
+  | { type: 'notice'; message: string }
+  | { type: 'lead'; lead: LeadInfo | null };
 
 export function encodeInfo(info: ServerInfo): Uint8Array {
   const encoder = encoding.createEncoder();
   encoding.writeVarUint(encoder, MESSAGE_INFO);
   encoding.writeVarString(encoder, JSON.stringify(info));
   return encoding.toUint8Array(encoder);
+}
+
+/** Client → Server: Stelle senden (führen) oder Führen beenden (null) */
+export function encodeCue(cue: Cue | null): Uint8Array {
+  const encoder = encoding.createEncoder();
+  encoding.writeVarUint(encoder, MESSAGE_CUE);
+  encoding.writeVarString(encoder, JSON.stringify(cue));
+  return encoding.toUint8Array(encoder);
+}
+
+/** Server: Stelle lesen und prüfen (nur Kennungen, kurz) */
+export function decodeCue(decoder: decoding.Decoder): Cue | null {
+  const raw = JSON.parse(decoding.readVarString(decoder)) as unknown;
+  if (raw === null) return null;
+  const v = raw as Partial<Cue>;
+  const ok = (s: unknown) => typeof s === 'string' && s.length > 0 && s.length <= 128;
+  if (!ok(v.itemId) || (v.sceneId !== undefined && !ok(v.sceneId))) throw new Error('Ungültige Stelle');
+  return { itemId: v.itemId!, ...(v.sceneId ? { sceneId: v.sceneId } : {}) };
 }
 
 export function decodeInfo(decoder: decoding.Decoder): ServerInfo {
