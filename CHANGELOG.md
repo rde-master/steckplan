@@ -7,6 +7,13 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+### Hinzugefügt
+
+- Regie (M11a): neuer Reiter „Regie“ mit dem Ablauf aus Liedern, Schauspielstücken, Pausen und Ansagen – sortieren per Ziehen oder Pfeilen, kopieren, Dauer („3:40“ oder „15“ für Minuten), Beginn und laufende Startzeiten, Gesamtdauer, beteiligte Personen, Notiz
+- Regie: Texte je Abschnitt (Strophe, Refrain, Bridge, Szene …) als Textfeld; Abschnitte verschieben, kopieren (Refrain wiederholen), ganzen Text einfügen (Leerzeilen trennen Abschnitte, Überschriften wie „[Refrain]“ werden erkannt). Schauspiel: „Rolle: Text“, Zeilen ohne Rolle setzen die Rede fort, Regieanweisungen in Klammern; Rollen werden angelegt und lassen sich Personen zuordnen. Jede Zeile behält beim Bearbeiten ihre Kennung (für Zeitpunkte und Lichtszenen in den nächsten Schritten)
+- Zugang „Regie“ (drittes, optionales Passwort): Regie bearbeiten, alles andere nur lesen, keine Häkchen; Docker `STECKPLAN_DIRECTION_PASSWORD`, Desktop-Weboberfläche drittes Passwortfeld, Desktop-Zugangsschlüssel mit Stufe „Regie“. Der Server übernimmt von Regie-Clients nur Änderungen an der Regie
+- Dateiformat 9 (ältere Dateien werden beim Öffnen angehoben)
+
 ## [0.20.0] - 2026-11-05
 
 ### Hinzugefügt
