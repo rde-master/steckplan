@@ -14,6 +14,10 @@ export const MESSAGE_CUE = 101;
 export interface Cue {
   itemId: string;
   sceneId?: string;
+  /** Abspielposition in Sekunden beim Senden (für das Textfenster auf anderen Geräten) */
+  at?: number;
+  /** läuft die Wiedergabe? Dann zählen Folgende ab dem Empfang selbst weiter */
+  playing?: boolean;
 }
 
 /** Wer führt und wo die Vorstellung gerade steht */
@@ -77,7 +81,8 @@ export function decodeCue(decoder: decoding.Decoder): Cue | null {
   const v = raw as Partial<Cue>;
   const ok = (s: unknown) => typeof s === 'string' && s.length > 0 && s.length <= 128;
   if (!ok(v.itemId) || (v.sceneId !== undefined && !ok(v.sceneId))) throw new Error('Ungültige Stelle');
-  return { itemId: v.itemId!, ...(v.sceneId ? { sceneId: v.sceneId } : {}) };
+  const at = typeof v.at === 'number' && Number.isFinite(v.at) && v.at >= 0 && v.at < 86_400 ? v.at : undefined;
+  return { itemId: v.itemId!, ...(v.sceneId ? { sceneId: v.sceneId } : {}), ...(at !== undefined ? { at, playing: v.playing === true } : {}) };
 }
 
 export function decodeInfo(decoder: decoding.Decoder): ServerInfo {

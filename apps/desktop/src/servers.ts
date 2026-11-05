@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { app, BrowserWindow, safeStorage, session, shell, type Session } from 'electron';
 import { formatAppTitle } from '@steckplan/core';
 import type { SavedServer, SettingsStore } from './settings';
+import { isLyricsWindow, lyricsWindowOptions } from './lyrics-window';
 
 export interface ServerInfo {
   id: string;
@@ -103,7 +104,9 @@ export class ServerConnections {
       webPreferences: { session: ses, contextIsolation: true, nodeIntegration: false, sandbox: true },
     });
     // Nur der Server im Fenster; alles andere im Standardbrowser
-    win.webContents.setWindowOpenHandler(({ url: target }) => {
+    win.webContents.setWindowOpenHandler((details) => {
+      if (isLyricsWindow(details, entry.url)) return { action: 'allow', overrideBrowserWindowOptions: lyricsWindowOptions };
+      const target = details.url;
       if (/^https?:\/\//.test(target) && !target.startsWith(entry.url)) void shell.openExternal(target);
       return { action: 'deny' };
     });

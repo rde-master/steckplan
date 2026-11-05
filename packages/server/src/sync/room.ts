@@ -350,7 +350,7 @@ export class Room {
         reconcilePending: this.reconcilePending,
       }),
     );
-    if (this.lead) this.send(connection, encodeInfo({ type: 'lead', lead: this.lead }));
+    if (this.lead) this.send(connection, encodeInfo({ type: 'lead', lead: this.currentLead(this.lead) }));
   }
 
   removeConnection(connection: Connection): void {
@@ -362,10 +362,18 @@ export class Room {
   // ---------- Vorstellung: führen / folgen (nur im Speicher) ----------
 
   private lead: LeadInfo | null = null;
+  private leadAt = 0;
 
   private setLead(lead: LeadInfo | null): void {
     this.lead = lead;
+    this.leadAt = Date.now();
     this.broadcast(encodeInfo({ type: 'lead', lead }));
+  }
+
+  /** Für Nachzügler: läuft die Wiedergabe, die Abspielposition bis jetzt weiterrechnen */
+  private currentLead(lead: LeadInfo): LeadInfo {
+    if (!lead.playing || lead.at === undefined) return lead;
+    return { ...lead, at: lead.at + (Date.now() - this.leadAt) / 1000 };
   }
 
   private handleCue(connection: Connection, decoder: decoding.Decoder): void {
