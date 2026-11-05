@@ -13,6 +13,9 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 - Regie: Texte je Abschnitt (Strophe, Refrain, Bridge, Szene …) als Textfeld; Abschnitte verschieben, kopieren (Refrain wiederholen), ganzen Text einfügen (Leerzeilen trennen Abschnitte, Überschriften wie „[Refrain]“ werden erkannt). Schauspiel: „Rolle: Text“, Zeilen ohne Rolle setzen die Rede fort, Regieanweisungen in Klammern; Rollen werden angelegt und lassen sich Personen zuordnen. Jede Zeile behält beim Bearbeiten ihre Kennung (für Zeitpunkte und Lichtszenen in den nächsten Schritten)
 - Zugang „Regie“ (drittes, optionales Passwort): Regie bearbeiten, alles andere nur lesen, keine Häkchen; Docker `STECKPLAN_DIRECTION_PASSWORD`, Desktop-Weboberfläche drittes Passwortfeld, Desktop-Zugangsschlüssel mit Stufe „Regie“. Der Server übernimmt von Regie-Clients nur Änderungen an der Regie
 - Dateiformat 9 (ältere Dateien werden beim Öffnen angehoben)
+- Regie (M11b): Audiodateien je Lied (mehrere, eine als Standard, Bezeichnung; Dauer wird beim Hochladen erkannt) – ohne Größengrenze, unverändert gespeichert, Hochladen in Teilen mit Fortschritt und Fortsetzen nach Abbruch. Player fest unten im Lied (Abspielen, Zeitleiste, Lautstärke, Wechsel der Datei an derselben Stelle)
+- Regie: Textansicht „Mitlesen“ (aktuelle Zeile hervorgehoben, scrollt mit, Antippen springt dorthin) und „Mitschreiben“ (beim Abspielen „Nächste Zeile“ oder Leertaste setzt die Zeitpunkte; ±0,5 s, löschen, Antippen setzt auf die aktuelle Zeit)
+- Medien: Docker unter `/data/media`, Desktop im Ordner `<Name>.medien` neben der Datei; nicht mehr verwendete Dateien 30 Tage im Papierkorb; „Neues Projekt aus diesem“ und „Speichern unter“ nehmen die Medien mit. Im Browser „Mit Medien herunterladen“ als `.steckplan.zip`, das sich in der Projektliste wieder hochladen lässt
 
 ## [0.20.0] - 2026-11-05
 
