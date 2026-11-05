@@ -136,7 +136,8 @@ describe('Versionen', () => {
     await Promise.all([editor.whenSynced(), reader.whenSynced()]);
 
     editor.doc.getMap('meta').set('venue', 'Erster Ort');
-    await sleep(200);
+    const listVersions = async () => (await server.app.inject({ method: 'GET', url: `/api/projects/${id}/versions`, headers: { cookie: read } })).json().versions as unknown[];
+    await waitFor(async () => (await listVersions()).length >= 1);
     let versions = (await server.app.inject({ method: 'GET', url: `/api/projects/${id}/versions`, headers: { cookie: read } })).json().versions;
     expect(versions.length).toBeGreaterThanOrEqual(1);
     expect(versions[0].by).toEqual(['Ralf']);
