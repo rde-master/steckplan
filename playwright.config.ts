@@ -10,6 +10,7 @@ const dataDir = mkdtempSync(join(tmpdir(), 'steckplan-e2e-'));
 export const E2E = {
   editPassword: 'e2e-bearbeiten',
   readPassword: 'e2e-lesen',
+  directionPassword: 'e2e-regie',
 };
 
 export default defineConfig({
@@ -40,6 +41,7 @@ export default defineConfig({
       STECKPLAN_UI_DIR: join(process.cwd(), 'packages/ui/dist'),
       STECKPLAN_EDIT_PASSWORD: E2E.editPassword,
       STECKPLAN_READ_PASSWORD: E2E.readPassword,
+      STECKPLAN_DIRECTION_PASSWORD: E2E.directionPassword,
     },
   },
 });

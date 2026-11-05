@@ -18,6 +18,7 @@ import type { ProjectStore } from './storage/types';
 
 export const EDIT_PASSWORD = 'bearbeiten-geheim';
 export const READ_PASSWORD = 'lesen-geheim';
+export const DIRECTION_PASSWORD = 'regie-geheim';
 
 export interface TestServer extends SteckplanServer {
   baseUrl: string;
@@ -50,7 +51,7 @@ export async function startTestServer(overrides: Partial<ServerOptions> = {}): P
     sessions,
     library,
     usage,
-    passwords: new PasswordChecker({ edit: EDIT_PASSWORD, read: READ_PASSWORD }),
+    passwords: new PasswordChecker({ edit: EDIT_PASSWORD, read: READ_PASSWORD, direction: DIRECTION_PASSWORD }),
     rateLimiter: new LoginRateLimiter({ maxFailures: 3 }),
     desktopKeys: new DesktopKeyStore({ file: join(dataDir, 'desktop-keys.json') }),
     saveDelayMs: 20,
@@ -74,11 +75,12 @@ export async function startTestServer(overrides: Partial<ServerOptions> = {}): P
 }
 
 /** Meldet sich an und gibt den Cookie-Header zurück. */
-export async function login(server: TestServer, access: 'edit' | 'read', name = access === 'edit' ? 'Ralf' : 'Anna'): Promise<string> {
+export async function login(server: TestServer, access: 'edit' | 'read' | 'direction', name = access === 'edit' ? 'Ralf' : access === 'direction' ? 'Regina' : 'Anna'): Promise<string> {
+  const password = access === 'edit' ? EDIT_PASSWORD : access === 'direction' ? DIRECTION_PASSWORD : READ_PASSWORD;
   const res = await server.app.inject({
     method: 'POST',
     url: '/api/auth/login',
-    payload: { password: access === 'edit' ? EDIT_PASSWORD : READ_PASSWORD, name },
+    payload: { password, name },
   });
   if (res.statusCode !== 200) throw new Error(`Login fehlgeschlagen: ${res.statusCode} ${res.body}`);
   const cookie = res.cookies.find((c) => c.name === 'steckplan_session');

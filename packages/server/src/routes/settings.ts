@@ -17,7 +17,7 @@ export function registerSettingsRoutes(app: FastifyInstance, deps: { desktopKeys
     const label = typeof request.body?.label === 'string' ? request.body.label.normalize('NFC').replace(/\s+/g, ' ').trim() : '';
     if (!label || label.length > LABEL_MAX_LENGTH) return reply.code(400).send({ error: `Bitte eine Bezeichnung (1–${LABEL_MAX_LENGTH} Zeichen) eingeben, z. B. „MacBook Ralf“.` });
     const access = request.body?.access;
-    if (access !== 'edit' && access !== 'read') return reply.code(400).send({ error: 'Bitte die Zugangsstufe wählen (Bearbeiten oder Lesen).' });
+    if (access !== 'edit' && access !== 'read' && access !== 'direction') return reply.code(400).send({ error: 'Bitte die Zugangsstufe wählen (Bearbeiten, Regie oder Lesen).' });
     const created = await desktopKeys.create(label, access as KeyAccess, session.name);
     return reply.code(201).send(created);
   });

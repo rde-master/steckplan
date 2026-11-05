@@ -3,7 +3,7 @@
 // Jede Änderung hier, die bestehende Dateien betrifft, braucht: schemaVersion erhöhen + Migration + Test.
 import { z } from 'zod';
 
-export const CURRENT_SCHEMA_VERSION = 8;
+export const CURRENT_SCHEMA_VERSION = 9;
 
 const id = z.string().min(1);
 const isoDate = z.string();
@@ -335,7 +335,7 @@ export type Secrets = z.infer<typeof SecretsSchema>;
 
 // ---------- Änderungsprotokoll ----------
 
-export const AccessSchema = z.enum(['local', 'edit', 'read']);
+export const AccessSchema = z.enum(['local', 'edit', 'read', 'direction']);
 
 export const ChangeLogEntrySchema = z.object({
   at: isoDate,
@@ -395,6 +395,62 @@ export const BackgroundSchema = z.object({
 });
 export type Background = z.infer<typeof BackgroundSchema>;
 
+// ---------- Regie (seit Format 9) ----------
+
+export const SHOW_ITEM_KINDS = ['song', 'play', 'break', 'announcement'] as const;
+export type ShowItemKind = (typeof SHOW_ITEM_KINDS)[number];
+
+export const ShowRoleSchema = z.object({ id, name: z.string(), personId: id.optional() });
+export type ShowRole = z.infer<typeof ShowRoleSchema>;
+
+/** Eintrag im Ablauf: Lied, Schauspiel, Pause, Ansage */
+export const ShowItemSchema = z.object({
+  id,
+  order: z.number(),
+  kind: z.enum(SHOW_ITEM_KINDS),
+  title: z.string().default(''),
+  /** Lied: Interpret/Komponist */
+  artist: z.string().optional(),
+  durationSec: z.number().nonnegative().optional(),
+  personIds: z.array(id).default([]),
+  notes: z.string().optional(),
+  /** Schauspiel: Rollen, optional mit Person */
+  roles: z.array(ShowRoleSchema).optional(),
+});
+export type ShowItem = z.infer<typeof ShowItemSchema>;
+
+export const SECTION_KINDS = ['intro', 'verse', 'chorus', 'bridge', 'solo', 'outro', 'scene', 'other'] as const;
+export type SectionKind = (typeof SECTION_KINDS)[number];
+
+export const TextLineSchema = z.object({
+  id,
+  text: z.string(),
+  /** Schauspiel: wer spricht */
+  roleId: id.optional(),
+  /** Regieanweisung (ohne Rolle) */
+  direction: z.boolean().optional(),
+  /** Zeitpunkt im Lied (Sekunden) für mitlaufenden Text (ab M11b) */
+  atSec: z.number().nonnegative().optional(),
+});
+export type TextLine = z.infer<typeof TextLineSchema>;
+
+/** Textabschnitt eines Eintrags (Strophe, Refrain, Auftritt …) */
+export const TextSectionSchema = z.object({
+  id,
+  itemId: id,
+  order: z.number(),
+  kind: z.enum(SECTION_KINDS),
+  label: z.string().default(''),
+  lines: z.array(TextLineSchema).default([]),
+});
+export type TextSection = z.infer<typeof TextSectionSchema>;
+
+export const ShowSettingsSchema = z.object({
+  /** Beginn des Ablaufs „HH:MM“ */
+  startTime: z.string().optional(),
+});
+export type ShowSettings = z.infer<typeof ShowSettingsSchema>;
+
 export const ProjectSchema = z.object({
   schemaVersion: z.literal(CURRENT_SCHEMA_VERSION),
   id,
@@ -410,6 +466,14 @@ export const ProjectSchema = z.object({
   caseTrailers: z.array(CaseTrailerSchema).default([]),
   patch: z.array(PatchEntrySchema).default([]),
   flowPages: z.array(FlowPageSchema).default([]),
+  /** Regie: Ablauf und Texte (seit Format 9) */
+  show: z
+    .object({
+      items: z.array(ShowItemSchema).default([]),
+      sections: z.array(TextSectionSchema).default([]),
+    })
+    .default({ items: [], sections: [] }),
+  showSettings: ShowSettingsSchema.default({}),
   network: z
     .object({
       subnets: z.array(SubnetSchema).default([]),

@@ -20,6 +20,7 @@ import { VersionsDialog } from '../components/VersionsDialog';
 import { SignalFlowView } from '../components/signalflow/SignalFlowView';
 import { StagePlanView } from '../components/stageplan/StagePlanView';
 import { ListsView } from '../components/lists/ListsView';
+import { RegieView } from '../components/regie/RegieView';
 import { NetworkView } from '../components/network/NetworkView';
 import { ExportDialog } from '../components/ExportDialog';
 import { CasesPanel } from '../components/project/CasesPanel';
@@ -30,14 +31,17 @@ import { useIssues } from '../lib/useIssues';
 import { MeterField } from '../components/library/fields';
 import { AccessBadge, Banner, Button, Field, Spinner, TextArea, TextInput } from '../components/ui';
 
-type Tab = 'signalflow' | 'stageplan' | 'network' | 'lists' | 'meta';
-const TAB_PARAM: Record<Tab, string> = { signalflow: 'signalfluss', stageplan: 'buehnenplan', network: 'netzwerk', lists: 'listen', meta: 'projektdaten' };
+type Tab = 'signalflow' | 'stageplan' | 'network' | 'lists' | 'regie' | 'meta';
+const TAB_PARAM: Record<Tab, string> = { signalflow: 'signalfluss', stageplan: 'buehnenplan', network: 'netzwerk', lists: 'listen', regie: 'regie', meta: 'projektdaten' };
+const TABS: Tab[] = ['signalflow', 'stageplan', 'network', 'lists', 'regie', 'meta'];
 
-/** Ohne Angabe in der Adresse: auf schmalen Bildschirmen (Handy) die Packliste, sonst der Signalfluss. */
+/** Ohne Angabe in der Adresse: Regie-Zugang startet in der Regie, auf schmalen Bildschirmen (Handy) die Packliste, sonst der Signalfluss. */
 function initialTab(): Tab {
   const value = new URLSearchParams(window.location.search).get('ansicht');
   const fromUrl = Object.entries(TAB_PARAM).find(([, v]) => v === value)?.[0] as Tab | undefined;
-  return fromUrl ?? (window.innerWidth <= 640 ? 'lists' : 'signalflow');
+  if (fromUrl) return fromUrl;
+  if (useSession.getState().session?.access === 'direction') return 'regie';
+  return window.innerWidth <= 640 ? 'lists' : 'signalflow';
 }
 
 export function ProjectPage({ id }: { id: string }) {
@@ -96,7 +100,10 @@ export function ProjectPage({ id }: { id: string }) {
   // Kurze Unterbrechung nach erfolgreichem Abgleich (z. B. Proxy trennt, Neuverbindung): weiter bedienbar,
   // Änderungen werden beim Neuverbinden abgeglichen – sonst flackert die Oberfläche kurz.
   const online = status === 'synced' || (!!state?.everSynced && (status === 'connecting' || status === 'disconnected'));
-  const editable = online && !state?.readOnly;
+  // Zugang „Regie“ schreibt nur die Regie; Steckplan, Listen usw. bleiben für ihn gesperrt
+  const access = state?.access ?? session?.access;
+  const editable = online && !state?.readOnly && !!access && can(access, 'editProject');
+  const showEditable = online && !state?.readOnly && !!access && can(access, 'editShow');
 
   const backButton = !isDesktop ? (
     <Button variant="ghost" onClick={() => navigate('/')} aria-label={texts.project.toList} title={texts.project.toList}>
@@ -125,7 +132,7 @@ export function ProjectPage({ id }: { id: string }) {
   const readOnlyBadge = state?.readOnly && (
     <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900 dark:bg-amber-900 dark:text-amber-100">{texts.project.readOnly}</span>
   );
-  const tabs = (['signalflow', 'stageplan', 'network', 'lists', 'meta'] as const).map((t) => (
+  const tabs = TABS.map((t) => (
     <Button
       key={t}
       role="tab"
@@ -291,6 +298,8 @@ export function ProjectPage({ id }: { id: string }) {
           editable={editable}
           canSeeSecrets={!!session && can(session.access, 'viewSecrets')}
         />
+      ) : tab === 'regie' ? (
+        <RegieView doc={project.doc} origin={undo.origin} data={data} editable={showEditable} />
       ) : tab === 'lists' ? (
         <ListsView
           projectId={id}
@@ -399,7 +408,7 @@ function Presence({ users, me }: { users: PresenceUser[]; me: string | null }) {
           className={`flex items-center gap-1 rounded-full border px-2 py-0.5 ${user.id === me ? 'border-sky-300 bg-sky-50 dark:border-sky-700 dark:bg-sky-950' : 'border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900'}`}
         >
           {user.name}
-          {user.access === 'read' && <AccessBadge access="read" />}
+          {(user.access === 'read' || user.access === 'direction') && <AccessBadge access={user.access} />}
         </span>
       ))}
     </div>

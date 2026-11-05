@@ -11,3 +11,4 @@ export * from './sync';
 export * from './people';
 export * from './audio';
 export * from './power';
+export * from './show';

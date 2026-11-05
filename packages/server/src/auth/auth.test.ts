@@ -20,6 +20,10 @@ describe('Passwörter', () => {
     expect(checker.check('b')).toBe('read');
     expect(checker.check('c')).toBeNull();
     expect(checker.check('')).toBeNull();
+    expect(checker.hasDirection).toBe(false);
+    const withDirection = new PasswordChecker({ edit: 'a', read: 'b', direction: 'r' });
+    expect(withDirection.check('r')).toBe('direction');
+    expect(withDirection.hasDirection).toBe(true);
   });
 
   it('Fingerabdruck ändert sich mit den Passwörtern', () => {
@@ -27,6 +31,9 @@ describe('Passwörter', () => {
     expect(passwordFingerprint({ edit: 'a', read: 'b' }, 'salt')).toBe(fp);
     expect(passwordFingerprint({ edit: 'a', read: 'c' }, 'salt')).not.toBe(fp);
     expect(passwordFingerprint({ edit: 'geheim', read: 'b' }, 'salt')).not.toContain('geheim');
+    // ohne Regie-Passwort unverändert (bestehende Sitzungen bleiben), mit Regie-Passwort anders
+    expect(passwordFingerprint({ edit: 'a', read: 'b', direction: undefined }, 'salt')).toBe(fp);
+    expect(passwordFingerprint({ edit: 'a', read: 'b', direction: 'r' }, 'salt')).not.toBe(fp);
   });
 });
 
@@ -115,6 +122,16 @@ describe('Anmelde-Routen', () => {
     const cookie = await login(server, 'read');
     const res = await server.app.inject({ method: 'GET', url: '/api/auth/session', headers: { cookie } });
     expect(res.json()).toMatchObject({ name: 'Anna', access: 'read' });
+  });
+
+  it('meldet mit Regie-Passwort als Regie-Zugang an', async () => {
+    server = await startTestServer();
+    const cookie = await login(server, 'direction');
+    const res = await server.app.inject({ method: 'GET', url: '/api/auth/session', headers: { cookie } });
+    expect(res.json()).toMatchObject({ name: 'Regina', access: 'direction' });
+    // darf keine Projekte anlegen und keine Schlüssel verwalten
+    expect((await server.app.inject({ method: 'POST', url: '/api/projects', headers: { cookie }, payload: { name: 'X' } })).statusCode).toBe(403);
+    expect((await server.app.inject({ method: 'GET', url: '/api/settings/desktop-keys', headers: { cookie } })).statusCode).toBe(403);
   });
 
   it('lehnt falsche Passwörter und fehlende Namen ab', async () => {

@@ -13,6 +13,7 @@ import {
   readPeople,
   readSettings,
   readShapes,
+  readShow,
   readSubnets,
   readWifi,
   type Background,
@@ -26,6 +27,8 @@ import {
   type Project,
   type ProjectSettings,
   type Shape,
+  type ShowData,
+  type ShowSettings,
 } from '@steckplan/core';
 
 export interface ProjectData {
@@ -41,6 +44,9 @@ export interface ProjectData {
   caseTrailers: CaseTrailer[];
   patch: PatchEntry[];
   flowPages: FlowPage[];
+  /** Regie: Ablauf und Texte */
+  show: ShowData;
+  showSettings: ShowSettings;
 }
 
 const EMPTY: ProjectData = {
@@ -56,6 +62,8 @@ const EMPTY: ProjectData = {
   caseTrailers: [],
   patch: [],
   flowPages: [],
+  show: { items: [], sections: [] },
+  showSettings: {},
 };
 
 function read(doc: Y.Doc): ProjectData {
@@ -72,6 +80,8 @@ function read(doc: Y.Doc): ProjectData {
     caseTrailers: readCaseTrailers(doc),
     patch: readPatch(doc),
     flowPages: readFlowPages(doc),
+    show: readShow(doc),
+    showSettings: doc.getMap('showSettings').toJSON() as ShowSettings,
   };
 }
 

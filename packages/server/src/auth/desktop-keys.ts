@@ -4,7 +4,7 @@ import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { writeFileAtomic } from '../storage/fs-utils';
 
-export type KeyAccess = 'edit' | 'read';
+export type KeyAccess = 'edit' | 'read' | 'direction';
 
 export interface DesktopKey {
   id: string;

@@ -61,7 +61,7 @@ export interface VersionInfo {
 export interface DesktopKeyInfo {
   id: string;
   label: string;
-  access: 'edit' | 'read';
+  access: 'edit' | 'read' | 'direction';
   createdAt: string;
   createdBy?: string;
   lastUsedAt?: string;
@@ -84,7 +84,7 @@ export const api = {
   },
   health: () => request<HealthInfo>('GET', '/api/health'),
   listDesktopKeys: () => request<{ keys: DesktopKeyInfo[] }>('GET', '/api/settings/desktop-keys'),
-  createDesktopKey: (label: string, access: 'edit' | 'read') => request<{ key: string; info: DesktopKeyInfo }>('POST', '/api/settings/desktop-keys', { label, access }),
+  createDesktopKey: (label: string, access: 'edit' | 'read' | 'direction') => request<{ key: string; info: DesktopKeyInfo }>('POST', '/api/settings/desktop-keys', { label, access }),
   revokeDesktopKey: (id: string) => request<DesktopKeyInfo>('DELETE', `/api/settings/desktop-keys/${encodeURIComponent(id)}`),
   removeDesktopKey: (id: string) => request<{ ok: true }>('DELETE', `/api/settings/desktop-keys/${encodeURIComponent(id)}/entry`),
   login: (name: string, password: string) => request<SessionInfo>('POST', '/api/auth/login', { name, password }),

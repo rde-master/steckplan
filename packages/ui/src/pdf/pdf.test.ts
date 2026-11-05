@@ -111,6 +111,8 @@ function setup(): { data: ProjectData; library: Library } {
     caseTrailers: [],
     patch: [{ id: 'pult:i1', name: 'Lead Vox' }],
     flowPages: [],
+    show: { items: [], sections: [] },
+    showSettings: {},
   };
   return { data, library };
 }
