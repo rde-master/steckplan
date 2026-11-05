@@ -37,7 +37,7 @@ describe('Migrationen', () => {
       templateSnapshot: [{ id: 't1', kind: 'device', version: 3, updatedAt: '2026-01-01T00:00:00Z', name: 'Spot' }],
     };
     const project = parseProject(v1);
-    expect(project.schemaVersion).toBe(8);
+    expect(project.schemaVersion).toBe(9);
     expect(project.meta.name).toBe('Alt');
     expect(project.templateSnapshot[0]).toMatchObject({ id: 't1', version: 3, name: 'Spot' });
   });
@@ -48,7 +48,7 @@ describe('Migrationen', () => {
       id: 'p',
       templateSnapshot: [{ id: 'mc', kind: 'cableType', version: 1, updatedAt: 'x', name: 'Multicore 8/8' }],
     });
-    expect(project.schemaVersion).toBe(8);
+    expect(project.schemaVersion).toBe(9);
     const withChannels = parseProject({
       ...project,
       templateSnapshot: [
@@ -72,7 +72,7 @@ describe('Migrationen', () => {
       masterDataSnapshot: { categories: [], owners: [{ id: 'o', name: 'Ralf' }], trailers: [] },
     };
     const project = parseProject(v3);
-    expect(project.schemaVersion).toBe(8);
+    expect(project.schemaVersion).toBe(9);
     expect(project.people).toEqual([]);
     expect(project.groups).toEqual([]);
     expect(project.caseTrailers).toEqual([]);
@@ -96,7 +96,7 @@ describe('Migrationen', () => {
   it('Format 5: Netzwerk-Kanäle und Zuordnung zum Pult-Kanal', () => {
     const v4 = { schemaVersion: 4, id: 'p', devices: [{ id: 'd', templateId: 't', layerId: 'l', label: 'Mikro 1' }] };
     const project = parseProject(v4);
-    expect(project.schemaVersion).toBe(8);
+    expect(project.schemaVersion).toBe(9);
     const v6 = parseProject({ ...project, devices: [{ ...project.devices[0], mixerChannels: [{ portId: 'out', mixerId: 'pult', channel: 12 }] }, { id: 'pult', templateId: 'x', layerId: 'l', label: 'FOH', networkChannels: 48 }] });
     expect(v6.devices[0]!.mixerChannels).toEqual([{ portId: 'out', mixerId: 'pult', channel: 12 }]);
     expect(() => parseProject({ ...v6, devices: [{ ...v6.devices[0], mixerChannels: [{ mixerId: 'pult', channel: 0 }] }] })).toThrow();
@@ -112,7 +112,7 @@ describe('Migrationen', () => {
       ],
     };
     const project = parseProject(v5);
-    expect(project.schemaVersion).toBe(8);
+    expect(project.schemaVersion).toBe(9);
     expect(project.devices[0]!.mixerChannels).toEqual([{ mixerId: 'pult', channel: 12 }]);
     expect(project.devices[0]).not.toHaveProperty('mixerChannel');
     expect(project.devices[1]).not.toHaveProperty('mixerChannels');
@@ -121,7 +121,7 @@ describe('Migrationen', () => {
   it('Format 7: Kastengröße im Signalfluss und Kabellinien', () => {
     const v6 = { schemaVersion: 6, id: 'p', devices: [{ id: 'd', templateId: 't', layerId: 'l', label: 'Pult', signalFlow: { position: { x: 1, y: 2 } } }] };
     const project = parseProject(v6);
-    expect(project.schemaVersion).toBe(8);
+    expect(project.schemaVersion).toBe(9);
     expect(project.settings.cableStyle).toBeUndefined();
     const sized = parseProject({ ...project, settings: { ...project.settings, cableStyle: 'curved' }, devices: [{ ...project.devices[0], signalFlow: { position: { x: 1, y: 2 }, width: 300, height: 200 } }] });
     expect(sized.devices[0]!.signalFlow).toEqual({ position: { x: 1, y: 2 }, width: 300, height: 200 });
@@ -132,10 +132,27 @@ describe('Migrationen', () => {
   it('Format 8: defekte Anschlüsse je Gerät', () => {
     const v7 = { schemaVersion: 7, id: 'p', devices: [{ id: 'd', templateId: 't', layerId: 'l', label: 'Stagebox' }] };
     const project = parseProject(v7);
-    expect(project.schemaVersion).toBe(8);
+    expect(project.schemaVersion).toBe(9);
     const marked = parseProject({ ...project, devices: [{ ...project.devices[0], defectivePorts: [{ portId: 'i3', note: 'Wackelkontakt' }, { portId: 'i5' }] }] });
     expect(marked.devices[0]!.defectivePorts).toEqual([{ portId: 'i3', note: 'Wackelkontakt' }, { portId: 'i5' }]);
     expect(() => parseProject({ ...marked, devices: [{ ...marked.devices[0], defectivePorts: [{ portId: '' }] }] })).toThrow();
+  });
+
+  it('Format 9: Regie (Ablauf, Texte) – leer nach der Migration', () => {
+    const project = parseProject({ schemaVersion: 8, id: 'p' });
+    expect(project.schemaVersion).toBe(9);
+    expect(project.show).toEqual({ items: [], sections: [] });
+    expect(project.showSettings).toEqual({});
+    const withShow = parseProject({
+      ...project,
+      show: {
+        items: [{ id: 'i', order: 0, kind: 'song', title: 'Opener', durationSec: 220 }],
+        sections: [{ id: 's', itemId: 'i', order: 0, kind: 'chorus', lines: [{ id: 'l', text: 'La la' }] }],
+      },
+    });
+    expect(withShow.show.items[0]).toMatchObject({ title: 'Opener', personIds: [] });
+    expect(withShow.show.sections[0]).toMatchObject({ label: '', lines: [{ id: 'l', text: 'La la' }] });
+    expect(() => parseProject({ ...project, show: { items: [{ id: 'i', order: 0, kind: 'oper' }], sections: [] } })).toThrow();
   });
 
   it('lädt eine gespeicherte Datei wieder', () => {

@@ -32,6 +32,8 @@ export const migrations: MigrationRegistry = {
   6: (p) => ({ ...p, schemaVersion: 7 }),
   // 7 → 8: defekte Anschlüsse je Gerät im Projekt – optional; vorhandene Daten bleiben unverändert.
   7: (p) => ({ ...p, schemaVersion: 8 }),
+  // 8 → 9: Regie (Ablauf, Texte) – neue, leere Bereiche.
+  8: (p) => ({ ...p, schemaVersion: 9, show: { items: [], sections: [] }, showSettings: {} }),
 };
 
 export class ProjectFormatError extends Error {

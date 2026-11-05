@@ -1,0 +1,418 @@
+// Regie (M11a): Ablauf aus Liedern, Schauspiel, Pausen und Ansagen mit strukturierten Texten.
+// Texte werden je Abschnitt als ein Textfeld bearbeitet; jede Zeile behält ihre Kennung
+// (wichtig für Zeitpunkte und Lichtszenen), auch wenn Zeilen eingefügt, gelöscht oder korrigiert werden.
+import * as Y from 'yjs';
+import { newId } from '../model/project';
+import type { SectionKind, ShowItem, ShowItemKind, ShowRole, ShowSettings, TextLine, TextSection } from '../model/schema';
+
+// ---------- Lesen ----------
+
+export interface ShowData {
+  items: ShowItem[];
+  sections: TextSection[];
+}
+
+const byOrder = <T extends { order: number; id: string }>(a: T, b: T) => a.order - b.order || a.id.localeCompare(b.id);
+
+export function readShow(doc: Y.Doc): ShowData {
+  // fehlende Felder (ältere/teilweise Einträge) mit Vorgaben ergänzen
+  const items = Object.values(doc.getMap('showItems').toJSON() as Record<string, Partial<ShowItem> & Pick<ShowItem, 'id' | 'kind' | 'order'>>).map((i): ShowItem => ({ ...i, personIds: i.personIds ?? [], title: i.title ?? '' }));
+  const sections = Object.values(doc.getMap('showSections').toJSON() as Record<string, Partial<TextSection> & Pick<TextSection, 'id' | 'itemId' | 'kind' | 'order'>>).map((s): TextSection => ({ ...s, label: s.label ?? '', lines: s.lines ?? [] }));
+  return { items: items.sort(byOrder), sections: sections.sort(byOrder) };
+}
+
+export function itemSections(sections: TextSection[], itemId: string): TextSection[] {
+  return sections.filter((s) => s.itemId === itemId).sort(byOrder);
+}
+
+// ---------- Zeiten ----------
+
+/** „3:40“ bzw. „1:02:03“ */
+export function formatDuration(totalSec: number): string {
+  const sec = Math.max(0, Math.round(totalSec));
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = sec % 60;
+  return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}` : `${m}:${String(s).padStart(2, '0')}`;
+}
+
+/** „3:40“, „1:02:03“, „15“ (Minuten) oder „4 min“ → Sekunden; leer/ungültig → undefined */
+export function parseDuration(text: string): number | undefined {
+  const t = text.trim().replace(/\s*(min|m)$/i, '');
+  if (!t) return undefined;
+  // eine reine Zahl sind Minuten (Pause „15“)
+  if (/^\d+$/.test(t)) return Number(t) * 60;
+  const parts = t.split(':');
+  if (parts.length > 3 || parts.some((p) => !/^\d+$/.test(p))) return undefined;
+  return parts.map(Number).reduce((sum, n) => sum * 60 + n, 0);
+}
+
+/** „19:30“ → Minuten seit Mitternacht */
+function parseClock(text: string | undefined): number | undefined {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(text?.trim() ?? '');
+  if (!m) return undefined;
+  const h = Number(m[1]);
+  const min = Number(m[2]);
+  return h < 24 && min < 60 ? h * 60 + min : undefined;
+}
+
+export interface ScheduleEntry {
+  /** Sekunden ab Beginn */
+  offsetSec: number;
+  /** Uhrzeit „19:34“, wenn eine Anfangszeit gesetzt ist */
+  clock?: string;
+}
+
+/** Laufende Startzeiten im Ablauf und Gesamtdauer (Einträge ohne Dauer zählen 0). */
+export function showSchedule(items: ShowItem[], settings: ShowSettings): { entries: Map<string, ScheduleEntry>; totalSec: number; missingDurations: number } {
+  const start = parseClock(settings.startTime);
+  const entries = new Map<string, ScheduleEntry>();
+  let offset = 0;
+  let missing = 0;
+  for (const item of [...items].sort(byOrder)) {
+    const clock = start === undefined ? undefined : (() => {
+      const minutes = Math.floor(start + offset / 60) % (24 * 60);
+      return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
+    })();
+    entries.set(item.id, { offsetSec: offset, ...(clock ? { clock } : {}) });
+    if (item.durationSec === undefined) missing++;
+    offset += item.durationSec ?? 0;
+  }
+  return { entries, totalSec: offset, missingDurations: missing };
+}
+
+// ---------- Texte: Zeilen ↔ Textfeld ----------
+
+/** Regieanweisung: ganze Zeile in Klammern */
+const DIRECTION_LINE = /^\((.*)\)$/;
+/** Sprecher: „Name: Text“ (Name ohne Ziffer am Anfang, höchstens 40 Zeichen, Leerzeichen nach dem Doppelpunkt) */
+const SPEAKER_LINE = /^([^\d:()\s][^:()]{0,39}):\s+(.*)$/;
+
+/** Textfeld eines Abschnitts: Schauspiel mit „Rolle: “ bei Sprecherwechsel und Regieanweisungen in Klammern. */
+export function sectionToText(lines: TextLine[], roles: ShowRole[], play: boolean): string {
+  if (!play) return lines.map((l) => l.text).join('\n');
+  const names = new Map(roles.map((r) => [r.id, r.name]));
+  let speaker: string | undefined;
+  return lines
+    .map((line) => {
+      if (line.direction) {
+        speaker = undefined;
+        return `(${line.text})`;
+      }
+      if (line.roleId && line.roleId !== speaker) {
+        speaker = line.roleId;
+        return `${names.get(line.roleId) ?? '?'}: ${line.text}`;
+      }
+      return line.text;
+    })
+    .join('\n');
+}
+
+interface ParsedLine {
+  text: string;
+  roleId?: string;
+  direction?: boolean;
+  /** Zeile so, wie sie im Textfeld steht (für den Abgleich mit den bisherigen Zeilen) */
+  raw: string;
+}
+
+/**
+ * Textfeld → Zeilen. Bisherige Zeilen behalten ihre Kennung (und Zeitpunkte):
+ * unveränderte Zeilen über die längste gemeinsame Folge, geänderte Zeilen dazwischen der Reihe nach.
+ * Schauspiel: unbekannte Sprecher werden als Rolle angelegt.
+ */
+export function parseSectionText(text: string, previous: TextLine[], roles: ShowRole[], play: boolean): { lines: TextLine[]; roles: ShowRole[] } {
+  const allRoles = [...roles];
+  const roleByName = (name: string): string => {
+    const key = name.trim().toLocaleLowerCase('de');
+    let role = allRoles.find((r) => r.name.trim().toLocaleLowerCase('de') === key);
+    if (!role) {
+      role = { id: newId(), name: name.trim() };
+      allRoles.push(role);
+    }
+    return role.id;
+  };
+  const rawLines = text.replace(/\r\n?/g, '\n').split('\n');
+  while (rawLines.length && !rawLines[rawLines.length - 1]!.trim()) rawLines.pop();
+  let speaker: string | undefined;
+  const parsed: ParsedLine[] = rawLines.map((raw) => {
+    const line = raw.trimEnd();
+    if (!play) return { text: line, raw: line };
+    const dir = DIRECTION_LINE.exec(line.trim());
+    if (dir) {
+      speaker = undefined;
+      return { text: dir[1]!.trim(), direction: true, raw: line };
+    }
+    const sp = SPEAKER_LINE.exec(line.trim());
+    if (sp) {
+      speaker = roleByName(sp[1]!);
+      return { text: sp[2]!, roleId: speaker, raw: line };
+    }
+    return { text: line, ...(speaker ? { roleId: speaker } : {}), raw: line };
+  });
+
+  // bisherige Zeilen in derselben Darstellung
+  const oldRaw = sectionToText(previous, allRoles, play).split('\n');
+  const keep = matchLines(oldRaw, parsed.map((p) => p.raw.trimEnd()));
+  const lines = parsed.map((p, i): TextLine => {
+    const old = keep[i] !== undefined ? previous[keep[i]!] : undefined;
+    return {
+      id: old?.id ?? newId(),
+      text: p.text,
+      ...(p.roleId ? { roleId: p.roleId } : {}),
+      ...(p.direction ? { direction: true } : {}),
+      ...(old?.atSec !== undefined ? { atSec: old.atSec } : {}),
+    };
+  });
+  // nur Rollen behalten, die schon da waren oder jetzt gebraucht werden
+  const used = new Set(lines.map((l) => l.roleId).filter(Boolean));
+  return { lines, roles: allRoles.filter((r) => roles.includes(r) || used.has(r.id)) };
+}
+
+/** Index der alten Zeile je neuer Zeile (oder undefined = neu). */
+function matchLines(oldLines: string[], newLines: string[]): (number | undefined)[] {
+  const n = oldLines.length;
+  const m = newLines.length;
+  // längste gemeinsame Folge
+  const lcs: number[][] = Array.from({ length: n + 1 }, () => new Array<number>(m + 1).fill(0));
+  for (let i = n - 1; i >= 0; i--) for (let j = m - 1; j >= 0; j--) lcs[i]![j] = oldLines[i] === newLines[j] ? lcs[i + 1]![j + 1]! + 1 : Math.max(lcs[i + 1]![j]!, lcs[i]![j + 1]!);
+  const anchors: [number, number][] = [];
+  for (let i = 0, j = 0; i < n && j < m; ) {
+    if (oldLines[i] === newLines[j]) {
+      anchors.push([i, j]);
+      i++;
+      j++;
+    } else if (lcs[i + 1]![j]! >= lcs[i]![j + 1]!) i++;
+    else j++;
+  }
+  const result: (number | undefined)[] = new Array(m).fill(undefined);
+  let prevOld = -1;
+  let prevNew = -1;
+  for (const [oi, nj] of [...anchors, [n, m] as [number, number]]) {
+    // geänderte Zeilen zwischen zwei gleichen: der Reihe nach zuordnen (Tippfehler behalten ihre Kennung)
+    const gapOld = oi - prevOld - 1;
+    const gapNew = nj - prevNew - 1;
+    for (let k = 0; k < Math.min(gapOld, gapNew); k++) result[prevNew + 1 + k] = prevOld + 1 + k;
+    if (nj < m) result[nj] = oi;
+    prevOld = oi;
+    prevNew = nj;
+  }
+  return result;
+}
+
+// ---------- Text einfügen (ganzer Text → Abschnitte) ----------
+
+const HEADER_KINDS: [RegExp, SectionKind, string][] = [
+  [/^(refrain|chorus|ref\.?)/i, 'chorus', 'Refrain'],
+  [/^(strophe|vers|verse)/i, 'verse', 'Strophe'],
+  [/^(bridge)/i, 'bridge', 'Bridge'],
+  [/^(intro)/i, 'intro', 'Intro'],
+  [/^(outro|schluss)/i, 'outro', 'Outro'],
+  [/^(solo)/i, 'solo', 'Solo'],
+  [/^(szene|auftritt|akt)/i, 'scene', 'Szene'],
+];
+
+export interface PastedSection {
+  kind: SectionKind;
+  label: string;
+  text: string;
+}
+
+/** Ganzen Text zerlegen: Leerzeilen trennen Abschnitte; Überschriften wie „[Refrain]“ oder „Strophe 2:“ werden erkannt. */
+export function splitPastedText(text: string, itemKind: ShowItemKind): PastedSection[] {
+  const blocks = text
+    .replace(/\r\n?/g, '\n')
+    .split(/\n\s*\n/)
+    .map((b) => b.split('\n').map((l) => l.trimEnd()).filter((l) => l.trim()))
+    .filter((b) => b.length);
+  const counts = new Map<SectionKind, number>();
+  return blocks.map((lines) => {
+    const first = lines[0]!.trim().replace(/^\[(.*)\]$/, '$1').replace(/:$/, '').trim();
+    const header = first.length <= 30 ? HEADER_KINDS.find(([re]) => re.test(first)) : undefined;
+    const isHeaderLine = !!header && (lines[0]!.trim().startsWith('[') || lines[0]!.trim().endsWith(':') || first.split(/\s+/).length <= 3);
+    const kind: SectionKind = header && isHeaderLine ? header[1] : itemKind === 'play' ? 'scene' : 'verse';
+    const n = (counts.get(kind) ?? 0) + 1;
+    counts.set(kind, n);
+    const label = header && isHeaderLine ? first : defaultSectionLabel(kind, n);
+    return { kind, label, text: (header && isHeaderLine ? lines.slice(1) : lines).join('\n') };
+  });
+}
+
+export const SECTION_KIND_LABELS: Record<SectionKind, string> = {
+  intro: 'Intro',
+  verse: 'Strophe',
+  chorus: 'Refrain',
+  bridge: 'Bridge',
+  solo: 'Solo',
+  outro: 'Outro',
+  scene: 'Szene',
+  other: 'Abschnitt',
+};
+
+export function defaultSectionLabel(kind: SectionKind, n: number): string {
+  return kind === 'verse' || kind === 'scene' || kind === 'other' ? `${SECTION_KIND_LABELS[kind]} ${n}` : SECTION_KIND_LABELS[kind];
+}
+
+/** Bezeichnung für einen neuen Abschnitt dieser Art (z. B. „Strophe 3“, wenn es zwei gibt). */
+export function nextSectionLabel(kind: SectionKind, existing: TextSection[]): string {
+  return defaultSectionLabel(kind, existing.filter((s) => s.kind === kind).length + 1);
+}
+
+// ---------- Änderungen am Live-Dokument ----------
+
+function setFields(map: Y.Map<unknown>, patch: Record<string, unknown>): void {
+  for (const [key, value] of Object.entries(patch)) {
+    if (value === undefined) map.delete(key);
+    else map.set(key, value);
+  }
+}
+
+function itemsMap(doc: Y.Doc): Y.Map<Y.Map<unknown>> {
+  return doc.getMap<Y.Map<unknown>>('showItems');
+}
+function sectionsMap(doc: Y.Doc): Y.Map<Y.Map<unknown>> {
+  return doc.getMap<Y.Map<unknown>>('showSections');
+}
+
+/** Neuer Eintrag am Ende bzw. nach afterId; gibt die Kennung zurück. */
+export function addShowItem(doc: Y.Doc, kind: ShowItemKind, origin: unknown, init: Partial<Omit<ShowItem, 'id' | 'kind' | 'order'>> = {}, afterId?: string): string {
+  const id = newId();
+  doc.transact(() => {
+    const items = readShow(doc).items;
+    const map = new Y.Map<unknown>();
+    itemsMap(doc).set(id, map);
+    setFields(map, { personIds: [], title: '', ...init, id, kind, order: items.length });
+    if (afterId) moveShowItem(doc, id, items.findIndex((i) => i.id === afterId) + 1, origin);
+  }, origin);
+  return id;
+}
+
+export function updateShowItem(doc: Y.Doc, id: string, patch: Partial<Omit<ShowItem, 'id'>>, origin: unknown): void {
+  const map = itemsMap(doc).get(id);
+  if (!map) return;
+  doc.transact(() => setFields(map, patch), origin);
+}
+
+/** Eintrag mit seinen Texten löschen. */
+export function removeShowItem(doc: Y.Doc, id: string, origin: unknown): void {
+  doc.transact(() => {
+    itemsMap(doc).delete(id);
+    for (const s of readShow(doc).sections) if (s.itemId === id) sectionsMap(doc).delete(s.id);
+    renumber(doc, readShow(doc).items.map((i) => i.id));
+  }, origin);
+}
+
+function renumber(doc: Y.Doc, ids: string[], map = itemsMap(doc)): void {
+  ids.forEach((id, index) => {
+    const m = map.get(id);
+    if (m && m.get('order') !== index) m.set('order', index);
+  });
+}
+
+/** Eintrag an Position toIndex (0 = oben) verschieben. */
+export function moveShowItem(doc: Y.Doc, id: string, toIndex: number, origin: unknown): void {
+  doc.transact(() => {
+    const ids = readShow(doc).items.map((i) => i.id).filter((x) => x !== id);
+    ids.splice(Math.max(0, Math.min(toIndex, ids.length)), 0, id);
+    renumber(doc, ids);
+  }, origin);
+}
+
+/** Eintrag mit Texten kopieren (direkt dahinter). */
+export function duplicateShowItem(doc: Y.Doc, id: string, origin: unknown): string | undefined {
+  const { items, sections } = readShow(doc);
+  const item = items.find((i) => i.id === id);
+  if (!item) return undefined;
+  let copyId = '';
+  doc.transact(() => {
+    const { id: _id, kind, order: _order, ...rest } = item;
+    copyId = addShowItem(doc, kind, origin, { ...rest, title: `${item.title} (Kopie)` }, id);
+    for (const s of itemSections(sections, id)) addSection(doc, copyId, s.kind, s.label, origin, s.lines.map((l) => ({ ...l, id: newId() })));
+  }, origin);
+  return copyId;
+}
+
+export function updateShowSettings(doc: Y.Doc, patch: Partial<ShowSettings>, origin: unknown): void {
+  doc.transact(() => setFields(doc.getMap('showSettings'), patch), origin);
+}
+
+/** Neuer Abschnitt am Ende des Eintrags bzw. nach afterId. */
+export function addSection(doc: Y.Doc, itemId: string, kind: SectionKind, label: string, origin: unknown, lines: TextLine[] = [], afterId?: string): string {
+  const id = newId();
+  doc.transact(() => {
+    const existing = itemSections(readShow(doc).sections, itemId);
+    const map = new Y.Map<unknown>();
+    sectionsMap(doc).set(id, map);
+    setFields(map, { id, itemId, kind, label, lines, order: existing.length });
+    if (afterId) {
+      const ids = existing.map((s) => s.id);
+      ids.splice(ids.indexOf(afterId) + 1, 0, id);
+      renumber(doc, ids, sectionsMap(doc));
+    }
+  }, origin);
+  return id;
+}
+
+export function updateSection(doc: Y.Doc, id: string, patch: Partial<Omit<TextSection, 'id' | 'itemId'>>, origin: unknown): void {
+  const map = sectionsMap(doc).get(id);
+  if (!map) return;
+  doc.transact(() => setFields(map, patch), origin);
+}
+
+export function removeSection(doc: Y.Doc, id: string, origin: unknown): void {
+  const section = readShow(doc).sections.find((s) => s.id === id);
+  if (!section) return;
+  doc.transact(() => {
+    sectionsMap(doc).delete(id);
+    renumber(doc, itemSections(readShow(doc).sections, section.itemId).map((s) => s.id), sectionsMap(doc));
+  }, origin);
+}
+
+/** Abschnitt um eine Stelle nach oben (-1) oder unten (+1) schieben. */
+export function moveSection(doc: Y.Doc, id: string, delta: -1 | 1, origin: unknown): void {
+  const section = readShow(doc).sections.find((s) => s.id === id);
+  if (!section) return;
+  const ids = itemSections(readShow(doc).sections, section.itemId).map((s) => s.id);
+  const from = ids.indexOf(id);
+  const to = from + delta;
+  if (to < 0 || to >= ids.length) return;
+  ids.splice(from, 1);
+  ids.splice(to, 0, id);
+  doc.transact(() => renumber(doc, ids, sectionsMap(doc)), origin);
+}
+
+/** Abschnitt kopieren (z. B. Refrain wiederholen), direkt dahinter. */
+export function duplicateSection(doc: Y.Doc, id: string, origin: unknown): string | undefined {
+  const section = readShow(doc).sections.find((s) => s.id === id);
+  if (!section) return undefined;
+  return addSection(doc, section.itemId, section.kind, section.label, origin, section.lines.map((l) => ({ ...l, id: newId() })), id);
+}
+
+/** Text eines Abschnitts setzen (Zeilen mit stabilen Kennungen; beim Schauspiel neue Rollen am Eintrag). */
+export function setSectionText(doc: Y.Doc, sectionId: string, text: string, origin: unknown): void {
+  const { items, sections } = readShow(doc);
+  const section = sections.find((s) => s.id === sectionId);
+  const item = items.find((i) => i.id === section?.itemId);
+  if (!section || !item) return;
+  const play = item.kind === 'play';
+  const result = parseSectionText(text, section.lines, item.roles ?? [], play);
+  doc.transact(() => {
+    sectionsMap(doc).get(sectionId)?.set('lines', result.lines);
+    if (play && result.roles.length !== (item.roles ?? []).length) itemsMap(doc).get(item.id)?.set('roles', result.roles);
+  }, origin);
+}
+
+/** Ganzen Text einfügen: hängt die erkannten Abschnitte an den Eintrag an. */
+export function appendPastedText(doc: Y.Doc, itemId: string, text: string, origin: unknown): string[] {
+  const item = readShow(doc).items.find((i) => i.id === itemId);
+  if (!item) return [];
+  const ids: string[] = [];
+  doc.transact(() => {
+    for (const part of splitPastedText(text, item.kind)) {
+      const id = addSection(doc, itemId, part.kind, part.label, origin);
+      setSectionText(doc, id, part.text, origin);
+      ids.push(id);
+    }
+  }, origin);
+  return ids;
+}
