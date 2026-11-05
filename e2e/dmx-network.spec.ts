@@ -73,6 +73,22 @@ test('DMX: Auto-Adressierung entlang der Kette, Überlappung, Patchliste; Netzwe
   await expect(page.getByTestId('dmx-patch').locator('tbody tr')).toHaveCount(3);
   await expect(page.getByTestId('dmx-patch').locator('tr.bg-red-50')).toHaveCount(2);
 
+  // Grafische Ansicht: Universum mit Belegung, Überlappung, Details per Klick
+  await page.getByRole('radio', { name: 'Universum' }).click();
+  const universe = page.getByTestId('dmx-universe');
+  await expect(universe).toHaveCount(1);
+  await expect(universe.getByTestId('dmx-used')).toHaveText('35 von 512 belegt (7 %)');
+  await expect(universe.getByTestId('dmx-overlaps')).toHaveText('doppelt belegt: 20–32');
+  await expect(universe.getByTestId('dmx-overlap')).toHaveCount(1);
+  // Spot C (20–35) reicht in die zweite Rasterzeile
+  await expect(universe.locator('[data-device="Spot C"]')).toHaveCount(2);
+  await universe.locator('[data-device="Spot C"]').first().click();
+  await expect(universe.getByTestId('dmx-detail')).toContainText('1.020–35');
+  await expect(universe.getByTestId('dmx-detail')).toContainText('überlappt mit Spot B');
+  await expect(universe).toContainText('größte freie Bereiche: 36–512 (477)');
+  await page.getByRole('radio', { name: 'Liste' }).click();
+  await expect(page.getByTestId('dmx-patch')).toBeVisible();
+
   // Netzwerk: Subnetz anlegen, nächste freie IP übernehmen
   await page.getByRole('tab', { name: 'Netzwerk' }).first().click();
   await page.getByRole('button', { name: 'Subnetz', exact: true }).click();

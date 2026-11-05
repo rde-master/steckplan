@@ -7,6 +7,27 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.20.0] - 2026-11-05
+
+### Hinzugefügt
+
+- Listen → DMX-Patch: Umschalter „Liste | Universum“. Die grafische Ansicht zeigt je Universum die 512 Kanäle als Raster (32 je Zeile, auf dem Handy 16), die Geräte als farbige, beschriftete Balken, doppelt belegte Kanäle rot gerahmt (überlappende Geräte übereinander), Auslastung, größte freie Bereiche und Geräte ohne Adresse; Klick auf ein Gerät zeigt Modus, Bereich, Stativ/Traverse und Konflikte. Die Wahl bleibt im Browser gespeichert, der Filter gilt auch hier
+- Handy-Ansicht (bis 900 px Breite): Zeichenfläche in Signalfluss und Bühnenplan nimmt fast den ganzen Bildschirm ein. Oben eine Kopfzeile mit Burgermenü (Ansichten, Bibliothek, Exportieren, Versionen, Herunterladen, Werkzeuge, Seiten, Anzeige und Filter, Verbundene, Abmelden), unten eine Fußzeile mit Rückgängig, Wiederholen, Hinzufügen, Einpassen, Prüfungen und Eigenschaften
+- Handy: Antippen eines Objekts öffnet die Eigenschaften als unteres Blatt (halbe Höhe); es bleibt offen, bis man es über ✕ schließt. Bibliothek und Prüfungen erscheinen ebenfalls als unteres Blatt
+- Plan: Regie (Ablauf, Texte, Audio, Lichtszenen) als M11, Release 1.0 als M12
+
+### Geändert
+
+- Ton-Patch: Kanalname-Vorschlag bei Geräten mit Person ist jetzt „Vorname Name (Art)“, z. B. „Anna Muster (Sängerin)“; die Art steht auch neben der Person in der Spalte Quelle/Ziel und im PDF
+- Ton-Patch: Gruppen sind farbig zu erkennen – aufeinanderfolgende Kanäle derselben Gruppe bekommen einen Rahmen in der Gruppenfarbe mit dem Gruppennamen als Etikett, die Zeilen sind leicht in der Gruppenfarbe eingefärbt; im PDF steht die Gruppe als farbiges Etikett in der Spalte Quelle/Ziel, die Zeile ist ebenfalls leicht eingefärbt
+- Geräte-Etiketten grafisch: farbiger Kopf mit Gerät und Vorlage, Person mit Symbol, je Verbindung ein farbiges Symbol der Signalart (Audio, DMX, Netzwerk, Strom, Video), Anschluss, Richtungspfeil, Gegenstelle und Kabel. Sicherheitsabstand 3 mm zum Etikettenrand und 5 mm zum Blattrand; zu lange Texte werden mit „…“ gekürzt, zu viele Verbindungen als „… und n weitere“
+
+### Behoben
+
+- PDF Bühnenplan/Signalfluss: Die Legende im Planköpfchen lief bei vielen Kategorien über den Rand; jetzt bricht sie über die ganze Breite um (höchstens 3 Zeilen, der Rest als „+ n weitere“), die Zeichenfläche wird entsprechend kleiner. Im Hochformat ragt das Köpfchen nicht mehr über den rechten Rand
+- PDF-Fußzeile: höchstens zwei Zeilen, längere Angaben werden gekürzt
+- Server-Tests warten auf das Speichern statt fester Pausen (schlugen auf langsamen CI-Rechnern gelegentlich fehl)
+
 ## [0.19.0] - 2026-11-03
 
 ### Hinzugefügt
@@ -395,7 +416,8 @@ Meilenstein M0 – Projektgerüst.
 - Docker-Image mit Datenvolume `/data` und Beispiel-`docker-compose.yml`
 - GitHub Actions: Tests und Smoke-Test bei jedem Push, Installer als Artefakte, Docker-Image `:develop`, Release-Workflow für Tags `vX.Y.Z`
 
-[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.19.0...develop
+[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.20.0...develop
+[0.20.0]: https://github.com/rde-master/steckplan/compare/v0.19.0...v0.20.0
 [0.19.0]: https://github.com/rde-master/steckplan/compare/v0.18.0...v0.19.0
 [0.18.0]: https://github.com/rde-master/steckplan/compare/v0.17.0...v0.18.0
 [0.17.0]: https://github.com/rde-master/steckplan/compare/v0.16.0...v0.17.0

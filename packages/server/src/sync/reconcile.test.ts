@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { createEmptyProject, type Project, type SyncClient, type Template } from '@steckplan/core';
 import { isManagedStore } from '../storage/types';
-import { connect, login, sleep, startTestServer, waitFor, type TestServer } from '../test-utils';
+import { connect, login, startTestServer, waitFor, type TestServer } from '../test-utils';
 
 let server: TestServer | undefined;
 const clients: SyncClient[] = [];
@@ -24,6 +24,15 @@ function projectUsing(template: Template, libraryId: string): Project {
   };
 }
 
+/** gespeicherter Stand, oder null, falls die Datei gerade geschrieben wird */
+async function loadOrNull(s: TestServer, id: string): Promise<Project | null> {
+  try {
+    return await s.store.load(id);
+  } catch {
+    return null;
+  }
+}
+
 async function setupWith(project: Project) {
   server = await startTestServer({ saveDelayMs: 20 });
   if (!isManagedStore(server.store)) throw new Error();
@@ -41,7 +50,8 @@ describe('Vorlagen-Abgleich beim Öffnen', () => {
     expect(server.library.get().templates.map((t) => t.id)).toEqual(['spot']);
 
     client.doc.getMap('meta').set('venue', 'x');
-    await sleep(150);
+    // auf das Speichern warten (feste Pausen sind auf langsamen CI-Rechnern zu kurz)
+    await waitFor(async () => (await loadOrNull(server, id))?.libraryId === server.library.libraryId);
     const saved = await server.store.load(id);
     expect(saved.libraryId).toBe(server.library.libraryId);
     expect(saved.templateSnapshot.map((t) => t.id)).toEqual(['spot']);
@@ -78,7 +88,7 @@ describe('Vorlagen-Abgleich beim Öffnen', () => {
     expect(copy).toBeDefined();
     // Instanz im Live-Dokument verwendet jetzt die Kopie
     await waitFor(() => (editor.doc.getMap('devices').get('d1') as { get(k: string): unknown })?.get('templateId') === copy.id);
-    await sleep(150);
+    await waitFor(async () => (await loadOrNull(server, id))?.devices[0]?.templateId === copy.id);
     const saved = await server.store.load(id);
     expect(saved.devices[0]!.templateId).toBe(copy.id);
     expect(saved.libraryId).toBe(server.library.libraryId);
@@ -99,7 +109,7 @@ describe('Vorlagen-Abgleich beim Öffnen', () => {
     // Vorlage ändern, während das Projekt offen ist → Datei bekommt neuen Snapshot
     const t = server.library.get().templates[0]!;
     await server.app.inject({ method: 'PUT', url: `/api/library/templates/${t.id}`, headers: { cookie: edit }, payload: { template: { ...t, name: 'Ganz neu' }, baseVersion: t.version } });
-    await sleep(150);
+    await waitFor(async () => (await loadOrNull(server!, id))?.templateSnapshot[0]?.name === 'Ganz neu');
     expect((await server.store.load(id)).templateSnapshot[0]!.name).toBe('Ganz neu');
   });
 });

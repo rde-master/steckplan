@@ -1,6 +1,6 @@
-import { ArrowLeft, Copy, LibraryBig } from 'lucide-react';
+import { ArrowLeft, Copy, Download, FileOutput, History, LibraryBig, LogOut, Menu, Wifi } from 'lucide-react';
 import { ICON } from '../components/icons';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import type * as Y from 'yjs';
 import { can, type Conflict, type PresenceUser, type ProjectMeta } from '@steckplan/core';
 import { api, errorMessage } from '../lib/api';
@@ -14,6 +14,7 @@ import { useProjectData } from '../lib/useProjectData';
 import { useProjectDoc, useYMap } from '../lib/useProjectDoc';
 import { texts } from '../texts';
 import { AppHeader } from '../components/AppHeader';
+import { MenuDrawer, MobileMenuSlot, usePhone } from '../components/mobile';
 import { ConflictDialog } from '../components/ConflictDialog';
 import { VersionsDialog } from '../components/VersionsDialog';
 import { SignalFlowView } from '../components/signalflow/SignalFlowView';
@@ -63,6 +64,9 @@ export function ProjectPage({ id }: { id: string }) {
   const library = useLibrary((s) => s.library);
   const meta = useYMap<ProjectMeta>(project?.doc, 'meta');
   const isDesktop = getDesktop() !== null;
+  const phone = usePhone();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [menuSlot, setMenuSlot] = useState<HTMLElement | null>(null);
 
   const state = project?.state;
   const status = state?.status ?? 'connecting';
@@ -112,29 +116,99 @@ export function ProjectPage({ id }: { id: string }) {
     );
   }
 
-  return (
-    <div className="flex h-full flex-col bg-slate-50 dark:bg-slate-950">
+  const openLibrary = () => {
+    // Desktop: eigenes Fenster; Browser/Server-Fenster: neuer Tab, das Projekt bleibt offen
+    const desktop = getDesktop();
+    if (desktop) void desktop.openLibrary();
+    else window.open('/bibliothek', '_blank', 'noopener');
+  };
+  const readOnlyBadge = state?.readOnly && (
+    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900 dark:bg-amber-900 dark:text-amber-100">{texts.project.readOnly}</span>
+  );
+  const tabs = (['signalflow', 'stageplan', 'network', 'lists', 'meta'] as const).map((t) => (
+    <Button
+      key={t}
+      role="tab"
+      aria-selected={tab === t}
+      variant={tab === t ? 'primary' : 'ghost'}
+      onClick={() => {
+        setTab(t);
+        setMenuOpen(false);
+      }}
+    >
+      {texts.signalflow.tabs[t]}
+    </Button>
+  ));
+
+  const header = phone ? (
+    <>
+      <header className="flex shrink-0 items-center gap-2 border-b border-slate-200 bg-white px-2 py-1 dark:border-slate-700 dark:bg-slate-900">
+        <Button variant="ghost" aria-label={texts.mobile.openMenu} aria-expanded={menuOpen} onClick={() => setMenuOpen(true)}>
+          <Menu size={22} aria-hidden />
+        </Button>
+        <div className="min-w-0 flex-1">
+          <h1 className="truncate text-base leading-tight font-semibold">{meta.name || ' '}</h1>
+          <div className="truncate text-xs text-slate-500">{texts.signalflow.tabs[tab]}</div>
+        </div>
+        {readOnlyBadge}
+        <ConnectionDot status={status} />
+      </header>
+      <MenuDrawer open={menuOpen} onClose={() => setMenuOpen(false)}>
+        <section aria-label={texts.mobile.views} className="py-2">
+          <h2 className="px-3 pb-1 text-xs font-semibold tracking-wide text-slate-500 uppercase">{texts.mobile.views}</h2>
+          <div className="flex flex-col px-2 *:justify-start" role="tablist">
+            {tabs}
+          </div>
+        </section>
+        <section aria-label={texts.mobile.project} className="border-t border-slate-200 py-2 dark:border-slate-700">
+          <h2 className="px-3 pb-1 text-xs font-semibold tracking-wide text-slate-500 uppercase">{texts.mobile.project}</h2>
+          <div className="flex flex-col px-2 *:justify-start">
+            <MenuItem icon={<LibraryBig {...ICON} />} onClick={openLibrary}>
+              {texts.project.library}
+            </MenuItem>
+            <MenuItem icon={<FileOutput {...ICON} />} disabled={!library || !project} onClick={() => { setMenuOpen(false); setShowExport(true); }}>
+              {texts.exportDialog.open}
+            </MenuItem>
+            <MenuItem icon={<History {...ICON} />} onClick={() => { setMenuOpen(false); setShowVersions(true); }}>
+              {texts.project.versions}
+            </MenuItem>
+            {isDesktop && (
+              <MenuItem icon={<Wifi {...ICON} />} onClick={() => { setMenuOpen(false); setShowWeb(true); }}>
+                {texts.webAccess.open}
+              </MenuItem>
+            )}
+            {!isDesktop && (
+              <a className="flex min-h-10 items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-800" href={api.downloadUrl(id)}>
+                <Download {...ICON} /> {texts.project.download}
+              </a>
+            )}
+            {!isDesktop && (
+              <MenuItem icon={<ArrowLeft {...ICON} />} onClick={() => navigate('/')}>
+                {texts.project.toList}
+              </MenuItem>
+            )}
+          </div>
+        </section>
+        {/* hier legen Signalfluss und Bühnenplan ihre Werkzeuge, Seiten und Filter ab */}
+        <div ref={setMenuSlot} className="contents" />
+        {state && state.users.length > 0 && (
+          <div className="border-t border-slate-200 px-3 py-2 dark:border-slate-700">
+            <Presence users={state.users} me={state.connectionId} />
+          </div>
+        )}
+        <SessionInMenu />
+      </MenuDrawer>
+    </>
+  ) : (
+    <>
       <AppHeader
         left={backButton}
         title={meta.name || ' '}
         right={
           <div className="flex items-center gap-2">
             <ConnectionDot status={status} />
-            {state?.readOnly && (
-              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900 dark:bg-amber-900 dark:text-amber-100">
-                {texts.project.readOnly}
-              </span>
-            )}
-            <Button
-              variant="ghost"
-              title={texts.project.libraryTitle}
-              onClick={() => {
-                // Desktop: eigenes Fenster; Browser/Server-Fenster: neuer Tab, das Projekt bleibt offen
-                const desktop = getDesktop();
-                if (desktop) void desktop.openLibrary();
-                else window.open('/bibliothek', '_blank', 'noopener');
-              }}
-            >
+            {readOnlyBadge}
+            <Button variant="ghost" title={texts.project.libraryTitle} onClick={openLibrary}>
               <LibraryBig {...ICON} /> {texts.project.library}
             </Button>
             <Button variant="ghost" onClick={() => setShowExport(true)} disabled={!library || !project}>
@@ -157,14 +231,17 @@ export function ProjectPage({ id }: { id: string }) {
         }
       />
       <div className="flex items-center gap-1 overflow-x-auto border-b *:shrink-0 border-slate-200 bg-white px-2 py-1 dark:border-slate-700 dark:bg-slate-900" role="tablist">
-        {(['signalflow', 'stageplan', 'network', 'lists', 'meta'] as const).map((t) => (
-          <Button key={t} role="tab" aria-selected={tab === t} variant={tab === t ? 'primary' : 'ghost'} onClick={() => setTab(t)}>
-            {texts.signalflow.tabs[t]}
-          </Button>
-        ))}
+        {tabs}
         <div className="flex-1" />
         {state && state.users.length > 0 && <Presence users={state.users} me={state.connectionId} />}
       </div>
+    </>
+  );
+
+  return (
+    <MobileMenuSlot value={phone ? menuSlot : undefined}>
+    <div className="flex h-full flex-col bg-slate-50 dark:bg-slate-950">
+      {header}
       <div className="space-y-2 empty:hidden px-2 pt-2">
         {status === 'disconnected' && <Banner tone="warn">{texts.project.disconnected}</Banner>}
         {state?.reconcilePending ? (
@@ -264,6 +341,39 @@ export function ProjectPage({ id }: { id: string }) {
       )}
       {showWeb && getDesktop() && <WebAccessDialog desktop={getDesktop()!} onClose={() => setShowWeb(false)} />}
       {showUpload && getDesktop() && <UploadToServerDialog desktop={getDesktop()!} projectId={id} onClose={() => setShowUpload(false)} />}
+    </div>
+    </MobileMenuSlot>
+  );
+}
+
+function MenuItem({ icon, onClick, disabled = false, children }: { icon: ReactNode; onClick: () => void; disabled?: boolean; children: ReactNode }) {
+  return (
+    <Button variant="ghost" className="justify-start" disabled={disabled} onClick={onClick}>
+      {icon} {children}
+    </Button>
+  );
+}
+
+/** Angemeldet als … und Abmelden (im Burgermenü der Handy-Ansicht) */
+function SessionInMenu() {
+  const session = useSession((s) => s.session);
+  const logout = useSession((s) => s.logout);
+  if (!session) return null;
+  return (
+    <div className="mt-auto flex items-center gap-2 border-t border-slate-200 px-3 py-2 text-sm dark:border-slate-700">
+      <span className="min-w-0 flex-1 truncate">{session.name}</span>
+      <AccessBadge access={session.access} />
+      {session.via === 'browser' && (
+        <Button
+          variant="ghost"
+          onClick={async () => {
+            await logout();
+            navigate('/anmelden', { replace: true });
+          }}
+        >
+          <LogOut {...ICON} /> {texts.session.logout}
+        </Button>
+      )}
     </div>
   );
 }

@@ -334,7 +334,11 @@ export async function buildExportDoc(opts: ExportOptions, input: ExportInput): P
     }
     case 'patch': {
       const sections = buildPatchLists(projectLike(data), library).flatMap((list) => {
-        const target = (r: (typeof list.inputs)[number]) => (r.device ? `${r.device.label}${r.devicePort ? ` · ${r.devicePort}` : ''}${r.deviceTemplate ? `\n${r.deviceTemplate}` : ''}` : 'offen');
+        type Row = (typeof list.inputs)[number];
+        const target = (r: Row) => (r.device ? `${r.device.label}${r.devicePort ? ` · ${r.devicePort}` : ''}${r.deviceTemplate ? `\n${r.deviceTemplate}` : ''}` : 'offen');
+        const person = (r: Row) => (r.person ? (r.personKind ? `${r.person} (${r.personKind})` : r.person) : '');
+        // Gruppe als farbiges Etikett in der Spalte Quelle/Ziel
+        const grouped = (rows: Row[]) => ({ rowGroups: rows.map((r) => r.group), groupColumn: 3 });
         return [
           {
             title: `Input-Liste – ${list.mixer.label}`,
@@ -342,6 +346,7 @@ export async function buildExportDoc(opts: ExportOptions, input: ExportInput): P
             headers: ['Kanal', 'Anschluss', 'Name', 'Quelle', 'Über', '48 V', 'Bemerkung'],
             widths: [30, 50, '*', '*', '*', 28, '*'],
             rows: list.inputs.map((r) => [r.channel, r.port, r.name, target(r), viaText(r), r.phantom ? '48 V' : '', r.notes]),
+            ...grouped(list.inputs),
           },
           ...(list.network.length
             ? [
@@ -351,6 +356,7 @@ export async function buildExportDoc(opts: ExportOptions, input: ExportInput): P
                   headers: ['Kanal', 'Anschluss', 'Name', 'Quelle', 'Über', '48 V', 'Bemerkung'],
                   widths: [30, 50, '*', '*', '*', 28, '*'],
                   rows: list.network.map((r) => [r.channel, r.port, r.name, target(r), viaText(r), r.phantom ? '48 V' : '', r.notes]),
+                  ...grouped(list.network),
                 },
               ]
             : []),
@@ -361,7 +367,8 @@ export async function buildExportDoc(opts: ExportOptions, input: ExportInput): P
                   subtitle: `${list.mixerTemplate.name} · ${list.outputs.length} Ausgänge, ${list.outputs.filter((r) => r.device).length} belegt`,
                   headers: ['Weg', 'Anschluss', 'Name', 'Ziel', 'Person', 'Über', 'Bemerkung'],
                   widths: [30, 50, '*', '*', 80, '*', '*'],
-                  rows: list.outputs.map((r) => [r.channel, r.port, r.name, target(r), r.person ?? '', viaText(r), r.notes]),
+                  rows: list.outputs.map((r) => [r.channel, r.port, r.name, target(r), person(r), viaText(r), r.notes]),
+                  ...grouped(list.outputs),
                 },
               ]
             : []),
@@ -448,7 +455,16 @@ export async function buildExportDoc(opts: ExportOptions, input: ExportInput): P
         showCables: opts.showCables,
       };
       const bounds = stageBounds(drawing, opts.includeBackground) ?? { x: 0, y: 0, width: 10000, height: 7000 };
-      const area = drawableArea(ctx);
+      const legend = {
+        legend: usedCategories(drawing.items.map((i) => i.device.id), data, library),
+        lineLegend: [
+          { name: 'Kabel', color: '#475569' },
+          { name: 'Multicore', color: '#64748b', dashed: true, width: 3 },
+          { name: 'Problem', color: '#dc2626' },
+        ],
+      };
+      // Platz für das Planköpfchen hängt von der Länge der Legende ab
+      const area = drawableArea(ctx, legend);
       const worldPerPt = opts.scale === 'fill' ? Math.max(bounds.width / area.width, bounds.height / area.height) : worldPerPtForScale(opts.scale);
       const tiles = tilePlan(bounds, area, worldPerPt, opts.scale === 'fill' ? 0 : 28);
       const fontMm = 2.6 * PT_PER_MM * worldPerPt; // ca. 2,6 mm Schrift auf dem Papier
@@ -459,16 +475,7 @@ export async function buildExportDoc(opts: ExportOptions, input: ExportInput): P
       const scaleText = opts.scale === 'fill' ? `ca. 1:${Math.round(worldPerPt * PT_PER_MM)} (Seite füllen)` : `1:${opts.scale}`;
       return planDoc(
         planTiles,
-        {
-          title: 'Bühnenplan',
-          scaleText,
-          legend: usedCategories(drawing.items.map((i) => i.device.id), data, library),
-          lineLegend: [
-            { name: 'Kabel', color: '#475569' },
-            { name: 'Multicore', color: '#64748b', dashed: true, width: 3 },
-            { name: 'Problem', color: '#dc2626' },
-          ],
-        },
+        { title: 'Bühnenplan', scaleText, ...legend },
         ctx,
       );
     }
@@ -476,13 +483,22 @@ export async function buildExportDoc(opts: ExportOptions, input: ExportInput): P
       // je Seite ein Blatt (ohne Seiten: ein Blatt); Auswahl in den Optionen
       const allPages = sortPages(data.flowPages);
       const pages = allPages.length ? allPages.filter((p) => opts.flowPageIds.length === 0 || opts.flowPageIds.includes(p.id)) : [{ id: '', name: '', order: 0 }];
-      const area = drawableArea(ctx);
-      const tiles: PlanTile[] = [];
-      const shownIds: string[] = [];
-      pages.forEach((page, index) => {
+      // erst die Kästen aller Blätter (für die Legende), dann zeichnen – die Fläche hängt von der Legende ab
+      const perPage = pages.map((page) => {
         const devices = data.devices.filter((d) => devicePageId(d, allPages) === page.id);
-        const boxes = buildBoxes(devices, library, false, { colorMode: input.colorMode, filter, people: data.people });
-        shownIds.push(...boxes.map((b) => b.device.id));
+        return { page, devices, boxes: buildBoxes(devices, library, false, { colorMode: input.colorMode, filter, people: data.people }) };
+      });
+      const legend = {
+        legend: usedCategories(perPage.flatMap((p) => p.boxes.map((b) => b.device.id)), data, library),
+        lineLegend: [
+          { name: 'Kabel', color: '#475569' },
+          { name: 'direkt gesteckt', color: '#64748b', dashed: true },
+          { name: 'Problem', color: '#dc2626' },
+        ],
+      };
+      const area = drawableArea(ctx, legend);
+      const tiles: PlanTile[] = [];
+      perPage.forEach(({ page, devices, boxes }, index) => {
         const frames = buildGroupFrames(data.groups, boxes);
         const lines = buildCableLines(data.cables, boxes, library, input.issues, filter, data.settings.cableStyle ?? 'square');
         const refs = crossPageRefs(data.devices, data.cables, allPages).filter((r) => devices.some((d) => d.id === r.deviceId));
@@ -499,16 +515,7 @@ export async function buildExportDoc(opts: ExportOptions, input: ExportInput): P
       });
       return planDoc(
         tiles,
-        {
-          title: 'Signalfluss',
-          scaleText: 'ohne Maßstab',
-          legend: usedCategories(shownIds, data, library),
-          lineLegend: [
-            { name: 'Kabel', color: '#475569' },
-            { name: 'direkt gesteckt', color: '#64748b', dashed: true },
-            { name: 'Problem', color: '#dc2626' },
-          ],
-        },
+        { title: 'Signalfluss', scaleText: 'ohne Maßstab', ...legend },
         ctx,
       );
     }

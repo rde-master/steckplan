@@ -1,4 +1,5 @@
 // Signalfluss-Ansicht: Seitenleiste (Bibliothek), Zeichenfläche, Eigenschaften, Prüfungen.
+import { Info, ListChecks, Maximize, Plus, Redo2, Undo2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import type * as Y from 'yjs';
 import {
@@ -30,10 +31,10 @@ import { DeviceList } from '../DeviceList';
 import { useEditor } from '../../lib/editor';
 import type { UndoApi } from '../../lib/undo';
 import { useIssues } from '../../lib/useIssues';
-import { useIsNarrow } from '../../lib/useProjectDoc';
 import type { ProjectData } from '../../lib/useProjectData';
 import { texts } from '../../texts';
-import { Banner, Button } from '../ui';
+import { Banner } from '../ui';
+import { BottomSheet, CountBadge, FooterButton, InMobileMenu, IssueBadge, MobileFooter, usePhone } from '../mobile';
 import { CableTypeChooser, type CableChoice } from './CableTypeChooser';
 import { FilterBar } from '../FilterBar';
 import { FlowPagesBar } from './FlowPages';
@@ -58,8 +59,9 @@ export function SignalFlowView({ doc, data, library, editable, undo }: { doc: Y.
   const filter = useEditor((st) => st.filter);
   const colorMode = useEditor((st) => st.colorMode);
   const showDmx = useEditor((st) => st.showDmx);
-  const narrow = useIsNarrow(900);
-  const [panel, setPanel] = useState<'none' | 'library' | 'properties'>('none');
+  // Handy: Zeichenfläche groß, Werkzeuge im Menü bzw. unten, Bibliothek/Eigenschaften/Prüfungen als unteres Blatt
+  const narrow = usePhone();
+  const [panel, setPanel] = useState<'none' | 'library' | 'properties' | 'checks'>('none');
   const [pending, setPending] = useState<{ from: PortRef; to: PortRef } | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [viewport, setViewport] = useState({ width: 800, height: 600 });
@@ -119,12 +121,15 @@ export function SignalFlowView({ doc, data, library, editable, undo }: { doc: Y.
     return { x: (viewport.width / 2 - view.x) / view.zoom - 80, y: (viewport.height / 2 - view.y) / view.zoom - 40 };
   }
 
-  // Langes Drücken auf ein Objekt: auf schmalen Bildschirmen die Eigenschaften (mit allen Aktionen) öffnen
+  // Handy: Antippen (neue Auswahl) oder langes Drücken öffnet die Eigenschaften; zu nur über ✕
   useEffect(
     () =>
       useEditor.subscribe((st, prev) => {
+        if (!narrow) return;
+        const before = new Set([...prev.selection.devices, ...prev.selection.cables]);
+        const added = [...st.selection.devices, ...st.selection.cables].some((id) => !before.has(id));
         const count = st.selection.devices.length + st.selection.cables.length;
-        if (narrow && st.propertiesRequest !== prev.propertiesRequest && count > 0) setPanel('properties');
+        if (added || (st.propertiesRequest !== prev.propertiesRequest && count > 0)) setPanel('properties');
       }),
     [narrow],
   );
@@ -134,8 +139,8 @@ export function SignalFlowView({ doc, data, library, editable, undo }: { doc: Y.
     const position = at ?? viewCenter();
     const device = addDevice(doc, template, position, undo.origin, currentPage ? { pageId: currentPage } : {});
     undo.stop();
+    // Handy: die neue Auswahl öffnet die Eigenschaften
     select({ devices: [device.id] });
-    if (narrow) setPanel('none');
   }
 
   function createCable(from: PortRef, to: PortRef, choice: CableChoice) {
@@ -389,6 +394,7 @@ export function SignalFlowView({ doc, data, library, editable, undo }: { doc: Y.
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
+      <InMobileMenu title={texts.mobile.tools}>
       <Toolbar
         undo={undo}
         editable={editable}
@@ -404,11 +410,13 @@ export function SignalFlowView({ doc, data, library, editable, undo }: { doc: Y.
         onFit={fit}
         zoom={view.zoom}
       />
+      </InMobileMenu>
+      <InMobileMenu title={texts.mobile.display}>
       <FilterBar
         library={library}
         data={data}
         extra={
-          <span className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300" role="group" aria-label={s.showOnBoxes}>
+          <span className="flex flex-wrap items-center gap-2 text-xs text-slate-600 dark:text-slate-300" role="group" aria-label={s.showOnBoxes}>
             <span className="text-slate-500">{s.showOnBoxes}:</span>
             <label className="flex items-center gap-1">
               <input type="checkbox" checked={display.ownerOnBoxes} onChange={(e) => setDisplay({ ownerOnBoxes: e.target.checked })} />
@@ -449,18 +457,10 @@ export function SignalFlowView({ doc, data, library, editable, undo }: { doc: Y.
           </span>
         }
       />
-      {narrow && (
-        <div className="flex gap-1 border-b border-slate-200 bg-white px-2 py-1 dark:border-slate-700 dark:bg-slate-900">
-          <Button variant={panel === 'library' ? 'primary' : 'ghost'} onClick={() => setPanel(panel === 'library' ? 'none' : 'library')}>
-            {s.library}
-          </Button>
-          <Button variant={panel === 'properties' ? 'primary' : 'ghost'} onClick={() => setPanel(panel === 'properties' ? 'none' : 'properties')}>
-            {s.properties}
-            {selectionCount > 0 ? ` (${selectionCount})` : ''}
-          </Button>
-        </div>
-      )}
-      <FlowPagesBar doc={doc} origin={undo.origin} pages={pages} current={currentPage} counts={pageCounts} editable={editable} onSelect={setFlowPage} />
+      </InMobileMenu>
+      <InMobileMenu title={texts.mobile.pages}>
+        <FlowPagesBar doc={doc} origin={undo.origin} pages={pages} current={currentPage} counts={pageCounts} editable={editable} onSelect={setFlowPage} />
+      </InMobileMenu>
       <div className="relative flex min-h-0 flex-1">
         {!narrow && <div className="w-60 shrink-0 border-r border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-900">{sidebar}</div>}
         <div
@@ -498,12 +498,30 @@ export function SignalFlowView({ doc, data, library, editable, undo }: { doc: Y.
         </div>
         {!narrow && <div className="w-72 shrink-0 border-l border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">{properties}</div>}
         {narrow && panel !== 'none' && (
-          <div className="absolute inset-y-0 left-0 z-10 w-[min(20rem,90%)] border-r border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-900">
-            {panel === 'library' ? sidebar : properties}
-          </div>
+          <BottomSheet title={panel === 'library' ? texts.mobile.add : panel === 'checks' ? texts.mobile.checks : texts.mobile.properties} onClose={() => setPanel('none')}>
+            {panel === 'library' ? sidebar : panel === 'checks' ? <ChecksPanel issues={issues} onJump={jump} defaultOpen /> : properties}
+          </BottomSheet>
         )}
       </div>
-      <ChecksPanel issues={issues} onJump={jump} />
+      {narrow ? (
+        <MobileFooter>
+          {editable && <FooterButton label={s.undo} short={texts.mobile.short.undo} icon={Undo2} onClick={undo.undo} disabled={!undo.canUndo} />}
+          {editable && <FooterButton label={s.redo} short={texts.mobile.short.redo} icon={Redo2} onClick={undo.redo} disabled={!undo.canRedo} />}
+          <FooterButton label={texts.mobile.add} short={texts.mobile.short.add} icon={Plus} active={panel === 'library'} onClick={() => setPanel(panel === 'library' ? 'none' : 'library')} />
+          <FooterButton label={texts.mobile.fit} short={texts.mobile.short.fit} icon={Maximize} onClick={fit} />
+          <FooterButton label={texts.mobile.checks} short={texts.mobile.short.checks} icon={ListChecks} active={panel === 'checks'} onClick={() => setPanel(panel === 'checks' ? 'none' : 'checks')} badge={<IssueBadge issues={issues} />} />
+          <FooterButton
+            label={texts.mobile.properties}
+            short={texts.mobile.short.properties}
+            icon={Info}
+            active={panel === 'properties'}
+            onClick={() => setPanel(panel === 'properties' ? 'none' : 'properties')}
+            badge={selectionCount > 0 ? <CountBadge count={selectionCount} /> : undefined}
+          />
+        </MobileFooter>
+      ) : (
+        <ChecksPanel issues={issues} onJump={jump} />
+      )}
       {pending && library && (
         <CableTypeChooser
           library={library}

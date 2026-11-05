@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Cable, DeviceInstance, Template } from '../model/schema';
-import { autoAddress, buildDmxPatch, checkDmx, dmxChain, formatDmx } from './dmx';
+import { autoAddress, buildDmxPatch, checkDmx, dmxChain, dmxUniverses, formatDmx, type DmxPatchRow } from './dmx';
 
 const T0 = '2026-01-01T00:00:00.000Z';
 const dmxPorts = [
@@ -63,5 +63,28 @@ describe('DMX-Kette und Auto-Adressierung', () => {
   it('Patchliste sortiert nach Universum und Adresse', () => {
     const rows = buildDmxPatch({ devices: [dev('b', 'spot', { modeName: '8ch', universe: 2, address: 1 }), dev('a', 'spot', { modeName: '16ch', universe: 1, address: 17 }), dev('x', 'spot')] }, templates);
     expect(rows.map((r) => `${r.id}:${r.end ?? '-'}`)).toEqual(['a:32', 'b:8', 'x:-']);
+  });
+});
+
+describe('DMX-Universum als Übersicht', () => {
+  const row = (id: string, universe: number, address: number, channels: number): DmxPatchRow => ({ id, label: id, templateName: 'T', modeName: 'm', channels, universe, address, end: address + channels - 1 });
+  it('Belegung, Überlappungen, freie Bereiche, Überlauf über 512; ohne Adresse nicht dabei', () => {
+    const maps = dmxUniverses([
+      row('a', 1, 1, 16),
+      row('b', 1, 10, 10),
+      row('c', 1, 500, 20),
+      row('d', 2, 101, 4),
+      { id: 'e', label: 'e', templateName: 'T', modeName: '' },
+    ]);
+    expect(maps.map((m) => m.universe)).toEqual([1, 2]);
+    const [u1, u2] = maps;
+    expect(u1!.used).toBe(19 + 13);
+    expect(u1!.overlaps).toEqual([{ start: 10, end: 16 }]);
+    expect(u1!.free).toEqual([{ start: 20, end: 499 }]);
+    expect(u1!.segments.find((s) => s.row.id === 'c')).toMatchObject({ start: 500, end: 512, overflow: 7 });
+    expect(u2!.free).toEqual([
+      { start: 1, end: 100 },
+      { start: 105, end: 512 },
+    ]);
   });
 });

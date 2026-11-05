@@ -20,7 +20,16 @@ export async function createProject(page: Page, name: string): Promise<string> {
   await page.getByLabel('Projektname').fill(name);
   await page.getByRole('dialog').getByRole('button', { name: 'Neues Projekt' }).click();
   await expect(page).toHaveURL(/\/projekt\//);
-  await page.getByRole('tab', { name: 'Projektdaten' }).click();
+  await openTab(page, 'Projektdaten');
   await expect(page.getByLabel('Projektname')).toHaveValue(name);
   return page.url();
+}
+
+/** Reiter der Projektseite öffnen – in der Handy-Ansicht über das Burgermenü */
+export async function openTab(page: Page, name: string): Promise<void> {
+  const menuButton = page.getByRole('button', { name: 'Menü öffnen' });
+  const tab = page.getByRole('tab', { name, exact: true });
+  await tab.or(menuButton).first().waitFor();
+  if (await menuButton.isVisible()) await menuButton.click();
+  await tab.click();
 }

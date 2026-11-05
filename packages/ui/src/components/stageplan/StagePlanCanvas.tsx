@@ -103,7 +103,8 @@ export function StagePlanCanvas(props: StageCanvasProps) {
   const selection = useEditor((s) => s.selection);
   const select = useEditor((s) => s.select);
   const requestProperties = useEditor((s) => s.requestProperties);
-  useLongPress(container, requestProperties);
+  // langes Drücken und (Handy) kurzes Antippen eines Objekts öffnen die Eigenschaften
+  useLongPress(container, requestProperties, undefined, requestProperties);
   const toggleDevice = useEditor((s) => s.toggleDevice);
   const toggleShape = useEditor((s) => s.toggleShape);
   const clearSelection = useEditor((s) => s.clearSelection);

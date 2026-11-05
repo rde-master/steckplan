@@ -1,6 +1,6 @@
 // Bühnenplan-Ansicht: Werkzeuge, Seitenleisten, maßstäbliche Zeichenfläche, Eigenschaften, Prüfungen.
 import { useEffect, useMemo, useState } from 'react';
-import { BrickWall, Copy, Maximize, MousePointer2, Redo2, RotateCw, Ruler, SquareDashedMousePointer, Trash2, Type, Undo2, ZoomIn, ZoomOut, type LucideIcon } from 'lucide-react';
+import { BrickWall, Copy, Info, ListChecks, Maximize, Plus, MousePointer2, Redo2, RotateCw, Ruler, SquareDashedMousePointer, Trash2, Type, Undo2, ZoomIn, ZoomOut, type LucideIcon } from 'lucide-react';
 import { ICON, TOOL_ICON } from '../icons';
 import type * as Y from 'yjs';
 import {
@@ -42,13 +42,13 @@ import { CanvasThemeSwitch } from '../CanvasThemeSwitch';
 import { useEditor, type StagePanel, type StageTool } from '../../lib/editor';
 import type { UndoApi } from '../../lib/undo';
 import { useIssues } from '../../lib/useIssues';
-import { useIsNarrow } from '../../lib/useProjectDoc';
 import type { ProjectData } from '../../lib/useProjectData';
 import { parseMeters } from '../../lib/units';
 import { texts } from '../../texts';
 import { Banner, Button, Field, Modal, TextInput } from '../ui';
 import { selectClass } from '../library/fields';
 import { ChecksPanel } from '../signalflow/ChecksPanel';
+import { BottomSheet, CountBadge, FooterButton, InMobileMenu, IssueBadge, MobileFooter, usePhone } from '../mobile';
 import { LibrarySidebar } from '../signalflow/LibrarySidebar';
 import { PropertiesPanel } from '../signalflow/PropertiesPanel';
 import { FilterBar } from '../FilterBar';
@@ -78,13 +78,14 @@ export function StagePlanView({ doc, data, library, editable, undo }: { doc: Y.D
   const colorMode = useEditor((st) => st.colorMode);
   const showCables = useEditor((st) => st.showCables);
   const setShowCables = useEditor((st) => st.setShowCables);
-  const narrow = useIsNarrow(900);
+  // Handy: Zeichenfläche groß, Werkzeuge im Menü bzw. unten, Seitenleiste/Eigenschaften/Prüfungen als unteres Blatt
+  const narrow = usePhone();
   // Reiter links und Texte am Plan: je Browser gemerkt (bleibt beim Neuladen)
   const stageDisplay = useEditor((st) => st.stageDisplay);
   const setStageDisplay = useEditor((st) => st.setStageDisplay);
   const panel = stageDisplay.panel;
   const setPanel = (next: Panel) => setStageDisplay({ panel: next });
-  const [mobilePanel, setMobilePanel] = useState<'none' | 'side' | 'properties'>('none');
+  const [mobilePanel, setMobilePanel] = useState<'none' | 'side' | 'properties' | 'checks'>('none');
   const [calibration, setCalibration] = useState<{ p1: StagePt; p2: StagePt; text: string } | null>(null);
   const [viewport, setViewport] = useState({ width: 800, height: 600 });
 
@@ -176,12 +177,15 @@ export function StagePlanView({ doc, data, library, editable, undo }: { doc: Y.D
     undo.stop();
   }
 
-  // Langes Drücken auf ein Objekt: auf schmalen Bildschirmen die Eigenschaften (mit allen Aktionen) öffnen
+  // Handy: Antippen (neue Auswahl) oder langes Drücken öffnet die Eigenschaften; zu nur über ✕
   useEffect(
     () =>
       useEditor.subscribe((st, prev) => {
-        const count = st.selection.devices.length + st.selection.cables.length + st.selection.shapes.length;
-        if (narrow && st.propertiesRequest !== prev.propertiesRequest && count > 0) setMobilePanel('properties');
+        if (!narrow) return;
+        const ids = (sel: typeof st.selection) => [...sel.devices, ...sel.cables, ...sel.shapes];
+        const before = new Set(ids(prev.selection));
+        const added = ids(st.selection).some((id) => !before.has(id));
+        if (added || (st.propertiesRequest !== prev.propertiesRequest && ids(st.selection).length > 0)) setMobilePanel('properties');
       }),
     [narrow],
   );
@@ -212,8 +216,8 @@ export function StagePlanView({ doc, data, library, editable, undo }: { doc: Y.D
     const patch = dropPatch(created, template, pos, false);
     updateDevices(doc, withStandLayout([{ id: device.id, patch }], [created]), undo.origin);
     undo.stop();
+    // Handy: die neue Auswahl öffnet die Eigenschaften
     select({ devices: [device.id] });
-    if (narrow) setMobilePanel('none');
   }
 
   function placeUnplaced(id: string, at?: StagePt, chosenLayer?: string) {
@@ -487,6 +491,7 @@ export function StagePlanView({ doc, data, library, editable, undo }: { doc: Y.D
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
+      <InMobileMenu title={texts.mobile.tools}>
       <div className="flex flex-wrap items-center gap-0.5 border-b border-slate-200 bg-white px-2 py-1 dark:border-slate-700 dark:bg-slate-900" role="toolbar" aria-label={texts.signalflow.toolbar}>
         {editable && (
           <>
@@ -573,18 +578,10 @@ export function StagePlanView({ doc, data, library, editable, undo }: { doc: Y.D
           <Maximize {...ICON} /> {texts.signalflow.fit}
         </Button>
       </div>
-      <FilterBar library={library} data={data} />
-      {narrow && (
-        <div className="flex gap-1 border-b border-slate-200 bg-white px-2 py-1 dark:border-slate-700 dark:bg-slate-900">
-          <Button variant={mobilePanel === 'side' ? 'primary' : 'ghost'} onClick={() => setMobilePanel(mobilePanel === 'side' ? 'none' : 'side')}>
-            {s.panels.library}
-          </Button>
-          <Button variant={mobilePanel === 'properties' ? 'primary' : 'ghost'} onClick={() => setMobilePanel(mobilePanel === 'properties' ? 'none' : 'properties')}>
-            {texts.signalflow.properties}
-            {count ? ` (${count})` : ''}
-          </Button>
-        </div>
-      )}
+      </InMobileMenu>
+      <InMobileMenu title={texts.mobile.display}>
+        <FilterBar library={library} data={data} />
+      </InMobileMenu>
       <div className="relative flex min-h-0 flex-1">
         {!narrow && <div className="w-64 shrink-0 border-r border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-900">{side}</div>}
         <div
@@ -648,12 +645,33 @@ export function StagePlanView({ doc, data, library, editable, undo }: { doc: Y.D
         </div>
         {!narrow && <div className="w-72 shrink-0 overflow-y-auto border-l border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">{properties}</div>}
         {narrow && mobilePanel !== 'none' && (
-          <div className="absolute inset-y-0 left-0 z-10 w-[min(20rem,90%)] overflow-y-auto border-r border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-900">
-            {mobilePanel === 'side' ? side : properties}
-          </div>
+          <BottomSheet
+            title={mobilePanel === 'side' ? texts.mobile.add : mobilePanel === 'checks' ? texts.mobile.checks : texts.mobile.properties}
+            onClose={() => setMobilePanel('none')}
+          >
+            {mobilePanel === 'side' ? side : mobilePanel === 'checks' ? <ChecksPanel issues={issues} onJump={jump} defaultOpen /> : properties}
+          </BottomSheet>
         )}
       </div>
-      <ChecksPanel issues={issues} onJump={jump} />
+      {narrow ? (
+        <MobileFooter>
+          {editable && <FooterButton label={texts.signalflow.undo} short={texts.mobile.short.undo} icon={Undo2} onClick={undo.undo} disabled={!undo.canUndo} />}
+          {editable && <FooterButton label={texts.signalflow.redo} short={texts.mobile.short.redo} icon={Redo2} onClick={undo.redo} disabled={!undo.canRedo} />}
+          <FooterButton label={texts.mobile.add} short={texts.mobile.short.add} icon={Plus} active={mobilePanel === 'side'} onClick={() => setMobilePanel(mobilePanel === 'side' ? 'none' : 'side')} />
+          <FooterButton label={texts.mobile.fit} short={texts.mobile.short.fit} icon={Maximize} onClick={fit} />
+          <FooterButton label={texts.mobile.checks} short={texts.mobile.short.checks} icon={ListChecks} active={mobilePanel === 'checks'} onClick={() => setMobilePanel(mobilePanel === 'checks' ? 'none' : 'checks')} badge={<IssueBadge issues={issues} />} />
+          <FooterButton
+            label={texts.mobile.properties}
+            short={texts.mobile.short.properties}
+            icon={Info}
+            active={mobilePanel === 'properties'}
+            onClick={() => setMobilePanel(mobilePanel === 'properties' ? 'none' : 'properties')}
+            badge={count + selection.cables.length > 0 ? <CountBadge count={count + selection.cables.length} /> : undefined}
+          />
+        </MobileFooter>
+      ) : (
+        <ChecksPanel issues={issues} onJump={jump} />
+      )}
       {pendingInsert && (
         <LayerChoiceDialog
           layers={data.layers}

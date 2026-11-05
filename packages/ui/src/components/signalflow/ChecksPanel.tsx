@@ -7,8 +7,8 @@ import { texts } from '../../texts';
 
 const s = texts.signalflow;
 
-export function ChecksPanel({ issues, onJump }: { issues: Issue[]; onJump: (issue: Issue) => void }) {
-  const [open, setOpen] = useState(false);
+export function ChecksPanel({ issues, onJump, defaultOpen = false }: { issues: Issue[]; onJump: (issue: Issue) => void; defaultOpen?: boolean }) {
+  const [open, setOpen] = useState(defaultOpen);
   const errors = issues.filter((i) => i.severity === 'error').length;
   const warnings = issues.filter((i) => i.severity === 'warning').length;
   const infos = issues.filter((i) => i.severity === 'info').length;
@@ -28,7 +28,7 @@ export function ChecksPanel({ issues, onJump }: { issues: Issue[]; onJump: (issu
         <span className="ml-auto text-slate-400">{open ? '▾' : '▴'}</span>
       </button>
       {open && issues.length > 0 && (
-        <ul className="max-h-48 overflow-y-auto border-t border-slate-100 text-sm dark:border-slate-800" data-testid="checks-list">
+        <ul className={`${defaultOpen ? '' : 'max-h-48 overflow-y-auto'} border-t border-slate-100 text-sm dark:border-slate-800`} data-testid="checks-list">
           {issues.map((issue) => (
             <li key={issue.id}>
               <button type="button" className="flex w-full items-start gap-2 px-3 py-1.5 text-left hover:bg-slate-50 dark:hover:bg-slate-800" onClick={() => onJump(issue)}>

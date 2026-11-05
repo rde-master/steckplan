@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { createEmptyProject, type Project, type SyncClient } from '@steckplan/core';
 import { isManagedStore } from '../storage/types';
-import { connect, login, sleep, startTestServer, waitFor, type TestServer } from '../test-utils';
+import { connect, login, startTestServer, waitFor, type TestServer } from '../test-utils';
 
 let server: TestServer | undefined;
 const clients: SyncClient[] = [];
@@ -36,7 +36,10 @@ describe('Packliste: Häkchen per Server-Befehl', () => {
     expect((await post({ kind: 'cable', id: 'c1', direction: 'in', status: 'damaged', note: '  Stecker locker ' })).statusCode).toBe(200);
     // Lese-Client sieht die Häkchen live
     await waitFor(() => (reader.doc.getMap('cables').get('c1') as { get(k: string): unknown } | undefined)?.get('check') !== undefined);
-    await sleep(100);
+    await waitFor(async () => {
+      const s = await server.store.load(id).catch(() => null);
+      return !!s?.devices[0]?.check?.out && !!s.cables[0]?.check?.in;
+    });
     const saved = await server.store.load(id);
     expect(saved.devices[0]!.check?.out).toMatchObject({ by: 'Anna', status: 'ok' });
     expect(saved.cables[0]!.check?.in).toMatchObject({ by: 'Anna', status: 'damaged', note: 'Stecker locker' });
@@ -57,7 +60,10 @@ describe('Packliste: Häkchen per Server-Befehl', () => {
     expect(denied.statusCode).toBe(403);
     const ok = await server.app.inject({ method: 'POST', url: `/api/projects/${id}/checks/reset`, headers: { cookie: edit }, payload: { direction: 'out' } });
     expect(ok.json()).toEqual({ removed: 1 });
-    await sleep(100);
+    await waitFor(async () => {
+      const check = (await server.store.load(id).catch(() => null))?.devices[0]?.check;
+      return !!check?.in && check.out === undefined;
+    });
     expect((await server.store.load(id)).devices[0]!.check).toEqual({ in: expect.objectContaining({ by: 'Anna' }) });
   });
 
