@@ -268,8 +268,28 @@ describe('PDF-Export', () => {
     data.cables.push(...Array.from({ length: 12 }, (_, i) => ({ id: `extra${i}`, templateId: 'xlr', from: { deviceId: 'm1', portId: 'o' }, to: { deviceId: `d${10 + i}`, portId: 'i' }, waypoints: [], manualLengthMm: 20000, label: `Sehr lange Kabelbezeichnung ${i}` })));
     for (const formatId of ['70x37', '63x38', '105x48', '105x74']) {
       const format = LABEL_FORMATS.find((f) => f.id === formatId)!;
-      const input = { data, library, meta: { name: 'Stadtfest' }, filter: EMPTY_FILTER, colorMode: 'device' as const, issues: [], appTitle: 'Steckplan 0.8.0', by: 'Ralf', fetchQr: async () => QR_SVG, now: new Date(T0) };
-      const { items } = await renderItems(await buildExportDoc({ ...DEFAULT_OPTIONS, kind: 'labels', labelFormat: formatId, cutLines: true }, input), `labels-${formatId}`);
+      // mit Fußzeile: Logo, Projektname, QR-Code und Hinweis
+      const input = {
+        data,
+        library,
+        meta: { name: 'Stadtfest am Marktplatz mit sehr langem Projektnamen' },
+        filter: EMPTY_FILTER,
+        colorMode: 'device' as const,
+        issues: [],
+        appTitle: 'Steckplan 0.8.0',
+        by: 'Ralf',
+        fetchQr: async () => QR_SVG,
+        now: new Date(T0),
+        labelQr: { base: 'https://steckplan.example.de', token: 'abc123', hint: 'Aktuelle Informationen finden Sie hier.' },
+      };
+      const doc = await buildExportDoc({ ...DEFAULT_OPTIONS, kind: 'labels', labelFormat: formatId, cutLines: true }, input);
+      // je Etikett ein QR-Code mit dem Gerät
+      const qrs = JSON.stringify(doc).match(/"qr":"[^"]+"/g) ?? [];
+      expect(qrs, formatId).toContain('"qr":"https://steckplan.example.de/s/abc123?g=m1"');
+      const { items } = await renderItems(doc, `labels-${formatId}`);
+      const all = items.map((i) => i.text).join(' ');
+      expect(all, formatId).toContain('Stadtfest');
+      if (formatId !== '70x37') expect(all, formatId).toContain('Aktuelle Informationen');
       const mm = 72 / 25.4;
       for (const item of items) {
         expect(item.x, `${formatId}: ${item.text}`).toBeGreaterThanOrEqual(5 * mm - 0.5);

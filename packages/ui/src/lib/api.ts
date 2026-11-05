@@ -28,6 +28,19 @@ async function request<T>(method: string, url: string, body?: unknown, raw = fal
   return data as T;
 }
 
+export interface LabelQrSettings {
+  enabled: boolean;
+  baseUrl: string;
+  hint: string;
+}
+
+export interface ShareLinkInfo {
+  key: string;
+  name: string;
+  createdAt: string;
+  createdBy: string;
+}
+
 export interface MediaFileInfo {
   id: string;
   sizeBytes: number;
@@ -101,6 +114,12 @@ export const api = {
   createProject: (name: string) => request<{ id: string }>('POST', '/api/projects', { name }),
   uploadProject: (fileText: string) => request<{ id: string }>('POST', '/api/projects/upload', fileText, true),
   deleteProject: (id: string) => request<{ ok: true }>('DELETE', `/api/projects/${encodeURIComponent(id)}`),
+  getLabelQr: () => request<LabelQrSettings>('GET', '/api/settings/label-qr'),
+  setLabelQr: (patch: Partial<LabelQrSettings>) => request<LabelQrSettings>('PUT', '/api/settings/label-qr', patch),
+  listShareLinks: () => request<{ links: ShareLinkInfo[] }>('GET', '/api/settings/label-qr/links'),
+  changeShareLink: (key: string, action: 'renew' | 'revoke') => request<{ ok: true }>('PUT', '/api/settings/label-qr/links', { key, action }),
+  getShare: (projectId: string) => request<{ token: string; createdAt: string }>('GET', `/api/projects/${encodeURIComponent(projectId)}/share`),
+  ensureShare: (projectId: string, renew = false) => request<{ token: string; createdAt: string }>('POST', `/api/projects/${encodeURIComponent(projectId)}/share`, { renew }),
   downloadUrl: (id: string, withMedia = false) => `/api/projects/${encodeURIComponent(id)}/download${withMedia ? '?medien=1' : ''}`,
   mediaUrl: (projectId: string, mediaId: string) => `/api/projects/${encodeURIComponent(projectId)}/media/${encodeURIComponent(mediaId)}`,
   startMediaUpload: (projectId: string, size: number, mediaId?: string) =>
