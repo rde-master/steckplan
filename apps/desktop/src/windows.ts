@@ -37,7 +37,7 @@ export class WindowManager {
     const base = this.options.baseUrl;
     // Nur die eigene Oberfläche im Fenster; externe Links im Standardbrowser öffnen.
     win.webContents.setWindowOpenHandler((details) => {
-      if (isLyricsWindow(details)) return { action: 'allow', overrideBrowserWindowOptions: lyricsWindowOptions };
+      if (isLyricsWindow(details, base)) return { action: 'allow', overrideBrowserWindowOptions: lyricsWindowOptions };
       const target = details.url;
       if (/^https?:\/\//.test(target) && !target.startsWith(base)) void shell.openExternal(target);
       return { action: 'deny' };

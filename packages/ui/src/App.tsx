@@ -9,6 +9,7 @@ import { DesktopStartPage } from './pages/DesktopStartPage';
 import { LibraryPage } from './pages/LibraryPage';
 import { LoginPage } from './pages/LoginPage';
 import { ProjectListPage } from './pages/ProjectListPage';
+import { LyricsPage } from './pages/LyricsPage';
 import { ProjectPage } from './pages/ProjectPage';
 import { SettingsPage } from './pages/SettingsPage';
 
@@ -59,6 +60,8 @@ export function App() {
       return desktop ? <DesktopStartPage desktop={desktop} /> : <ProjectListPage />;
     case 'project':
       return <ProjectPage key={route.id} id={route.id} />;
+    case 'lyrics':
+      return <LyricsPage key={route.id} id={route.id} />;
     case 'library':
       return <LibraryPage section={route.section} />;
     case 'settings':

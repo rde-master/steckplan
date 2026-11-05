@@ -9,7 +9,8 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Hinzugefügt
 
-- Vorstellung: „Textfenster“ – der Text in einem eigenen Fenster (z. B. auf einem zweiten Bildschirm): vorige Zeile ausgegraut, aktuelle hervorgehoben, drei nächste; läuft mit der Wiedergabe mit und schließt mit der Vorstellung (auch in der Desktop-App)
+- Regie: „Textfenster“ – eigene Seite mit eigenem Link (`/projekt/<id>/text`, Knopf im Regie-Menü, Link kopieren): Text zentriert, vorige Zeile ausgegraut, aktuelle hervorgehoben, drei nächste; Antippen schaltet Vollbild. Läuft auf jedem Gerät mit (auch Lese-Zugang), wenn in der Vorstellung jemand führt – im selben Browser auch ohne Führen
+- Vorstellung: „Führen“ sendet jetzt auch die Abspielposition (bei Start, Pause, Spulen und alle zwei Sekunden); folgende Geräte zählen selbst weiter, Nachzügler bekommen die aktuelle Position
 - Vorstellung: Zeitpunkt jeder Textzeile; für die nächsten fünf Zeilen ein live herunterlaufender Countdown auf die Zehntelsekunde
 - Player: Spulen um −5, −1, +1 und +5 Sekunden, in der Vorstellung auch Umschalt+←/→ (±1 s) – zum Anpassen an den Live-Gesang
 

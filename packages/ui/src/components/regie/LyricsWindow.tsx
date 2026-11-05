@@ -1,59 +1,70 @@
-// Textfenster: ein eigenes Browser-Fenster (z. B. auf einem zweiten Bildschirm), in dem der Text mitläuft –
-// fünf Zeilen: die vorige (ausgegraut), die aktuelle (hervorgehoben), die drei nächsten.
-// Inhalt kommt per Portal aus der Vorstellung; das Fenster selbst hat keine Bedienelemente.
+// Textfenster: eigene Seite (/projekt/<id>/text), auf jedem Gerät zu öffnen, im Vollbild.
+// Fünf Zeilen, zentriert: die vorige (ausgegraut), die aktuelle (hervorgehoben), die drei nächsten.
+// Die Stelle kommt von der Person, die in der Vorstellung führt (über den Server, mit Abspielposition),
+// im selben Browser auch ohne Führen direkt von der eigenen Vorstellung.
 import { useEffect, useState } from 'react';
-import { createPortal } from 'react-dom';
-import type { TimedLine } from '@steckplan/core';
+import type { Cue, TimedLine } from '@steckplan/core';
 
-const WINDOW_NAME = 'steckplan-lyrics';
-
-/** Stile der App ins Fenster übernehmen und es leeren (auch ein noch offenes Fenster einer früheren Sitzung) */
-function prepareWindow(w: Window, title: string): void {
-  const d = w.document;
-  d.title = title;
-  d.documentElement.lang = 'de';
-  for (const node of Array.from(d.head.querySelectorAll('[data-steckplan]'))) node.remove();
-  for (const node of Array.from(document.querySelectorAll('link[rel="stylesheet"], style'))) {
-    const copy = node.cloneNode(true) as HTMLElement;
-    if (copy instanceof HTMLLinkElement) copy.href = (node as HTMLLinkElement).href;
-    copy.setAttribute('data-steckplan', '');
-    d.head.appendChild(copy);
-  }
-  d.body.replaceChildren();
-  d.body.className = 'dark m-0 overflow-hidden bg-slate-950';
+export function lyricsPath(projectId: string): string {
+  return `/projekt/${encodeURIComponent(projectId)}/text`;
 }
 
-function setWindowTitle(w: Window, title: string): void {
-  w.document.title = title;
+export function lyricsUrl(projectId: string): string {
+  return new URL(lyricsPath(projectId), window.location.href).href;
 }
 
-/** Fenster öffnen bzw. nach vorn holen; schließt mit der Vorstellung */
-export function useLyricsWindow(title: string): { win: Window | null; open: () => void } {
-  const [win, setWin] = useState<Window | null>(null);
-  const open = () => {
-    if (win && !win.closed) {
-      win.focus();
-      return;
-    }
-    const w = window.open('', WINDOW_NAME, 'popup,width=1100,height=560');
-    if (!w) return;
-    prepareWindow(w, title);
-    setWin(w);
-  };
-  // vom Benutzer geschlossen?
+/** Textfenster in einem eigenen Fenster öffnen (bzw. nach vorn holen) */
+export function openLyricsWindow(projectId: string): void {
+  const w = window.open(lyricsPath(projectId), `steckplan-text-${projectId}`, 'popup,width=1100,height=600');
+  w?.focus();
+}
+
+// ---------- Stelle im selben Browser (ohne Führen) ----------
+
+/** Stelle mit dem Zeitpunkt des Empfangs (performance.now) – daraus läuft die Uhr weiter */
+export interface ReceivedCue extends Cue {
+  receivedAt: number;
+}
+
+const channelName = (projectId: string) => `steckplan-text-${projectId}`;
+
+/** Die Vorstellung meldet ihre Stelle an Textfenster im selben Browser */
+export function useLocalCueSender(projectId: string): (cue: Cue | null) => void {
+  const [channel] = useState(() => (typeof BroadcastChannel === 'undefined' ? null : new BroadcastChannel(channelName(projectId))));
+  useEffect(() => () => channel?.close(), [channel]);
+  return (cue) => channel?.postMessage(cue);
+}
+
+export function useLocalCue(projectId: string): ReceivedCue | null {
+  const [cue, setCue] = useState<ReceivedCue | null>(null);
   useEffect(() => {
-    if (!win) return;
-    const timer = window.setInterval(() => {
-      if (win.closed) setWin(null);
-    }, 500);
-    return () => window.clearInterval(timer);
-  }, [win]);
-  useEffect(() => {
-    if (win) setWindowTitle(win, title);
-  }, [win, title]);
-  useEffect(() => () => win?.close(), [win]);
-  return { win, open };
+    if (typeof BroadcastChannel === 'undefined') return;
+    const channel = new BroadcastChannel(channelName(projectId));
+    channel.onmessage = (e: MessageEvent<Cue | null>) => setCue(e.data ? { ...e.data, receivedAt: performance.now() } : null);
+    return () => channel.close();
+  }, [projectId]);
+  return cue;
 }
+
+/** Abspielzeit aus der letzten Stelle; läuft die Wiedergabe, zählt sie flüssig weiter */
+export function useCueClock(cue: ReceivedCue | null): number | undefined {
+  const [now, setNow] = useState(() => performance.now());
+  const running = !!cue?.playing && cue.at !== undefined;
+  useEffect(() => {
+    if (!running) return;
+    let frame = 0;
+    const tick = () => {
+      setNow(performance.now());
+      frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [running]);
+  if (!cue || cue.at === undefined) return undefined;
+  return running ? cue.at + Math.max(0, now - cue.receivedAt) / 1000 : cue.at;
+}
+
+// ---------- Anzeige ----------
 
 /** Die fünf Zeilen um die aktuelle (index -1 = noch vor der ersten Zeile) */
 export function lyricRows<T>(lines: T[], current: number): (T | undefined)[] {
@@ -63,25 +74,13 @@ export function lyricRows<T>(lines: T[], current: number): (T | undefined)[] {
   });
 }
 
-export function LyricsPortal({
-  win,
-  title,
-  lines,
-  currentLineId,
-  roleNames,
-}: {
-  win: Window;
-  title: string;
-  lines: TimedLine[];
-  currentLineId: string | undefined;
-  roleNames: Map<string, string>;
-}) {
+export function LyricsDisplay({ title, lines, currentLineId, roleNames }: { title: string; lines: TimedLine[]; currentLineId: string | undefined; roleNames: Map<string, string> }) {
   const current = lines.findIndex((l) => l.line.id === currentLineId);
   const rows = lyricRows(lines, current);
-  return createPortal(
-    <div className="dark flex h-screen flex-col bg-slate-950 px-[4vw] py-[3vh] text-slate-100" data-testid="lyrics-window">
-      <div className="truncate text-[2.2vw] font-semibold text-slate-500">{title}</div>
-      <ol className="flex flex-1 flex-col justify-center gap-[1.5vh]">
+  return (
+    <div className="flex h-full flex-col px-[4vw] py-[3vh]" data-testid="lyrics-window">
+      <div className="truncate text-center text-[2.2vw] font-semibold text-slate-500">{title}</div>
+      <ol className="flex flex-1 flex-col items-center justify-center gap-[1.5vh]">
         {rows.map((row, slot) => {
           const isCurrent = slot === 1;
           const speaker = row?.line.roleId ? roleNames.get(row.line.roleId) : undefined;
@@ -91,17 +90,16 @@ export function LyricsPortal({
               key={slot}
               data-testid="lyrics-row"
               data-current={isCurrent || undefined}
-              className={`min-h-[1.3em] truncate rounded-lg px-[1.5vw] leading-tight ${
+              className={`max-w-full min-h-[1.3em] truncate rounded-lg px-[2vw] text-center leading-tight ${
                 slot === 0 ? 'text-[4vw] text-slate-500' : isCurrent ? (row ? 'bg-sky-900 py-[0.6vh] text-[5.5vw] font-semibold text-white' : 'text-[5.5vw]') : 'text-[4.5vw] text-slate-200'
               } ${row?.line.direction ? 'italic' : ''}`}
             >
               {speaker && <span className="mr-[1vw] text-sky-300">{speaker}:</span>}
-              {text || '\u00a0'}
+              {text || ' '}
             </li>
           );
         })}
       </ol>
-    </div>,
-    win.document.body,
+    </div>
   );
 }

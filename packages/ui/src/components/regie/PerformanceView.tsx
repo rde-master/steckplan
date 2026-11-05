@@ -19,7 +19,7 @@ import {
 import type { ProjectData } from '../../lib/useProjectData';
 import { texts } from '../../texts';
 import { Button } from '../ui';
-import { LyricsPortal, useLyricsWindow } from './LyricsWindow';
+import { openLyricsWindow, useLocalCueSender } from './LyricsWindow';
 import { KIND_ICONS } from './RegieView';
 import { SceneGrid } from './SceneGrid';
 import { formatSceneTime } from './ScenesSection';
@@ -77,11 +77,34 @@ export function PerformanceView({
   // mit Audio die Abspielposition (auch angehalten, z. B. nach dem Spulen), sonst die Zeile der Szene
   const currentLine = playing || (audio && time > 0) ? currentLineId(lines, time) : scene?.lineId;
 
-  // führen: jede Änderung der Stelle an alle senden
+  // Stelle mit Abspielposition senden: beim Führen an alle (Server), immer an Textfenster im selben Browser.
+  // Bei Eintrag/Szene, Start, Pause, Spulen und alle zwei Sekunden während der Wiedergabe.
   const itemId = item?.id;
+  const localCue = useLocalCueSender(projectId);
+  const cueState = useRef({ mode, itemId, sceneId, audio, sendCue, localCue });
   useEffect(() => {
-    if (mode === 'lead' && itemId) sendCue({ itemId, ...(sceneId ? { sceneId } : {}) });
-  }, [mode, itemId, sceneId, sendCue]);
+    cueState.current = { mode, itemId, sceneId, audio, sendCue, localCue };
+  });
+  useEffect(() => {
+    const send = () => {
+      const c = cueState.current;
+      if (!c.itemId) return;
+      const cue: Cue = { itemId: c.itemId, ...(c.sceneId ? { sceneId: c.sceneId } : {}), ...(c.audio ? { at: c.audio.currentTime, playing: !c.audio.paused } : {}) };
+      c.localCue(cue);
+      if (c.mode === 'lead') c.sendCue(cue);
+    };
+    send();
+    const events = ['play', 'pause', 'seeked', 'ratechange'];
+    for (const e of events) audio?.addEventListener(e, send);
+    const timer = window.setInterval(() => {
+      if (audio && !audio.paused) send();
+    }, 2000);
+    return () => {
+      for (const e of events) audio?.removeEventListener(e, send);
+      window.clearInterval(timer);
+    };
+  }, [mode, itemId, sceneId, audio]);
+  useEffect(() => () => cueState.current.localCue(null), []);
   // beim Verlassen nicht weiter führen
   const leading = useRef(false);
   useEffect(() => {
@@ -166,8 +189,6 @@ export function PerformanceView({
   const states = scene ? sceneStates(data.sceneStates, scene.id) : new Map();
   const Icon = item ? KIND_ICONS[item.kind] : null;
   const roleNames = new Map((item?.roles ?? []).map((r) => [r.id, r.name]));
-  const itemTitle = item?.title || (item ? texts.regie.untitled : t.empty);
-  const lyrics = useLyricsWindow(t.lyricsWindowTitle(itemTitle));
   // Countdown bis zu den nächsten fünf Zeilen (mit Audio), sonst die feste Zeit
   const currentIndex = lines.findIndex((l) => l.line.id === currentLine);
   const timeLabel = (i: number, atSec: number | undefined): { text: string; countdown: boolean } | null => {
@@ -205,7 +226,7 @@ export function PerformanceView({
             </button>
           ))}
         </div>
-        <Button variant="ghost" className="text-sm" title={t.lyricsWindowHint} onClick={lyrics.open}>
+        <Button variant="ghost" className="text-sm" title={t.lyricsWindowHint} onClick={() => openLyricsWindow(projectId)}>
           <Monitor size={18} aria-hidden /> {t.lyricsWindow}
         </Button>
         <span className="flex items-center gap-1 text-xs text-slate-400" data-testid="performance-lead">
@@ -318,7 +339,6 @@ export function PerformanceView({
           </NavButton>
         </div>
       </footer>
-      {lyrics.win && item && <LyricsPortal win={lyrics.win} title={itemTitle} lines={lines} currentLineId={currentLine} roleNames={roleNames} />}
     </div>
   );
 }

@@ -105,7 +105,7 @@ export class ServerConnections {
     });
     // Nur der Server im Fenster; alles andere im Standardbrowser
     win.webContents.setWindowOpenHandler((details) => {
-      if (isLyricsWindow(details)) return { action: 'allow', overrideBrowserWindowOptions: lyricsWindowOptions };
+      if (isLyricsWindow(details, entry.url)) return { action: 'allow', overrideBrowserWindowOptions: lyricsWindowOptions };
       const target = details.url;
       if (/^https?:\/\//.test(target) && !target.startsWith(entry.url)) void shell.openExternal(target);
       return { action: 'deny' };
