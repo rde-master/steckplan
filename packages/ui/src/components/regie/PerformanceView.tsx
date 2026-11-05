@@ -104,7 +104,6 @@ export function PerformanceView({
       window.clearInterval(timer);
     };
   }, [mode, itemId, sceneId, audio]);
-  useEffect(() => () => cueState.current.localCue(null), []);
   // beim Verlassen nicht weiter führen
   const leading = useRef(false);
   useEffect(() => {

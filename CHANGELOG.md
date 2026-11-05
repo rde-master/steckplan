@@ -9,12 +9,17 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Hinzugefügt
 
+- Textfenster: einstellbar, wie viele Zeilen vor (0–5) und nach (0–10) der aktuellen Zeile stehen (Zahnrad „Textfenster einrichten“); Schrift und Zeilenhöhe passen sich an
 - Textfenster: Hintergrundbild (Zahnrad neben „Textfenster“ im Regie-Menü) mit einstellbarem Abdunkeln; das Bild liegt im Medienspeicher und kommt beim Herunterladen mit Medien mit
 - Player: Spulen auch um ±0,5 Sekunden
 
 ### Geändert
 
 - Textfenster: Zeilenwechsel animiert – der Text gleitet weich nach oben, die aktuelle Zeile wächst und wird hervorgehoben, Zeilen blenden weich ein und aus
+
+### Behoben
+
+- Vorstellung: Beim Schließen der Vorstellung wurde die Seite leer (Fehler aus 0.23.3, Meldung an das Textfenster im selben Browser)
 
 ## [0.23.3] - 2026-11-05
 

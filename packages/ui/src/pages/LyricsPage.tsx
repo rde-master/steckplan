@@ -1,7 +1,7 @@
 // Textfenster als eigene Seite: zentrierter Text, fünf Zeilen, Vollbild per Antippen.
 // Folgt der Person, die in der Vorstellung führt; im selben Browser auch der eigenen Vorstellung.
 import { useEffect, useState } from 'react';
-import { currentLineId, itemLines } from '@steckplan/core';
+import { currentLineId, itemLines, lyricsRange } from '@steckplan/core';
 import { LyricsDisplay, useCueClock, useLocalCue, type ReceivedCue } from '../components/regie/LyricsWindow';
 import { api } from '../lib/api';
 import { useProjectData } from '../lib/useProjectData';
@@ -67,7 +67,7 @@ export function LyricsPage({ id }: { id: string }) {
       ) : lines.length === 0 ? (
         <p className="flex h-full items-center justify-center p-8 text-center text-[6vw] font-semibold">{title}</p>
       ) : (
-        <LyricsDisplay title={title} lines={lines} currentLineId={current} roleNames={roleNames} />
+        <LyricsDisplay title={title} lines={lines} currentLineId={current} roleNames={roleNames} {...lyricsRange(data.showSettings)} />
       )}
       </div>
       {!fullscreen && <div className="pointer-events-none absolute right-0 bottom-2 left-0 text-center text-sm text-slate-500">{t.fullscreenHint}</div>}

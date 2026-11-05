@@ -117,4 +117,24 @@ test('Textfenster: eigene Seite, im selben Browser und auf anderen Geräten (Fü
   await perf.getByRole('button', { name: 'Abspielen' }).click();
   await expect(otherCurrent).toHaveText('Zeile 4', { timeout: 3000 });
   await other.context().close();
+
+  // Zeilen vor/nach der aktuellen einstellen: 2 davor, 5 danach
+  await page.keyboard.press('Escape');
+  await expect(perf).toBeHidden();
+  // Schließen der Vorstellung: Seite bleibt bedienbar, das Textfenster wartet wieder
+  await expect(page.getByRole('radio', { name: 'Lichtszenen' })).toBeVisible();
+  await expect(popup.getByTestId('lyrics-page')).toContainText('Warte auf die Vorstellung');
+  await page.getByRole('button', { name: 'Textfenster einrichten' }).click();
+  await page.getByLabel('vor der aktuellen').selectOption('2');
+  await page.getByLabel('nach der aktuellen').selectOption('5');
+  await page.getByRole('button', { name: 'Fertig' }).click();
+  await page.getByRole('button', { name: 'Vorstellung' }).click();
+  await page.evaluate(() => {
+    document.querySelector('audio')!.currentTime = 3;
+  });
+  // aktuell Zeile 3 → Zeile 1–2 davor, Zeile 4–8 danach
+  await expect(rows).toHaveText(['Zeile 1', 'Zeile 2', 'Zeile 3', 'Zeile 4', 'Zeile 5', 'Zeile 6', 'Zeile 7', 'Zeile 8']);
+  await expect(popup.locator('[data-current]')).toHaveText('Zeile 3');
+  const saved = await (await page.request.get(`/api/projects/${id}/download`)).json();
+  expect(saved.showSettings).toMatchObject({ lyricsBefore: 2, lyricsAfter: 5 });
 });

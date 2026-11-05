@@ -2,7 +2,7 @@
 import { ImageUp, Trash2 } from 'lucide-react';
 import { useRef, useState } from 'react';
 import type * as Y from 'yjs';
-import { setLyricsBackground, setLyricsBackgroundDim, type MediaRef, type ShowSettings } from '@steckplan/core';
+import { LYRICS_MAX_AFTER, LYRICS_MAX_BEFORE, lyricsRange, setLyricsBackground, setLyricsBackgroundDim, updateShowSettings, type MediaRef, type ShowSettings } from '@steckplan/core';
 import { api, errorMessage } from '../../lib/api';
 import { uploadMedia } from '../../lib/mediaUpload';
 import { useSession } from '../../lib/session';
@@ -18,6 +18,8 @@ export function LyricsSettings({ projectId, doc, origin, settings, onClose }: { 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const background = settings.lyricsBackground;
+  const range = lyricsRange(settings);
+  const selectClass = 'rounded-md border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-800';
 
   const upload = async (file: File) => {
     setBusy(true);
@@ -36,7 +38,31 @@ export function LyricsSettings({ projectId, doc, origin, settings, onClose }: { 
   return (
     <Modal title={t.settings} onClose={onClose} footer={<Button onClick={onClose}>{t.close}</Button>}>
       <div className="space-y-3" data-testid="lyrics-settings">
-        <h3 className="text-sm font-semibold">{t.background}</h3>
+        <h3 className="text-sm font-semibold">{t.lines}</h3>
+        <div className="flex flex-wrap items-center gap-4 text-sm">
+          <label className="flex items-center gap-2">
+            {t.linesBefore}
+            <select className={selectClass} value={range.before} onChange={(e) => updateShowSettings(doc, { lyricsBefore: Number(e.target.value) }, origin)}>
+              {Array.from({ length: LYRICS_MAX_BEFORE + 1 }, (_, n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex items-center gap-2">
+            {t.linesAfter}
+            <select className={selectClass} value={range.after} onChange={(e) => updateShowSettings(doc, { lyricsAfter: Number(e.target.value) }, origin)}>
+              {Array.from({ length: LYRICS_MAX_AFTER + 1 }, (_, n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        <p className="text-xs text-slate-500">{t.linesHint}</p>
+        <h3 className="pt-2 text-sm font-semibold">{t.background}</h3>
         <p className="text-xs text-slate-500">{t.backgroundHint}</p>
         {error && <Banner tone="error">{error}</Banner>}
         {background ? (
