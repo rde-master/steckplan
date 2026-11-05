@@ -256,7 +256,9 @@ export function PlayerBar({
   onNextLine,
   nextLineText,
   onClearTimes,
+  markers = [],
 }: {
+  markers?: { id: string; at: number; label: string }[];
   projectId: string;
   item: ShowItem;
   media: MediaRef[];
@@ -303,18 +305,36 @@ export function PlayerBar({
         <Button variant="primary" className="h-10 w-10 shrink-0 rounded-full p-0" aria-label={playing ? t.pause : t.play} onClick={toggle}>
           {playing ? <Pause size={18} aria-hidden /> : <Play size={18} aria-hidden />}
         </Button>
-        <input
-          type="range"
-          aria-label={t.position}
-          className="min-w-0 flex-1 accent-sky-600"
-          min={0}
-          max={duration || 0}
-          step={0.1}
-          value={Math.min(time, duration || 0)}
-          onChange={(e) => {
-            seekAudio(audio, Number(e.target.value));
-          }}
-        />
+        <div className="relative min-w-0 flex-1">
+          <input
+            type="range"
+            aria-label={t.position}
+            className="w-full accent-sky-600"
+            min={0}
+            max={duration || 0}
+            step={0.1}
+            value={Math.min(time, duration || 0)}
+            onChange={(e) => {
+              seekAudio(audio, Number(e.target.value));
+            }}
+          />
+          {/* Lichtszenen als Marken auf der Zeitleiste */}
+          {duration > 0 &&
+            markers
+              .filter((m) => m.at <= duration)
+              .map((m) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  title={m.label}
+                  aria-label={`${t.marker}: ${m.label}`}
+                  data-testid="scene-marker"
+                  onClick={() => seekAudio(audio, m.at)}
+                  className="absolute -top-1.5 h-2.5 w-1.5 -translate-x-1/2 rounded-sm bg-amber-500 hover:bg-amber-600"
+                  style={{ left: `${(m.at / duration) * 100}%` }}
+                />
+              ))}
+        </div>
         <span className="shrink-0 text-xs tabular-nums text-slate-600 dark:text-slate-300" data-testid="regie-time">
           {formatDuration(time)} / {formatDuration(duration)}
         </span>

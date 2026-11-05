@@ -22,7 +22,7 @@ import {
   type StagePosition,
 } from '@steckplan/core';
 import type { ProjectData } from '../../lib/useProjectData';
-import { stageBounds, stagePlanSvg, type StageDrawing } from '../../pdf/svg';
+import { stagePlanSvg, type StageDrawing } from '../../pdf/svg';
 import { texts } from '../../texts';
 import { ICON } from '../icons';
 import { buildStageItems } from '../stageplan/model';
@@ -320,6 +320,37 @@ function TargetsSection({ doc, origin, data, library, targets, editable }: { doc
   );
 }
 
+/**
+ * Enger Ausschnitt der Draufsicht: gedrehte Grundfläche jedes Objekts (statt eines Kreises um die längste Seite),
+ * etwas Platz für die Beschriftung darunter, Zeichnungsformen und Ziel-Punkte.
+ */
+export function tightStageView(drawing: StageDrawing, targets: LightTarget[]): { x: number; y: number; width: number; height: number } | null {
+  const xs: number[] = [];
+  const ys: number[] = [];
+  for (const i of drawing.items) {
+    const rad = (i.rotation * Math.PI) / 180;
+    const c = Math.abs(Math.cos(rad));
+    const s = Math.abs(Math.sin(rad));
+    const hx = (i.footprint.widthMm * c + i.footprint.depthMm * s) / 2;
+    const hy = (i.footprint.widthMm * s + i.footprint.depthMm * c) / 2;
+    xs.push(i.x - hx, i.x + hx);
+    ys.push(i.y - hy - 300, i.y + hy + 450); // Beschriftung über/unter dem Objekt
+  }
+  for (const shape of drawing.shapes) for (const p of shape.points) {
+    xs.push(p.x);
+    ys.push(p.y);
+  }
+  for (const target of targets) if (target.stagePoint) {
+    xs.push(target.stagePoint.x - 600, target.stagePoint.x + 600);
+    ys.push(target.stagePoint.y - 700, target.stagePoint.y + 300);
+  }
+  if (!xs.length) return null;
+  const pad = 300;
+  const minX = Math.min(...xs) - pad;
+  const minY = Math.min(...ys) - pad;
+  return { x: minX, y: minY, width: Math.max(Math.max(...xs) + pad - minX, 1000), height: Math.max(Math.max(...ys) + pad - minY, 1000) };
+}
+
 /** Draufsicht des Bühnenplans (nur ansehen) mit den Zielen als farbige Punkte; Klick setzt den Punkt des gewählten Ziels. */
 function StageMini({
   data,
@@ -341,14 +372,7 @@ function StageMini({
     const visible = new Set(data.layers.filter((l) => l.visible).map((l) => l.id));
     return { items: buildStageItems(data.devices, library, data.layers), shapes: data.shapes.filter((s) => visible.has(s.layerId)), cables: [], multicores: [], showCables: false };
   }, [data.devices, data.layers, data.shapes, library]);
-  const view = useMemo(() => {
-    const base = stageBounds(drawing, false);
-    const points = targets.flatMap((x) => (x.stagePoint ? [x.stagePoint] : []));
-    if (!base && !points.length) return null;
-    const xs = [...(base ? [base.x, base.x + base.width] : []), ...points.map((p) => p.x - 800), ...points.map((p) => p.x + 800)];
-    const ys = [...(base ? [base.y, base.y + base.height] : []), ...points.map((p) => p.y - 800), ...points.map((p) => p.y + 800)];
-    return { x: Math.min(...xs), y: Math.min(...ys), width: Math.max(...xs) - Math.min(...xs), height: Math.max(...ys) - Math.min(...ys) };
-  }, [drawing, targets]);
+  const view = useMemo(() => tightStageView(drawing, targets), [drawing, targets]);
   const svg = useMemo(() => (view ? stagePlanSvg(drawing, view, 100, (100 * view.height) / view.width, view.width / 60, false).replace(/width="[^"]*" height="[^"]*"/, 'width="100%" height="100%"') : ''), [drawing, view]);
   if (!view) return <p className="text-sm text-slate-500">{t.stageEmpty}</p>;
   const r = view.width / 70;
