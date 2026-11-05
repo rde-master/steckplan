@@ -7,6 +7,8 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.23.0] - 2026-11-05
+
 ### Hinzugefügt
 
 - Lichtszenen: „Kopieren nach …“ übernimmt alle Werte einer Szene in beliebige andere Szenen – auch in andere Lieder und Stücke (Werte der Ziele werden vollständig ersetzt); „Werte kopieren“ und „Einfügen“ (Strg/⌘+C, Strg/⌘+V) über Stücke hinweg
@@ -468,7 +470,8 @@ Meilenstein M0 – Projektgerüst.
 - Docker-Image mit Datenvolume `/data` und Beispiel-`docker-compose.yml`
 - GitHub Actions: Tests und Smoke-Test bei jedem Push, Installer als Artefakte, Docker-Image `:develop`, Release-Workflow für Tags `vX.Y.Z`
 
-[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.22.0...develop
+[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.23.0...develop
+[0.23.0]: https://github.com/rde-master/steckplan/compare/v0.22.0...v0.23.0
 [0.22.0]: https://github.com/rde-master/steckplan/compare/v0.21.0...v0.22.0
 [0.21.0]: https://github.com/rde-master/steckplan/compare/v0.20.0...v0.21.0
 [0.20.0]: https://github.com/rde-master/steckplan/compare/v0.19.0...v0.20.0
