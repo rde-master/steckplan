@@ -114,6 +114,9 @@ function setup(): { data: ProjectData; library: Library } {
     show: { items: [], sections: [] },
     showSettings: {},
     media: [],
+    lightGrid: { cols: 12, rows: 6, rowLabels: [] },
+    lightPlacements: [],
+    lightTargets: [],
   };
   return { data, library };
 }

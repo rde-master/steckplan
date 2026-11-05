@@ -104,6 +104,37 @@ export type CableChannel = z.infer<typeof CableChannelSchema>;
 export const TemplateKindSchema = z.enum(['device', 'cableType', 'stageElement', 'truss', 'stand']);
 export type TemplateKind = z.infer<typeof TemplateKindSchema>;
 
+// ---------- Lichtfähigkeiten einer Gerätevorlage (Regie, M11c) ----------
+
+export const COLOR_MIXING = ['none', 'rgb', 'rgbw', 'rgba', 'cmy'] as const;
+export type ColorMixing = (typeof COLOR_MIXING)[number];
+
+export const LightCapsSchema = z.object({
+  /** Gerät erscheint im Lichtaufbau und in den Lichtszenen */
+  showInScenes: z.boolean().default(false),
+  dimmer: z.boolean().default(true),
+  /** Strobe bis zu … Hz (fehlt = kein Strobe) */
+  strobeMaxHz: z.number().positive().optional(),
+  /** Farbmischung */
+  colorMixing: z.enum(COLOR_MIXING).default('none'),
+  /** Farbräder mit benannten Farben */
+  colorWheels: z.array(z.object({ name: z.string().default(''), colors: z.array(z.object({ name: z.string(), hex: z.string() })).default([]) })).default([]),
+  /** Farbtemperatur-Korrektur (CTO/CTB) */
+  cto: z.boolean().optional(),
+  /** Gobo-Räder: Name, drehbar, Gobos (nur Namen) */
+  goboWheels: z.array(z.object({ name: z.string().default(''), rotating: z.boolean().default(false), gobos: z.array(z.string()).default([]) })).default([]),
+  /** Prisma: Facetten (fehlt = kein Prisma) */
+  prism: z.object({ facets: z.number().int().positive(), rotating: z.boolean().default(false) }).optional(),
+  /** Zoom-Bereich in Grad */
+  zoom: z.object({ minDeg: z.number().nonnegative(), maxDeg: z.number().nonnegative() }).optional(),
+  focus: z.boolean().optional(),
+  iris: z.boolean().optional(),
+  frost: z.boolean().optional(),
+  /** beweglich (Moving Head / Scanner) mit Schwenk-/Neigebereich in Grad */
+  moving: z.object({ panDeg: z.number().nonnegative(), tiltDeg: z.number().nonnegative() }).optional(),
+});
+export type LightCaps = z.infer<typeof LightCapsSchema>;
+
 export const TemplateSchema = z.object({
   id,
   kind: TemplateKindSchema,
@@ -129,6 +160,8 @@ export const TemplateSchema = z.object({
     .optional(),
   ports: z.array(PortDefSchema).optional(),
   dmxModes: z.array(z.object({ name: z.string(), channels: z.number().int().positive() })).optional(),
+  /** Lichtfähigkeiten (Regie: Lichtaufbau und -szenen) */
+  light: LightCapsSchema.optional(),
   powerW: z.number().nonnegative().optional(),
   maxMountedDevices: z.number().int().nonnegative().optional(),
   lengthMm: mm.optional(),
@@ -464,6 +497,35 @@ export const TextSectionSchema = z.object({
 });
 export type TextSection = z.infer<typeof TextSectionSchema>;
 
+/** Raster des Lichtaufbaus (je Projekt) */
+export const LightGridSchema = z.object({
+  cols: z.number().int().min(1).max(48).default(12),
+  rows: z.number().int().min(1).max(24).default(6),
+  /** Bezeichnungen der Zeilen (z. B. „Traverse hinten“) */
+  rowLabels: z.array(z.string()).default([]),
+});
+export type LightGrid = z.infer<typeof LightGridSchema>;
+
+/** Platz eines Geräts im Raster (id = Kennung des Geräts); ohne col/row = nicht im Raster */
+export const LightPlacementSchema = z.object({
+  id,
+  col: z.number().int().nonnegative().optional(),
+  row: z.number().int().nonnegative().optional(),
+  /** im Lichtaufbau ausgeblendet */
+  hidden: z.boolean().optional(),
+});
+export type LightPlacement = z.infer<typeof LightPlacementSchema>;
+
+/** Benanntes Ziel für bewegliche Lichter (optional mit Punkt im Bühnenplan, mm) */
+export const LightTargetSchema = z.object({
+  id,
+  order: z.number(),
+  name: z.string().default(''),
+  color: z.string().optional(),
+  stagePoint: z.object({ x: z.number(), y: z.number() }).optional(),
+});
+export type LightTarget = z.infer<typeof LightTargetSchema>;
+
 export const ShowSettingsSchema = z.object({
   /** Beginn des Ablaufs „HH:MM“ */
   startTime: z.string().optional(),
@@ -495,6 +557,10 @@ export const ProjectSchema = z.object({
   showSettings: ShowSettingsSchema.default({}),
   /** Verweise auf Dateien im Medienspeicher (seit Format 9) */
   media: z.array(MediaRefSchema).default([]),
+  /** Lichtaufbau: Raster, Platz der Geräte, Ziele (seit Format 9) */
+  lightGrid: LightGridSchema.default({ cols: 12, rows: 6, rowLabels: [] }),
+  lightPlacements: z.array(LightPlacementSchema).default([]),
+  lightTargets: z.array(LightTargetSchema).default([]),
   network: z
     .object({
       subnets: z.array(SubnetSchema).default([]),

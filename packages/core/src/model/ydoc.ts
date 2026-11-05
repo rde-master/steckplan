@@ -8,7 +8,7 @@ import * as Y from 'yjs';
 import { ProjectSchema, type Project, type Secrets } from './schema';
 
 export const Y_ROOT = 'root';
-export const Y_OBJECT_MAPS = ['meta', 'settings', 'views', 'showSettings'] as const;
+export const Y_OBJECT_MAPS = ['meta', 'settings', 'views', 'showSettings', 'lightGrid'] as const;
 
 type CollectionPath = readonly [string] | readonly [string, string];
 export const Y_COLLECTIONS = {
@@ -26,10 +26,12 @@ export const Y_COLLECTIONS = {
   showItems: ['show', 'items'],
   showSections: ['show', 'sections'],
   media: ['media'],
+  lightPlacements: ['lightPlacements'],
+  lightTargets: ['lightTargets'],
 } as const satisfies Record<string, CollectionPath>;
 
 /** Bereiche des Dokuments, die der Zugang „Regie“ ändern darf */
-export const DIRECTION_ROOTS: ReadonlySet<string> = new Set(['showItems', 'showSections', 'showSettings', 'media']);
+export const DIRECTION_ROOTS: ReadonlySet<string> = new Set(['showItems', 'showSections', 'showSettings', 'media', 'lightGrid', 'lightPlacements', 'lightTargets']);
 export type YCollectionName = keyof typeof Y_COLLECTIONS;
 
 type Json = Record<string, unknown>;
@@ -101,7 +103,7 @@ export function readRawProjectFromYDoc(doc: Y.Doc): Json {
     const items = Object.values(doc.getMap(name).toJSON() as Record<string, Json>);
     // Stabile Reihenfolge in der Datei: Ebenen nach `order`, alles andere nach id
     items.sort((a, b) =>
-      name === 'layers' || name === 'flowPages' || name === 'showItems' || name === 'showSections'
+      name === 'layers' || name === 'flowPages' || name === 'showItems' || name === 'showSections' || name === 'lightTargets'
         ? Number(a.order ?? 0) - Number(b.order ?? 0)
         : String(a.id).localeCompare(String(b.id)),
     );

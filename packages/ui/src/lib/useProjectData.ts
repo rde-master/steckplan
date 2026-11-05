@@ -13,6 +13,9 @@ import {
   readPeople,
   readSettings,
   readShapes,
+  readLightGrid,
+  readLightPlacements,
+  readLightTargets,
   readMedia,
   readShow,
   readSubnets,
@@ -28,6 +31,9 @@ import {
   type Project,
   type ProjectSettings,
   type Shape,
+  type LightGrid,
+  type LightPlacement,
+  type LightTarget,
   type MediaRef,
   type ShowData,
   type ShowSettings,
@@ -51,6 +57,10 @@ export interface ProjectData {
   showSettings: ShowSettings;
   /** Verweise auf Audiodateien im Medienspeicher */
   media: MediaRef[];
+  /** Lichtaufbau */
+  lightGrid: LightGrid;
+  lightPlacements: LightPlacement[];
+  lightTargets: LightTarget[];
 }
 
 const EMPTY: ProjectData = {
@@ -69,6 +79,9 @@ const EMPTY: ProjectData = {
   show: { items: [], sections: [] },
   showSettings: {},
   media: [],
+  lightGrid: { cols: 12, rows: 6, rowLabels: [] },
+  lightPlacements: [],
+  lightTargets: [],
 };
 
 function read(doc: Y.Doc): ProjectData {
@@ -88,6 +101,9 @@ function read(doc: Y.Doc): ProjectData {
     show: readShow(doc),
     showSettings: doc.getMap('showSettings').toJSON() as ShowSettings,
     media: readMedia(doc),
+    lightGrid: readLightGrid(doc),
+    lightPlacements: readLightPlacements(doc),
+    lightTargets: readLightTargets(doc),
   };
 }
 

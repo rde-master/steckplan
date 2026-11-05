@@ -16,6 +16,8 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 - Regie (M11b): Audiodateien je Lied (mehrere, eine als Standard, Bezeichnung; Dauer wird beim Hochladen erkannt) – ohne Größengrenze, unverändert gespeichert, Hochladen in Teilen mit Fortschritt und Fortsetzen nach Abbruch. Player fest unten im Lied (Abspielen, Zeitleiste, Lautstärke, Wechsel der Datei an derselben Stelle)
 - Regie: Textansicht „Mitlesen“ (aktuelle Zeile hervorgehoben, scrollt mit, Antippen springt dorthin) und „Mitschreiben“ (beim Abspielen „Nächste Zeile“ oder Leertaste setzt die Zeitpunkte; ±0,5 s, löschen, Antippen setzt auf die aktuelle Zeit)
 - Medien: Docker unter `/data/media`, Desktop im Ordner `<Name>.medien` neben der Datei; nicht mehr verwendete Dateien 30 Tage im Papierkorb; „Neues Projekt aus diesem“ und „Speichern unter“ nehmen die Medien mit. Im Browser „Mit Medien herunterladen“ als `.steckplan.zip`, das sich in der Projektliste wieder hochladen lässt
+- Regie (M11c): Lichtfähigkeiten an Gerätevorlagen (Bibliothek → Licht): „In Lichtszenen anzeigen“, Dimmer, Strobe, Farbmischung (RGB/RGBW/RGBA/CMY), Farbräder mit benannten Farben, CTO/CTB, Gobo-Räder (Gobos mit Namen, drehbar), Prisma, Zoom, Fokus, Iris, Frost, beweglich mit Schwenk-/Neigebereich
+- Regie → Lichtaufbau: Raster je Projekt mit allen Lichtgeräten – per Ziehen oder Antippen platzieren (belegtes Feld = tauschen), Zeilen benennen, Größe ändern, „Aus dem Bühnenplan anordnen“ (je Traverse/Stativ eine Zeile), Geräte ausblenden; benannte Ziele (z. B. Sängerin, Publikum) mit Farbe und Punkt auf einer Draufsicht der Bühne
 
 ## [0.20.0] - 2026-11-05
 
