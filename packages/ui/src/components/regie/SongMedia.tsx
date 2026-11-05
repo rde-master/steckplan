@@ -7,12 +7,14 @@ import {
   currentLineId,
   defaultItemMedia,
   formatDuration,
+  remainRange,
   removeItemMedia,
   setLineTime,
   updateItemMedia,
   updateShowItem,
   type MediaRef,
   type ShowItem,
+  type ShowSettings,
   type TimedLine,
 } from '@steckplan/core';
 import { api, errorMessage } from '../../lib/api';
@@ -257,8 +259,11 @@ export function PlayerBar({
   nextLineText,
   onClearTimes,
   markers = [],
+  settings = {},
 }: {
   markers?: { id: string; at: number; label: string }[];
+  /** Regie-Einstellungen (Schwellen der Restzeit) */
+  settings?: Pick<ShowSettings, 'remainWarnSec' | 'remainBlinkSec'>;
   projectId: string;
   item: ShowItem;
   media: MediaRef[];
@@ -351,6 +356,7 @@ export function PlayerBar({
         <span className="shrink-0 text-xs tabular-nums text-slate-600 dark:text-slate-300" data-testid="regie-time">
           {formatDuration(time)} / {formatDuration(duration)}
         </span>
+        {duration > 0 && <RemainingTime remaining={Math.max(0, duration - time)} {...remainRange(settings)} />}
         <label className="hidden items-center gap-1 sm:flex" title={t.volume}>
           <Volume2 size={16} className="text-slate-500" aria-hidden />
           <input
@@ -478,6 +484,23 @@ export function LyricsView({
         );
       })}
     </ol>
+  );
+}
+
+/** Restzeit des Titels als Countdown: in den letzten warn Sekunden allmählich rot, in den letzten blink Sekunden blinkend */
+function RemainingTime({ remaining, warn, blink }: { remaining: number; warn: number; blink: number }) {
+  const red = warn > 0 && remaining <= warn ? (warn - remaining) / warn : 0;
+  const blinking = blink > 0 && remaining > 0 && remaining <= blink;
+  return (
+    <span
+      className={`shrink-0 text-xl font-semibold tabular-nums ${blinking ? 'animate-[steckplan-blink_1s_step-end_infinite]' : ''}`}
+      style={red > 0 ? { color: `color-mix(in srgb, #ef4444 ${Math.round(red * 100)}%, currentColor)` } : undefined}
+      title={t.remaining}
+      data-testid="remaining"
+      data-state={blinking ? 'blink' : red > 0 ? 'warn' : 'normal'}
+    >
+      −{formatDuration(Math.ceil(remaining))}
+    </span>
   );
 }
 

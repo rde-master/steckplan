@@ -1,8 +1,8 @@
-// Textfenster einrichten: Hintergrundbild (Medienspeicher) und wie stark es abgedunkelt wird.
+// Regie-Einstellungen: Restzeit im Player (rot/blinkend ab …), Textfenster (Zeilen, Hintergrundbild aus dem Medienspeicher).
 import { ImageUp, Trash2 } from 'lucide-react';
 import { useRef, useState } from 'react';
 import type * as Y from 'yjs';
-import { setLyricsBackground, setLyricsBackgroundDim, type MediaRef, type ShowSettings } from '@steckplan/core';
+import { LYRICS_MAX_AFTER, LYRICS_MAX_BEFORE, lyricsRange, REMAIN_MAX_BLINK, REMAIN_MAX_WARN, remainRange, setLyricsBackground, setLyricsBackgroundDim, updateShowSettings, type MediaRef, type ShowSettings } from '@steckplan/core';
 import { api, errorMessage } from '../../lib/api';
 import { uploadMedia } from '../../lib/mediaUpload';
 import { useSession } from '../../lib/session';
@@ -18,6 +18,10 @@ export function LyricsSettings({ projectId, doc, origin, settings, onClose }: { 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const background = settings.lyricsBackground;
+  const range = lyricsRange(settings);
+  const remain = remainRange(settings);
+  const seconds = (value: string, max: number) => Math.min(max, Math.max(0, Math.round(Number(value) || 0)));
+  const selectClass = 'rounded-md border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-800';
 
   const upload = async (file: File) => {
     setBusy(true);
@@ -36,7 +40,46 @@ export function LyricsSettings({ projectId, doc, origin, settings, onClose }: { 
   return (
     <Modal title={t.settings} onClose={onClose} footer={<Button onClick={onClose}>{t.close}</Button>}>
       <div className="space-y-3" data-testid="lyrics-settings">
-        <h3 className="text-sm font-semibold">{t.background}</h3>
+        <h3 className="text-sm font-semibold">{t.playback}</h3>
+        <div className="flex flex-wrap items-center gap-4 text-sm">
+          <label className="flex items-center gap-2">
+            {t.remainWarn}
+            <input type="number" min={0} max={REMAIN_MAX_WARN} className={`${selectClass} w-20`} value={remain.warn} onChange={(e) => updateShowSettings(doc, { remainWarnSec: seconds(e.target.value, REMAIN_MAX_WARN) }, origin)} />
+            s
+          </label>
+          <label className="flex items-center gap-2">
+            {t.remainBlink}
+            <input type="number" min={0} max={REMAIN_MAX_BLINK} className={`${selectClass} w-20`} value={remain.blink} onChange={(e) => updateShowSettings(doc, { remainBlinkSec: seconds(e.target.value, REMAIN_MAX_BLINK) }, origin)} />
+            s
+          </label>
+        </div>
+        <p className="text-xs text-slate-500">{t.remainHint}</p>
+        <h3 className="border-t border-slate-200 pt-3 text-sm font-semibold dark:border-slate-700">{t.lyricsSection}</h3>
+        <h4 className="text-xs font-semibold text-slate-500 uppercase">{t.lines}</h4>
+        <div className="flex flex-wrap items-center gap-4 text-sm">
+          <label className="flex items-center gap-2">
+            {t.linesBefore}
+            <select className={selectClass} value={range.before} onChange={(e) => updateShowSettings(doc, { lyricsBefore: Number(e.target.value) }, origin)}>
+              {Array.from({ length: LYRICS_MAX_BEFORE + 1 }, (_, n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex items-center gap-2">
+            {t.linesAfter}
+            <select className={selectClass} value={range.after} onChange={(e) => updateShowSettings(doc, { lyricsAfter: Number(e.target.value) }, origin)}>
+              {Array.from({ length: LYRICS_MAX_AFTER + 1 }, (_, n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        <p className="text-xs text-slate-500">{t.linesHint}</p>
+        <h4 className="pt-2 text-xs font-semibold text-slate-500 uppercase">{t.background}</h4>
         <p className="text-xs text-slate-500">{t.backgroundHint}</p>
         {error && <Banner tone="error">{error}</Banner>}
         {background ? (

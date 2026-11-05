@@ -104,7 +104,6 @@ export function PerformanceView({
       window.clearInterval(timer);
     };
   }, [mode, itemId, sceneId, audio]);
-  useEffect(() => () => cueState.current.localCue(null), []);
   // beim Verlassen nicht weiter führen
   const leading = useRef(false);
   useEffect(() => {
@@ -191,6 +190,17 @@ export function PerformanceView({
   const roleNames = new Map((item?.roles ?? []).map((r) => [r.id, r.name]));
   // Countdown bis zu den nächsten fünf Zeilen (mit Audio), sonst die feste Zeit
   const currentIndex = lines.findIndex((l) => l.line.id === currentLine);
+  // Fortschritt bis zur nächsten Zeile (mit Audio): grüner Balken über der aktuellen, roter über der nächsten
+  const nextIndex = lines.findIndex((l, i) => i > currentIndex && l.line.atSec !== undefined);
+  const nextAt = nextIndex >= 0 ? lines[nextIndex]!.line.atSec! : undefined;
+  const startAt = currentIndex >= 0 ? (lines[currentIndex]!.line.atSec ?? 0) : 0;
+  const progress = audio && nextAt !== undefined && nextAt > startAt ? Math.min(1, Math.max(0, (time - startAt) / (nextAt - startAt))) : undefined;
+  const progressBar = (i: number): { color: string; width: number; testId: string } | null => {
+    if (progress === undefined) return null;
+    if (i === currentIndex) return { color: 'bg-emerald-500', width: progress, testId: 'line-progress-current' };
+    if (i === nextIndex) return { color: 'bg-red-500', width: 1 - progress, testId: 'line-progress-next' };
+    return null;
+  };
   const timeLabel = (i: number, atSec: number | undefined): { text: string; countdown: boolean } | null => {
     if (atSec === undefined) return null;
     const ahead = i - currentIndex;
@@ -256,9 +266,14 @@ export function PerformanceView({
                   const isCurrent = line.id === currentLine;
                   const speaker = line.roleId && (i === 0 || lines[i - 1]!.line.roleId !== line.roleId || lines[i - 1]!.line.direction) ? roleNames.get(line.roleId) : undefined;
                   const at = timeLabel(i, line.atSec);
+                  const bar = progressBar(i);
                   return (
                     <li key={line.id} ref={(el) => void (el ? lineRefs.current.set(line.id, el) : lineRefs.current.delete(line.id))} data-current={isCurrent || undefined}>
                       {header !== null && <div className="mt-4 mb-1 text-xs font-semibold tracking-wide text-slate-500 uppercase">{header}</div>}
+                      {/* kleiner Balken oben am Rand (nur hier, nicht im Textfenster) */}
+                      <div className="mt-2.5 mb-0.5 ml-[4.5rem] h-1 overflow-hidden rounded-full">
+                        {bar && <div className={`h-full rounded-full ${bar.color}`} style={{ width: `${bar.width * 100}%` }} data-testid={bar.testId} data-progress={bar.width.toFixed(2)} />}
+                      </div>
                       <div className="flex items-baseline gap-2">
                         <span
                           className={`w-16 shrink-0 text-right text-sm tabular-nums ${at?.countdown ? 'font-semibold text-amber-400' : 'text-slate-500'}`}
@@ -306,6 +321,7 @@ export function PerformanceView({
         {item && (item.media?.length ?? 0) > 0 && (
           <div className="mx-auto max-w-4xl [&>[data-testid=regie-player]]:static [&>[data-testid=regie-player]]:mx-0 [&>[data-testid=regie-player]]:border-0">
             <PlayerBar
+              settings={data.showSettings}
               key={item.id}
               projectId={projectId}
               item={item}

@@ -28,11 +28,25 @@ export interface ReceivedCue extends Cue {
 
 const channelName = (projectId: string) => `steckplan-text-${projectId}`;
 
-/** Die Vorstellung meldet ihre Stelle an Textfenster im selben Browser */
+function post(channel: BroadcastChannel | null, cue: Cue | null): void {
+  try {
+    channel?.postMessage(cue);
+  } catch {
+    // Kanal schon geschlossen – nichts mehr zu melden
+  }
+}
+
+/** Die Vorstellung meldet ihre Stelle an Textfenster im selben Browser; beim Schließen „keine Stelle“ */
 export function useLocalCueSender(projectId: string): (cue: Cue | null) => void {
   const [channel] = useState(() => (typeof BroadcastChannel === 'undefined' ? null : new BroadcastChannel(channelName(projectId))));
-  useEffect(() => () => channel?.close(), [channel]);
-  return (cue) => channel?.postMessage(cue);
+  useEffect(
+    () => () => {
+      post(channel, null);
+      channel?.close();
+    },
+    [channel],
+  );
+  return (cue) => post(channel, cue);
 }
 
 export function useLocalCue(projectId: string): ReceivedCue | null {
@@ -66,27 +80,43 @@ export function useCueClock(cue: ReceivedCue | null): number | undefined {
 
 // ---------- Anzeige ----------
 
-/** Höhe einer Zeile in vh – fünf Zeilen sind sichtbar */
-const ROW_VH = 15;
 
 /**
- * Fünf Zeilen, zentriert: vorige (ausgegraut), aktuelle (hervorgehoben), drei nächste.
+ * Zeilen zentriert: vorige (ausgegraut, Anzahl before), aktuelle (hervorgehoben), nächste (Anzahl after).
+ * Zeilenhöhe und Schrift richten sich nach der Zahl der sichtbaren Zeilen.
  * Alle Zeilen stehen in einer Liste, die beim Wechsel weich nach oben gleitet; Hervorhebung und Ein-/Ausblenden
  * gehen ebenfalls weich über – nichts springt.
  */
-export function LyricsDisplay({ title, lines, currentLineId, roleNames }: { title: string; lines: TimedLine[]; currentLineId: string | undefined; roleNames: Map<string, string> }) {
+export function LyricsDisplay({
+  title,
+  lines,
+  currentLineId,
+  roleNames,
+  before = 1,
+  after = 3,
+}: {
+  title: string;
+  lines: TimedLine[];
+  currentLineId: string | undefined;
+  roleNames: Map<string, string>;
+  before?: number;
+  after?: number;
+}) {
   const current = lines.findIndex((l) => l.line.id === currentLineId);
-  // aktuelle Zeile in den zweiten der fünf Plätze (vor der ersten Zeile: Index -1 → erste Zeile auf Platz 3)
-  const shift = (1 - current) * ROW_VH;
+  const slots = before + 1 + after;
+  // Höhe einer Zeile in vh: bis 15, zusammen höchstens 80
+  const ROW_VH = Math.min(15, 80 / slots);
+  // aktuelle Zeile auf den Platz nach den vorigen (vor der ersten Zeile: Index -1 → erste Zeile einen Platz tiefer)
+  const shift = (before - current) * ROW_VH;
   return (
     <div className="relative flex h-full flex-col" data-testid="lyrics-window">
       <div className="truncate px-[4vw] pt-[3vh] text-center text-[2.2vw] font-semibold text-slate-400 [text-shadow:0_2px_8px_rgb(0_0_0/0.8)]">{title}</div>
       <div className="relative min-h-0 flex-1 overflow-hidden">
-        <div className="absolute inset-x-0 top-1/2" style={{ height: `${5 * ROW_VH}vh`, marginTop: `-${2.5 * ROW_VH}vh` }}>
+        <div className="absolute inset-x-0 top-1/2" style={{ height: `${slots * ROW_VH}vh`, marginTop: `-${(slots * ROW_VH) / 2}vh` }}>
           <ol className="transition-transform duration-700 ease-out motion-reduce:transition-none" style={{ transform: `translateY(${shift}vh)` }}>
             {lines.map((l, i) => {
               const d = i - current;
-              const visible = d >= -1 && d <= 3;
+              const visible = d >= -before && d <= after;
               const isCurrent = d === 0;
               const speaker = l.line.roleId ? roleNames.get(l.line.roleId) : undefined;
               return (
@@ -99,8 +129,9 @@ export function LyricsDisplay({ title, lines, currentLineId, roleNames }: { titl
                   aria-hidden={!visible || undefined}
                 >
                   <span
-                    className={`max-w-full truncate rounded-xl px-[2vw] py-[0.4em] text-[4.5vw] leading-tight transition-all duration-700 ease-out motion-reduce:transition-none [text-shadow:0_2px_10px_rgb(0_0_0/0.85)] ${
-                      isCurrent ? 'scale-[1.2] bg-sky-900/85 font-semibold text-white' : d === -1 ? 'scale-90 text-slate-400 opacity-70' : visible ? 'text-slate-100' : 'opacity-0'
+                    style={{ fontSize: `min(4.5vw, ${ROW_VH * 0.42}vh)` }}
+                    className={`max-w-full truncate rounded-xl px-[2vw] py-[0.4em] leading-tight transition-all duration-700 ease-out motion-reduce:transition-none [text-shadow:0_2px_10px_rgb(0_0_0/0.85)] ${
+                      isCurrent ? 'scale-[1.2] bg-sky-900/85 font-semibold text-white' : d < 0 && visible ? 'scale-90 text-slate-400 opacity-70' : visible ? 'text-slate-100' : 'opacity-0'
                     } ${l.line.direction ? 'italic' : ''}`}
                   >
                     {speaker && <span className="mr-[1vw] text-sky-300">{speaker}:</span>}

@@ -339,6 +339,7 @@ function ItemDetail({
 
       {hasAudio && (
         <PlayerBar
+          settings={data.showSettings}
           markers={itemScenes(data.lightScenes, item.id).flatMap((s, i) => {
             const at = sceneTime(s, lines.map((l) => l.line));
             return at === undefined ? [] : [{ id: s.id, at, label: `${i + 1} ${s.name}` }];

@@ -9,12 +9,19 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Hinzugefügt
 
+- Textfenster: einstellbar, wie viele Zeilen vor (0–5) und nach (0–10) der aktuellen Zeile stehen (Zahnrad „Regie-Einstellungen“); Schrift und Zeilenhöhe passen sich an
 - Textfenster: Hintergrundbild (Zahnrad neben „Textfenster“ im Regie-Menü) mit einstellbarem Abdunkeln; das Bild liegt im Medienspeicher und kommt beim Herunterladen mit Medien mit
 - Player: Spulen auch um ±0,5 Sekunden
+- Player: Restzeit des Titels als größerer Countdown rechts; in den letzten 30 Sekunden färbt er sich allmählich rot, in den letzten 5 blinkt er – beide Werte in den Regie-Einstellungen (Zahnrad im Regie-Menü, bisher „Textfenster einrichten“)
+- Vorstellung: kleiner grüner Balken über der aktuellen Zeile, der bis zur nächsten Zeile von links nach rechts vollläuft, und ein roter über der nächsten Zeile, der bis zu ihrem Einsatz von rechts nach links abläuft (nur in der Vorstellung, nicht im Textfenster)
 
 ### Geändert
 
 - Textfenster: Zeilenwechsel animiert – der Text gleitet weich nach oben, die aktuelle Zeile wächst und wird hervorgehoben, Zeilen blenden weich ein und aus
+
+### Behoben
+
+- Vorstellung: Beim Schließen der Vorstellung wurde die Seite leer (Fehler aus 0.23.3, Meldung an das Textfenster im selben Browser)
 
 ## [0.23.3] - 2026-11-05
 
