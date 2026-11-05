@@ -5,6 +5,8 @@ export interface StandaloneConfig {
   uiDir: string | undefined;
   editPassword: string;
   readPassword: string;
+  /** optional: Regie-Passwort (ohne = kein Regie-Zugang) */
+  directionPassword: string | undefined;
   trustProxy: boolean;
 }
 
@@ -26,6 +28,10 @@ export function readStandaloneConfig(env: NodeJS.ProcessEnv): StandaloneConfig {
   if (editPassword && readPassword && editPassword === readPassword) {
     problems.push('Bearbeiten- und Lese-Passwort müssen sich unterscheiden.');
   }
+  const directionPassword = env.STECKPLAN_DIRECTION_PASSWORD || undefined;
+  if (directionPassword && (directionPassword === editPassword || directionPassword === readPassword)) {
+    problems.push('STECKPLAN_DIRECTION_PASSWORD (Regie-Passwort) muss sich vom Bearbeiten- und Lese-Passwort unterscheiden.');
+  }
 
   const portText = env.PORT ?? '8080';
   const port = Number(portText);
@@ -42,6 +48,7 @@ export function readStandaloneConfig(env: NodeJS.ProcessEnv): StandaloneConfig {
     uiDir: env.STECKPLAN_UI_DIR || undefined,
     editPassword,
     readPassword,
+    directionPassword,
     trustProxy: ['1', 'true', 'yes', 'ja'].includes((env.STECKPLAN_TRUST_PROXY ?? '').toLowerCase()),
   };
 }

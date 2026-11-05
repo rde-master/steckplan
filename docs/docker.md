@@ -71,6 +71,7 @@ docker compose start
 |---|---|---|---|
 | `STECKPLAN_EDIT_PASSWORD` | ja | – | Bearbeiten-Passwort (volle Bearbeitung) |
 | `STECKPLAN_READ_PASSWORD` | ja | – | Lese-Passwort (ansehen, Packliste abhaken) – muss sich vom Bearbeiten-Passwort unterscheiden |
+| `STECKPLAN_DIRECTION_PASSWORD` | nein | – | Regie-Passwort: Regie (Ablauf, Texte) bearbeiten, alles andere nur lesen, keine Häkchen. Ohne = kein Regie-Zugang. Muss sich von den anderen Passwörtern unterscheiden |
 | `PORT` | nein | `8080` | Port im Container |
 | `TZ` | nein | UTC | Zeitzone, z. B. `Europe/Berlin` |
 | `STECKPLAN_TRUST_PROXY` | nein | `false` | `true` nur hinter einem Reverse-Proxy: dann werden `X-Forwarded-For`/`-Proto` ausgewertet (richtige IP für die Begrenzung von Fehlversuchen, sichere Cookies bei HTTPS) |
@@ -95,6 +96,8 @@ Alles liegt im Volume `/data`:
 | `projects/` | Projekte als `.steckplan`-Dateien (JSON) |
 | `versions/` | automatische Versionen (die letzten 30 pro Projekt) |
 | `trash/` | gelöschte Projekte (30 Tage wiederherstellbar) |
+| `label-qr.json` | QR-Code auf den Geräte-Etiketten: Einstellungen und Lese-Schlüssel je Projekt (ein Schlüssel öffnet ohne Passwort die Leseansicht genau eines Projekts – in den Einstellungen erneuern oder sperren) |
+| `media/` | Audiodateien der Regie je Projekt, unverändert und ohne Größengrenze (`media/<Projekt>/`); nicht mehr verwendete Dateien 30 Tage in `.papierkorb/`, unfertige Uploads in `.uploads/`. Kann groß werden – bei Datensicherungen mit einplanen |
 | `library.json` | Bibliothek: Vorlagen (Geräte, Kabeltypen, Bühnenelemente, Traversen, Stative) und Stammdaten (Kategorien, Besitzer, Anhänger, Cases) |
 | `changelog/` | Änderungsprotokoll je Projekt (nicht in der Projektdatei) |
 | `desktop-keys.json` | Desktop-Zugangsschlüssel (nur Prüfsummen, keine Schlüssel im Klartext) |

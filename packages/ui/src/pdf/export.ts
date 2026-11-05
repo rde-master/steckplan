@@ -62,9 +62,13 @@ import {
   type PlanTile,
 } from './documents';
 import { sortCsv, type SortKey } from './sorting';
+import { lightScenesDoc, scriptBookDoc, showPlanDoc } from './show';
 import { signalFlowBounds, signalFlowSvg, stageBounds, stagePlanSvg, usedCategories, type StageDrawing } from './svg';
 
-export type ExportKind = 'stageplan' | 'signalflow' | 'packing' | 'cases' | 'cables' | 'bom' | 'dmx' | 'devices' | 'network' | 'people' | 'patch' | 'power' | 'labels' | 'wifi';
+export type ExportKind = 'stageplan' | 'signalflow' | 'packing' | 'cases' | 'cables' | 'bom' | 'dmx' | 'devices' | 'network' | 'people' | 'patch' | 'power' | 'labels' | 'wifi' | 'showPlan' | 'lightScenes' | 'scriptBook';
+
+/** Ausgaben der Regie (nur sinnvoll, wenn es einen Ablauf gibt) */
+export const SHOW_KINDS: ExportKind[] = ['showPlan', 'lightScenes', 'scriptBook'];
 
 export const CSV_KINDS: ExportKind[] = ['packing', 'cases', 'cables', 'bom', 'dmx', 'devices', 'network', 'people', 'patch', 'power'];
 
@@ -83,6 +87,9 @@ export const EXPORT_TITLES: Record<ExportKind, string> = {
   power: 'Stromliste',
   labels: 'Geräte-Etiketten',
   wifi: 'WLAN-Aushang',
+  showPlan: 'Ablaufplan',
+  lightScenes: 'Lichtszenen',
+  scriptBook: 'Textbuch',
 };
 
 export interface ExportOptions {
@@ -157,6 +164,8 @@ export interface ExportInput {
   by: string;
   /** QR-Code (SVG) eines WLAN-Netzes vom Server */
   fetchQr: (wifiId: string) => Promise<string>;
+  /** Etiketten: QR-Code zur Leseansicht (Adresse ohne Schrägstrich am Ende, Lese-Schlüssel, Hinweis) */
+  labelQr?: { base: string; token: string; hint: string };
   /** WLAN-Passwörter (nur mit Bearbeiten-Zugang vorhanden) */
   passwords?: Record<string, string>;
   now?: Date;
@@ -421,7 +430,13 @@ export async function buildExportDoc(opts: ExportOptions, input: ExportInput): P
     case 'labels': {
       const ids = visibleDevices(data, library, filter).map((d) => d.id);
       const format = LABEL_FORMATS.find((f) => f.id === opts.labelFormat) ?? LABEL_FORMATS[0]!;
-      return labelsDoc(buildDeviceLabels(projectLike(data), library, ids), format, ctx, { cutLines: opts.cutLines });
+      // Fußzeile: Logo und Projektname, mit QR-Code (Leseansicht beim Gerät), wenn eingeschaltet und ein Schlüssel da ist
+      const qr = input.labelQr;
+      const footer = {
+        project: input.meta.name || 'Projekt',
+        ...(qr ? { qrUrl: (deviceId: string) => `${qr.base}/s/${qr.token}?g=${encodeURIComponent(deviceId)}`, hint: qr.hint } : {}),
+      };
+      return labelsDoc(buildDeviceLabels(projectLike(data), library, ids), format, ctx, { cutLines: opts.cutLines, footer });
     }
     case 'network': {
       const rows = buildNetworkList({ devices: visibleDevices(data, library, filter), network: data.network }, templates);
@@ -442,6 +457,12 @@ export async function buildExportDoc(opts: ExportOptions, input: ExportInput): P
       );
       return wifiPosterDoc(posters, ctx);
     }
+    case 'showPlan':
+      return showPlanDoc(data, ctx);
+    case 'lightScenes':
+      return lightScenesDoc(data, library, ctx);
+    case 'scriptBook':
+      return scriptBookDoc(data, ctx);
     case 'stageplan': {
       const visibleLayers = new Set(data.layers.filter((l) => l.visible).map((l) => l.id));
       const stageItems = buildStageItems(data.devices, library, data.layers, { colorMode: input.colorMode, filter, people: data.people });

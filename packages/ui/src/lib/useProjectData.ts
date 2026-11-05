@@ -13,6 +13,13 @@ import {
   readPeople,
   readSettings,
   readShapes,
+  readLightGrid,
+  readLightPlacements,
+  readLightTargets,
+  readMedia,
+  readScenes,
+  readSceneStates,
+  readShow,
   readSubnets,
   readWifi,
   type Background,
@@ -26,6 +33,14 @@ import {
   type Project,
   type ProjectSettings,
   type Shape,
+  type FixtureState,
+  type LightGrid,
+  type LightScene,
+  type LightPlacement,
+  type LightTarget,
+  type MediaRef,
+  type ShowData,
+  type ShowSettings,
 } from '@steckplan/core';
 
 export interface ProjectData {
@@ -41,6 +56,18 @@ export interface ProjectData {
   caseTrailers: CaseTrailer[];
   patch: PatchEntry[];
   flowPages: FlowPage[];
+  /** Regie: Ablauf und Texte */
+  show: ShowData;
+  showSettings: ShowSettings;
+  /** Verweise auf Audiodateien im Medienspeicher */
+  media: MediaRef[];
+  /** Lichtaufbau */
+  lightGrid: LightGrid;
+  lightPlacements: LightPlacement[];
+  lightTargets: LightTarget[];
+  /** Lichtszenen und Werte je Gerät */
+  lightScenes: LightScene[];
+  sceneStates: FixtureState[];
 }
 
 const EMPTY: ProjectData = {
@@ -56,6 +83,14 @@ const EMPTY: ProjectData = {
   caseTrailers: [],
   patch: [],
   flowPages: [],
+  show: { items: [], sections: [] },
+  showSettings: {},
+  media: [],
+  lightGrid: { cols: 12, rows: 6, rowLabels: [] },
+  lightPlacements: [],
+  lightTargets: [],
+  lightScenes: [],
+  sceneStates: [],
 };
 
 function read(doc: Y.Doc): ProjectData {
@@ -72,6 +107,14 @@ function read(doc: Y.Doc): ProjectData {
     caseTrailers: readCaseTrailers(doc),
     patch: readPatch(doc),
     flowPages: readFlowPages(doc),
+    show: readShow(doc),
+    showSettings: doc.getMap('showSettings').toJSON() as ShowSettings,
+    media: readMedia(doc),
+    lightGrid: readLightGrid(doc),
+    lightPlacements: readLightPlacements(doc),
+    lightTargets: readLightTargets(doc),
+    lightScenes: readScenes(doc),
+    sceneStates: readSceneStates(doc),
   };
 }
 

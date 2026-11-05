@@ -111,6 +111,14 @@ function setup(): { data: ProjectData; library: Library } {
     caseTrailers: [],
     patch: [{ id: 'pult:i1', name: 'Lead Vox' }],
     flowPages: [],
+    show: { items: [], sections: [] },
+    showSettings: {},
+    media: [],
+    lightGrid: { cols: 12, rows: 6, rowLabels: [] },
+    lightPlacements: [],
+    lightTargets: [],
+    lightScenes: [],
+    sceneStates: [],
   };
   return { data, library };
 }
@@ -260,8 +268,28 @@ describe('PDF-Export', () => {
     data.cables.push(...Array.from({ length: 12 }, (_, i) => ({ id: `extra${i}`, templateId: 'xlr', from: { deviceId: 'm1', portId: 'o' }, to: { deviceId: `d${10 + i}`, portId: 'i' }, waypoints: [], manualLengthMm: 20000, label: `Sehr lange Kabelbezeichnung ${i}` })));
     for (const formatId of ['70x37', '63x38', '105x48', '105x74']) {
       const format = LABEL_FORMATS.find((f) => f.id === formatId)!;
-      const input = { data, library, meta: { name: 'Stadtfest' }, filter: EMPTY_FILTER, colorMode: 'device' as const, issues: [], appTitle: 'Steckplan 0.8.0', by: 'Ralf', fetchQr: async () => QR_SVG, now: new Date(T0) };
-      const { items } = await renderItems(await buildExportDoc({ ...DEFAULT_OPTIONS, kind: 'labels', labelFormat: formatId, cutLines: true }, input), `labels-${formatId}`);
+      // mit Fußzeile: Logo, Projektname, QR-Code und Hinweis
+      const input = {
+        data,
+        library,
+        meta: { name: 'Stadtfest am Marktplatz mit sehr langem Projektnamen' },
+        filter: EMPTY_FILTER,
+        colorMode: 'device' as const,
+        issues: [],
+        appTitle: 'Steckplan 0.8.0',
+        by: 'Ralf',
+        fetchQr: async () => QR_SVG,
+        now: new Date(T0),
+        labelQr: { base: 'https://steckplan.example.de', token: 'abc123', hint: 'Aktuelle Informationen finden Sie hier.' },
+      };
+      const doc = await buildExportDoc({ ...DEFAULT_OPTIONS, kind: 'labels', labelFormat: formatId, cutLines: true }, input);
+      // je Etikett ein QR-Code mit dem Gerät
+      const qrs = JSON.stringify(doc).match(/"qr":"[^"]+"/g) ?? [];
+      expect(qrs, formatId).toContain('"qr":"https://steckplan.example.de/s/abc123?g=m1"');
+      const { items } = await renderItems(doc, `labels-${formatId}`);
+      const all = items.map((i) => i.text).join(' ');
+      expect(all, formatId).toContain('Stadtfest');
+      if (formatId !== '70x37') expect(all, formatId).toContain('Aktuelle Informationen');
       const mm = 72 / 25.4;
       for (const item of items) {
         expect(item.x, `${formatId}: ${item.text}`).toBeGreaterThanOrEqual(5 * mm - 0.5);
@@ -276,6 +304,61 @@ describe('PDF-Export', () => {
       }
       expect(items.map((i) => i.text).join(' ')).toMatch(/und \d+ weitere/);
     }
+  });
+
+  it('Regie: Ablaufplan, Lichtszenen (Raster + Tabelle), Textbuch mit Szenenwechseln am Rand', async () => {
+    const { data, library } = setup();
+    library.templates.push(t({ id: 'mh', kind: 'device', name: 'Moving Head', light: { showInScenes: true, dimmer: true, colorMixing: 'none', colorWheels: [{ name: 'Rad', colors: [{ name: 'Rot', hex: '#ff0000' }] }], goboWheels: [{ name: 'Gobos', rotating: true, gobos: ['Sterne'] }], moving: { panDeg: 540, tiltDeg: 270 } } }));
+    data.devices.push({ id: 'mh1', templateId: 'mh', layerId: data.layers[0]!.id, label: 'MH 1' }, { id: 'mh2', templateId: 'mh', layerId: data.layers[0]!.id, label: 'MH 2' });
+    data.people[0]!.kind = 'Sängerin';
+    data.showSettings = { startTime: '19:30' };
+    data.show = {
+      items: [
+        { id: 'a', order: 0, kind: 'song', title: 'Opener', artist: 'Band', durationSec: 220, personIds: ['anna'] },
+        { id: 'b', order: 1, kind: 'break', title: 'Pause', durationSec: 900, personIds: [] },
+        { id: 'c', order: 2, kind: 'play', title: 'Die Begegnung', durationSec: 480, personIds: [], roles: [{ id: 'r1', name: 'Hamlet', personId: 'anna' }, { id: 'r2', name: 'Ophelia' }] },
+      ],
+      sections: [
+        { id: 's1', itemId: 'a', order: 0, kind: 'verse', label: 'Strophe 1', lines: [{ id: 'l1', text: 'Es war einmal', atSec: 1 }, { id: 'l2', text: 'ein kleiner Ton', atSec: 5 }] },
+        { id: 's2', itemId: 'c', order: 0, kind: 'scene', label: 'Szene 1', lines: [{ id: 'p1', text: 'Sein oder nicht sein', roleId: 'r1' }, { id: 'p2', text: 'Ophelia tritt auf', direction: true }, { id: 'p3', text: 'Mein Prinz!', roleId: 'r2' }] },
+      ],
+    };
+    data.lightGrid = { cols: 2, rows: 1, rowLabels: ['Traverse'] };
+    data.lightPlacements = [{ id: 'mh1', col: 0, row: 0 }];
+    data.lightTargets = [{ id: 'z', order: 0, name: 'Sängerin', color: '#e11d48' }];
+    data.lightScenes = [
+      { id: 'x1', itemId: 'a', order: 0, name: 'Intro', atSec: 0 },
+      { id: 'x2', itemId: 'a', order: 1, name: 'Strophe', lineId: 'l2' },
+      { id: 'x3', itemId: 'c', order: 0, name: 'Auftritt', lineId: 'p2' },
+    ];
+    data.sceneStates = [
+      { id: 'x1:mh1', sceneId: 'x1', deviceId: 'mh1', dimmer: 80, color: { hex: '#ff0000', name: 'Rot' }, gobo: { wheel: 0, name: 'Sterne', rotate: 'cw' }, targetId: 'z', effect: { kind: 'circle', speed: 'slow' } },
+      { id: 'x1:mh2', sceneId: 'x1', deviceId: 'mh2', dimmer: 0 },
+    ];
+    const input = { data, library, meta: { name: 'Stadtfest' }, filter: EMPTY_FILTER, colorMode: 'device' as const, issues: [], appTitle: 'Steckplan 0.8.0', by: 'Ralf', fetchQr: async () => QR_SVG, now: new Date(T0) };
+    const text = async (kind: 'showPlan' | 'lightScenes' | 'scriptBook', orientation: 'portrait' | 'landscape') => {
+      const { pages, items } = await renderItems(await buildExportDoc({ ...DEFAULT_OPTIONS, kind, format: 'A4', orientation }, input), kind);
+      for (const item of items) expect(item.right, `${kind}: ${item.text}`).toBeLessThanOrEqual(item.pageWidth - 30);
+      return { pages, all: items.map((i) => i.text).join(' ') };
+    };
+    const plan = await text('showPlan', 'portrait');
+    expect(plan.all).toContain('Beginn 19:30');
+    expect(plan.all).toContain('Gesamt 26:40');
+    expect(plan.all).toMatch(/19:33.*Pause/);
+    expect(plan.all).toContain('Anna Muster');
+    const scenes = await text('lightScenes', 'landscape');
+    expect(scenes.all).toContain('Szene 1: Intro');
+    expect(scenes.all).toContain('bei „ein kleiner Ton“ (0:05)');
+    expect(scenes.all).toContain('Sterne (rechts herum)');
+    expect(scenes.all).toContain('Kreis, langsam');
+    expect(scenes.all).toContain('Nicht im Raster'); // MH 2 hat keinen Platz
+    expect(scenes.pages).toBe(2); // je Eintrag mit Szenen eine Seite
+    const book = await text('scriptBook', 'portrait');
+    expect(book.all).toContain('Hamlet: ');
+    expect(book.all).toContain('(Ophelia tritt auf)');
+    expect(book.all).toContain('Szene 2: Strophe');
+    expect(book.all).toContain('Szene 1: Intro (0:00)');
+    expect(book.all).toContain('Hamlet – Anna Muster');
   });
 
   it('Personenliste und Geräte-Etiketten', async () => {

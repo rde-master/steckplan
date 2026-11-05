@@ -3,7 +3,7 @@
 // Jede Änderung hier, die bestehende Dateien betrifft, braucht: schemaVersion erhöhen + Migration + Test.
 import { z } from 'zod';
 
-export const CURRENT_SCHEMA_VERSION = 8;
+export const CURRENT_SCHEMA_VERSION = 9;
 
 const id = z.string().min(1);
 const isoDate = z.string();
@@ -104,6 +104,37 @@ export type CableChannel = z.infer<typeof CableChannelSchema>;
 export const TemplateKindSchema = z.enum(['device', 'cableType', 'stageElement', 'truss', 'stand']);
 export type TemplateKind = z.infer<typeof TemplateKindSchema>;
 
+// ---------- Lichtfähigkeiten einer Gerätevorlage (Regie, M11c) ----------
+
+export const COLOR_MIXING = ['none', 'rgb', 'rgbw', 'rgba', 'cmy'] as const;
+export type ColorMixing = (typeof COLOR_MIXING)[number];
+
+export const LightCapsSchema = z.object({
+  /** Gerät erscheint im Lichtaufbau und in den Lichtszenen */
+  showInScenes: z.boolean().default(false),
+  dimmer: z.boolean().default(true),
+  /** Strobe bis zu … Hz (fehlt = kein Strobe) */
+  strobeMaxHz: z.number().positive().optional(),
+  /** Farbmischung */
+  colorMixing: z.enum(COLOR_MIXING).default('none'),
+  /** Farbräder mit benannten Farben */
+  colorWheels: z.array(z.object({ name: z.string().default(''), colors: z.array(z.object({ name: z.string(), hex: z.string() })).default([]) })).default([]),
+  /** Farbtemperatur-Korrektur (CTO/CTB) */
+  cto: z.boolean().optional(),
+  /** Gobo-Räder: Name, drehbar, Gobos (nur Namen) */
+  goboWheels: z.array(z.object({ name: z.string().default(''), rotating: z.boolean().default(false), gobos: z.array(z.string()).default([]) })).default([]),
+  /** Prisma: Facetten (fehlt = kein Prisma) */
+  prism: z.object({ facets: z.number().int().positive(), rotating: z.boolean().default(false) }).optional(),
+  /** Zoom-Bereich in Grad */
+  zoom: z.object({ minDeg: z.number().nonnegative(), maxDeg: z.number().nonnegative() }).optional(),
+  focus: z.boolean().optional(),
+  iris: z.boolean().optional(),
+  frost: z.boolean().optional(),
+  /** beweglich (Moving Head / Scanner) mit Schwenk-/Neigebereich in Grad */
+  moving: z.object({ panDeg: z.number().nonnegative(), tiltDeg: z.number().nonnegative() }).optional(),
+});
+export type LightCaps = z.infer<typeof LightCapsSchema>;
+
 export const TemplateSchema = z.object({
   id,
   kind: TemplateKindSchema,
@@ -129,6 +160,8 @@ export const TemplateSchema = z.object({
     .optional(),
   ports: z.array(PortDefSchema).optional(),
   dmxModes: z.array(z.object({ name: z.string(), channels: z.number().int().positive() })).optional(),
+  /** Lichtfähigkeiten (Regie: Lichtaufbau und -szenen) */
+  light: LightCapsSchema.optional(),
   powerW: z.number().nonnegative().optional(),
   maxMountedDevices: z.number().int().nonnegative().optional(),
   lengthMm: mm.optional(),
@@ -335,7 +368,7 @@ export type Secrets = z.infer<typeof SecretsSchema>;
 
 // ---------- Änderungsprotokoll ----------
 
-export const AccessSchema = z.enum(['local', 'edit', 'read']);
+export const AccessSchema = z.enum(['local', 'edit', 'read', 'direction']);
 
 export const ChangeLogEntrySchema = z.object({
   at: isoDate,
@@ -395,6 +428,151 @@ export const BackgroundSchema = z.object({
 });
 export type Background = z.infer<typeof BackgroundSchema>;
 
+// ---------- Regie (seit Format 9) ----------
+
+export const SHOW_ITEM_KINDS = ['song', 'play', 'break', 'announcement'] as const;
+export type ShowItemKind = (typeof SHOW_ITEM_KINDS)[number];
+
+export const ShowRoleSchema = z.object({ id, name: z.string(), personId: id.optional() });
+export type ShowRole = z.infer<typeof ShowRoleSchema>;
+
+/** Datei im Medienspeicher (nicht in der Projektdatei); das Projekt hält nur den Verweis */
+export const MediaRefSchema = z.object({
+  id,
+  name: z.string(),
+  mime: z.string().default(''),
+  sizeBytes: z.number().int().nonnegative(),
+  durationSec: z.number().nonnegative().optional(),
+  sha256: z.string().default(''),
+  addedAt: z.string().default(''),
+  addedBy: z.string().default(''),
+});
+export type MediaRef = z.infer<typeof MediaRefSchema>;
+
+/** Audiodatei an einem Lied (z. B. Playback, Klick) */
+export const ItemMediaSchema = z.object({ mediaId: id, label: z.string().default(''), isDefault: z.boolean().optional() });
+export type ItemMedia = z.infer<typeof ItemMediaSchema>;
+
+/** Eintrag im Ablauf: Lied, Schauspiel, Pause, Ansage */
+export const ShowItemSchema = z.object({
+  id,
+  order: z.number(),
+  kind: z.enum(SHOW_ITEM_KINDS),
+  title: z.string().default(''),
+  /** Lied: Interpret/Komponist */
+  artist: z.string().optional(),
+  durationSec: z.number().nonnegative().optional(),
+  personIds: z.array(id).default([]),
+  notes: z.string().optional(),
+  /** Schauspiel: Rollen, optional mit Person */
+  roles: z.array(ShowRoleSchema).optional(),
+  /** Lied: Audiodateien (eine davon Standard) */
+  media: z.array(ItemMediaSchema).optional(),
+});
+export type ShowItem = z.infer<typeof ShowItemSchema>;
+
+export const SECTION_KINDS = ['intro', 'verse', 'chorus', 'bridge', 'solo', 'outro', 'scene', 'other'] as const;
+export type SectionKind = (typeof SECTION_KINDS)[number];
+
+export const TextLineSchema = z.object({
+  id,
+  text: z.string(),
+  /** Schauspiel: wer spricht */
+  roleId: id.optional(),
+  /** Regieanweisung (ohne Rolle) */
+  direction: z.boolean().optional(),
+  /** Zeitpunkt im Lied (Sekunden) für mitlaufenden Text (ab M11b) */
+  atSec: z.number().nonnegative().optional(),
+});
+export type TextLine = z.infer<typeof TextLineSchema>;
+
+/** Textabschnitt eines Eintrags (Strophe, Refrain, Auftritt …) */
+export const TextSectionSchema = z.object({
+  id,
+  itemId: id,
+  order: z.number(),
+  kind: z.enum(SECTION_KINDS),
+  label: z.string().default(''),
+  lines: z.array(TextLineSchema).default([]),
+});
+export type TextSection = z.infer<typeof TextSectionSchema>;
+
+/** Raster des Lichtaufbaus (je Projekt) */
+export const LightGridSchema = z.object({
+  cols: z.number().int().min(1).max(48).default(12),
+  rows: z.number().int().min(1).max(24).default(6),
+  /** Bezeichnungen der Zeilen (z. B. „Traverse hinten“) */
+  rowLabels: z.array(z.string()).default([]),
+});
+export type LightGrid = z.infer<typeof LightGridSchema>;
+
+/** Platz eines Geräts im Raster (id = Kennung des Geräts); ohne col/row = nicht im Raster */
+export const LightPlacementSchema = z.object({
+  id,
+  col: z.number().int().nonnegative().optional(),
+  row: z.number().int().nonnegative().optional(),
+  /** im Lichtaufbau ausgeblendet */
+  hidden: z.boolean().optional(),
+});
+export type LightPlacement = z.infer<typeof LightPlacementSchema>;
+
+/** Benanntes Ziel für bewegliche Lichter (optional mit Punkt im Bühnenplan, mm) */
+export const LightTargetSchema = z.object({
+  id,
+  order: z.number(),
+  name: z.string().default(''),
+  color: z.string().optional(),
+  stagePoint: z.object({ x: z.number(), y: z.number() }).optional(),
+});
+export type LightTarget = z.infer<typeof LightTargetSchema>;
+
+/** Lichtszene eines Ablauf-Eintrags; Auslöser: Zeitpunkt im Lied und/oder Textzeile */
+export const LightSceneSchema = z.object({
+  id,
+  itemId: id,
+  order: z.number(),
+  name: z.string().default(''),
+  notes: z.string().optional(),
+  atSec: z.number().nonnegative().optional(),
+  lineId: id.optional(),
+});
+export type LightScene = z.infer<typeof LightSceneSchema>;
+
+export const EFFECT_KINDS = ['circle', 'eight', 'pan', 'tilt', 'wave', 'random', 'chase', 'other'] as const;
+export type EffectKind = (typeof EFFECT_KINDS)[number];
+export const EFFECT_SPEEDS = ['slow', 'medium', 'fast'] as const;
+
+/** Werte eines Geräts in einer Szene (id = „Szene:Gerät“); fehlende Angaben = unverändert/egal */
+export const FixtureStateSchema = z.object({
+  id: z.string().min(1),
+  sceneId: id,
+  deviceId: id,
+  /** Helligkeit 0–100 % */
+  dimmer: z.number().min(0).max(100).optional(),
+  /** Farbe (Anzeige) und – aus einem Farbrad – ihr Name */
+  color: z.object({ hex: z.string(), name: z.string().optional() }).optional(),
+  gobo: z.object({ wheel: z.number().int().nonnegative(), name: z.string(), rotate: z.enum(['cw', 'ccw']).optional() }).optional(),
+  prism: z.boolean().optional(),
+  zoomDeg: z.number().nonnegative().optional(),
+  /** Fokus, Iris, Frost in % */
+  focus: z.number().min(0).max(100).optional(),
+  iris: z.number().min(0).max(100).optional(),
+  frost: z.number().min(0).max(100).optional(),
+  strobeHz: z.number().nonnegative().optional(),
+  targetId: id.optional(),
+  effect: z.object({ kind: z.enum(EFFECT_KINDS), speed: z.enum(EFFECT_SPEEDS).optional(), text: z.string().optional() }).optional(),
+  notes: z.string().optional(),
+});
+export type FixtureState = z.infer<typeof FixtureStateSchema>;
+/** Die einstellbaren Werte (ohne Kennungen) */
+export type FixtureValues = Omit<FixtureState, 'id' | 'sceneId' | 'deviceId'>;
+
+export const ShowSettingsSchema = z.object({
+  /** Beginn des Ablaufs „HH:MM“ */
+  startTime: z.string().optional(),
+});
+export type ShowSettings = z.infer<typeof ShowSettingsSchema>;
+
 export const ProjectSchema = z.object({
   schemaVersion: z.literal(CURRENT_SCHEMA_VERSION),
   id,
@@ -410,6 +588,23 @@ export const ProjectSchema = z.object({
   caseTrailers: z.array(CaseTrailerSchema).default([]),
   patch: z.array(PatchEntrySchema).default([]),
   flowPages: z.array(FlowPageSchema).default([]),
+  /** Regie: Ablauf und Texte (seit Format 9) */
+  show: z
+    .object({
+      items: z.array(ShowItemSchema).default([]),
+      sections: z.array(TextSectionSchema).default([]),
+    })
+    .default({ items: [], sections: [] }),
+  showSettings: ShowSettingsSchema.default({}),
+  /** Verweise auf Dateien im Medienspeicher (seit Format 9) */
+  media: z.array(MediaRefSchema).default([]),
+  /** Lichtaufbau: Raster, Platz der Geräte, Ziele (seit Format 9) */
+  lightGrid: LightGridSchema.default({ cols: 12, rows: 6, rowLabels: [] }),
+  lightPlacements: z.array(LightPlacementSchema).default([]),
+  lightTargets: z.array(LightTargetSchema).default([]),
+  /** Lichtszenen und Werte je Gerät (seit Format 9) */
+  lightScenes: z.array(LightSceneSchema).default([]),
+  sceneStates: z.array(FixtureStateSchema).default([]),
   network: z
     .object({
       subnets: z.array(SubnetSchema).default([]),

@@ -2,6 +2,7 @@
 import { useCallback, useState, type FormEvent } from 'react';
 import { can } from '@steckplan/core';
 import { AppHeader, MainNav } from '../components/AppHeader';
+import { LabelQrSettings } from '../components/LabelQrSettings';
 import { AccessBadge, Banner, Button, Field, Spinner, TextInput } from '../components/ui';
 import { selectClass } from '../components/library/fields';
 import { api, errorMessage, type DesktopKeyInfo } from '../lib/api';
@@ -19,7 +20,16 @@ export function SettingsPage() {
   return (
     <div className="flex min-h-full flex-col bg-slate-50 dark:bg-slate-950">
       <AppHeader title={t.title} nav={<MainNav active="settings" />} />
-      <main className="mx-auto w-full max-w-3xl flex-1 space-y-4 p-4">{allowed ? <DesktopKeys /> : <Banner tone="warn">{t.notAllowed}</Banner>}</main>
+      <main className="mx-auto w-full max-w-3xl flex-1 space-y-4 p-4">
+        {allowed ? (
+          <>
+            <DesktopKeys />
+            <LabelQrSettings addressHint={window.location.origin} />
+          </>
+        ) : (
+          <Banner tone="warn">{t.notAllowed}</Banner>
+        )}
+      </main>
     </div>
   );
 }
@@ -97,9 +107,9 @@ function DesktopKeys() {
   );
 }
 
-function NewKeyForm({ onCreate }: { onCreate: (label: string, access: 'edit' | 'read') => Promise<void> }) {
+function NewKeyForm({ onCreate }: { onCreate: (label: string, access: 'edit' | 'read' | 'direction') => Promise<void> }) {
   const [label, setLabel] = useState('');
-  const [access, setAccess] = useState<'edit' | 'read'>('edit');
+  const [access, setAccess] = useState<'edit' | 'read' | 'direction'>('edit');
   async function submit(event: FormEvent) {
     event.preventDefault();
     if (!label.trim()) return;
@@ -112,8 +122,9 @@ function NewKeyForm({ onCreate }: { onCreate: (label: string, access: 'edit' | '
         <TextInput value={label} placeholder={t.labelPlaceholder} maxLength={60} onChange={(e) => setLabel(e.target.value)} />
       </Field>
       <Field label={t.access}>
-        <select className={selectClass} value={access} onChange={(e) => setAccess(e.target.value as 'edit' | 'read')}>
+        <select className={selectClass} value={access} onChange={(e) => setAccess(e.target.value as 'edit' | 'read' | 'direction')}>
           <option value="edit">{texts.session.accessEdit}</option>
+          <option value="direction">{texts.session.accessDirection}</option>
           <option value="read">{texts.session.accessRead}</option>
         </select>
       </Field>

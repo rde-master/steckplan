@@ -14,6 +14,8 @@ export interface WebAccessSettings {
   address?: string;
   edit?: StoredPassword;
   read?: StoredPassword;
+  /** optional: Regie-Passwort */
+  direction?: StoredPassword;
 }
 
 /** Gespeicherte Server-Verbindung; key = Desktop-Zugangsschlüssel, mit safeStorage verschlüsselt (base64) */
@@ -52,7 +54,7 @@ function readWebAccess(value: unknown): WebAccessSettings {
   return {
     port: isValidPort(v.port) ? v.port : DEFAULT_WEB_PORT,
     ...(typeof v.address === 'string' ? { address: v.address } : {}),
-    ...(isStored(v.edit) && isStored(v.read) ? { edit: v.edit, read: v.read } : {}),
+    ...(isStored(v.edit) && isStored(v.read) ? { edit: v.edit, read: v.read, ...(isStored(v.direction) ? { direction: v.direction } : {}) } : {}),
   };
 }
 

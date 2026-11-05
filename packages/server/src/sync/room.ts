@@ -18,6 +18,11 @@ import {
   missingResolutions,
   projectUsage,
   createYDocFromProject,
+  decodeCue,
+  MESSAGE_CUE,
+  type LeadInfo,
+  DIRECTION_ROOTS,
+  updateTouchesOnly,
   encodeInfo,
   MESSAGE_SYNC,
   readProjectFromYDoc,
@@ -292,6 +297,11 @@ export class Room {
     return !this.readOnlyReason && can(session.access, 'editProject');
   }
 
+  /** Darf nur die Regie ändern (Zugang „Regie“). */
+  canWriteShow(session: Session): boolean {
+    return !this.readOnlyReason && can(session.access, 'editShow');
+  }
+
   /** Aktueller Stand inkl. geschütztem Bereich und Snapshots. */
   currentProject(): Project {
     const result = this.readCurrent();
@@ -334,15 +344,44 @@ export class Room {
         type: 'welcome',
         connectionId: connection.id,
         access: connection.session.access,
-        readOnly: !this.canWrite(connection.session),
+        // Regie-Clients senden Änderungen (nur Regie-Bereiche werden übernommen); die Oberfläche sperrt den Rest
+        readOnly: !this.canWrite(connection.session) && !this.canWriteShow(connection.session),
         ...(this.readOnlyReason ? { readOnlyReason: this.readOnlyReason } : {}),
         reconcilePending: this.reconcilePending,
       }),
     );
+    if (this.lead) this.send(connection, encodeInfo({ type: 'lead', lead: this.lead }));
   }
 
   removeConnection(connection: Connection): void {
     if (this.connections.delete(connection)) this.broadcastPresence();
+    // geht die führende Person, endet das Führen
+    if (this.lead?.connectionId === connection.id) this.setLead(null);
+  }
+
+  // ---------- Vorstellung: führen / folgen (nur im Speicher) ----------
+
+  private lead: LeadInfo | null = null;
+
+  private setLead(lead: LeadInfo | null): void {
+    this.lead = lead;
+    this.broadcast(encodeInfo({ type: 'lead', lead }));
+  }
+
+  private handleCue(connection: Connection, decoder: decoding.Decoder): void {
+    // führen darf, wer die Regie bearbeiten darf; folgen dürfen alle
+    if (!can(connection.session.access, 'editShow')) return;
+    let cue: ReturnType<typeof decodeCue>;
+    try {
+      cue = decodeCue(decoder);
+    } catch {
+      return; // ungültige Stelle ignorieren, Verbindung bleibt
+    }
+    if (cue === null) {
+      if (this.lead?.connectionId === connection.id) this.setLead(null);
+      return;
+    }
+    this.setLead({ ...cue, connectionId: connection.id, name: connection.session.name });
   }
 
   updateSession(session: Session): void {
@@ -364,6 +403,10 @@ export class Room {
     try {
       const decoder = decoding.createDecoder(data);
       const type = decoding.readVarUint(decoder);
+      if (type === MESSAGE_CUE) {
+        this.handleCue(connection, decoder);
+        return;
+      }
       if (type !== MESSAGE_SYNC) return; // Awareness o. Ä. wird (noch) nicht verarbeitet
 
       const syncType = decoding.readVarUint(decoder);
@@ -376,12 +419,22 @@ export class Room {
           break;
         }
         case syncProtocol.messageYjsSyncStep2:
-        case syncProtocol.messageYjsUpdate:
-          // Rechte serverseitig durchsetzen: Änderungen von Lese-Clients werden verworfen.
-          if (!this.canWrite(connection.session)) return;
-          if (syncType === syncProtocol.messageYjsSyncStep2) syncProtocol.readSyncStep2(decoder, this.doc, connection);
-          else syncProtocol.readUpdate(decoder, this.doc, connection);
+        case syncProtocol.messageYjsUpdate: {
+          // Rechte serverseitig durchsetzen: Änderungen von Lese-Clients werden verworfen,
+          // Regie-Clients dürfen nur die Regie-Bereiche ändern (sonst wird die ganze Änderung verworfen).
+          if (this.canWrite(connection.session)) {
+            if (syncType === syncProtocol.messageYjsSyncStep2) syncProtocol.readSyncStep2(decoder, this.doc, connection);
+            else syncProtocol.readUpdate(decoder, this.doc, connection);
+          } else if (this.canWriteShow(connection.session)) {
+            const update = decoding.readVarUint8Array(decoder);
+            if (updateTouchesOnly(this.doc, update, DIRECTION_ROOTS)) Y.applyUpdate(this.doc, update, connection);
+            else {
+              this.deps.log.warn(`Regie-Änderung außerhalb der Regie verworfen (Verbindung ${connection.id}).`);
+              this.send(connection, encodeInfo({ type: 'notice', message: 'Eine Änderung außerhalb der Regie wurde nicht übernommen. Bitte die Seite neu laden.' }));
+            }
+          }
           break;
+        }
       }
     } catch (error) {
       this.deps.log.warn(`Ungültige Sync-Nachricht von Verbindung ${connection.id}: ${(error as Error).message}`);

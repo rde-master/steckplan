@@ -166,7 +166,8 @@ test('Signalfluss: Geräte platzieren, Kabel ziehen, Multicore, Prüfungen, Rüc
   await expect.poll(async () => (await project(page.request, id)).devices.length).toBe(4);
   expect((await project(page.request, id)).cables.length).toBe(3);
 
-  // Eigenschaften: Kennung ändern
+  // Eigenschaften: Kennung ändern (erst klicken, wenn das wiederhergestellte Gerät gezeichnet ist)
+  await expect.poll(() => page.evaluate(() => window.__steckplanStage?.find('.device').length ?? 0)).toBe(4);
   await page.mouse.click(deskNode.x, deskNode.y);
   const props = page.getByRole('complementary', { name: 'Eigenschaften' });
   await props.getByLabel('Kennung').fill('FOH-Pult');

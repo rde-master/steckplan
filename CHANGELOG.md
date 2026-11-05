@@ -7,6 +7,32 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.21.0] - 2026-11-05
+
+### Hinzugefügt
+
+- Regie (M11a): neuer Reiter „Regie“ mit dem Ablauf aus Liedern, Schauspielstücken, Pausen und Ansagen – sortieren per Ziehen oder Pfeilen, kopieren, Dauer („3:40“ oder „15“ für Minuten), Beginn und laufende Startzeiten, Gesamtdauer, beteiligte Personen, Notiz
+- Regie: Texte je Abschnitt (Strophe, Refrain, Bridge, Szene …) als Textfeld; Abschnitte verschieben, kopieren (Refrain wiederholen), ganzen Text einfügen (Leerzeilen trennen Abschnitte, Überschriften wie „[Refrain]“ werden erkannt). Schauspiel: „Rolle: Text“, Zeilen ohne Rolle setzen die Rede fort, Regieanweisungen in Klammern; Rollen werden angelegt und lassen sich Personen zuordnen. Jede Zeile behält beim Bearbeiten ihre Kennung (für Zeitpunkte und Lichtszenen in den nächsten Schritten)
+- Zugang „Regie“ (drittes, optionales Passwort): Regie bearbeiten, alles andere nur lesen, keine Häkchen; Docker `STECKPLAN_DIRECTION_PASSWORD`, Desktop-Weboberfläche drittes Passwortfeld, Desktop-Zugangsschlüssel mit Stufe „Regie“. Der Server übernimmt von Regie-Clients nur Änderungen an der Regie
+- Dateiformat 9 (ältere Dateien werden beim Öffnen angehoben)
+- Regie (M11b): Audiodateien je Lied (mehrere, eine als Standard, Bezeichnung; Dauer wird beim Hochladen erkannt) – ohne Größengrenze, unverändert gespeichert, Hochladen in Teilen mit Fortschritt und Fortsetzen nach Abbruch. Player fest unten im Lied (Abspielen, Zeitleiste, Lautstärke, Wechsel der Datei an derselben Stelle)
+- Regie: Textansicht „Mitlesen“ (aktuelle Zeile hervorgehoben, scrollt mit, Antippen springt dorthin) und „Mitschreiben“ (beim Abspielen „Nächste Zeile“ oder Leertaste setzt die Zeitpunkte; ±0,5 s, löschen, Antippen setzt auf die aktuelle Zeit)
+- Medien: Docker unter `/data/media`, Desktop im Ordner `<Name>.medien` neben der Datei; nicht mehr verwendete Dateien 30 Tage im Papierkorb; „Neues Projekt aus diesem“ und „Speichern unter“ nehmen die Medien mit. Im Browser „Mit Medien herunterladen“ als `.steckplan.zip`, das sich in der Projektliste wieder hochladen lässt
+- Regie (M11c): Lichtfähigkeiten an Gerätevorlagen (Bibliothek → Licht): „In Lichtszenen anzeigen“, Dimmer, Strobe, Farbmischung (RGB/RGBW/RGBA/CMY), Farbräder mit benannten Farben, CTO/CTB, Gobo-Räder (Gobos mit Namen, drehbar), Prisma, Zoom, Fokus, Iris, Frost, beweglich mit Schwenk-/Neigebereich
+- Regie → Lichtaufbau: Raster je Projekt mit allen Lichtgeräten – per Ziehen oder Antippen platzieren (belegtes Feld = tauschen), Zeilen benennen, Größe ändern, „Aus dem Bühnenplan anordnen“ (je Traverse/Stativ eine Zeile), Geräte ausblenden; benannte Ziele (z. B. Sängerin, Publikum) mit Farbe und Punkt auf einer Draufsicht der Bühne
+- Regie (M11d): Lichtszenen je Lied und Schauspiel – im Raster die Geräte antippen (mehrere möglich) und Helligkeit, Farbe (Farbrad oder frei), Gobo mit Drehung, Ziel, Bewegung mit Tempo, Prisma, Zoom, Fokus, Iris, Frost, Strobe und Notiz setzen; das Raster zeigt jede Szene in ihren Farben. „+ Szene“ übernimmt die Werte der gewählten Szene, „+ leere Szene“ beginnt leer; Szenen sortieren, kopieren, löschen
+- Regie: Auslöser je Szene per Zeitpunkt („Jetzt“ übernimmt die Abspielzeit) oder Textzeile; Szenen als Marken auf der Zeitleiste des Players, „Beim Abspielen mitgehen“ zeigt die laufende Szene
+- Regie (M11e): Vorstellungs-Ansicht im Vollbild (dunkel) – aktueller Eintrag mit mitlaufendem Text, aktuelle Lichtszene als Raster, was als Nächstes kommt, Player, große Knöpfe „Szene/Eintrag zurück/weiter“ und Pfeiltasten
+- Vorstellung: „Führen“ (Regie- oder Bearbeiten-Zugang) überträgt die Stelle live an alle, die „Folgen“ eingeschaltet haben – Nachzügler springen direkt an die aktuelle Stelle, eigenes Bedienen verlässt das Folgen; wer führt, ist sichtbar
+- Export: Ablaufplan, Lichtszenen (je Szene das Raster in Farbe und eine Tabelle der Werte) und Textbuch (Rollen, Regieanweisungen, Szenenwechsel am Rand) als PDF
+- Geräte-Etiketten: Fußzeile mit Logo und Projektname und einem QR-Code mit dem Hinweis „Aktuelle Informationen finden Sie hier.“ – Scannen öffnet ohne Passwort die Leseansicht des Projekts beim Gerät des Etiketts (nur dieses Projekt, nur lesen)
+- Einstellungen (Docker: Einstellungsseite, Desktop: Startfenster): QR-Code auf Etiketten an/aus, Adresse, Hinweistext; Lese-Schlüssel je Projekt erneuern oder sperren (alte Etiketten öffnen dann nichts mehr)
+
+### Behoben
+
+- Regie → Lichtaufbau: Die Draufsicht der Bühne hatte viel leeren Rand; jetzt eng zugeschnitten
+- Test „Signalfluss“ wartet nach „Rückgängig“, bis das Gerät wieder gezeichnet ist (schlug unter Last gelegentlich fehl)
+
 ## [0.20.0] - 2026-11-05
 
 ### Hinzugefügt
@@ -416,7 +442,8 @@ Meilenstein M0 – Projektgerüst.
 - Docker-Image mit Datenvolume `/data` und Beispiel-`docker-compose.yml`
 - GitHub Actions: Tests und Smoke-Test bei jedem Push, Installer als Artefakte, Docker-Image `:develop`, Release-Workflow für Tags `vX.Y.Z`
 
-[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.20.0...develop
+[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.21.0...develop
+[0.21.0]: https://github.com/rde-master/steckplan/compare/v0.20.0...v0.21.0
 [0.20.0]: https://github.com/rde-master/steckplan/compare/v0.19.0...v0.20.0
 [0.19.0]: https://github.com/rde-master/steckplan/compare/v0.18.0...v0.19.0
 [0.18.0]: https://github.com/rde-master/steckplan/compare/v0.17.0...v0.18.0

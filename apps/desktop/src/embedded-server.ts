@@ -3,8 +3,11 @@
 import { join } from 'node:path';
 import {
   createServer,
+  LabelQrStore,
   LibraryStore,
   LocalFileStore,
+  mediaDirFor,
+  MediaStore,
   SessionStore,
   UsageTracker,
   VersionStore,
@@ -15,6 +18,7 @@ import {
 export interface EmbeddedServer extends SteckplanServer {
   baseUrl: string;
   store: LocalFileStore;
+  media: MediaStore;
   sessions: SessionStore;
   /** Token der lokalen Sitzung (Zugang `local`) für die Fenster der Desktop-App */
   localToken: string;
@@ -28,7 +32,14 @@ export async function startEmbeddedServer(options: {
   passwords: () => PasswordChecker | null;
 }): Promise<EmbeddedServer> {
   const store = new LocalFileStore(options.userName);
+  // Medien liegen im Ordner neben der Datei („Fest.medien“)
+  const media = new MediaStore((id) => {
+    const path = store.pathOf(id);
+    return path ? mediaDirFor(path) : undefined;
+  });
   const sessions = new SessionStore();
+  const labelQr = new LabelQrStore(join(options.userDataDir, 'label-qr.json'));
+  await labelQr.load();
   const library = new LibraryStore(join(options.userDataDir, 'library.json'));
   await library.load();
   const usage = new UsageTracker(join(options.userDataDir, 'usage.json'));
@@ -42,10 +53,12 @@ export async function startEmbeddedServer(options: {
     library,
     usage,
     passwords: options.passwords,
+    media,
+    labelQr,
   });
   const { token } = sessions.create(options.userName || 'Desktop', 'local', 'desktop', { persistent: false, expires: false });
   await server.app.listen({ host: '127.0.0.1', port: 0 });
   const address = server.app.server.address();
   if (address === null || typeof address === 'string') throw new Error('Serveradresse unbekannt');
-  return { ...server, baseUrl: `http://127.0.0.1:${address.port}`, store, sessions, localToken: token };
+  return { ...server, baseUrl: `http://127.0.0.1:${address.port}`, store, media, sessions, localToken: token };
 }

@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { can } from '@steckplan/core';
 import { useSession } from '../lib/session';
 import { getDesktop } from '../lib/desktop';
 import { navigate } from '../lib/router';
@@ -48,7 +49,7 @@ export function MainNav({ active }: { active: 'projects' | 'library' | 'settings
   const session = useSession((s) => s.session);
   const mode = useSession((s) => s.mode);
   if (getDesktop()) return null;
-  const showSettings = mode === 'standalone' && !!session && session.access !== 'read';
+  const showSettings = mode === 'standalone' && !!session && can(session.access, 'manageProjects');
   const item = (key: 'projects' | 'library' | 'settings', href: string, label: string) => (
     <a
       href={href}

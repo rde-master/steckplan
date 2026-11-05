@@ -23,6 +23,9 @@ const AREA_WORDS: Record<string, string> = {
   people: 'Personen geändert',
   groups: 'Gruppen geändert',
   caseTrailers: 'Cases umgeladen',
+  showItems: 'Regie: Ablauf geändert',
+  showSections: 'Regie: Texte geändert',
+  showSettings: 'Regie: Startzeit geändert',
 };
 const POSITION_FIELDS = new Set(['signalFlow', 'stagePlan']);
 const IGNORED_FIELDS = new Set(['check', 'lastModified']);

@@ -19,6 +19,8 @@ export interface Session {
   lastSeenAt: string;
   /** undefined = läuft nicht ab (lokale Desktop-Sitzung) */
   expiresAt?: string;
+  /** Nur dieses eine Projekt (Lese-Schlüssel per QR-Code auf dem Etikett); key = dauerhafte Kennung des Projekts */
+  scope?: { projectId: string; key: string };
 }
 
 interface StoredSession extends Session {
@@ -103,7 +105,7 @@ export class SessionStore {
     return () => this.listeners.delete(listener);
   }
 
-  create(name: string, access: Access, via: SessionVia, options: { persistent?: boolean; expires?: boolean } = {}): { token: string; session: Session } {
+  create(name: string, access: Access, via: SessionVia, options: { persistent?: boolean; expires?: boolean; scope?: Session['scope'] } = {}): { token: string; session: Session } {
     const token = randomBytes(32).toString('base64url');
     const now = new Date(this.now()).toISOString();
     const stored: StoredSession = {
@@ -114,6 +116,7 @@ export class SessionStore {
       createdAt: now,
       lastSeenAt: now,
       ...(options.expires === false ? {} : { expiresAt: new Date(this.now() + this.ttlMs).toISOString() }),
+      ...(options.scope ? { scope: options.scope } : {}),
       tokenHash: hashToken(token),
       persistent: options.persistent ?? true,
     };

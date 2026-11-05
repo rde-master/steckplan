@@ -23,6 +23,9 @@ importers:
       eslint-plugin-react-hooks:
         specifier: ^7.1.1
         version: 7.1.1(eslint@10.14.0(jiti@2.7.0))
+      fflate:
+        specifier: 0.8.3
+        version: 0.8.3
       globals:
         specifier: ^17.14.0
         version: 17.14.0
@@ -95,6 +98,9 @@ importers:
       fastify:
         specifier: ^5.12.7
         version: 5.12.7
+      fflate:
+        specifier: 0.8.3
+        version: 0.8.3
       lib0:
         specifier: ^0.2.119
         version: 0.2.119
@@ -132,6 +138,9 @@ importers:
       '@steckplan/core':
         specifier: workspace:*
         version: link:../core
+      fflate:
+        specifier: 0.8.3
+        version: 0.8.3
       konva:
         specifier: ^10.9.1
         version: 10.9.1

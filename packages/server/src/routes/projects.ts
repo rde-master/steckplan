@@ -20,6 +20,8 @@ import { requireSession } from '../auth/plugin';
 import type { UsageTracker } from '../library/usage-tracker';
 import { isManagedStore, ProjectNotFoundError } from '../storage/types';
 import type { RoomManager } from '../sync/rooms';
+import type { MediaStore } from '../storage/media-store';
+import { zipStream, type ZipEntry } from '../storage/zip-stream';
 
 export const UPLOAD_LIMIT_BYTES = 50 * 1024 * 1024;
 
@@ -39,7 +41,7 @@ function contentDisposition(fileName: string): string {
   return `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(fileName)}`;
 }
 
-export function registerProjectRoutes(app: FastifyInstance, rooms: RoomManager, usage: UsageTracker): void {
+export function registerProjectRoutes(app: FastifyInstance, rooms: RoomManager, usage: UsageTracker, media?: MediaStore): void {
   const store = rooms.store;
 
   async function currentProject(id: string): Promise<Project> {
@@ -48,8 +50,12 @@ export function registerProjectRoutes(app: FastifyInstance, rooms: RoomManager, 
   }
 
   app.get('/api/projects', async (request, reply) => {
-    if (!requireSession(request, reply)) return reply;
-    return { projects: await store.list(), canManage: isManagedStore(store) };
+    const session = requireSession(request, reply);
+    if (!session) return reply;
+    const projects = await store.list();
+    // QR-Zugang: nur das eine Projekt
+    if (session.scope) return { projects: projects.filter((p) => p.id === session.scope!.projectId), canManage: false };
+    return { projects, canManage: isManagedStore(store) };
   });
 
   app.post<{ Body: { name?: unknown } }>('/api/projects', async (request, reply) => {
@@ -68,7 +74,7 @@ export function registerProjectRoutes(app: FastifyInstance, rooms: RoomManager, 
     return summary;
   });
 
-  app.get<{ Params: { id: string } }>('/api/projects/:id/download', async (request, reply) => {
+  app.get<{ Params: { id: string }; Querystring: { medien?: string } }>('/api/projects/:id/download', async (request, reply) => {
     const session = requireSession(request, reply);
     if (!session) return reply;
     let project: Project;
@@ -79,6 +85,19 @@ export function registerProjectRoutes(app: FastifyInstance, rooms: RoomManager, 
       throw error;
     }
     if (!can(session.access, 'viewSecrets')) project = withoutSecrets(project);
+    if (request.query.medien === '1' && media) {
+      // Projekt + Medien als .steckplan.zip: Projektdatei oben, Dateien unter medien/<Kennung>
+      const fileName = downloadFileName(project.meta.name);
+      const entries: ZipEntry[] = [{ name: fileName, data: new TextEncoder().encode(serializeProject(project)) }];
+      for (const ref of project.media) {
+        const file = await media.open(request.params.id, ref.id);
+        if (file) entries.push({ name: `medien/${ref.id}`, path: file.path });
+      }
+      return reply
+        .header('Content-Type', 'application/zip')
+        .header('Content-Disposition', contentDisposition(`${fileName}.zip`))
+        .send(zipStream(entries));
+    }
     return reply
       .header('Content-Type', 'application/json; charset=utf-8')
       .header('Content-Disposition', contentDisposition(downloadFileName(project.meta.name)))
@@ -127,7 +146,11 @@ export function registerProjectRoutes(app: FastifyInstance, rooms: RoomManager, 
     if (!requireSession(request, reply, 'manageProjects')) return reply;
     if (!isManagedStore(store)) return reply.code(405).send({ error: 'Nicht verfügbar' });
     try {
-      return { id: await store.restoreFromTrash(request.params.trashId) };
+      const id = await store.restoreFromTrash(request.params.trashId);
+      // neue Kennung (alte war belegt): Medien unter die neue Kennung übernehmen
+      const oldId = request.params.trashId.split('__')[0]!;
+      if (media && id !== oldId) await media.copyTo(oldId, id, (await store.load(id)).media.map((m) => m.id));
+      return { id };
     } catch (error) {
       if (error instanceof ProjectNotFoundError) return reply.code(404).send({ error: 'Eintrag nicht gefunden' });
       throw error;
@@ -247,6 +270,8 @@ export function registerProjectRoutes(app: FastifyInstance, rooms: RoomManager, 
     const name = typeof request.body?.name === 'string' && request.body.name.trim() ? request.body.name.trim().slice(0, 120) : undefined;
     const copy = copyAsNewProject(project, name);
     const id = await store.create(copy);
+    // Medien mitnehmen (fester Link, sonst Kopie)
+    await media?.copyTo(request.params.id, id, copy.media.map((m) => m.id));
     usage.record(store.persistentKey(id), copy.meta.name, projectUsage(copy));
     return reply.code(201).send({ id });
   });

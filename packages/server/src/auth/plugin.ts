@@ -92,6 +92,14 @@ export async function registerAuth(app: FastifyInstance, options: AuthOptions): 
     request.sessionToken = session && token ? token : null;
   });
 
+  // Sitzung per QR-Code (nur ein Projekt): nur lesen, nur dieses Projekt
+  app.addHook('onRequest', async (request, reply) => {
+    const scope = request.session?.scope;
+    if (scope && !scopeAllows(request.method, request.url, scope.projectId)) {
+      return reply.code(403).send({ error: 'Dieser Zugang gilt nur für ein Projekt (nur lesen).' });
+    }
+  });
+
   app.get('/api/auth/session', async (request, reply) => {
     if (!request.session) {
       return reply.code(401).send({
@@ -139,6 +147,18 @@ export async function registerAuth(app: FastifyInstance, options: AuthOptions): 
     reply.clearCookie(SESSION_COOKIE, { path: '/' });
     return { ok: true };
   });
+}
+
+/** Was eine auf ein Projekt beschränkte Sitzung (QR-Code) aufrufen darf */
+export function scopeAllows(method: string, url: string, projectId: string): boolean {
+  const path = url.split('?')[0]!;
+  if (!path.startsWith('/api/')) return true; // Oberfläche
+  if (path === '/api/auth/session' || path === '/api/auth/logout' || path === '/api/health') return true;
+  if (method !== 'GET' && method !== 'HEAD') return false;
+  if (path === '/api/events' || path === '/api/projects' || path === '/api/settings/label-qr') return true;
+  if (path === '/api/library' || path.startsWith('/api/library/')) return true;
+  const own = `/api/projects/${encodeURIComponent(projectId)}`;
+  return path === own || path.startsWith(`${own}/`);
 }
 
 export function setSessionCookie(reply: FastifyReply, token: string, secure: boolean): void {

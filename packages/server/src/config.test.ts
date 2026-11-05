@@ -12,8 +12,14 @@ describe('readStandaloneConfig', () => {
       uiDir: undefined,
       editPassword: 'bearbeiten',
       readPassword: 'lesen',
+      directionPassword: undefined,
       trustProxy: false,
     });
+  });
+
+  it('Regie-Passwort ist optional und muss sich unterscheiden', () => {
+    expect(readStandaloneConfig({ ...valid, STECKPLAN_DIRECTION_PASSWORD: 'regie' }).directionPassword).toBe('regie');
+    expect(() => readStandaloneConfig({ ...valid, STECKPLAN_DIRECTION_PASSWORD: 'lesen' })).toThrow(/Regie-Passwort/);
   });
 
   it('wertet STECKPLAN_TRUST_PROXY aus', () => {

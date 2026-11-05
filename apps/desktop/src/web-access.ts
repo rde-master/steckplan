@@ -30,6 +30,7 @@ export interface WebAccessStatus {
   address: string | null;
   interfaces: NetworkAddress[];
   hasPasswords: boolean;
+  hasDirectionPassword: boolean;
   people: ConnectedPerson[];
 }
 
@@ -55,8 +56,8 @@ export class WebAccess {
     private readonly server: SteckplanServer,
     private readonly settings: SettingsStore,
   ) {
-    const { edit, read } = settings.webAccess;
-    this.checker = edit && read ? new PasswordChecker({ stored: { edit, read } }) : null;
+    const { edit, read, direction } = settings.webAccess;
+    this.checker = edit && read ? new PasswordChecker({ stored: { edit, read, direction } }) : null;
   }
 
   /** Für den eingebetteten Server: Anmeldung nur, solange die Weboberfläche läuft. */
@@ -78,17 +79,21 @@ export class WebAccess {
       address: this.listener?.host ?? (saved && interfaces.some((i) => i.address === saved) ? saved : (interfaces[0]?.address ?? null)),
       interfaces,
       hasPasswords: this.checker !== null,
+      hasDirectionPassword: this.checker?.hasDirection ?? false,
       people: this.running ? this.server.connectedPeople() : [],
     };
   }
 
   async setPasswords(input: unknown): Promise<void> {
-    const { edit, read } = (input ?? {}) as { edit?: unknown; read?: unknown };
+    const { edit, read, direction } = (input ?? {}) as { edit?: unknown; read?: unknown; direction?: unknown };
     if (typeof edit !== 'string' || typeof read !== 'string' || !edit || !read) {
-      throw new Error('Bitte beide Passwörter eingeben.');
+      throw new Error('Bitte Bearbeiten- und Lese-Passwort eingeben.');
     }
-    if (edit.normalize('NFC') === read.normalize('NFC')) throw new Error('Bearbeiten- und Lese-Passwort müssen sich unterscheiden.');
-    const stored = { edit: hashForStorage(edit), read: hashForStorage(read) };
+    if (direction !== undefined && typeof direction !== 'string') throw new Error('Ungültiges Regie-Passwort.');
+    const all = [edit, read, ...(direction ? [direction] : [])].map((p) => p.normalize('NFC'));
+    if (new Set(all).size !== all.length) throw new Error('Die Passwörter müssen sich unterscheiden.');
+    // ohne Regie-Passwort gibt es keinen Regie-Zugang
+    const stored = { edit: hashForStorage(edit), read: hashForStorage(read), direction: direction ? hashForStorage(direction) : undefined };
     await this.settings.updateWebAccess(stored);
     this.checker = new PasswordChecker({ stored });
     // Wer mit den alten Passwörtern angemeldet ist, wird abgemeldet.

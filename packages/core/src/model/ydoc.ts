@@ -8,7 +8,7 @@ import * as Y from 'yjs';
 import { ProjectSchema, type Project, type Secrets } from './schema';
 
 export const Y_ROOT = 'root';
-export const Y_OBJECT_MAPS = ['meta', 'settings', 'views'] as const;
+export const Y_OBJECT_MAPS = ['meta', 'settings', 'views', 'showSettings', 'lightGrid'] as const;
 
 type CollectionPath = readonly [string] | readonly [string, string];
 export const Y_COLLECTIONS = {
@@ -23,7 +23,17 @@ export const Y_COLLECTIONS = {
   flowPages: ['flowPages'],
   subnets: ['network', 'subnets'],
   wifi: ['network', 'wifi'],
+  showItems: ['show', 'items'],
+  showSections: ['show', 'sections'],
+  media: ['media'],
+  lightPlacements: ['lightPlacements'],
+  lightTargets: ['lightTargets'],
+  lightScenes: ['lightScenes'],
+  sceneStates: ['sceneStates'],
 } as const satisfies Record<string, CollectionPath>;
+
+/** Bereiche des Dokuments, die der Zugang „Regie“ ändern darf */
+export const DIRECTION_ROOTS: ReadonlySet<string> = new Set(['showItems', 'showSections', 'showSettings', 'media', 'lightGrid', 'lightPlacements', 'lightTargets', 'lightScenes', 'sceneStates']);
 export type YCollectionName = keyof typeof Y_COLLECTIONS;
 
 type Json = Record<string, unknown>;
@@ -95,7 +105,7 @@ export function readRawProjectFromYDoc(doc: Y.Doc): Json {
     const items = Object.values(doc.getMap(name).toJSON() as Record<string, Json>);
     // Stabile Reihenfolge in der Datei: Ebenen nach `order`, alles andere nach id
     items.sort((a, b) =>
-      name === 'layers' || name === 'flowPages'
+      name === 'layers' || name === 'flowPages' || name === 'showItems' || name === 'showSections' || name === 'lightTargets' || name === 'lightScenes'
         ? Number(a.order ?? 0) - Number(b.order ?? 0)
         : String(a.id).localeCompare(String(b.id)),
     );
@@ -127,4 +137,26 @@ export function readProjectFromYDoc(
     return { ok: false, error: `${issue?.path.join('.') ?? ''}: ${issue?.message ?? 'ungültig'}` };
   }
   return { ok: true, project: parsed.data };
+}
+
+/**
+ * Berührt eine Änderung (Yjs-Update) nur die erlaubten Bereiche des Dokuments?
+ * Wird probeweise auf eine Kopie angewendet; unvollständige Änderungen (fehlende Vorgänger) gelten als nicht erlaubt.
+ */
+export function updateTouchesOnly(doc: Y.Doc, update: Uint8Array, allowed: ReadonlySet<string>): boolean {
+  const probe = new Y.Doc();
+  Y.applyUpdate(probe, Y.encodeStateAsUpdate(doc));
+  let ok = true;
+  probe.on('afterTransaction', (transaction: Y.Transaction) => {
+    for (const changed of transaction.changed.keys()) {
+      let type: unknown = changed;
+      while ((type as { _item: Y.Item | null })._item) type = (type as { _item: Y.Item })._item.parent;
+      const name = [...probe.share.entries()].find(([, t]) => t === type)?.[0];
+      if (name === undefined || !allowed.has(name)) ok = false;
+    }
+  });
+  Y.applyUpdate(probe, update);
+  if (probe.store.pendingStructs || probe.store.pendingDs) ok = false;
+  probe.destroy();
+  return ok;
 }

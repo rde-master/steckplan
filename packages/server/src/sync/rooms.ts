@@ -13,6 +13,8 @@ export interface RoomManagerOptions extends Omit<RoomDeps, 'log'> {
   /** Docker: Projekte ohne Verbindung nach idleMs schließen. Desktop lokal: offen lassen. */
   unloadWhenIdle: boolean;
   idleMs?: number;
+  /** Nach dem Schließen eines Projekts (gespeichert): z. B. nicht mehr verwendete Medien aufräumen */
+  onClosed?: (id: string, referencedMedia: ReadonlySet<string>) => Promise<void>;
 }
 
 export class RoomManager {
@@ -66,7 +68,14 @@ export class RoomManager {
     const room = this.rooms.get(id) ?? (await this.loading.get(id)?.catch(() => undefined));
     if (!room) return;
     this.rooms.delete(id);
-    await this.track(id, room.close(CloseCode.ProjectClosed, reason));
+    await this.track(id, this.closeRoom(id, room, CloseCode.ProjectClosed, reason));
+  }
+
+  /** Raum schließen (speichert) und danach aufräumen – Fehler beim Aufräumen stören das Schließen nicht. */
+  private async closeRoom(id: string, room: Room, code: number, reason: string): Promise<void> {
+    const media = new Set(room.doc.getMap('media').keys());
+    await room.close(code, reason);
+    await this.options.onClosed?.(id, media).catch((error: unknown) => this.options.log.warn(`Aufräumen nach dem Schließen von ${id}: ${(error as Error).message}`));
   }
 
   /** Wartet, bis ein gerade schließendes Projekt fertig gespeichert ist. */
@@ -168,7 +177,7 @@ export class RoomManager {
       this.idleTimers.delete(id);
       if (room.connections.size === 0 && this.rooms.get(id) === room) {
         this.rooms.delete(id);
-        void this.track(id, room.close(CloseCode.ProjectClosed, 'Leerlauf')).catch(() => undefined);
+        void this.track(id, this.closeRoom(id, room, CloseCode.ProjectClosed, 'Leerlauf')).catch(() => undefined);
       }
     }, this.options.idleMs ?? 30_000);
     timer.unref?.();

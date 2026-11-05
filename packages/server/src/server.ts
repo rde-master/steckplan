@@ -18,6 +18,10 @@ import { registerLibraryRoutes } from './routes/library';
 import { registerProjectRoutes } from './routes/projects';
 import { registerSettingsRoutes } from './routes/settings';
 import type { ProjectStore } from './storage/types';
+import type { MediaStore } from './storage/media-store';
+import { registerMediaRoutes } from './routes/media';
+import { registerLabelQrRoutes } from './routes/label-qr';
+import type { LabelQrStore } from './auth/label-qr';
 import type { VersionStore } from './storage/version-store';
 import { RoomManager } from './sync/rooms';
 
@@ -42,6 +46,10 @@ export interface ServerOptions {
   rateLimiter?: LoginRateLimiter;
   /** Desktop-Zugangsschlüssel (nur Docker-Server) */
   desktopKeys?: DesktopKeyStore;
+  /** Medienspeicher (Regie: Audiodateien); fehlt er, gibt es keine Medien-Routen */
+  media?: MediaStore;
+  /** QR-Code auf den Geräte-Etiketten (Einstellungen und Lese-Schlüssel je Projekt) */
+  labelQr?: LabelQrStore;
   /** Für Tests: Verzögerungen beim Speichern */
   saveDelayMs?: number;
   versionIntervalMs?: number;
@@ -91,6 +99,15 @@ export async function createServer(options: ServerOptions): Promise<SteckplanSer
     versionIntervalMs: options.versionIntervalMs,
     stampDelayMs: options.stampDelayMs,
     changeLogWindowMs: options.changeLogWindowMs,
+    // nach dem Schließen: nicht mehr verwendete Medien in den Papierkorb, alte Papierkorb-Einträge löschen
+    ...(options.media
+      ? {
+          onClosed: async (id: string, referenced: ReadonlySet<string>) => {
+            await options.media!.collect(id, referenced);
+            await options.media!.purge(id);
+          },
+        }
+      : {}),
     log: {
       info: (msg) => app.log.info(msg),
       warn: (msg) => app.log.warn(msg),
@@ -134,7 +151,28 @@ export async function createServer(options: ServerOptions): Promise<SteckplanSer
     events.handleConnection(socket, request);
   });
 
-  registerProjectRoutes(app, rooms, options.usage);
+  registerProjectRoutes(app, rooms, options.usage, options.media);
+  if (options.labelQr) {
+    registerLabelQrRoutes(app, {
+      store: options.store,
+      labelQr: options.labelQr,
+      sessions: options.sessions,
+      disconnect: (sessionId, reason) => {
+        rooms.disconnectSession(sessionId, reason);
+        events.disconnectSession(sessionId);
+      },
+      resolve: async (key) => (await options.store.list()).find((p) => options.store.persistentKey(p.id) === key)?.id,
+    });
+  }
+  if (options.media) {
+    registerMediaRoutes(app, {
+      media: options.media,
+      project: async (id) => {
+        const room = rooms.peek(id);
+        return room ? room.currentProject() : options.store.load(id);
+      },
+    });
+  }
   registerLibraryRoutes(app, { library: options.library, usage: options.usage });
   if (options.desktopKeys) {
     registerSettingsRoutes(app, {

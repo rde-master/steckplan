@@ -28,6 +28,25 @@ async function request<T>(method: string, url: string, body?: unknown, raw = fal
   return data as T;
 }
 
+export interface LabelQrSettings {
+  enabled: boolean;
+  baseUrl: string;
+  hint: string;
+}
+
+export interface ShareLinkInfo {
+  key: string;
+  name: string;
+  createdAt: string;
+  createdBy: string;
+}
+
+export interface MediaFileInfo {
+  id: string;
+  sizeBytes: number;
+  sha256: string;
+}
+
 export interface SessionInfo {
   name: string;
   access: Access;
@@ -61,7 +80,7 @@ export interface VersionInfo {
 export interface DesktopKeyInfo {
   id: string;
   label: string;
-  access: 'edit' | 'read';
+  access: 'edit' | 'read' | 'direction';
   createdAt: string;
   createdBy?: string;
   lastUsedAt?: string;
@@ -84,7 +103,7 @@ export const api = {
   },
   health: () => request<HealthInfo>('GET', '/api/health'),
   listDesktopKeys: () => request<{ keys: DesktopKeyInfo[] }>('GET', '/api/settings/desktop-keys'),
-  createDesktopKey: (label: string, access: 'edit' | 'read') => request<{ key: string; info: DesktopKeyInfo }>('POST', '/api/settings/desktop-keys', { label, access }),
+  createDesktopKey: (label: string, access: 'edit' | 'read' | 'direction') => request<{ key: string; info: DesktopKeyInfo }>('POST', '/api/settings/desktop-keys', { label, access }),
   revokeDesktopKey: (id: string) => request<DesktopKeyInfo>('DELETE', `/api/settings/desktop-keys/${encodeURIComponent(id)}`),
   removeDesktopKey: (id: string) => request<{ ok: true }>('DELETE', `/api/settings/desktop-keys/${encodeURIComponent(id)}/entry`),
   login: (name: string, password: string) => request<SessionInfo>('POST', '/api/auth/login', { name, password }),
@@ -95,7 +114,20 @@ export const api = {
   createProject: (name: string) => request<{ id: string }>('POST', '/api/projects', { name }),
   uploadProject: (fileText: string) => request<{ id: string }>('POST', '/api/projects/upload', fileText, true),
   deleteProject: (id: string) => request<{ ok: true }>('DELETE', `/api/projects/${encodeURIComponent(id)}`),
-  downloadUrl: (id: string) => `/api/projects/${encodeURIComponent(id)}/download`,
+  getLabelQr: () => request<LabelQrSettings>('GET', '/api/settings/label-qr'),
+  setLabelQr: (patch: Partial<LabelQrSettings>) => request<LabelQrSettings>('PUT', '/api/settings/label-qr', patch),
+  listShareLinks: () => request<{ links: ShareLinkInfo[] }>('GET', '/api/settings/label-qr/links'),
+  changeShareLink: (key: string, action: 'renew' | 'revoke') => request<{ ok: true }>('PUT', '/api/settings/label-qr/links', { key, action }),
+  getShare: (projectId: string) => request<{ token: string; createdAt: string }>('GET', `/api/projects/${encodeURIComponent(projectId)}/share`),
+  ensureShare: (projectId: string, renew = false) => request<{ token: string; createdAt: string }>('POST', `/api/projects/${encodeURIComponent(projectId)}/share`, { renew }),
+  downloadUrl: (id: string, withMedia = false) => `/api/projects/${encodeURIComponent(id)}/download${withMedia ? '?medien=1' : ''}`,
+  mediaUrl: (projectId: string, mediaId: string) => `/api/projects/${encodeURIComponent(projectId)}/media/${encodeURIComponent(mediaId)}`,
+  startMediaUpload: (projectId: string, size: number, mediaId?: string) =>
+    request<{ uploadId: string; mediaId: string; size: number; received: number; complete?: MediaFileInfo }>('POST', `/api/projects/${encodeURIComponent(projectId)}/media/uploads`, { size, ...(mediaId ? { mediaId } : {}) }),
+  mediaUploadStatus: (projectId: string, uploadId: string) =>
+    request<{ uploadId: string; mediaId: string; size: number; received: number }>('GET', `/api/projects/${encodeURIComponent(projectId)}/media/uploads/${encodeURIComponent(uploadId)}`),
+  completeMediaUpload: (projectId: string, uploadId: string) => request<MediaFileInfo>('POST', `/api/projects/${encodeURIComponent(projectId)}/media/uploads/${encodeURIComponent(uploadId)}/complete`),
+  cancelMediaUpload: (projectId: string, uploadId: string) => request<{ ok: true }>('DELETE', `/api/projects/${encodeURIComponent(projectId)}/media/uploads/${encodeURIComponent(uploadId)}`),
 
   listTrash: () => request<{ entries: TrashEntry[] }>('GET', '/api/trash'),
   restoreTrash: (trashId: string) => request<{ id: string }>('POST', `/api/trash/${encodeURIComponent(trashId)}/restore`),

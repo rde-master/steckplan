@@ -151,14 +151,15 @@ function PasswordForm({
 }: {
   busy: boolean;
   missing: boolean;
-  onSubmit: (passwords: { edit: string; read: string }) => void;
+  onSubmit: (passwords: { edit: string; read: string; direction?: string }) => void;
   onCancel?: () => void;
 }) {
   const [edit, setEdit] = useState('');
   const [read, setRead] = useState('');
+  const [direction, setDirection] = useState('');
   function submit(event: FormEvent) {
     event.preventDefault();
-    onSubmit({ edit, read });
+    onSubmit({ edit, read, ...(direction ? { direction } : {}) });
   }
   return (
     <form onSubmit={submit} className="space-y-2">
@@ -169,6 +170,9 @@ function PasswordForm({
         </Field>
         <Field label={t.readPassword}>
           <TextInput type="password" autoComplete="new-password" value={read} onChange={(e) => setRead(e.target.value)} />
+        </Field>
+        <Field label={t.directionPassword}>
+          <TextInput type="password" autoComplete="new-password" value={direction} placeholder={t.directionOptional} onChange={(e) => setDirection(e.target.value)} />
         </Field>
       </div>
       <p className="text-xs text-slate-500 dark:text-slate-400">{t.passwordHint}</p>

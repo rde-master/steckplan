@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import WebSocket from 'ws';
 import * as Y from 'yjs';
-import { createEmptyProject, readProjectFromYDoc, type SyncClient } from '@steckplan/core';
+import { addShowItem, createEmptyProject, readProjectFromYDoc, readShow, type SyncClient } from '@steckplan/core';
 import { isManagedStore } from '../storage/types';
 import { connect, login, startTestServer, waitFor, type TestServer } from '../test-utils';
 
@@ -76,6 +76,57 @@ describe('Live-Sync', () => {
     expect(editor.doc.getMap('meta').get('name')).toBe('Live');
     expect(editor.doc.getMap('meta').get('venue')).toBe('');
     expect(server.rooms.peek(id)!.doc.getMap('meta').get('name')).toBe('Live');
+  });
+
+  it('Regie-Zugang: ändert nur die Regie; Änderungen außerhalb werden verworfen', async () => {
+    const { server, id } = await setup();
+    const editor = track(connect(server, id, await login(server, 'edit')));
+    const regie = track(connect(server, id, await login(server, 'direction')));
+    await Promise.all([editor.whenSynced(), regie.whenSynced()]);
+    expect(regie.state).toMatchObject({ access: 'direction', readOnly: false });
+
+    const itemId = addShowItem(regie.doc, 'song', null, { title: 'Opener' });
+    await waitFor(() => readShow(editor.doc).items.some((i) => i.id === itemId));
+    await waitFor(async () => ((await server.store.load(id).catch(() => null))?.show.items.length ?? 0) === 1);
+
+    // außerhalb der Regie (manipulierter oder fehlerhafter Client) → verworfen, mit Hinweis
+    regie.doc.getMap('meta').set('name', 'GEHACKT');
+    await waitFor(() => regie.state.notice?.includes('außerhalb der Regie') ?? false);
+    editor.doc.getMap('meta').set('notes', 'Marker');
+    await waitFor(() => regie.doc.getMap('meta').get('notes') === 'Marker');
+    expect(editor.doc.getMap('meta').get('name')).toBe('Live');
+    expect(server.rooms.peek(id)!.doc.getMap('meta').get('name')).toBe('Live');
+    // Änderungsprotokoll mit Regie-Zugang
+    const log = (await server.app.inject({ method: 'GET', url: `/api/projects/${id}/changelog`, headers: { cookie: await login(server, 'edit') } })).json().entries as { by: string; access: string; action: string }[];
+    expect(log.find((e) => e.by === 'Regina')).toMatchObject({ access: 'direction', action: expect.stringContaining('Regie: Ablauf geändert') });
+  });
+
+  it('Vorstellung: Regie führt, alle folgen; Nachzügler bekommen die Stelle; Lesen darf nicht führen; Gehen beendet das Führen', async () => {
+    const { server, id } = await setup();
+    const regie = track(connect(server, id, await login(server, 'direction', 'Regina')));
+    const reader = track(connect(server, id, await login(server, 'read', 'Leo')));
+    await Promise.all([regie.whenSynced(), reader.whenSynced()]);
+    expect(reader.state.lead).toBeNull();
+
+    regie.sendCue({ itemId: 'song', sceneId: 's2' });
+    await waitFor(() => reader.state.lead?.sceneId === 's2');
+    expect(reader.state.lead).toMatchObject({ itemId: 'song', sceneId: 's2', name: 'Regina', connectionId: regie.state.connectionId });
+
+    // Lese-Zugang kann nicht übernehmen
+    reader.sendCue({ itemId: 'anderes' });
+    const late = track(connect(server, id, await login(server, 'edit', 'Tom')));
+    await late.whenSynced();
+    await waitFor(() => late.state.lead !== null);
+    expect(late.state.lead).toMatchObject({ itemId: 'song', sceneId: 's2' });
+
+    // ungültige Stelle wird ignoriert (Verbindung bleibt)
+    regie.sendCue({ itemId: '' } as never);
+    regie.sendCue({ itemId: 'song', sceneId: 's3' });
+    await waitFor(() => reader.state.lead?.sceneId === 's3');
+
+    // führende Person geht → niemand führt
+    regie.destroy();
+    await waitFor(() => reader.state.lead === null);
   });
 
   it('lehnt Verbindungen ohne Anmeldung ab', async () => {

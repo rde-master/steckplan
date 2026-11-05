@@ -94,7 +94,7 @@ function footerWidth(ctx: Pick<DocContext, 'format' | 'orientation'>): number {
   return pageSize(ctx.format, ctx.orientation).width - MARGIN.left - MARGIN.right - 70 - 10;
 }
 
-function base(ctx: DocContext, title: string, content: Content[]): DocDefinition {
+export function base(ctx: DocContext, title: string, content: Content[]): DocDefinition {
   return {
     info: { title: `${pdfText(ctx.meta.name)} – ${title}`, creator: ctx.appTitle, producer: ctx.appTitle },
     pageSize: ctx.format,
@@ -396,6 +396,8 @@ export interface LabelConnection {
 }
 
 export interface LabelContent {
+  /** für den QR-Code (Leseansicht beim Gerät) */
+  deviceId?: string;
   title: string;
   person: string;
   personKind: string;
@@ -406,7 +408,15 @@ export interface LabelContent {
 }
 
 /** Etiketten auf A4: je Etikett Gerät, Person und wo es mit welchem Kabel eingesteckt wird. Optional Schnittlinien. */
-export function labelsDoc(labels: LabelContent[], format: LabelFormat, ctx: Pick<DocContext, 'meta' | 'appTitle'>, options: { cutLines: boolean }): DocDefinition {
+/** Fußzeile der Etiketten: Logo, Projektname und optional QR-Code mit Hinweis */
+export interface LabelFooter {
+  project: string;
+  /** Adresse für den QR-Code je Gerät; fehlt = kein QR-Code */
+  qrUrl?: (deviceId: string) => string;
+  hint?: string;
+}
+
+export function labelsDoc(labels: LabelContent[], format: LabelFormat, ctx: Pick<DocContext, 'meta' | 'appTitle'>, options: { cutLines: boolean; footer?: LabelFooter }): DocDefinition {
   const perPage = format.cols * format.rows;
   const sheet = pageSize('A4', 'portrait');
   const w = format.widthMm * PT_PER_MM;
@@ -432,7 +442,7 @@ export function labelsDoc(labels: LabelContent[], format: LabelFormat, ctx: Pick
       right: Math.min(x + w - LABEL_PAD_MM * PT_PER_MM, sheet.width - SHEET_SAFE_MM * PT_PER_MM),
       bottom: Math.min(y + h - LABEL_PAD_MM * PT_PER_MM, sheet.height - SHEET_SAFE_MM * PT_PER_MM),
     };
-    content.push(...labelContent(label, inner, titleSize, lineSize));
+    content.push(...labelContent(label, inner, titleSize, lineSize, options.footer));
   });
   if (labels.length === 0) content.push({ text: 'Keine Geräte „benutzt von Mensch“ vorhanden.', margin: [40, 40, 40, 0] });
   return {
@@ -488,8 +498,36 @@ function personIcon(size: number, color: string): Content {
 }
 
 /** Inhalt eines Etiketts: farbiger Kopf (Gerät, Vorlage), Person, je Verbindung Symbol, Anschluss, Richtung, Gegenstelle, Kabel. */
-function labelContent(label: LabelContent, box: { left: number; top: number; right: number; bottom: number }, titleSize: number, lineSize: number): Content[] {
+/** Fußzeile unten im Etikett; gibt ihre Höhe zurück (die Verbindungen enden darüber) */
+function labelFooter(out: Content[], label: LabelContent, box: { left: number; top: number; right: number; bottom: number }, lineSize: number, footer: LabelFooter): number {
+  const width = box.right - box.left;
+  const height = box.bottom - box.top;
+  const url = footer.qrUrl && label.deviceId ? footer.qrUrl(label.deviceId) : undefined;
+  // QR-Code: höchstens 16 mm, höchstens 40 % der Höhe, mindestens 9 mm (sonst nicht lesbar → weglassen)
+  const qr = url ? Math.min(16 * PT_PER_MM, height * 0.42) : 0;
+  const withQr = qr >= 9 * PT_PER_MM;
+  const small = lineSize * 0.85;
+  const logoSize = Math.min(5 * PT_PER_MM, small * 2.6);
+  const band = Math.max(withQr ? qr : 0, logoSize);
+  const top = box.bottom - band;
+  out.push({ canvas: [{ type: 'line', x1: 0, y1: 0, x2: width, y2: 0, lineWidth: 0.3, lineColor: '#cbd5e1' }], absolutePosition: { x: box.left, y: top - 1.5 } });
+  out.push({ image: LOGO_PNG, width: logoSize, height: logoSize, absolutePosition: { x: box.left, y: top + (band - logoSize) / 2 } });
+  const textX = box.left + logoSize + 2.5;
+  const textW = box.right - textX - (withQr ? qr + 3 : 0);
+  const name = fitText(pdfText(footer.project), small, textW, true);
+  const hint = withQr && footer.hint ? fitText(pdfText(footer.hint), small * 0.92, textW) : '';
+  const textH = small * 1.2 * (hint ? 2 : 1);
+  const textY = top + (band - textH) / 2;
+  out.push({ text: name, bold: true, fontSize: small, color: '#334155', noWrap: true, absolutePosition: { x: textX, y: textY } });
+  if (hint) out.push({ text: hint, fontSize: small * 0.92, color: '#64748b', noWrap: true, absolutePosition: { x: textX, y: textY + small * 1.2 } });
+  if (withQr) out.push({ qr: url, fit: qr, margin: [0, 0, 0, 0], eccLevel: 'M', absolutePosition: { x: box.right - qr, y: box.bottom - qr } });
+  return band + 3;
+}
+
+function labelContent(label: LabelContent, outer: { left: number; top: number; right: number; bottom: number }, titleSize: number, lineSize: number, footer?: LabelFooter): Content[] {
   const out: Content[] = [];
+  // Fußzeile zuerst: der Rest endet darüber
+  const box = footer ? { ...outer, bottom: outer.bottom - labelFooter(out, label, outer, lineSize, footer) } : outer;
   const width = box.right - box.left;
   let y = box.top;
   // Kopf: Gerätename weiß auf Farbe, rechts die Vorlage

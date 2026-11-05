@@ -4,7 +4,7 @@ import * as Y from 'yjs';
 import * as encoding from 'lib0/encoding';
 import * as decoding from 'lib0/decoding';
 import * as syncProtocol from 'y-protocols/sync';
-import { CloseCode, decodeInfo, MESSAGE_INFO, MESSAGE_SYNC, type PresenceUser, type ServerInfo } from './protocol';
+import { CloseCode, decodeInfo, encodeCue, MESSAGE_INFO, MESSAGE_SYNC, type Cue, type LeadInfo, type PresenceUser, type ServerInfo } from './protocol';
 import type { Access } from '../model/access';
 
 export interface SocketLike {
@@ -38,6 +38,8 @@ export interface SyncClientState {
   notice?: string;
   /** war schon einmal abgeglichen – kurze Unterbrechungen danach muss die Oberfläche nicht anzeigen */
   everSynced?: boolean;
+  /** Vorstellung: wer führt und wo sie steht (null = niemand führt) */
+  lead: LeadInfo | null;
 }
 
 export interface SyncClientOptions {
@@ -70,6 +72,7 @@ export class SyncClient {
     reconcilePending: false,
     connectionId: null,
     users: [],
+    lead: null,
   };
 
   constructor(options: SyncClientOptions) {
@@ -160,7 +163,7 @@ export class SyncClient {
           this.setState({ status: 'closed', users: [], notice: event.reason || undefined });
           return;
       }
-      this.setState({ status: 'disconnected', users: [] });
+      this.setState({ status: 'disconnected', users: [], lead: null });
       const delay = Math.min(this.maxDelay, this.baseDelay * 2 ** this.attempts);
       this.attempts += 1;
       this.reconnectTimer = setTimeout(() => this.connect(), delay);
@@ -200,7 +203,16 @@ export class SyncClient {
       case 'notice':
         this.setState({ notice: info.message });
         break;
+      case 'lead':
+        this.setState({ lead: info.lead });
+        break;
     }
+  }
+
+  /** Vorstellung: führen (Stelle senden) oder Führen beenden (null). Ohne Verbindung wird nichts gesendet. */
+  sendCue(cue: Cue | null): void {
+    const socket = this.socket;
+    if (socket && socket.readyState === OPEN) socket.send(encodeCue(cue));
   }
 
   private handleDocUpdate = (update: Uint8Array, origin: unknown): void => {

@@ -4,7 +4,8 @@ import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import { createEmptyProject, serializeProject } from '@steckplan/core';
 import { DataDirProjectStore, TRASH_RETENTION_MS } from './data-dir-store';
-import { LocalFileStore } from './local-file-store';
+import { LocalFileStore, mediaDirFor } from './local-file-store';
+import { MediaStore } from './media-store';
 import { FileLock, LockedError, LOCK_STALE_MS, lockPathFor, readLock } from './lock-file';
 import { MAX_VERSIONS, VersionStore } from './version-store';
 import { writeFileAtomic } from './fs-utils';
@@ -190,6 +191,26 @@ describe('LocalFileStore', () => {
     expect(store.pathOf(id)).toBe(join(dir, 'B.steckplan'));
     expect(existsSync(join(dir, 'A.steckplan.lock'))).toBe(false);
     expect(existsSync(join(dir, 'B.steckplan.lock'))).toBe(true);
+    await store.closeAll();
+  });
+
+  it('Medien liegen neben der Datei; „Speichern unter“ nimmt sie mit, Hochladen landet dort', async () => {
+    const dir = tmp();
+    const store = new LocalFileStore('Ralf');
+    const media = new MediaStore((pid) => {
+      const path = store.pathOf(pid);
+      return path ? mediaDirFor(path) : undefined;
+    });
+    expect(mediaDirFor(join(dir, 'Fest.steckplan'))).toBe(join(dir, 'Fest.medien'));
+    const project = createEmptyProject({ name: 'Fest' });
+    const id = await store.create(join(dir, 'Fest.steckplan'), project);
+    const started = await media.startUpload(id, { size: 3 });
+    await media.appendChunk(id, started.uploadId, 0, Buffer.from('abc'));
+    const info = await media.completeUpload(id, started.uploadId);
+    expect(readFileSync(join(dir, 'Fest.medien', info.id), 'utf8')).toBe('abc');
+    await store.saveAs(id, join(dir, 'Fest 2.steckplan'), project);
+    expect(readFileSync(join(dir, 'Fest 2.medien', info.id), 'utf8')).toBe('abc');
+    expect((await media.open(id, info.id))?.path).toBe(join(dir, 'Fest 2.medien', info.id));
     await store.closeAll();
   });
 
