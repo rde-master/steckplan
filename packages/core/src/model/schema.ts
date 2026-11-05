@@ -567,10 +567,34 @@ export type FixtureState = z.infer<typeof FixtureStateSchema>;
 /** Die einstellbaren Werte (ohne Kennungen) */
 export type FixtureValues = Omit<FixtureState, 'id' | 'sceneId' | 'deviceId'>;
 
+export const LYRICS_MAX_BEFORE = 5;
+export const LYRICS_MAX_AFTER = 10;
+export const REMAIN_MAX_WARN = 600;
+export const REMAIN_MAX_BLINK = 120;
+type ShowSettingsInput = { lyricsBefore?: number; lyricsAfter?: number; remainWarnSec?: number; remainBlinkSec?: number };
+
 export const ShowSettingsSchema = z.object({
   /** Beginn des Ablaufs „HH:MM“ */
   startTime: z.string().optional(),
+  /** Hintergrundbild des Textfensters (Datei im Medienspeicher), abgedunkelt um dim (0–1) */
+  lyricsBackground: z.object({ mediaId: id, dim: z.number().min(0).max(1).default(0.5) }).optional(),
+  /** Textfenster: Zeilen vor bzw. nach der aktuellen (Standard 1 und 3) */
+  lyricsBefore: z.number().int().min(0).max(LYRICS_MAX_BEFORE).optional(),
+  lyricsAfter: z.number().int().min(0).max(LYRICS_MAX_AFTER).optional(),
+  /** Restzeit im Player: ab so vielen Sekunden vor Schluss allmählich rot (Standard 30), ab so vielen blinkend (Standard 5) */
+  remainWarnSec: z.number().int().min(0).max(REMAIN_MAX_WARN).optional(),
+  remainBlinkSec: z.number().int().min(0).max(REMAIN_MAX_BLINK).optional(),
 });
+
+/** Restzeit im Player: Schwellen aus den Einstellungen, sonst Standard */
+export function remainRange(settings: Pick<ShowSettingsInput, 'remainWarnSec' | 'remainBlinkSec'>): { warn: number; blink: number } {
+  return { warn: settings.remainWarnSec ?? 30, blink: settings.remainBlinkSec ?? 5 };
+}
+
+/** Textfenster: Zeilen vor und nach der aktuellen (Einstellung, sonst Standard) */
+export function lyricsRange(settings: Pick<ShowSettingsInput, 'lyricsBefore' | 'lyricsAfter'>): { before: number; after: number } {
+  return { before: settings.lyricsBefore ?? 1, after: settings.lyricsAfter ?? 3 };
+}
 export type ShowSettings = z.infer<typeof ShowSettingsSchema>;
 
 export const ProjectSchema = z.object({

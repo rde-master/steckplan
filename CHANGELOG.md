@@ -7,6 +7,24 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.23.4] - 2026-11-05
+
+### Hinzugefügt
+
+- Textfenster: einstellbar, wie viele Zeilen vor (0–5) und nach (0–10) der aktuellen Zeile stehen (Zahnrad „Regie-Einstellungen“); Schrift und Zeilenhöhe passen sich an
+- Textfenster: Hintergrundbild (Zahnrad neben „Textfenster“ im Regie-Menü) mit einstellbarem Abdunkeln; das Bild liegt im Medienspeicher und kommt beim Herunterladen mit Medien mit
+- Player: Spulen auch um ±0,5 Sekunden
+- Player: Restzeit des Titels als größerer Countdown rechts; in den letzten 30 Sekunden färbt er sich allmählich rot, in den letzten 5 blinkt er – beide Werte in den Regie-Einstellungen (Zahnrad im Regie-Menü, bisher „Textfenster einrichten“)
+- Vorstellung: kleiner grüner Balken über der aktuellen Zeile, der bis zur nächsten Zeile von links nach rechts vollläuft, und ein roter über der nächsten Zeile, der bis zu ihrem Einsatz von rechts nach links abläuft (nur in der Vorstellung, nicht im Textfenster)
+
+### Geändert
+
+- Textfenster: Zeilenwechsel animiert – der Text gleitet weich nach oben, die aktuelle Zeile wächst und wird hervorgehoben, Zeilen blenden weich ein und aus
+
+### Behoben
+
+- Vorstellung: Beim Schließen der Vorstellung wurde die Seite leer (Fehler aus 0.23.3, Meldung an das Textfenster im selben Browser)
+
 ## [0.23.3] - 2026-11-05
 
 ### Hinzugefügt
@@ -504,7 +522,8 @@ Meilenstein M0 – Projektgerüst.
 - Docker-Image mit Datenvolume `/data` und Beispiel-`docker-compose.yml`
 - GitHub Actions: Tests und Smoke-Test bei jedem Push, Installer als Artefakte, Docker-Image `:develop`, Release-Workflow für Tags `vX.Y.Z`
 
-[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.23.3...develop
+[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.23.4...develop
+[0.23.4]: https://github.com/rde-master/steckplan/compare/v0.23.3...v0.23.4
 [0.23.3]: https://github.com/rde-master/steckplan/compare/v0.23.2...v0.23.3
 [0.23.2]: https://github.com/rde-master/steckplan/compare/v0.23.1...v0.23.2
 [0.23.1]: https://github.com/rde-master/steckplan/compare/v0.23.0...v0.23.1
