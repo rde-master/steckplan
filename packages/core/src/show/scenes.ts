@@ -158,6 +158,36 @@ export function clearFixtureValues(doc: Y.Doc, sceneId: string, deviceIds: strin
   }, origin);
 }
 
+/** Werte einer Szene ohne Kennungen – zum Kopieren und Einfügen (auch in Szenen anderer Stücke). */
+export type SceneValues = Omit<FixtureState, 'id' | 'sceneId'>[];
+
+export function sceneValues(states: FixtureState[], sceneId: string): SceneValues {
+  return states.filter((s) => s.sceneId === sceneId).map(({ id: _id, sceneId: _s, ...values }) => values);
+}
+
+/** Werte der Zielszenen vollständig ersetzen (vorhandene Angaben fallen weg). */
+export function replaceSceneValues(doc: Y.Doc, values: SceneValues, sceneIds: string[], origin: unknown): void {
+  const known = new Set(readScenes(doc).map((s) => s.id));
+  const targets = new Set(sceneIds.filter((id) => known.has(id)));
+  if (targets.size === 0) return;
+  doc.transact(() => {
+    for (const s of readSceneStates(doc)) if (targets.has(s.sceneId)) statesMap(doc).delete(s.id);
+    for (const sceneId of targets) {
+      for (const v of values) {
+        const id = stateId(sceneId, v.deviceId);
+        const map = new Y.Map<unknown>();
+        statesMap(doc).set(id, map);
+        setFields(map, { ...v, id, sceneId });
+      }
+    }
+  }, origin);
+}
+
+/** Szene komplett in andere Szenen kopieren. */
+export function copySceneTo(doc: Y.Doc, fromScene: string, toScenes: string[], origin: unknown): void {
+  replaceSceneValues(doc, sceneValues(readSceneStates(doc), fromScene), toScenes.filter((id) => id !== fromScene), origin);
+}
+
 /** Szenen eines Eintrags (mit Werten) löschen – beim Löschen des Eintrags. */
 export function removeItemScenes(doc: Y.Doc, itemId: string): void {
   const ids = new Set(itemScenes(readScenes(doc), itemId).map((s) => s.id));

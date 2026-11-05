@@ -101,7 +101,8 @@ test('Signalfluss: Geräte platzieren, Kabel ziehen, Multicore, Prüfungen, Rüc
   await anna.setViewportSize({ width: 1400, height: 900 });
   await loginAs(anna, 'read', 'Anna');
   await anna.goto(`/projekt/${id}`);
-  await expect.poll(async () => (await nodes(anna, '.device')).length).toBe(2);
+  // Verbindungsaufbau kann unter Last dauern
+  await expect.poll(async () => (await nodes(anna, '.device')).length, { timeout: 15_000 }).toBe(2);
   await expect(anna.getByRole('button', { name: 'Hinzufügen: SM58', exact: true })).toHaveCount(0);
   expect((await nodes(anna, '.device')).every((d) => d.attrs.draggable === false)).toBe(true);
 

@@ -71,8 +71,8 @@ export function SceneGrid({
   };
   return (
     <div className="space-y-2">
-      <div className="overflow-x-auto pb-1">
-        <div className="grid gap-1" style={{ gridTemplateColumns: `minmax(4rem, 7rem) repeat(${grid.cols}, minmax(4.5rem, 1fr))`, minWidth: `${4 + grid.cols * 4.75}rem` }} data-testid="scene-grid">
+      <div className="overflow-x-auto p-1">
+        <div className="grid gap-1" style={{ gridTemplateColumns: `minmax(3rem, 7rem) repeat(${grid.cols}, minmax(4.25rem, 1fr))`, minWidth: `${3 + grid.cols * 4.5}rem` }} data-testid="scene-grid">
           {Array.from({ length: grid.rows }, (_, row) => (
             <div key={row} className="contents">
               <div className="self-center truncate px-1 text-xs text-slate-500">{grid.rowLabels[row] ?? ''}</div>

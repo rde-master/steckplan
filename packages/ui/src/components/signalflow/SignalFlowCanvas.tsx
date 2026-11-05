@@ -4,6 +4,7 @@ import { Circle, Group, Layer, Line, Rect, Stage, Text } from 'react-konva';
 import type Konva from 'konva';
 import { orientConnection, type EffectivePort } from '@steckplan/core';
 import { useEditor } from '../../lib/editor';
+import { usePinchZoom } from '../../lib/usePinchZoom';
 import type { CrossPageRef } from '@steckplan/core';
 import { useLongPress } from '../../lib/useLongPress';
 import { useEdgeScroll } from '../../lib/useEdgeScroll';
@@ -108,7 +109,6 @@ export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onC
     },
   });
   const dragStart = useRef<{ id: string; x: number; y: number; others: { id: string; x: number; y: number }[] } | null>(null);
-  const pinch = useRef<{ distance: number; zoom: number } | null>(null);
   const selectedDevices = useMemo(() => new Set(selection.devices), [selection.devices]);
   const selectedCables = useMemo(() => new Set(selection.cables), [selection.cables]);
   const boxById = useMemo(() => new Map(boxes.map((b) => [b.device.id, b])), [boxes]);
@@ -275,22 +275,12 @@ export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onC
 
   const stageMoved = useRef(false);
 
-  // ---------- Touch: Zwei-Finger-Zoom ----------
+  // ---------- Touch: ein Finger wie Maus; Zwei-Finger-Zoom über usePinchZoom ----------
+
+  usePinchZoom(container, stageRef, () => view.zoom, zoomAt);
 
   function handleTouchMove(e: Konva.KonvaEventObject<TouchEvent>) {
-    const touches = e.evt.touches;
-    if (touches.length !== 2) {
-      handleStageMove();
-      return;
-    }
-    e.evt.preventDefault();
-    if (stageRef.current?.isDragging()) stageRef.current.stopDrag();
-    const [t1, t2] = [touches[0]!, touches[1]!];
-    const distance = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
-    const rect = container.current!.getBoundingClientRect();
-    const center = { x: (t1.clientX + t2.clientX) / 2 - rect.left, y: (t1.clientY + t2.clientY) / 2 - rect.top };
-    if (!pinch.current) pinch.current = { distance, zoom: view.zoom };
-    zoomAt(center, pinch.current.zoom * (distance / pinch.current.distance));
+    if (e.evt.touches.length === 1) handleStageMove();
   }
 
   // ---------- Kästen ziehen ----------
@@ -403,10 +393,7 @@ export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onC
         onMouseMove={handleStageMove}
         onTouchMove={handleTouchMove}
         onMouseUp={handleStageUp}
-        onTouchEnd={(e) => {
-          pinch.current = null;
-          handleStageUp(e);
-        }}
+        onTouchEnd={(e) => handleStageUp(e)}
       >
         <Layer>
           {/* Gruppenrahmen (unter Kabeln und Kästen) */}

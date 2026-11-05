@@ -52,7 +52,7 @@ export function ScenesView({ projectId, doc, origin, data, library, editable }: 
   const lines = item ? itemLines(data.show.sections, item.id) : [];
   const hasAudio = !!item && (item.media?.length ?? 0) > 0;
   const detail = item ? (
-    <article className="mx-auto max-w-5xl space-y-4 p-4" aria-label={item.title || texts.regie.untitled} data-testid="scenes-detail">
+    <article className="mx-auto max-w-[112rem] space-y-4 p-4" aria-label={item.title || texts.regie.untitled} data-testid="scenes-detail">
       <header className="flex items-center gap-2">
         {narrow && (
           <Button variant="ghost" aria-label={t.back} onClick={() => setSelectedId(null)}>
@@ -88,7 +88,7 @@ export function ScenesView({ projectId, doc, origin, data, library, editable }: 
   if (narrow) return <div className="min-h-0 flex-1 overflow-y-auto bg-white dark:bg-slate-900" data-testid="scenes-view">{detail ?? list}</div>;
   return (
     <div className="flex min-h-0 flex-1" data-testid="scenes-view">
-      <div className="flex w-72 shrink-0 flex-col border-r border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">{list}</div>
+      <div className="flex w-60 shrink-0 flex-col 2xl:w-72 border-r border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">{list}</div>
       <div className="min-w-0 flex-1 overflow-y-auto">{detail}</div>
     </div>
   );
