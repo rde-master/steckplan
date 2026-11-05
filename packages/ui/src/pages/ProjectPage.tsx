@@ -309,7 +309,17 @@ export function ProjectPage({ id }: { id: string }) {
           canSeeSecrets={!!session && can(session.access, 'viewSecrets')}
         />
       ) : tab === 'regie' ? (
-        <RegieView projectId={id} doc={project.doc} origin={undo.origin} data={data} library={library} editable={showEditable} />
+        <RegieView
+          projectId={id}
+          doc={project.doc}
+          origin={undo.origin}
+          data={data}
+          library={library}
+          editable={showEditable}
+          sync={project.state}
+          sendCue={project.sendCue}
+          canLead={online && !!access && can(access, 'editShow')}
+        />
       ) : tab === 'lists' ? (
         <ListsView
           projectId={id}

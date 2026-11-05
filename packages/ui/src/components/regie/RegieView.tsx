@@ -1,6 +1,6 @@
 // Regie (M11a): Ablauf links, gewählter Eintrag rechts (Angaben, Rollen, Texte).
 // Auf dem Handy erst der Ablauf, Antippen öffnet den Eintrag.
-import { ArrowDown, ArrowUp, ChevronLeft, ClipboardPaste, Coffee, Copy, Drama, GripVertical, Megaphone, Music, Trash2, type LucideIcon } from 'lucide-react';
+import { ArrowDown, ArrowUp, ChevronLeft, Clapperboard, ClipboardPaste, Coffee, Copy, Drama, GripVertical, Megaphone, Music, Trash2, type LucideIcon } from 'lucide-react';
 import { useCallback, useState, type DragEvent } from 'react';
 import type * as Y from 'yjs';
 import {
@@ -12,8 +12,10 @@ import {
   sceneTime,
   nextUntimedLine,
   setLineTime,
+  type Cue,
   type Library,
   type MediaRef,
+  type SyncClientState,
   formatDuration,
   itemSections,
   moveShowItem,
@@ -36,6 +38,7 @@ import { Button, Field, Modal, TextArea, TextInput } from '../ui';
 import { SectionsEditor } from './SectionsEditor';
 import { LightSetupView } from './LightSetupView';
 import { ScenesSection } from './ScenesSection';
+import { PerformanceView } from './PerformanceView';
 import { LyricsView, MediaSection, PlayerBar, seekAudio, usePlayerTime, useRecordKey } from './SongMedia';
 
 const t = texts.regie;
@@ -44,8 +47,15 @@ export const KIND_ICONS: Record<ShowItemKind, LucideIcon> = { song: Music, play:
 const KINDS: ShowItemKind[] = ['song', 'play', 'break', 'announcement'];
 
 /** Regie: oben Umschalter Ablauf | Lichtaufbau */
-export function RegieView(props: { projectId: string; doc: Y.Doc; origin: object; data: ProjectData; library: Library | null; editable: boolean }) {
+export function RegieView(
+  props: { projectId: string; doc: Y.Doc; origin: object; data: ProjectData; library: Library | null; editable: boolean } & {
+    sync: SyncClientState;
+    sendCue: (cue: Cue | null) => void;
+    canLead: boolean;
+  },
+) {
   const [area, setArea] = useState<'show' | 'light'>(readArea);
+  const [performing, setPerforming] = useState(false);
   const choose = (next: 'show' | 'light') => {
     setArea(next);
     try {
@@ -64,7 +74,14 @@ export function RegieView(props: { projectId: string; doc: Y.Doc; origin: object
             </button>
           ))}
         </div>
+        <div className="flex-1" />
+        <Button variant="secondary" className="text-sm" title={t.performance.openTitle} onClick={() => setPerforming(true)} disabled={props.data.show.items.length === 0}>
+          <Clapperboard {...ICON} /> {t.performance.open}
+        </Button>
       </div>
+      {performing && (
+        <PerformanceView projectId={props.projectId} data={props.data} library={props.library} sync={props.sync} sendCue={props.sendCue} canLead={props.canLead} onClose={() => setPerforming(false)} />
+      )}
       {area === 'light' ? (
         <div className="min-h-0 flex-1 overflow-y-auto">
           <LightSetupView doc={props.doc} origin={props.origin} data={props.data} library={props.library} editable={props.editable} />

@@ -286,6 +286,61 @@ describe('PDF-Export', () => {
     }
   });
 
+  it('Regie: Ablaufplan, Lichtszenen (Raster + Tabelle), Textbuch mit Szenenwechseln am Rand', async () => {
+    const { data, library } = setup();
+    library.templates.push(t({ id: 'mh', kind: 'device', name: 'Moving Head', light: { showInScenes: true, dimmer: true, colorMixing: 'none', colorWheels: [{ name: 'Rad', colors: [{ name: 'Rot', hex: '#ff0000' }] }], goboWheels: [{ name: 'Gobos', rotating: true, gobos: ['Sterne'] }], moving: { panDeg: 540, tiltDeg: 270 } } }));
+    data.devices.push({ id: 'mh1', templateId: 'mh', layerId: data.layers[0]!.id, label: 'MH 1' }, { id: 'mh2', templateId: 'mh', layerId: data.layers[0]!.id, label: 'MH 2' });
+    data.people[0]!.kind = 'Sängerin';
+    data.showSettings = { startTime: '19:30' };
+    data.show = {
+      items: [
+        { id: 'a', order: 0, kind: 'song', title: 'Opener', artist: 'Band', durationSec: 220, personIds: ['anna'] },
+        { id: 'b', order: 1, kind: 'break', title: 'Pause', durationSec: 900, personIds: [] },
+        { id: 'c', order: 2, kind: 'play', title: 'Die Begegnung', durationSec: 480, personIds: [], roles: [{ id: 'r1', name: 'Hamlet', personId: 'anna' }, { id: 'r2', name: 'Ophelia' }] },
+      ],
+      sections: [
+        { id: 's1', itemId: 'a', order: 0, kind: 'verse', label: 'Strophe 1', lines: [{ id: 'l1', text: 'Es war einmal', atSec: 1 }, { id: 'l2', text: 'ein kleiner Ton', atSec: 5 }] },
+        { id: 's2', itemId: 'c', order: 0, kind: 'scene', label: 'Szene 1', lines: [{ id: 'p1', text: 'Sein oder nicht sein', roleId: 'r1' }, { id: 'p2', text: 'Ophelia tritt auf', direction: true }, { id: 'p3', text: 'Mein Prinz!', roleId: 'r2' }] },
+      ],
+    };
+    data.lightGrid = { cols: 2, rows: 1, rowLabels: ['Traverse'] };
+    data.lightPlacements = [{ id: 'mh1', col: 0, row: 0 }];
+    data.lightTargets = [{ id: 'z', order: 0, name: 'Sängerin', color: '#e11d48' }];
+    data.lightScenes = [
+      { id: 'x1', itemId: 'a', order: 0, name: 'Intro', atSec: 0 },
+      { id: 'x2', itemId: 'a', order: 1, name: 'Strophe', lineId: 'l2' },
+      { id: 'x3', itemId: 'c', order: 0, name: 'Auftritt', lineId: 'p2' },
+    ];
+    data.sceneStates = [
+      { id: 'x1:mh1', sceneId: 'x1', deviceId: 'mh1', dimmer: 80, color: { hex: '#ff0000', name: 'Rot' }, gobo: { wheel: 0, name: 'Sterne', rotate: 'cw' }, targetId: 'z', effect: { kind: 'circle', speed: 'slow' } },
+      { id: 'x1:mh2', sceneId: 'x1', deviceId: 'mh2', dimmer: 0 },
+    ];
+    const input = { data, library, meta: { name: 'Stadtfest' }, filter: EMPTY_FILTER, colorMode: 'device' as const, issues: [], appTitle: 'Steckplan 0.8.0', by: 'Ralf', fetchQr: async () => QR_SVG, now: new Date(T0) };
+    const text = async (kind: 'showPlan' | 'lightScenes' | 'scriptBook', orientation: 'portrait' | 'landscape') => {
+      const { pages, items } = await renderItems(await buildExportDoc({ ...DEFAULT_OPTIONS, kind, format: 'A4', orientation }, input), kind);
+      for (const item of items) expect(item.right, `${kind}: ${item.text}`).toBeLessThanOrEqual(item.pageWidth - 30);
+      return { pages, all: items.map((i) => i.text).join(' ') };
+    };
+    const plan = await text('showPlan', 'portrait');
+    expect(plan.all).toContain('Beginn 19:30');
+    expect(plan.all).toContain('Gesamt 26:40');
+    expect(plan.all).toMatch(/19:33.*Pause/);
+    expect(plan.all).toContain('Anna Muster');
+    const scenes = await text('lightScenes', 'landscape');
+    expect(scenes.all).toContain('Szene 1: Intro');
+    expect(scenes.all).toContain('bei „ein kleiner Ton“ (0:05)');
+    expect(scenes.all).toContain('Sterne (rechts herum)');
+    expect(scenes.all).toContain('Kreis, langsam');
+    expect(scenes.all).toContain('Nicht im Raster'); // MH 2 hat keinen Platz
+    expect(scenes.pages).toBe(2); // je Eintrag mit Szenen eine Seite
+    const book = await text('scriptBook', 'portrait');
+    expect(book.all).toContain('Hamlet: ');
+    expect(book.all).toContain('(Ophelia tritt auf)');
+    expect(book.all).toContain('Szene 2: Strophe');
+    expect(book.all).toContain('Szene 1: Intro (0:00)');
+    expect(book.all).toContain('Hamlet – Anna Muster');
+  });
+
   it('Personenliste und Geräte-Etiketten', async () => {
     const people = (await render(await exportDoc({ kind: 'people' }))).text;
     expect(people).toContain('Muster, Anna');

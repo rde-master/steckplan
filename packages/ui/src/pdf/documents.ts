@@ -94,7 +94,7 @@ function footerWidth(ctx: Pick<DocContext, 'format' | 'orientation'>): number {
   return pageSize(ctx.format, ctx.orientation).width - MARGIN.left - MARGIN.right - 70 - 10;
 }
 
-function base(ctx: DocContext, title: string, content: Content[]): DocDefinition {
+export function base(ctx: DocContext, title: string, content: Content[]): DocDefinition {
   return {
     info: { title: `${pdfText(ctx.meta.name)} – ${title}`, creator: ctx.appTitle, producer: ctx.appTitle },
     pageSize: ctx.format,
