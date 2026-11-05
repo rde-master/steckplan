@@ -67,6 +67,22 @@ export function templatePorts(template: Template | undefined): EffectivePort[] {
   return (template.ports ?? []).map(devicePort);
 }
 
+/** Grobe Signalart (für Farben und Symbole, z. B. auf Etiketten) */
+export type SignalKind = 'audio' | 'dmx' | 'network' | 'power' | 'video' | 'other';
+
+export function signalKind(port: Pick<EffectivePort, 'signal' | 'isNetwork' | 'isPower'> | undefined): SignalKind {
+  if (!port) return 'other';
+  if (port.isPower) return 'power';
+  if (port.isNetwork) return 'network';
+  const s = port.signal.toLowerCase();
+  if (/strom|power|netzspannung|230|400 ?v/.test(s)) return 'power';
+  if (/dmx|artnet|art-net|sacn/.test(s)) return 'dmx';
+  if (/netz|ethernet|lan|dante|avb|aes67|madi/.test(s)) return 'network';
+  if (/video|sdi|hdmi|dvi|vga/.test(s)) return 'video';
+  if (/audio|aes|mic|line|analog|lautspr|speaker|spdif/.test(s)) return 'audio';
+  return 'other';
+}
+
 export function findPort(template: Template | undefined, portId: string): EffectivePort | undefined {
   return templatePorts(template).find((p) => p.id === portId);
 }

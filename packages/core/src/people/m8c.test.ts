@@ -63,7 +63,7 @@ describe('Personen und „benutzt von Mensch“', () => {
   it('Personenliste mit Verbindungen; nicht zugeordnete Geräte am Ende; Etiketten', () => {
     const list = buildPeopleList(project(), library);
     expect(list.map((e) => e.person?.id ?? '-')).toEqual(['anna', '-']);
-    expect(list[0]!.devices[0]!.connections).toEqual([{ port: 'Out', target: 'Box · Kanal 5', cable: 'XLR 5 m', cableLabel: 'A5' }]);
+    expect(list[0]!.devices[0]!.connections).toEqual([{ port: 'Out', target: 'Box · Kanal 5', cable: 'XLR 5 m', cableLabel: 'A5', signal: 'audio', role: 'out' }]);
     expect(list[1]!.devices.map((d) => d.device.id)).toEqual(['Mikro 2']);
     const labels = buildDeviceLabels(project(), library);
     expect(labels[0]).toMatchObject({ title: 'Mikro 1', person: 'Anna Muster', personKind: 'Sängerin', lines: ['Out → Box · Kanal 5 (XLR 5 m, A5)'] });

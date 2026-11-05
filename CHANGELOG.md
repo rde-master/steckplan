@@ -13,6 +13,9 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 - Ton-Patch: Gruppen sind farbig zu erkennen – aufeinanderfolgende Kanäle derselben Gruppe bekommen einen Rahmen in der Gruppenfarbe mit dem Gruppennamen als Etikett, die Zeilen sind leicht in der Gruppenfarbe eingefärbt; im PDF steht die Gruppe als farbiges Etikett in der Spalte Quelle/Ziel, die Zeile ist ebenfalls leicht eingefärbt
 - Handy-Ansicht (bis 900 px Breite): Zeichenfläche in Signalfluss und Bühnenplan nimmt fast den ganzen Bildschirm ein. Oben eine Kopfzeile mit Burgermenü (Ansichten, Bibliothek, Exportieren, Versionen, Herunterladen, Werkzeuge, Seiten, Anzeige und Filter, Verbundene, Abmelden), unten eine Fußzeile mit Rückgängig, Wiederholen, Hinzufügen, Einpassen, Prüfungen und Eigenschaften
 - Handy: Antippen eines Objekts öffnet die Eigenschaften als unteres Blatt (halbe Höhe); es bleibt offen, bis man es über ✕ schließt. Bibliothek und Prüfungen erscheinen ebenfalls als unteres Blatt
+- PDF Bühnenplan/Signalfluss: Die Legende im Planköpfchen bricht über die ganze Breite um (höchstens 3 Zeilen, der Rest als „+ n weitere“); die Zeichenfläche wird entsprechend kleiner. Bisher stand sie in einer Zeile und lief bei vielen Kategorien über den Rand. Im Hochformat ragt das Köpfchen nicht mehr über den rechten Rand
+- PDF-Fußzeile: höchstens zwei Zeilen, längere Angaben werden gekürzt
+- Geräte-Etiketten grafisch: farbiger Kopf mit Gerät und Vorlage, Person mit Symbol, je Verbindung ein farbiges Symbol der Signalart (Audio, DMX, Netzwerk, Strom, Video), Anschluss, Richtungspfeil, Gegenstelle und Kabel. Sicherheitsabstand 3 mm zum Etikettenrand und 5 mm zum Blattrand; zu lange Texte werden mit „…“ gekürzt, zu viele Verbindungen als „… und n weitere“
 
 ## [0.19.0] - 2026-11-03
 
