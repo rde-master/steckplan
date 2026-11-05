@@ -7,6 +7,10 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+### Behoben
+
+- Lichtszenen: Beim Wechsel zu einem anderen Lied mit Audiodatei blieben die Szenen des vorigen Lieds stehen (nur die Überschrift wechselte)
+
 ## [0.23.2] - 2026-11-05
 
 ### Hinzugefügt
