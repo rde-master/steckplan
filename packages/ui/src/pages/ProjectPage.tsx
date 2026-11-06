@@ -1,4 +1,4 @@
-import { ArrowLeft, Copy, Download, FileOutput, History, LibraryBig, LogOut, Menu, Wifi } from 'lucide-react';
+import { ArrowLeft, Copy, Download, FileOutput, History, LibraryBig, LogOut, Menu, Wifi, X } from 'lucide-react';
 import { ICON } from '../components/icons';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type * as Y from 'yjs';
@@ -128,6 +128,20 @@ export function ProjectPage({ id }: { id: string }) {
     </Button>
   ) : null;
 
+  if (status === 'kicked') {
+    return (
+      <div className="flex min-h-full flex-col">
+        <AppHeader left={backButton} />
+        <main className="mx-auto max-w-xl space-y-3 p-4" data-testid="kicked">
+          <Banner tone="warn">{state?.notice ?? texts.project.kicked}</Banner>
+          <Button variant="primary" onClick={() => project?.reconnect()}>
+            {texts.project.reconnect}
+          </Button>
+        </main>
+      </div>
+    );
+  }
+
   if (status === 'notFound' || status === 'closed') {
     return (
       <div className="flex min-h-full flex-col">
@@ -222,7 +236,7 @@ export function ProjectPage({ id }: { id: string }) {
         <div ref={setMenuSlot} className="contents" />
         {state && state.users.length > 0 && (
           <div className="border-t border-slate-200 px-3 py-2 dark:border-slate-700">
-            <Presence users={state.users} me={state.connectionId} />
+            <Presence users={state.users} me={state.connectionId} projectId={id} canDisconnect={!!access && can(access, 'editProject')} />
           </div>
         )}
         <SessionInMenu />
@@ -267,7 +281,7 @@ export function ProjectPage({ id }: { id: string }) {
       <div className="flex items-center gap-1 overflow-x-auto border-b *:shrink-0 border-slate-200 bg-white px-2 py-1 dark:border-slate-700 dark:bg-slate-900" role="tablist">
         {tabs}
         <div className="flex-1" />
-        {state && state.users.length > 0 && <Presence users={state.users} me={state.connectionId} />}
+        {state && state.users.length > 0 && <Presence users={state.users} me={state.connectionId} projectId={id} canDisconnect={!!access && can(access, 'editProject')} />}
       </div>
     </>
   );
@@ -436,7 +450,8 @@ function ConnectionDot({ status }: { status: string }) {
   );
 }
 
-function Presence({ users, me }: { users: PresenceUser[]; me: string | null }) {
+function Presence({ users, me, projectId, canDisconnect }: { users: PresenceUser[]; me: string | null; projectId: string; canDisconnect: boolean }) {
+  const [error, setError] = useState<string | null>(null);
   return (
     <div className="flex flex-wrap items-center gap-1.5 text-xs" data-testid="presence">
       <span className="text-slate-500 dark:text-slate-400">{texts.project.present}</span>
@@ -447,8 +462,25 @@ function Presence({ users, me }: { users: PresenceUser[]; me: string | null }) {
         >
           {user.name}
           {(user.access === 'read' || user.access === 'direction') && <AccessBadge access={user.access} />}
+          {/* Bearbeiter können andere Geräte trennen (sie verbinden sich nicht von selbst neu) */}
+          {canDisconnect && user.id !== me && (
+            <button
+              type="button"
+              className="-mr-1 rounded-full p-0.5 text-slate-400 hover:bg-red-100 hover:text-red-700 dark:hover:bg-red-950 dark:hover:text-red-300"
+              aria-label={texts.project.disconnectUser(user.name)}
+              title={texts.project.disconnectUser(user.name)}
+              onClick={() => {
+                if (!window.confirm(texts.project.disconnectConfirm(user.name))) return;
+                setError(null);
+                api.disconnectConnection(projectId, user.id).catch((e: unknown) => setError(errorMessage(e)));
+              }}
+            >
+              <X size={12} aria-hidden />
+            </button>
+          )}
         </span>
       ))}
+      {error && <span className="text-red-700 dark:text-red-400">{error}</span>}
     </div>
   );
 }

@@ -49,7 +49,7 @@ export function LyricsPage({ id }: { id: string }) {
   }, [title]);
 
   const status = state?.status;
-  const message = status === 'unauthorized' || status === 'notFound' ? t.noAccess : !item ? (lead || local ? t.waiting : t.nobodyLeads) : null;
+  const message = status === 'kicked' ? (state?.notice ?? texts.project.kicked) : status === 'unauthorized' || status === 'notFound' ? t.noAccess : !item ? (lead || local ? t.waiting : t.nobodyLeads) : null;
 
   // Ende des Punkts erreicht (Dauer) → Text ausblenden, sofern nicht abgeschaltet
   const ended = !!item && item.lyricsHideAtEnd !== false && item.durationSec !== undefined && time !== undefined && time >= item.durationSec - 0.05;
@@ -76,7 +76,21 @@ export function LyricsPage({ id }: { id: string }) {
       {activeBackground && <div className="absolute inset-0 bg-black" style={{ opacity: dim }} />}
       <div className="relative h-full">
       {message ? (
-        <p className="flex h-full items-center justify-center p-8 text-center text-[3vw] text-slate-500">{message}</p>
+        <div className="flex h-full flex-col items-center justify-center gap-4 p-8 text-center text-[3vw] text-slate-500">
+          <p>{message}</p>
+          {status === 'kicked' && (
+            <button
+              type="button"
+              className="rounded-md bg-sky-600 px-4 py-2 text-base text-white"
+              onClick={(e) => {
+                e.stopPropagation();
+                project?.reconnect();
+              }}
+            >
+              {texts.project.reconnect}
+            </button>
+          )}
+        </div>
       ) : lines.length === 0 ? (
         <p className="flex h-full items-center justify-center p-8 text-center text-[6vw] font-semibold">{title}</p>
       ) : item?.lyricsVisible === false ? (

@@ -25,7 +25,8 @@ export type SyncStatus =
   | 'disconnected' // getrennt, Neuverbindung geplant
   | 'unauthorized' // Sitzung ungültig → neu anmelden
   | 'notFound' // Projekt gibt es nicht
-  | 'closed'; // Projekt wurde geschlossen/gelöscht oder Client beendet
+  | 'closed' // Projekt wurde geschlossen/gelöscht oder Client beendet
+  | 'kicked'; // von einem Bearbeiter getrennt (Neuverbindung nur auf Wunsch)
 
 export interface SyncClientState {
   status: SyncStatus;
@@ -168,6 +169,9 @@ export class SyncClient {
         case CloseCode.ProjectClosed:
           this.setState({ status: 'closed', users: [], notice: event.reason || undefined });
           return;
+        case CloseCode.Disconnected:
+          this.setState({ status: 'kicked', users: [], lead: null, notice: event.reason || undefined });
+          return;
       }
       this.setState({ status: 'disconnected', users: [], lead: null });
       const delay = Math.min(this.maxDelay, this.baseDelay * 2 ** this.attempts);
@@ -216,6 +220,14 @@ export class SyncClient {
         this.onRemote?.(info.command);
         break;
     }
+  }
+
+  /** Nach dem Trennen durch einen Bearbeiter bewusst neu verbinden */
+  reconnect(): void {
+    if (this.destroyed || this.socket) return;
+    this.attempts = 0;
+    this.setState({ status: 'connecting', notice: undefined });
+    this.connect();
   }
 
   /** Vorstellung: führen (Stelle senden) oder Führen beenden (null). Ohne Verbindung wird nichts gesendet. */

@@ -181,6 +181,31 @@ describe('Live-Sync', () => {
     expect(sent.length).toBe(after);
   });
 
+  it('Bearbeiter trennt ein verbundenes Gerät: kein automatisches Neuverbinden, nur auf Wunsch; Lesen/Regie dürfen nicht trennen', async () => {
+    const { server, id } = await setup();
+    const editCookie = await login(server, 'edit', 'Ralf');
+    const editor = track(connect(server, id, editCookie));
+    const reader = track(connect(server, id, await login(server, 'read', 'Leo')));
+    await Promise.all([editor.whenSynced(), reader.whenSynced()]);
+    const disconnect = async (cookie: string, connectionId: string) => server.app.inject({ method: 'POST', url: `/api/projects/${id}/connections/${connectionId}/disconnect`, headers: { cookie } });
+    // Lesen und Regie dürfen nicht, die eigene Verbindung geht nicht
+    expect((await disconnect(await login(server, 'read'), editor.state.connectionId!)).statusCode).toBe(403);
+    expect((await disconnect(await login(server, 'direction'), reader.state.connectionId!)).statusCode).toBe(403);
+    expect((await disconnect(editCookie, editor.state.connectionId!)).statusCode).toBe(400);
+    expect((await disconnect(editCookie, 'gibt-es-nicht')).statusCode).toBe(404);
+    // trennen
+    expect((await disconnect(editCookie, reader.state.connectionId!)).statusCode).toBe(204);
+    await waitFor(() => reader.state.status === 'kicked');
+    expect(reader.state.notice).toBe('Die Verbindung wurde von Ralf getrennt.');
+    await new Promise((r) => setTimeout(r, 200));
+    expect(reader.state.status).toBe('kicked'); // kein automatisches Neuverbinden
+    await waitFor(() => editor.state.users.length === 1);
+    // bewusst neu verbinden
+    reader.reconnect();
+    await waitFor(() => reader.state.status === 'synced');
+    await waitFor(() => editor.state.users.length === 2);
+  });
+
   it('lehnt Verbindungen ohne Anmeldung ab', async () => {
     const { server, id } = await setup();
     const client = track(connect(server, id, null));

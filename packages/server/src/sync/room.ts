@@ -6,6 +6,7 @@ import * as encoding from 'lib0/encoding';
 import * as decoding from 'lib0/decoding';
 import * as syncProtocol from 'y-protocols/sync';
 import {
+  CloseCode,
   analyzeProject,
   applyAnalysis,
   resetChecks as resetCheckMarks,
@@ -379,6 +380,16 @@ export class Room {
 
   private lead: LeadInfo | null = null;
   private leadAt = 0;
+
+  /** Eine Verbindung trennen (durch einen Bearbeiter); sie verbindet sich nicht von selbst neu. false = nicht gefunden */
+  disconnectConnection(connectionId: string, by: string): boolean {
+    for (const connection of this.connections) {
+      if (connection.id !== connectionId) continue;
+      connection.socket.close(CloseCode.Disconnected, `Die Verbindung wurde von ${by} getrennt.`.slice(0, 120));
+      return true;
+    }
+    return false;
+  }
 
   get hasLead(): boolean {
     return this.lead !== null;
