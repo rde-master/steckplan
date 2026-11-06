@@ -51,6 +51,15 @@ test('Helfer: Auftritte in den Projektdaten, QR-Code führt auf die Seite der Pe
   const phone = await (await browser.newContext({ viewport: { width: 412, height: 860 } })).newPage();
   await phone.goto(`/s/${share.token}?g=v`);
   await expect(phone).toHaveURL(new RegExp(`/projekt/${id}\\?ansicht=helfer&person=anna$`));
+  // Empfangsbestätigung: Fenster beim Scannen, bleibt auch nach Neuladen, bis bestätigt
+  const prompt = phone.getByTestId('receipt-prompt');
+  await expect(prompt).toBeVisible();
+  await expect(prompt).toContainText('Vox Anna');
+  await phone.reload();
+  await expect(prompt).toBeVisible();
+  await prompt.getByRole('button', { name: 'Ich habe die Technik erhalten' }).click();
+  await expect(prompt).toHaveCount(0);
+  await expect(phone.getByTestId('handover-card')).toContainText('Technik erhalten am');
   const mine = phone.getByTestId('helper-page');
   await expect(mine.getByRole('heading', { name: 'Hallo Anna!' })).toBeVisible();
   // Helfer sehen nur ihre eigene Seite – keine Auswahl anderer Personen, keine Übersicht
@@ -161,6 +170,25 @@ test('Helfer: Auftritte in den Projektdaten, QR-Code führt auf die Seite der Pe
   await benPhone.goto(link);
   await expect(benPhone.getByTestId('helper-page').getByRole('heading', { name: 'Hallo Ben!' })).toBeVisible();
   await expect(benPhone.getByTestId('helper-gig').getByRole('button', { name: /Angemeldet/ })).toBeVisible();
+
+  // Übersicht: Empfang von Anna bestätigt
+  const handover = page.getByTestId('handover-table');
+  await expect(handover.getByRole('row', { name: 'Anna Muster' })).toContainText('Anna Muster (QR-Code)');
+  await expect(page.getByTestId('handover-overview')).toContainText('1 von 1 erhalten · 0 zurückgegeben');
+  // Rückgabe mit kurzer Rückfrage
+  await phone.getByRole('button', { name: 'Technik zurückgeben' }).click();
+  await expect(phone.getByTestId('return-confirm')).toContainText('Hast du alle Geräte zurückgegeben?');
+  await phone.getByRole('button', { name: 'Ja, Technik zurückgegeben' }).click();
+  await expect(phone.getByTestId('handover-card')).toContainText('Technik zurückgegeben am');
+  await expect(page.getByTestId('handover-overview')).toContainText('1 von 1 erhalten · 1 zurückgegeben');
+  // Bearbeiten: zurücksetzen → Fenster kommt wieder; Empfang selbst bestätigen → Fenster weg
+  page.once('dialog', (d) => void d.accept());
+  await handover.getByRole('row', { name: 'Anna Muster' }).getByRole('button', { name: 'Zurücksetzen' }).click();
+  await expect(prompt).toBeVisible();
+  await handover.getByRole('row', { name: 'Anna Muster' }).getByRole('button', { name: 'Empfang bestätigen' }).click();
+  await expect(prompt).toHaveCount(0);
+  await handover.getByRole('row', { name: 'Anna Muster' }).getByRole('button', { name: 'Rückgabe bestätigen' }).click();
+  await expect(phone.getByTestId('handover-card')).toContainText('Technik zurückgegeben am');
 
   // QR-Sitzung darf sonst nichts ändern
   expect((await phone.request.post(`/api/projects/${id}/check`, { data: { kind: 'device', id: 'v', direction: 'out', status: 'ok' } })).status()).toBe(403);

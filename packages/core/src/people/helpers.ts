@@ -3,7 +3,7 @@
 // Lesezugang, z. B. nach dem QR-Code auf dem Etikett), wie die Häkchen der Packliste.
 import * as Y from 'yjs';
 import { newId } from '../model/project';
-import type { Gig, HelperMessage, HelperSignup, Person } from '../model/schema';
+import type { Gig, Handover, HelperMessage, HelperSignup, Person } from '../model/schema';
 import { comparePeople } from './people';
 
 function gigMap(doc: Y.Doc): Y.Map<Y.Map<unknown>> {
@@ -197,4 +197,51 @@ export function markHelperMessagesRead(doc: Y.Doc, ids: string[], by: string, or
 
 export function unreadHelperMessages(messages: HelperMessage[]): number {
   return messages.filter((m) => !m.readAt).length;
+}
+
+// ---------- Technik-Übergabe: Empfang und Rückgabe ----------
+
+export type HandoverAction = 'receive' | 'return' | 'reset';
+
+function handoverMap(doc: Y.Doc): Y.Map<Y.Map<unknown>> {
+  return doc.getMap<Y.Map<unknown>>('handovers');
+}
+
+export function readHandovers(doc: Y.Doc): Handover[] {
+  return Object.values(handoverMap(doc).toJSON() as Record<string, Handover>);
+}
+
+export function personHandover(handovers: Handover[], personId: string): Handover | undefined {
+  return handovers.find((h) => h.personId === personId);
+}
+
+/** Stand der Übergabe: offen → erhalten → zurückgegeben */
+export function handoverState(h: Handover | undefined): 'open' | 'received' | 'returned' {
+  return h?.returnedAt ? 'returned' : h?.receivedAt ? 'received' : 'open';
+}
+
+/**
+ * Empfang bzw. Rückgabe bestätigen oder zurücksetzen. Rückgabe nur nach Empfang; Empfang setzt eine frühere Rückgabe
+ * zurück (neue Ausgabe). Gibt false zurück, wenn es die Person nicht gibt oder die Aktion nicht passt.
+ */
+export function setHandover(doc: Y.Doc, personId: string, action: HandoverAction, by: string, origin: unknown): boolean {
+  if (!doc.getMap('people').has(personId)) return false;
+  const current = handoverMap(doc).get(personId);
+  if (action === 'return' && !current?.get('receivedAt')) return false;
+  const at = new Date().toISOString();
+  doc.transact(() => {
+    if (action === 'reset') {
+      handoverMap(doc).delete(personId);
+      return;
+    }
+    let map = current;
+    if (!map) {
+      map = new Y.Map<unknown>();
+      handoverMap(doc).set(personId, map);
+      setFields(map, { id: personId, personId });
+    }
+    if (action === 'receive') setFields(map, { receivedAt: at, receivedBy: by, returnedAt: undefined, returnedBy: undefined });
+    else setFields(map, { returnedAt: at, returnedBy: by });
+  }, origin);
+  return true;
 }

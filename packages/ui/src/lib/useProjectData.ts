@@ -8,6 +8,7 @@ import {
   readDevices,
   readFlowPages,
   readGigs,
+  readHandovers,
   readHelperMessages,
   readHelperSignups,
   readGroups,
@@ -32,6 +33,7 @@ import {
   type DeviceInstance,
   type FlowPage,
   type Gig,
+  type Handover,
   type HelperMessage,
   type HelperSignup,
   type Group,
@@ -81,6 +83,7 @@ export interface ProjectData {
   gigs: Gig[];
   helperSignups: HelperSignup[];
   helperMessages: HelperMessage[];
+  handovers: Handover[];
 }
 
 const EMPTY: ProjectData = {
@@ -108,6 +111,7 @@ const EMPTY: ProjectData = {
   gigs: [],
   helperSignups: [],
   helperMessages: [],
+  handovers: [],
 };
 
 function read(doc: Y.Doc): ProjectData {
@@ -135,6 +139,7 @@ function read(doc: Y.Doc): ProjectData {
     gigs: readGigs(doc),
     helperSignups: readHelperSignups(doc),
     helperMessages: readHelperMessages(doc),
+    handovers: readHandovers(doc),
     sceneStates: readSceneStates(doc),
   };
 }

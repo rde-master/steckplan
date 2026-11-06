@@ -150,7 +150,30 @@ describe('QR-Code auf Etiketten', () => {
     expect((await call(await login(server, 'read'), 'POST', '', { personId: 'anna', text: 'x' })).statusCode).toBe(403);
   });
 
+  it('Technik-Übergabe: Helfer bestätigen für sich selbst Empfang und Rückgabe; Bearbeiten für alle, auch zurücksetzen', async () => {
+    server = await startTestServer();
+    if (!isManagedStore(server.store)) throw new Error();
+    const base = createEmptyProject({ name: 'Übergabe' });
+    const a = await server.store.create({ ...base, people: [{ id: 'anna', lastName: 'Muster', firstName: 'Anna', kind: '' }, { id: 'ben', lastName: 'Beispiel', firstName: 'Ben', kind: '' }] });
+    const edit = await login(server, 'edit');
+    const { token } = (await server.app.inject({ method: 'POST', url: `/api/projects/${a}/share`, headers: { cookie: edit }, payload: {} })).json() as { token: string };
+    const qr = cookieOf(await server.app.inject({ method: 'GET', url: `/s/${token}?p=anna` }));
+    const post = (cookie: string, payload: object) => server!.app.inject({ method: 'POST', url: `/api/projects/${a}/handover`, headers: { cookie }, payload });
+    expect((await post(qr, { personId: 'anna', action: 'return' })).statusCode).toBe(409);
+    expect((await post(qr, { personId: 'anna', action: 'receive' })).json()).toEqual({ ok: true });
+    expect((await post(qr, { personId: 'ben', action: 'receive' })).statusCode).toBe(403);
+    expect((await post(qr, { personId: 'anna', action: 'reset' })).statusCode).toBe(403);
+    expect((await post(qr, { personId: 'anna', action: 'weg' })).statusCode).toBe(400);
+    expect((await post(qr, { personId: 'anna', action: 'return' })).json()).toEqual({ ok: true });
+    expect((await post(edit, { personId: 'ben', action: 'receive' })).json()).toEqual({ ok: true });
+    const project = (await server.app.inject({ method: 'GET', url: `/api/projects/${a}/download`, headers: { cookie: edit } })).json() as { handovers: { personId: string; receivedBy?: string; returnedBy?: string }[] };
+    expect(project.handovers.find((h) => h.personId === 'anna')).toMatchObject({ receivedBy: 'Anna Muster (QR-Code)', returnedBy: 'Anna Muster (QR-Code)' });
+    expect(project.handovers.find((h) => h.personId === 'ben')).toMatchObject({ receivedBy: expect.any(String) });
+    expect((await post(edit, { personId: 'anna', action: 'reset' })).json()).toEqual({ ok: true });
+  });
+
   it('Bereich einer QR-Sitzung', () => {
+    expect(scopeAllows('POST', '/api/projects/p1/handover', 'p1')).toBe(true);
     expect(scopeAllows('POST', '/api/projects/p1/messages', 'p1')).toBe(true);
     expect(scopeAllows('PUT', '/api/projects/p1/messages/m1', 'p1')).toBe(true);
     expect(scopeAllows('DELETE', '/api/projects/p1/messages/m1', 'p1')).toBe(true);

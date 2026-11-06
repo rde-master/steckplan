@@ -7,6 +7,16 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.31.0] - 2026-11-06
+
+### Hinzugefügt
+
+- Helfer: Empfangs- und Rückgabebestätigung der Technik. Wer Geräte hat, bekommt beim Scannen des QR-Codes (bzw. über den Link) ein Fenster, das erst mit „Ich habe die Technik erhalten“ verschwindet; danach „Technik zurückgeben“ mit kurzer Rückfrage. Bearbeiten sieht in der Übersicht je Person Empfang und Rückgabe (wann, von wem), bestätigt beides auch selbst und kann zurücksetzen
+
+### Behoben
+
+- Helfer → Übersicht: der kopierte Link in der Tabelle je Person wurde vom Tabellenrand abgeschnitten
+
 ## [0.30.0] - 2026-11-06
 
 ### Hinzugefügt
@@ -661,7 +671,8 @@ Meilenstein M0 – Projektgerüst.
 - Docker-Image mit Datenvolume `/data` und Beispiel-`docker-compose.yml`
 - GitHub Actions: Tests und Smoke-Test bei jedem Push, Installer als Artefakte, Docker-Image `:develop`, Release-Workflow für Tags `vX.Y.Z`
 
-[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.30.0...develop
+[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.31.0...develop
+[0.31.0]: https://github.com/rde-master/steckplan/compare/v0.30.0...v0.31.0
 [0.30.0]: https://github.com/rde-master/steckplan/compare/v0.29.0...v0.30.0
 [0.29.0]: https://github.com/rde-master/steckplan/compare/v0.28.1...v0.29.0
 [0.28.1]: https://github.com/rde-master/steckplan/compare/v0.28.0...v0.28.1

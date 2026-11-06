@@ -159,6 +159,7 @@ export const api = {
     request<{ ok: true }>('POST', `/api/projects/${encodeURIComponent(id)}/check`, body),
   helper: (id: string, body: { gigId: string; personId: string; helps?: boolean; trailerThere?: boolean; trailerNext?: boolean; note?: string }) =>
     request<{ ok: true }>('POST', `/api/projects/${encodeURIComponent(id)}/helper`, body),
+  handover: (id: string, personId: string, action: 'receive' | 'return' | 'reset') => request<{ ok: true }>('POST', `/api/projects/${encodeURIComponent(id)}/handover`, { personId, action }),
   sendMessage: (id: string, personId: string, text: string) => request<{ id: string }>('POST', `/api/projects/${encodeURIComponent(id)}/messages`, { personId, text }),
   updateMessage: (id: string, messageId: string, text: string) =>
     request<{ ok: true }>('PUT', `/api/projects/${encodeURIComponent(id)}/messages/${encodeURIComponent(messageId)}`, { text }),
