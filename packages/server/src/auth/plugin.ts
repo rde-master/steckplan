@@ -108,8 +108,8 @@ export async function registerAuth(app: FastifyInstance, options: AuthOptions): 
         ...(request.keyRejected ? { keyRejected: request.keyRejected } : {}),
       });
     }
-    const { name, access, via } = request.session;
-    return { name, access, via };
+    const { name, access, via, scope } = request.session;
+    return { name, access, via, ...(scope?.personId ? { personId: scope.personId } : {}) };
   });
 
   app.post<{ Body: { password?: unknown; name?: unknown } }>('/api/auth/login', async (request, reply) => {
@@ -154,10 +154,15 @@ export function scopeAllows(method: string, url: string, projectId: string): boo
   const path = url.split('?')[0]!;
   if (!path.startsWith('/api/')) return true; // Oberfläche
   if (path === '/api/auth/session' || path === '/api/auth/logout' || path === '/api/health') return true;
+  const own = `/api/projects/${encodeURIComponent(projectId)}`;
+  // Helfer melden sich über den QR-Code ihres Geräts an und ab
+  if (method === 'POST' && path === `${own}/helper`) return true;
+  // … und schreiben der Technik (eigene Nachrichten; geprüft in der Route)
+  if (method === 'POST' && path === `${own}/messages`) return true;
+  if ((method === 'PUT' || method === 'DELETE') && /^\/[^/]+$/.test(path.slice(`${own}/messages`.length)) && path.startsWith(`${own}/messages/`)) return true;
   if (method !== 'GET' && method !== 'HEAD') return false;
   if (path === '/api/events' || path === '/api/projects' || path === '/api/settings/label-qr') return true;
   if (path === '/api/library' || path.startsWith('/api/library/')) return true;
-  const own = `/api/projects/${encodeURIComponent(projectId)}`;
   return path === own || path.startsWith(`${own}/`);
 }
 

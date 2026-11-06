@@ -31,6 +31,9 @@ export const Y_COLLECTIONS = {
   lightScenes: ['lightScenes'],
   sceneStates: ['sceneStates'],
   soundScenes: ['soundScenes'],
+  gigs: ['gigs'],
+  helperSignups: ['helperSignups'],
+  helperMessages: ['helperMessages'],
 } as const satisfies Record<string, CollectionPath>;
 
 /** Bereiche des Dokuments, die der Zugang „Regie“ ändern darf */

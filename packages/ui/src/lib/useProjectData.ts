@@ -7,6 +7,9 @@ import {
   readCaseTrailers,
   readDevices,
   readFlowPages,
+  readGigs,
+  readHelperMessages,
+  readHelperSignups,
   readGroups,
   readLayers,
   readPatch,
@@ -28,6 +31,9 @@ import {
   type CaseTrailer,
   type DeviceInstance,
   type FlowPage,
+  type Gig,
+  type HelperMessage,
+  type HelperSignup,
   type Group,
   type PatchEntry,
   type Person,
@@ -72,6 +78,9 @@ export interface ProjectData {
   sceneStates: FixtureState[];
   /** Tonszenen */
   soundScenes: SoundScene[];
+  gigs: Gig[];
+  helperSignups: HelperSignup[];
+  helperMessages: HelperMessage[];
 }
 
 const EMPTY: ProjectData = {
@@ -96,6 +105,9 @@ const EMPTY: ProjectData = {
   lightScenes: [],
   sceneStates: [],
   soundScenes: [],
+  gigs: [],
+  helperSignups: [],
+  helperMessages: [],
 };
 
 function read(doc: Y.Doc): ProjectData {
@@ -120,6 +132,9 @@ function read(doc: Y.Doc): ProjectData {
     lightTargets: readLightTargets(doc),
     lightScenes: readScenes(doc),
     soundScenes: readSoundScenes(doc),
+    gigs: readGigs(doc),
+    helperSignups: readHelperSignups(doc),
+    helperMessages: readHelperMessages(doc),
     sceneStates: readSceneStates(doc),
   };
 }

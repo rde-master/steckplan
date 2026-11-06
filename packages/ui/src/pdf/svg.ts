@@ -29,6 +29,8 @@ export interface StageDrawing {
   multicores: MulticoreRoute[];
   background?: Background;
   showCables: boolean;
+  /** Diese Geräte rot umranden (Helfer-Seite: die eigenen Geräte) */
+  highlightIds?: string[];
   /** Gruppenrahmen (optional) */
   groupFrames?: { id: string; name: string; color: string; layerOrder: number; x: number; y: number; width: number; height: number }[];
 }
@@ -116,6 +118,12 @@ export function stagePlanSvg(d: StageDrawing, view: Rect, widthPt: number, heigh
     lines.forEach((line, k) => {
       out.push(`<text x="${n(i.x)}" y="${n(ty + k * fontMm * 1.15)}" font-size="${n(fontMm)}" text-anchor="middle" fill="#0f172a" opacity="${opacity}">${esc(line)}</text>`);
     });
+  }
+  // hervorgehobene Geräte
+  const highlight = new Set(d.highlightIds ?? []);
+  for (const i of d.items.filter((x) => highlight.has(x.device.id))) {
+    const r = Math.max(i.footprint.widthMm, i.footprint.depthMm) / 2 + fontMm * 0.6;
+    out.push(`<circle cx="${n(i.x)}" cy="${n(i.y)}" r="${n(r)}" fill="none" stroke="#dc2626" stroke-width="${n(stroke * 4)}"/>`);
   }
   // Multicores
   for (const m of d.multicores) {

@@ -14,6 +14,8 @@ import {
   withoutSecrets,
   type Project,
   type Resolution,
+  type SignupPatch,
+  HELPER_MESSAGE_MAX,
 } from '@steckplan/core';
 import QRCode from 'qrcode';
 import { requireSession } from '../auth/plugin';
@@ -170,6 +172,101 @@ export function registerProjectRoutes(app: FastifyInstance, rooms: RoomManager, 
   });
 
   // ---------- Packliste: Häkchen ----------
+
+  // ---------- Helfer: Anmeldung zu einem Auftritt ----------
+
+  app.post<{ Params: { id: string }; Body: { gigId?: unknown; personId?: unknown; helps?: unknown; trailerThere?: unknown; trailerNext?: unknown; note?: unknown } }>(
+    '/api/projects/:id/helper',
+    async (request, reply) => {
+      const session = requireSession(request, reply, 'helperSignup');
+      if (!session) return reply;
+      const { gigId, personId, helps, trailerThere, trailerNext, note } = request.body ?? {};
+      if (typeof gigId !== 'string' || typeof personId !== 'string') return reply.code(400).send({ error: 'Ungültige Angaben.' });
+      // Helfer tragen nur sich selbst ein (Person aus dem QR-Code ihres Etiketts); für andere nur mit Bearbeiten-Zugang
+      if (!can(session.access, 'editProject') && session.scope?.personId !== personId) return reply.code(403).send({ error: 'Du kannst nur deine eigenen Einträge ändern.' });
+      const patch: SignupPatch = {};
+      for (const [key, value] of Object.entries({ helps, trailerThere, trailerNext })) {
+        if (value === undefined) continue;
+        if (typeof value !== 'boolean') return reply.code(400).send({ error: 'Ungültige Angaben.' });
+        patch[key as 'helps'] = value;
+      }
+      if (note !== undefined) {
+        if (typeof note !== 'string' || note.length > 1000) return reply.code(400).send({ error: 'Bemerkung zu lang.' });
+        patch.note = note;
+      }
+      let room;
+      try {
+        room = await rooms.get(request.params.id);
+      } catch (error) {
+        if (error instanceof ProjectNotFoundError) return notFound(reply);
+        throw error;
+      }
+      try {
+        if (!room.applyHelperSignup(gigId, personId, patch, session.name)) return reply.code(404).send({ error: 'Auftritt oder Person nicht gefunden.' });
+      } catch (error) {
+        return reply.code(409).send({ error: (error as Error).message });
+      }
+      return { ok: true };
+    },
+  );
+
+  // ---------- Helfer: Nachrichten an die Technik (eigene schreiben/ändern/löschen; Bearbeiten alle) ----------
+
+  const messageRoom = async (id: string, reply: FastifyReply) => {
+    try {
+      return await rooms.get(id);
+    } catch (error) {
+      if (error instanceof ProjectNotFoundError) {
+        notFound(reply);
+        return null;
+      }
+      throw error;
+    }
+  };
+  const messageText = (text: unknown): string | null => (typeof text === 'string' && text.trim() && text.length <= HELPER_MESSAGE_MAX ? text : null);
+
+  app.post<{ Params: { id: string }; Body: { personId?: unknown; text?: unknown } }>('/api/projects/:id/messages', async (request, reply) => {
+    const session = requireSession(request, reply, 'helperSignup');
+    if (!session) return reply;
+    const { personId } = request.body ?? {};
+    const text = messageText(request.body?.text);
+    if (typeof personId !== 'string' || text === null) return reply.code(400).send({ error: 'Bitte einen Text eingeben (höchstens 4000 Zeichen).' });
+    if (!can(session.access, 'editProject') && session.scope?.personId !== personId) return reply.code(403).send({ error: 'Du kannst nur in deinem eigenen Namen schreiben.' });
+    const room = await messageRoom(request.params.id, reply);
+    if (!room) return reply;
+    try {
+      const id = room.addHelperMessage(personId, text, session.name);
+      return id ? { id } : reply.code(404).send({ error: 'Person nicht gefunden.' });
+    } catch (error) {
+      return reply.code(409).send({ error: (error as Error).message });
+    }
+  });
+
+  app.route<{ Params: { id: string; messageId: string }; Body: { text?: unknown } }>({
+    method: ['PUT', 'DELETE'],
+    url: '/api/projects/:id/messages/:messageId',
+    handler: async (request, reply) => {
+      const session = requireSession(request, reply, 'helperSignup');
+      if (!session) return reply;
+      const room = await messageRoom(request.params.id, reply);
+      if (!room) return reply;
+      const message = room.helperMessage(request.params.messageId);
+      if (!message) return reply.code(404).send({ error: 'Nachricht nicht gefunden.' });
+      if (!can(session.access, 'editProject') && session.scope?.personId !== message.personId) return reply.code(403).send({ error: 'Du kannst nur deine eigenen Nachrichten ändern.' });
+      try {
+        if (request.method === 'DELETE') {
+          room.removeHelperMessage(message.id, session.name);
+          return { ok: true };
+        }
+        const text = messageText(request.body?.text);
+        if (text === null) return reply.code(400).send({ error: 'Bitte einen Text eingeben (höchstens 4000 Zeichen).' });
+        room.updateHelperMessage(message.id, text, session.name);
+        return { ok: true };
+      } catch (error) {
+        return reply.code(409).send({ error: (error as Error).message });
+      }
+    },
+  });
 
   app.post<{ Params: { id: string }; Body: { kind?: unknown; id?: unknown; direction?: unknown; status?: unknown; note?: unknown } }>(
     '/api/projects/:id/check',

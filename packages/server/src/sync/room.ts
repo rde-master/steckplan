@@ -27,6 +27,13 @@ import {
   encodeInfo,
   MESSAGE_SYNC,
   readProjectFromYDoc,
+  setHelperSignup,
+  addHelperMessage,
+  readHelperMessage,
+  removeHelperMessage,
+  updateHelperMessage,
+  type HelperMessage,
+  type SignupPatch,
   writeProjectToYDoc,
   type Conflict,
   type PresenceUser,
@@ -264,6 +271,47 @@ export class Room {
     if (reason) throw new Error(reason);
     const mark: CheckMark | null = status ? { at: new Date().toISOString(), by, status, ...(note?.trim() ? { note: note.trim() } : {}) } : null;
     return setCheck(this.doc, kind, id, direction, mark, new ServerOrigin(by));
+  }
+
+  /** Person, der ein Gerät zugeordnet ist (nur wenn es die Person gibt), mit Namen */
+  devicePerson(deviceId: string): { id: string; name: string } | undefined {
+    const personId = this.doc.getMap<Y.Map<unknown>>('devices').get(deviceId)?.get('personId');
+    const person = typeof personId === 'string' ? this.doc.getMap<Y.Map<unknown>>('people').get(personId) : undefined;
+    if (!person) return undefined;
+    const name = [person.get('firstName'), person.get('lastName')].filter((x) => typeof x === 'string' && x.trim()).join(' ');
+    return { id: personId as string, name };
+  }
+
+  /** Helfer-Anmeldung ändern (auch mit Lesezugang – wird in der Route geprüft). false = Auftritt/Person fehlt. */
+  applyHelperSignup(gigId: string, personId: string, patch: SignupPatch, by: string): boolean {
+    const reason = this.deps.store.readOnlyReason(this.id) ?? (this.pending ? RECONCILE_PENDING_REASON : undefined);
+    if (reason) throw new Error(reason);
+    return setHelperSignup(this.doc, gigId, personId, patch, by, new ServerOrigin(by));
+  }
+
+  /** Nachrichten an die Technik (Rechte prüft die Route) */
+  helperMessage(id: string): HelperMessage | undefined {
+    return readHelperMessage(this.doc, id);
+  }
+
+  private assertWritable(): void {
+    const reason = this.deps.store.readOnlyReason(this.id) ?? (this.pending ? RECONCILE_PENDING_REASON : undefined);
+    if (reason) throw new Error(reason);
+  }
+
+  addHelperMessage(personId: string, text: string, by: string): string | undefined {
+    this.assertWritable();
+    return addHelperMessage(this.doc, personId, text, by, new ServerOrigin(by));
+  }
+
+  updateHelperMessage(id: string, text: string, by: string): boolean {
+    this.assertWritable();
+    return updateHelperMessage(this.doc, id, text, by, new ServerOrigin(by));
+  }
+
+  removeHelperMessage(id: string, by: string): boolean {
+    this.assertWritable();
+    return removeHelperMessage(this.doc, id, new ServerOrigin(by));
   }
 
   /** Geschützter Bereich: WLAN-Passwörter (nur für Bearbeiten-Zugang, nie im Yjs-Dokument). */

@@ -555,6 +555,58 @@ export const LightSceneSchema = z.object({
 export type LightScene = z.infer<typeof LightSceneSchema>;
 
 /** Tonszene: wie eine Lichtszene (Name, Auslöser), dazu eine formatierte Notiz (HTML, beim Anzeigen bereinigt) */
+// ---------- Auftritte und Helfer (seit 0.28) ----------
+
+const dateText = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+const timeText = z.string().regex(/^\d{2}:\d{2}$/);
+
+/** Auftritt (Konzert o. Ä.) mit Datum und Uhrzeit – Helfer melden sich dafür an */
+export const GigSchema = z.object({
+  id,
+  title: z.string().default(''),
+  location: z.string().default(''),
+  /** Datum „JJJJ-MM-TT“ */
+  date: dateText.optional(),
+  /** Aufbau ab „HH:MM“ */
+  setupTime: timeText.optional(),
+  /** Beginn „HH:MM“ */
+  startTime: timeText.optional(),
+  notes: z.string().optional(),
+});
+export type Gig = z.infer<typeof GigSchema>;
+
+/** Anmeldung einer Person zu einem Auftritt (id = „Auftritt:Person“) */
+export const HelperSignupSchema = z.object({
+  id: z.string().min(1),
+  gigId: id,
+  personId: id,
+  /** hilft beim Aufbau */
+  helps: z.boolean().default(false),
+  /** fährt einen Anhänger zur Location */
+  trailerThere: z.boolean().default(false),
+  /** fährt einen Anhänger (von dort) zur nächsten Location */
+  trailerNext: z.boolean().default(false),
+  note: z.string().max(1000).optional(),
+  /** zuletzt geändert (ISO) und von wem */
+  at: z.string().optional(),
+  by: z.string().optional(),
+});
+export type HelperSignup = z.infer<typeof HelperSignupSchema>;
+
+/** Nachricht eines Helfers an die Technik (keine Antwort); readAt = von Bearbeiten gelesen */
+export const HelperMessageSchema = z.object({
+  id,
+  personId: id,
+  text: z.string().max(4000),
+  createdAt: z.string(),
+  updatedAt: z.string().optional(),
+  /** zuletzt geschrieben bzw. geändert von (Name der Sitzung) */
+  by: z.string().optional(),
+  readAt: z.string().optional(),
+  readBy: z.string().optional(),
+});
+export type HelperMessage = z.infer<typeof HelperMessageSchema>;
+
 export const SoundSceneSchema = z.object({
   id,
   itemId: id,
@@ -668,6 +720,10 @@ export const ProjectSchema = z.object({
   sceneStates: z.array(FixtureStateSchema).default([]),
   /** Tonszenen (seit 0.25) */
   soundScenes: z.array(SoundSceneSchema).default([]),
+  /** Auftritte und Helfer-Anmeldungen (seit 0.28) */
+  gigs: z.array(GigSchema).default([]),
+  helperSignups: z.array(HelperSignupSchema).default([]),
+  helperMessages: z.array(HelperMessageSchema).default([]),
   network: z
     .object({
       subnets: z.array(SubnetSchema).default([]),

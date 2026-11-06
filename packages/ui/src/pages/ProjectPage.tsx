@@ -2,7 +2,7 @@ import { ArrowLeft, Copy, Download, FileOutput, History, LibraryBig, LogOut, Men
 import { ICON } from '../components/icons';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type * as Y from 'yjs';
-import { can, devicePageId, type Conflict, type PresenceUser, type ProjectMeta } from '@steckplan/core';
+import { can, devicePageId, unreadHelperMessages, type Conflict, type PresenceUser, type ProjectMeta } from '@steckplan/core';
 import { api, errorMessage } from '../lib/api';
 import { useLibrary } from '../lib/library';
 import { getDesktop } from '../lib/desktop';
@@ -24,6 +24,9 @@ import { RegieView } from '../components/regie/RegieView';
 import { NetworkView } from '../components/network/NetworkView';
 import { ExportDialog } from '../components/ExportDialog';
 import { CasesPanel } from '../components/project/CasesPanel';
+import { GigsPanel } from '../components/project/GigsPanel';
+import { HelpersView } from '../components/helpers/HelpersView';
+import { CountBadge } from '../components/helpers/HelperMessages';
 import { PeoplePanel } from '../components/project/PeoplePanel';
 import { WebAccessDialog } from '../components/WebAccessDialog';
 import { UploadToServerDialog } from '../components/ServerDialogs';
@@ -31,9 +34,9 @@ import { useIssues } from '../lib/useIssues';
 import { MeterField } from '../components/library/fields';
 import { AccessBadge, Banner, Button, Field, Spinner, TextArea, TextInput } from '../components/ui';
 
-type Tab = 'signalflow' | 'stageplan' | 'network' | 'lists' | 'regie' | 'meta';
-const TAB_PARAM: Record<Tab, string> = { signalflow: 'signalfluss', stageplan: 'buehnenplan', network: 'netzwerk', lists: 'listen', regie: 'regie', meta: 'projektdaten' };
-const TABS: Tab[] = ['signalflow', 'stageplan', 'network', 'lists', 'regie', 'meta'];
+type Tab = 'signalflow' | 'stageplan' | 'network' | 'lists' | 'regie' | 'helpers' | 'meta';
+const TAB_PARAM: Record<Tab, string> = { signalflow: 'signalfluss', stageplan: 'buehnenplan', network: 'netzwerk', lists: 'listen', regie: 'regie', helpers: 'helfer', meta: 'projektdaten' };
+const TABS: Tab[] = ['signalflow', 'stageplan', 'network', 'lists', 'regie', 'helpers', 'meta'];
 
 /** Ohne Angabe in der Adresse: Regie-Zugang startet in der Regie, auf schmalen Bildschirmen (Handy) die Packliste, sonst der Signalfluss. */
 function initialTab(): Tab {
@@ -163,6 +166,8 @@ export function ProjectPage({ id }: { id: string }) {
   const readOnlyBadge = state?.readOnly && (
     <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900 dark:bg-amber-900 dark:text-amber-100">{texts.project.readOnly}</span>
   );
+  // ungelesene Nachrichten an die Technik (nur für Bearbeiten)
+  const unreadMessages = access && can(access, 'editProject') ? unreadHelperMessages(data.helperMessages) : 0;
   const tabs = TABS.map((t) => (
     <Button
       key={t}
@@ -175,6 +180,7 @@ export function ProjectPage({ id }: { id: string }) {
       }}
     >
       {texts.signalflow.tabs[t]}
+      {t === 'helpers' && <CountBadge count={unreadMessages} label={texts.helpers.unread(unreadMessages)} />}
     </Button>
   ));
 
@@ -352,6 +358,18 @@ export function ProjectPage({ id }: { id: string }) {
           onRemote={project.onRemote}
           canLead={online && !!access && can(access, 'editShow')}
         />
+      ) : tab === 'helpers' ? (
+        <HelpersView
+          projectId={id}
+          doc={project.doc}
+          origin={undo.origin}
+          userName={session?.name ?? ''}
+          data={data}
+          library={library}
+          canSignup={online && !state?.readOnlyReason && !!access && can(access, 'helperSignup')}
+          isEditor={!!access && can(access, 'editProject')}
+          ownPersonId={session?.personId}
+        />
       ) : tab === 'lists' ? (
         <ListsView
           projectId={id}
@@ -367,6 +385,7 @@ export function ProjectPage({ id }: { id: string }) {
         <main className="mx-auto w-full max-w-3xl flex-1 space-y-4 overflow-y-auto p-4">
           <MetaForm doc={project.doc} meta={meta} editable={editable} />
           <PeoplePanel doc={project.doc} origin={undo.origin} data={data} library={library} editable={editable} />
+          <GigsPanel doc={project.doc} origin={undo.origin} data={data} editable={editable} />
           <CasesPanel doc={project.doc} origin={undo.origin} data={data} library={library} editable={editable} />
           <SettingsForm doc={project.doc} settings={data.settings} editable={editable} />
           {session && can(session.access, 'manageProjects') && <CopyProject projectId={id} name={meta.name ?? ''} />}

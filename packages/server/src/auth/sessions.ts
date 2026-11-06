@@ -20,7 +20,7 @@ export interface Session {
   /** undefined = läuft nicht ab (lokale Desktop-Sitzung) */
   expiresAt?: string;
   /** Nur dieses eine Projekt (Lese-Schlüssel per QR-Code auf dem Etikett); key = dauerhafte Kennung des Projekts */
-  scope?: { projectId: string; key: string };
+  scope?: { projectId: string; key: string; /** Person des gescannten Geräts: darf nur sich selbst als Helfer eintragen */ personId?: string };
 }
 
 interface StoredSession extends Session {
@@ -177,6 +177,18 @@ export class SessionStore {
     stored.name = name;
     if (stored.persistent) this.schedulePersist();
     for (const listener of this.listeners) listener(this.toSession(stored));
+  }
+
+  /** QR-Sitzung auf eine (andere) Person umstellen – nach dem Scan eines Etiketts */
+  setScopePerson(sessionId: string, personId: string | undefined, name: string): void {
+    for (const stored of this.sessions.values()) {
+      if (stored.id !== sessionId || !stored.scope) continue;
+      const { personId: _old, ...rest } = stored.scope;
+      stored.scope = personId ? { ...rest, personId } : rest;
+      stored.name = name;
+      if (stored.persistent) this.schedulePersist();
+      for (const listener of this.listeners) listener(this.toSession(stored));
+    }
   }
 
   get size(): number {
