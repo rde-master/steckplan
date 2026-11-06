@@ -9,8 +9,11 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Hinzugefügt
 
-- Regie: Timecode je Ablaufpunkt (25 fps) als große grüne Uhr unten rechts – in der Vorstellung und im Player von Ablauf, Texte und Lichtszenen. Stunde = Nummer des Punkts (Punkt 3 → 03:00:00:00), dahinter die gelaufene Zeit; Vorbereitung für Timecode per Art-Net
+- Regie: neuer Bereich „Tonszenen“ – je Ablaufpunkt ein großes Textfeld mit Formatierung (fett, kursiv, unterstrichen, durchgestrichen, Überschrift, Listen) und Textfarbe; gespeichert als HTML, angezeigt nur mit erlaubten Elementen (keine Skripte, Links oder Bilder)
+- Vorstellung: rechte Seite umschaltbar „Licht | Ton“ (je Gerät gemerkt), links bleibt der Text; im Kopf das nächste Lied („Als Nächstes: …“) und die „Liedliste“ zum direkten Wählen eines Punkts
+- Regie: Timecode je Ablaufpunkt (25 fps) als große grüne Uhr unten rechts – in der Vorstellung und im Player von Ablauf, Texte und Lichtszenen. Jeder Punkt beginnt bei 00:00:00:00
 - Regie: Jeder Ablaufpunkt hat einen eigenen Transport (Start, Pause, Spulen); das Lied hängt daran. Der Timecode läuft bis zur Dauer des Punkts weiter (auch nach dem Ende des Audios und bei Punkten ohne Audio) und hält dort an
+- Timecode per Art-Net (ArtTimeCode, EBU 25 fps, UDP 6454): in den Regie-Einstellungen ein- und Zieladresse (IP oder Broadcast) einstellbar; der Server sendet, solange in der Vorstellung jemand führt – 25 Pakete pro Sekunde, angehalten einmal die Position. Die Vorstellung zeigt an der Uhr, ob gesendet wird
 - Ablauf: feste Nummern je Punkt (bleiben beim Umsortieren, neue Punkte bekommen die nächste freie, von Hand änderbar, „Neu nummerieren“ zählt in der aktuellen Reihenfolge); Nummern auch in Texte, Lichtszenen und Vorstellung
 
 ## [0.23.4] - 2026-11-05

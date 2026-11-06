@@ -23,9 +23,10 @@ import {
   duplicateShowItem,
   formatDuration,
   formatTimecode,
+  artTimecodePacket,
+  isArtNetHost,
   itemNumbers,
   renumberShowItems,
-  timecodeHour,
   itemSections,
   moveSection,
   moveShowItem,
@@ -320,11 +321,26 @@ describe('Regie: Nummern und Timecode', () => {
     ]);
   });
 
-  it('Timecode HH:MM:SS:FF mit 25 fps, Stunde = Nummer', () => {
-    expect(formatTimecode(3, 0)).toBe('03:00:00:00');
-    expect(formatTimecode(1, 61.52)).toBe('01:01:01:13');
-    expect(formatTimecode(2, 3599.999)).toBe('02:59:59:24');
-    expect(formatTimecode(23, 3600)).toBe('00:00:00:00');
-    expect(timecodeHour(25)).toBe(1);
+  it('Timecode HH:MM:SS:FF mit 25 fps, jeder Eintrag ab 00:00:00:00', () => {
+    expect(formatTimecode(0)).toBe('00:00:00:00');
+    expect(formatTimecode(61.52)).toBe('00:01:01:13');
+    expect(formatTimecode(3599.999)).toBe('00:59:59:24');
+    expect(formatTimecode(3600)).toBe('01:00:00:00');
+  });
+});
+
+describe('Art-Net Timecode', () => {
+  it('ArtTimeCode-Paket: Kopf, OpCode 0x9700, Protokoll 14, Frames/Sek/Min/Std, Typ EBU', () => {
+    const p = artTimecodePacket(3723.52);
+    expect(p.length).toBe(19);
+    expect(new TextDecoder().decode(p.slice(0, 7))).toBe('Art-Net');
+    expect([...p.slice(7, 12)]).toEqual([0, 0x00, 0x97, 0, 14]);
+    expect([...p.slice(14)]).toEqual([13, 3, 2, 1, 1]);
+  });
+  it('Zieladresse', () => {
+    expect(isArtNetHost('2.255.255.255')).toBe(true);
+    expect(isArtNetHost('192.168.1.40')).toBe(true);
+    expect(isArtNetHost('256.1.1.1')).toBe(false);
+    expect(isArtNetHost('konsole.local')).toBe(false);
   });
 });
