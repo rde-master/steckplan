@@ -9,6 +9,7 @@ import { useSession } from '../../lib/session';
 import { texts } from '../../texts';
 import { ICON } from '../icons';
 import { Banner, Button, Modal } from '../ui';
+import { LYRICS_ACTIVE_BG, LYRICS_ACTIVE_COLOR } from './LyricsWindow';
 
 const t = texts.regie.lyricsPage;
 
@@ -72,6 +73,44 @@ export function LyricsSettings({ projectId, doc, origin, settings, onClose }: { 
           <input type="checkbox" checked={settings.lyricsShowTitle !== false} onChange={(e) => updateShowSettings(doc, { lyricsShowTitle: e.target.checked ? undefined : false }, origin)} />
           {t.showTitle}
         </label>
+        <div className="flex flex-wrap items-center gap-4 text-sm" data-testid="lyrics-colors">
+          <span className="font-medium">{t.activeLine}</span>
+          <label className="flex items-center gap-2">
+            {t.activeColor}
+            <input
+              type="color"
+              aria-label={t.activeColor}
+              className="h-7 w-10 cursor-pointer rounded border border-slate-300 bg-transparent dark:border-slate-600"
+              value={settings.lyricsActiveColor ?? LYRICS_ACTIVE_COLOR}
+              onChange={(e) => updateShowSettings(doc, { lyricsActiveColor: e.target.value }, origin)}
+            />
+          </label>
+          <label className="flex items-center gap-2">
+            <input type="checkbox" checked={settings.lyricsActiveBg !== 'none'} onChange={(e) => updateShowSettings(doc, { lyricsActiveBg: e.target.checked ? undefined : 'none' }, origin)} />
+            {t.activeBg}
+          </label>
+          {settings.lyricsActiveBg !== 'none' && (
+            <input
+              type="color"
+              aria-label={t.activeBgColor}
+              className="h-7 w-10 cursor-pointer rounded border border-slate-300 bg-transparent dark:border-slate-600"
+              value={settings.lyricsActiveBg ?? LYRICS_ACTIVE_BG}
+              onChange={(e) => updateShowSettings(doc, { lyricsActiveBg: e.target.value }, origin)}
+            />
+          )}
+          {/* Vorschau */}
+          <span
+            className="rounded-lg px-3 py-1 font-semibold"
+            style={{ color: settings.lyricsActiveColor ?? LYRICS_ACTIVE_COLOR, backgroundColor: settings.lyricsActiveBg === 'none' ? '#020617' : `${settings.lyricsActiveBg ?? LYRICS_ACTIVE_BG}` }}
+          >
+            {t.activePreview}
+          </span>
+          {(settings.lyricsActiveColor || settings.lyricsActiveBg) && (
+            <Button variant="ghost" className="min-h-7 px-2 text-xs" onClick={() => updateShowSettings(doc, { lyricsActiveColor: undefined, lyricsActiveBg: undefined }, origin)}>
+              {t.resetColors}
+            </Button>
+          )}
+        </div>
         <h4 className="text-xs font-semibold text-slate-500 uppercase">{t.lines}</h4>
         <div className="flex flex-wrap items-center gap-4 text-sm">
           <label className="flex items-center gap-2">

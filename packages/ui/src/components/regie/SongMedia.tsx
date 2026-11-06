@@ -1,5 +1,5 @@
 // Lied: Audiodateien (hochladen, Standard, Bezeichnung), Player-Leiste und Text zum Mitlesen/Mitschreiben.
-import { Pause, Play, Square, Star, Trash2, Upload, Volume2, X } from 'lucide-react';
+import { Pause, Play, Square, Star, Timer, Trash2, Upload, Volume2, X } from 'lucide-react';
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import type * as Y from 'yjs';
 import {
@@ -25,6 +25,7 @@ import { setTimecodeSync, Transport, type Playback } from '../../lib/transport';
 import { texts } from '../../texts';
 import { ICON } from '../icons';
 import { Button } from '../ui';
+import { parseSceneTime } from './ScenesSection';
 
 const t = texts.regie.media;
 
@@ -515,6 +516,38 @@ function formatAt(sec: number): string {
   return `${m}:${s.toFixed(1).padStart(4, '0')}`;
 }
 
+/** Zeit einer Zeile beim Mitschreiben: „1:12.5“ oder Sekunden; Enter oder Verlassen übernimmt, leer löscht */
+function LineTimeInput({ value, label, onChange }: { value: number | undefined; label: string; onChange: (sec: number | undefined) => void }) {
+  const [draft, setDraft] = useState(value !== undefined ? formatAt(value) : '');
+  const invalid = draft.trim() !== '' && parseSceneTime(draft) === undefined;
+  return (
+    <input
+      aria-label={label}
+      aria-invalid={invalid}
+      title={t.lineTimeHint}
+      placeholder="–"
+      inputMode="decimal"
+      className={`w-16 shrink-0 rounded border bg-transparent px-1 py-0.5 text-xs tabular-nums text-slate-600 dark:text-slate-300 ${invalid ? 'border-red-500' : 'border-transparent hover:border-slate-300 focus:border-sky-500 dark:hover:border-slate-600'}`}
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={() => {
+        if (invalid) return;
+        const sec = parseSceneTime(draft);
+        if (sec !== value) onChange(sec);
+      }}
+      onKeyDown={(e) => {
+        // Leertaste u. a. nicht an „Nächste Zeile“ weitergeben
+        e.stopPropagation();
+        if (e.key === 'Enter') e.currentTarget.blur();
+        if (e.key === 'Escape') {
+          setDraft(value !== undefined ? formatAt(value) : '');
+          e.currentTarget.blur();
+        }
+      }}
+    />
+  );
+}
+
 export function LyricsView({
   doc,
   origin,
@@ -550,20 +583,29 @@ export function LyricsView({
           <li key={line.id} ref={(el) => void (el ? refs.current.set(line.id, el) : refs.current.delete(line.id))} data-current={isCurrent || undefined}>
             {header !== null && <div className="mt-3 mb-1 text-xs font-semibold tracking-wide text-slate-400 uppercase">{header}</div>}
             <div className={`flex items-center gap-2 rounded-md px-2 py-1 transition-colors ${isCurrent ? 'bg-sky-100 text-sky-950 dark:bg-sky-900 dark:text-white' : ''}`}>
-              {recording && (
-                <span className="w-14 shrink-0 text-xs tabular-nums text-slate-500">{line.atSec !== undefined ? formatAt(line.atSec) : '–'}</span>
-              )}
+              {recording &&
+                (editable ? (
+                  <LineTimeInput key={`${line.id}:${line.atSec ?? ''}`} value={line.atSec} label={`${t.lineTime}: ${line.text}`} onChange={(sec) => setLineTime(doc, sectionId, line.id, sec === undefined ? undefined : Math.max(0, sec - timeOffset), origin)} />
+                ) : (
+                  <span className="w-16 shrink-0 text-xs tabular-nums text-slate-500">{line.atSec !== undefined ? formatAt(line.atSec) : '–'}</span>
+                ))}
               <button
                 type="button"
-                className={`min-w-0 flex-1 text-left ${isCurrent ? 'text-lg font-semibold' : 'text-base'} ${line.direction ? 'italic text-slate-500' : ''}`}
-                title={recording ? t.setHere : line.atSec !== undefined ? t.jump : undefined}
+                className={`min-w-0 flex-1 text-left ${line.atSec !== undefined ? 'cursor-pointer hover:underline decoration-slate-400/60 underline-offset-4' : 'cursor-default'} ${isCurrent ? 'text-lg font-semibold' : 'text-base'} ${line.direction ? 'italic text-slate-500' : ''}`}
+                title={line.atSec !== undefined ? t.jump : undefined}
                 onClick={() => {
-                  if (recording && editable) setLineTime(doc, sectionId, line.id, Math.max(0, time - timeOffset), origin);
-                  else if (line.atSec !== undefined) onSeek(line.atSec);
+                  if (line.atSec !== undefined) onSeek(line.atSec);
                 }}
               >
                 {line.direction ? `(${line.text})` : line.text || ' '}
               </button>
+              {recording && editable && (
+                <span className="flex shrink-0">
+                  <Button variant="ghost" className="min-h-7 px-1.5 text-xs" aria-label={`${t.setHere}: ${line.text}`} title={t.setHere} onClick={() => setLineTime(doc, sectionId, line.id, Math.max(0, time - timeOffset), origin)}>
+                    <Timer {...ICON} />
+                  </Button>
+                </span>
+              )}
               {recording && editable && line.atSec !== undefined && (
                 <span className="flex shrink-0">
                   <Button variant="ghost" className="min-h-7 px-1.5 text-xs" aria-label={`${t.earlier}: ${line.text}`} onClick={() => setLineTime(doc, sectionId, line.id, Math.max(0, line.atSec! - timeOffset - 0.5), origin)}>
