@@ -7,6 +7,13 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.26.1] - 2026-11-06
+
+### Hinzugefügt
+
+- Desktop: Projekte mit Medien (.steckplan.zip aus „Mit Medien herunterladen“) direkt öffnen – über „Projekt öffnen …“, per Doppelklick bzw. Kommandozeile oder durch Ziehen aufs Programmsymbol (macOS). Die App fragt, wo das Projekt gespeichert wird, legt Projektdatei und Medien-Ordner (<Name>.medien) dort ab und öffnet es; entpackt wird stückweise, auch große Audiodateien
+- Textfenster: Hintergrundbild je Textabschnitt (Bereich „Texte“, am Abschnitt). Ohne eigenes Bild gilt das Bild des letzten früheren Abschnitts im selben Lied (je Abschnitt abschaltbar: „Bild vom vorigen Abschnitt übernehmen“), sonst das Standardbild aus den Regie-Einstellungen; beim Wechsel wird weich überblendet. Kopieren von Abschnitt oder Eintrag übernimmt die Bilder, nicht mehr verwendete Bilder verlieren ihren Verweis
+
 ## [0.26.0] - 2026-11-06
 
 ### Hinzugefügt
@@ -575,7 +582,8 @@ Meilenstein M0 – Projektgerüst.
 - Docker-Image mit Datenvolume `/data` und Beispiel-`docker-compose.yml`
 - GitHub Actions: Tests und Smoke-Test bei jedem Push, Installer als Artefakte, Docker-Image `:develop`, Release-Workflow für Tags `vX.Y.Z`
 
-[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.26.0...develop
+[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.26.1...develop
+[0.26.1]: https://github.com/rde-master/steckplan/compare/v0.26.0...v0.26.1
 [0.26.0]: https://github.com/rde-master/steckplan/compare/v0.25.0...v0.26.0
 [0.25.0]: https://github.com/rde-master/steckplan/compare/v0.24.0...v0.25.0
 [0.24.0]: https://github.com/rde-master/steckplan/compare/v0.23.4...v0.24.0

@@ -1,8 +1,9 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { _electron as electron, expect, test } from '@playwright/test';
+import { strToU8, zipSync } from 'fflate';
 import { E2E } from '../playwright.config';
 
 // Desktop-App (lokaler Modus). Vorher: pnpm build. Unter Linux mit Xvfb (xvfb-run) ausführen.
@@ -222,6 +223,51 @@ test('Desktop: mit Server verbinden (Zugangsschlüssel), Projekt hochladen, Wide
     // Widerruf: Verbindung wird getrennt, Hinweis statt Anmeldeseite
     await request.delete(`/api/settings/desktop-keys/${created.info.id}`);
     await expect(serverWindow.getByText('ungültig oder wurde widerrufen')).toBeVisible({ timeout: 10_000 });
+  } finally {
+    await app.close();
+  }
+});
+
+test('Desktop: Projekt mit Medien (.steckplan.zip) öffnen – fragt den Speicherort, legt Projekt und Medien-Ordner ab', async () => {
+  const userData = tempDir('steckplan-userdata-');
+  const dir = tempDir('steckplan-projekte-');
+  writeFileSync(join(userData, 'settings.json'), JSON.stringify({ name: 'Ralf Desktop', recentFiles: [] }));
+  // ZIP wie aus „Mit Medien herunterladen“: Projektdatei oben, Dateien unter medien/<Kennung>
+  const project = {
+    schemaVersion: 9,
+    id: 'zip-projekt',
+    meta: { name: 'Open Air mit Medien' },
+    media: [{ id: 'audio-1', name: 'Song.wav', mime: 'audio/wav', sizeBytes: 4, sha256: '', addedAt: '', addedBy: '' }],
+    show: { items: [{ id: 'lied', order: 0, kind: 'song', title: 'Song', media: [{ mediaId: 'audio-1', label: 'Song', isDefault: true }] }], sections: [] },
+  };
+  const zipPath = join(dir, 'Open Air.steckplan.zip');
+  writeFileSync(zipPath, zipSync({ 'Open Air.steckplan': strToU8(JSON.stringify(project)), 'medien/audio-1': new Uint8Array([1, 2, 3, 4]) }));
+  const target = join(dir, 'ziel', 'Open Air.steckplan');
+  mkdirSync(join(dir, 'ziel'));
+
+  const env = { ...process.env, STECKPLAN_USER_DATA: userData } as Record<string, string>;
+  delete env.ELECTRON_RUN_AS_NODE;
+  const app = await electron.launch({ executablePath: electronPath, args: [...(process.platform === 'linux' ? ['--no-sandbox'] : []), appDir], env });
+  try {
+    const start = await app.firstWindow();
+    // Dialoge vorbelegen: „Öffnen“ wählt die ZIP, „Speichern“ den Zielort
+    await app.evaluate(({ dialog }, paths) => {
+      dialog.showOpenDialog = (async () => ({ canceled: false, filePaths: [paths.zip] })) as never;
+      dialog.showSaveDialog = (async () => ({ canceled: false, filePath: paths.target })) as never;
+    }, { zip: zipPath, target });
+    const projectWindowPromise = app.waitForEvent('window');
+    await start.getByRole('button', { name: 'Projekt öffnen …' }).click();
+    const win = await projectWindowPromise;
+    await win.getByRole('tab', { name: 'Projektdaten' }).click();
+    await expect(win.getByLabel('Projektname')).toHaveValue('Open Air mit Medien');
+    expect(existsSync(target)).toBe(true);
+    expect([...readFileSync(join(dir, 'ziel', 'Open Air.medien', 'audio-1'))]).toEqual([1, 2, 3, 4]);
+    // die Datei ist über die Oberfläche erreichbar (Medien-Ordner gehört zum Projekt)
+    const status = await win.evaluate(async () => {
+      const id = location.pathname.split('/').pop()!;
+      return (await fetch(`/api/projects/${id}/media/audio-1`)).status;
+    });
+    expect(status).toBe(200);
   } finally {
     await app.close();
   }

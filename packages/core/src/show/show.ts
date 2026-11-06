@@ -387,7 +387,13 @@ export function removeShowItem(doc: Y.Doc, id: string, origin: unknown): void {
   doc.transact(() => {
     pinItemNumbers(doc);
     itemsMap(doc).delete(id);
-    for (const s of readShow(doc).sections) if (s.itemId === id) sectionsMap(doc).delete(s.id);
+    const backgrounds = new Set<string>();
+    for (const s of readShow(doc).sections) {
+      if (s.itemId !== id) continue;
+      if (s.backgroundMediaId) backgrounds.add(s.backgroundMediaId);
+      sectionsMap(doc).delete(s.id);
+    }
+    for (const mediaId of backgrounds) if (!mediaInUse(doc, mediaId)) doc.getMap('media').delete(mediaId);
     removeItemScenes(doc, id);
     removeItemSoundScenes(doc, id);
     renumber(doc, readShow(doc).items.map((i) => i.id));
@@ -427,7 +433,8 @@ export function duplicateShowItem(doc: Y.Doc, id: string, origin: unknown): stri
         lineIds.set(l.id, next);
         return { ...l, id: next };
       });
-      addSection(doc, copyId, s.kind, s.label, origin, lines);
+      const sectionCopy = addSection(doc, copyId, s.kind, s.label, origin, lines);
+      copySectionBackground(doc, s, sectionCopy, origin);
     }
     copyItemScenes(doc, id, copyId, lineIds);
     copyItemSoundScenes(doc, id, copyId, lineIds);
@@ -456,7 +463,7 @@ export function setLyricsBackground(doc: Y.Doc, ref: MediaRef | null, origin: un
       }
       settings.set('lyricsBackground', { mediaId: ref.id, dim });
     } else settings.delete('lyricsBackground');
-    if (old && old !== ref?.id && !readShow(doc).items.some((i) => i.media?.some((m) => m.mediaId === old))) media.delete(old);
+    if (old && old !== ref?.id && !mediaInUse(doc, old)) media.delete(old);
   }, origin);
 }
 
@@ -496,6 +503,7 @@ export function removeSection(doc: Y.Doc, id: string, origin: unknown): void {
   if (!section) return;
   doc.transact(() => {
     sectionsMap(doc).delete(id);
+    if (section.backgroundMediaId && !mediaInUse(doc, section.backgroundMediaId)) doc.getMap('media').delete(section.backgroundMediaId);
     renumber(doc, itemSections(readShow(doc).sections, section.itemId).map((s) => s.id), sectionsMap(doc));
   }, origin);
 }
@@ -517,7 +525,61 @@ export function moveSection(doc: Y.Doc, id: string, delta: -1 | 1, origin: unkno
 export function duplicateSection(doc: Y.Doc, id: string, origin: unknown): string | undefined {
   const section = readShow(doc).sections.find((s) => s.id === id);
   if (!section) return undefined;
-  return addSection(doc, section.itemId, section.kind, section.label, origin, section.lines.map((l) => ({ ...l, id: newId() })), id);
+  const copy = addSection(doc, section.itemId, section.kind, section.label, origin, section.lines.map((l) => ({ ...l, id: newId() })), id);
+  copySectionBackground(doc, section, copy, origin);
+  return copy;
+}
+
+function copySectionBackground(doc: Y.Doc, from: TextSection, toId: string, origin: unknown): void {
+  if (from.backgroundMediaId === undefined && from.backgroundInherit === undefined) return;
+  updateSection(doc, toId, { backgroundMediaId: from.backgroundMediaId, backgroundInherit: from.backgroundInherit }, origin);
+}
+
+// ---------- Hintergrundbilder der Abschnitte (Textfenster) ----------
+
+/** Wird die Datei noch verwendet (Audio an einem Eintrag, Standard-Hintergrund, Hintergrund eines Abschnitts)? */
+export function mediaInUse(doc: Y.Doc, mediaId: string): boolean {
+  const { items, sections } = readShow(doc);
+  if (items.some((i) => i.media?.some((m) => m.mediaId === mediaId))) return true;
+  if ((doc.getMap('showSettings').get('lyricsBackground') as { mediaId?: string } | undefined)?.mediaId === mediaId) return true;
+  return sections.some((s) => s.backgroundMediaId === mediaId);
+}
+
+/** Hintergrundbild eines Abschnitts setzen (Verweis im Projekt) bzw. entfernen (null) */
+export function setSectionBackground(doc: Y.Doc, sectionId: string, ref: MediaRef | null, origin: unknown): void {
+  const map = sectionsMap(doc).get(sectionId);
+  if (!map) return;
+  doc.transact(() => {
+    const media = doc.getMap<Y.Map<unknown>>('media');
+    const old = map.get('backgroundMediaId') as string | undefined;
+    if (ref) {
+      if (!media.has(ref.id)) {
+        const m = new Y.Map<unknown>();
+        media.set(ref.id, m);
+        setFields(m, { ...ref });
+      }
+      map.set('backgroundMediaId', ref.id);
+    } else map.delete('backgroundMediaId');
+    if (old && old !== ref?.id && !mediaInUse(doc, old)) media.delete(old);
+  }, origin);
+}
+
+/**
+ * Hintergrundbild für einen Abschnitt im Textfenster: eigenes Bild; sonst (wenn nicht abgeschaltet) das des letzten
+ * früheren Abschnitts desselben Eintrags mit Bild; sonst das Standardbild (fallback).
+ */
+export function sectionBackground(itemSectionsInOrder: Pick<TextSection, 'id' | 'backgroundMediaId' | 'backgroundInherit'>[], sectionId: string | undefined, fallback: string | undefined): string | undefined {
+  const index = itemSectionsInOrder.findIndex((s) => s.id === sectionId);
+  if (index < 0) return fallback;
+  const own = itemSectionsInOrder[index]!;
+  if (own.backgroundMediaId) return own.backgroundMediaId;
+  if (own.backgroundInherit !== false) {
+    for (let i = index - 1; i >= 0; i--) {
+      const id = itemSectionsInOrder[i]!.backgroundMediaId;
+      if (id) return id;
+    }
+  }
+  return fallback;
 }
 
 /** Text eines Abschnitts setzen (Zeilen mit stabilen Kennungen; beim Schauspiel neue Rollen am Eintrag). */
@@ -586,8 +648,7 @@ export function removeItemMedia(doc: Y.Doc, itemId: string, mediaId: string, ori
     let list = (item.media ?? []).filter((m) => m.mediaId !== mediaId);
     if (list.length && !list.some((m) => m.isDefault)) list = list.map((m, i) => (i === 0 ? { ...m, isDefault: true } : m));
     itemsMap(doc).get(itemId)?.set('media', list);
-    const stillUsed = items.some((i) => i.id !== itemId && i.media?.some((m) => m.mediaId === mediaId));
-    if (!stillUsed) doc.getMap('media').delete(mediaId);
+    if (!mediaInUse(doc, mediaId)) doc.getMap('media').delete(mediaId);
   }, origin);
 }
 
