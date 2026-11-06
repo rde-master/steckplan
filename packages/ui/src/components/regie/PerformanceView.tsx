@@ -126,7 +126,7 @@ export function PerformanceView({
   // Transport des Ablaufpunkts (Timecode); das Audio des Lieds hängt daran
   const [audioEl, setAudioEl] = useState<HTMLAudioElement | null>(null);
   // tc = Timecode des Punkts; audio = Musik (mit „Mit Musik“ dasselbe), danach laufen Text und Szenen
-  const { tc, music: audio, sync: withMusic } = usePointPlayback(item?.id, item?.durationSec, audioEl);
+  const { tc, music: audio, sync: withMusic } = usePointPlayback(item?.id, item?.durationSec, audioEl, item?.audioOffsetSec);
   // Folgen: Zeit der führenden Vorstellung (Abspielposition + seit Empfang vergangene Zeit) – ohne eigenen Ton
   const leadCue: ReceivedCue | null = following && lead ? { ...lead, receivedAt: sync.leadReceivedAt ?? 0 } : null;
   const leadMusic = useCueClock(leadCue);

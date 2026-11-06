@@ -22,7 +22,7 @@ export function ScenesView({ projectId, doc, origin, data, library, editable }: 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const item = items.find((i) => i.id === selectedId) ?? (narrow ? undefined : items[0]);
   const [audio, setAudio] = useState<HTMLAudioElement | null>(null);
-  const { tc, music, sync } = usePointPlayback(item?.id, item?.durationSec, audio);
+  const { tc, music, sync } = usePointPlayback(item?.id, item?.durationSec, audio, item?.audioOffsetSec);
   const time = usePlayerTime(music);
   const numbers = itemNumbers(data.show.items);
 

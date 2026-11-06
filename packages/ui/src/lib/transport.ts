@@ -42,12 +42,40 @@ export class Transport extends EventTarget implements Playback {
   get currentTime(): number {
     if (!this.playing) return this.base;
     const a = this.audio;
-    if (a && !a.paused && !a.ended) return a.currentTime;
+    if (a && !a.paused && !a.ended) return a.currentTime + this.offset;
     return Math.min(this.duration, this.base + (performance.now() - this.anchor) / 1000);
   }
 
   set currentTime(sec: number) {
     this.seek(sec);
+  }
+
+  /** Versatz: das Audio beginnt bei dieser Zeit des Punkts (Sekunden) */
+  setOffset(sec: number | undefined): void {
+    const next = Math.max(0, sec ?? 0);
+    if (next === this.offset) return;
+    const at = this.currentTime;
+    this.offset = next;
+    this.rebase(at);
+    this.syncAudio();
+    this.emit('durationchange');
+  }
+
+  get audioOffset(): number {
+    return this.offset;
+  }
+
+  /** Länge der gekoppelten Audiodatei (0, solange unbekannt) */
+  get audioLength(): number {
+    const a = this.audio;
+    return a && Number.isFinite(a.duration) ? a.duration : 0;
+  }
+
+  /** Position in der Audiodatei (Zeit des Punkts minus Versatz, begrenzt auf die Datei) */
+  get audioTime(): number {
+    const t = this.currentTime - this.offset;
+    const len = this.audioLength;
+    return Math.max(0, len ? Math.min(t, len) : t);
   }
 
   setItemDuration(sec: number | undefined): void {
@@ -122,20 +150,37 @@ export class Transport extends EventTarget implements Playback {
     this.anchor = performance.now();
   }
 
-  /** Audio an die Position des Transports bringen (abspielen, solange die Position im Audio liegt) */
+  /**
+   * Audio an die Position des Transports bringen: Position im Audio = Zeit des Punkts minus Versatz.
+   * Vor dem Versatz wartet das Audio am Anfang, danach spielt es, solange die Position in der Datei liegt.
+   */
   private syncAudio(): void {
     const a = this.audio;
     if (!a) return;
     const length = Number.isFinite(a.duration) ? a.duration : undefined;
-    const inside = length === undefined || this.base < length - 0.05;
-    if (Math.abs(a.currentTime - this.base) > 0.05 && (length === undefined || this.base <= length)) a.currentTime = this.base;
-    if (this.playing && inside) void a.play().catch(() => undefined);
-    else a.pause();
+    const target = this.base - this.offset;
+    const inside = target >= 0 && (length === undefined || target < length - 0.05);
+    const wanted = Math.max(0, length === undefined ? target : Math.min(target, length));
+    if (Math.abs(a.currentTime - wanted) > 0.05) a.currentTime = wanted;
+    if (this.playing && inside) {
+      if (a.paused && !this.starting) {
+        this.starting = true;
+        void a
+          .play()
+          .catch(() => undefined)
+          .finally(() => {
+            this.starting = false;
+          });
+      }
+    } else a.pause();
   }
+
+  private starting = false;
+  private offset = 0;
 
   private onAudioEnded = () => {
     // Audio zu Ende, der Punkt läuft weiter (eigene Uhr ab dem Ende des Audios)
-    if (this.playing && this.audio) this.rebase(this.audio.duration);
+    if (this.playing && this.audio) this.rebase(this.offset + this.audio.duration);
   };
 
   private onAudioMeta = () => {
@@ -150,7 +195,15 @@ export class Transport extends EventTarget implements Playback {
       const now = performance.now();
       const a = this.audio;
       // läuft das Audio, ist seine Zeit maßgeblich – Anker nachführen, damit die eigene Uhr nahtlos übernimmt
-      if (a && !a.paused && !a.ended) this.rebase(a.currentTime);
+      if (a && !a.paused && !a.ended) this.rebase(a.currentTime + this.offset);
+      // Versatz erreicht: Audio einsetzen lassen
+      else if (a && !a.ended && this.currentTime >= this.offset) {
+        const len = Number.isFinite(a.duration) ? a.duration : undefined;
+        if (len === undefined || this.currentTime - this.offset < len - 0.05) {
+          this.rebase(this.currentTime);
+          this.syncAudio();
+        }
+      }
       if (this.currentTime >= this.duration) {
         this.base = this.duration;
         this.playing = false;
@@ -175,11 +228,12 @@ export class Transport extends EventTarget implements Playback {
 }
 
 /** Transport (Timecode) für einen Ablaufpunkt (neu je Punkt), mit dessen Dauer; „Mit Musik“ koppelt das Audio */
-export function useTransport(itemId: string | undefined, itemDuration: number | undefined, audio: HTMLAudioElement | null, sync = true): Transport {
+export function useTransport(itemId: string | undefined, itemDuration: number | undefined, audio: HTMLAudioElement | null, sync = true, offset = 0): Transport {
   // eslint-disable-next-line react-hooks/exhaustive-deps -- je Punkt ein eigener Transport
   const transport = useMemo(() => new Transport(), [itemId]);
   useEffect(() => () => transport.dispose(), [transport]);
   useEffect(() => transport.setItemDuration(itemDuration), [transport, itemDuration]);
+  useEffect(() => transport.setOffset(offset), [transport, offset]);
   // entkoppeln lässt die Musik weiterlaufen
   useEffect(() => transport.attach(sync ? audio : null, false), [transport, audio, sync]);
   return transport;
@@ -222,8 +276,8 @@ export function useTimecodeSync(): boolean {
  * Timecode und Musik eines Punkts: tc = Timecode (Transport), music = was der Player steuert und wonach Text und
  * Szenen laufen – mit Musik gekoppelt der Transport selbst, sonst das Audio-Element (ohne Audio: der Timecode).
  */
-export function usePointPlayback(itemId: string | undefined, itemDuration: number | undefined, audio: HTMLAudioElement | null): { tc: Transport; music: Playback; sync: boolean } {
+export function usePointPlayback(itemId: string | undefined, itemDuration: number | undefined, audio: HTMLAudioElement | null, offset = 0): { tc: Transport; music: Playback; sync: boolean } {
   const sync = useTimecodeSync();
-  const tc = useTransport(itemId, itemDuration, audio, sync);
+  const tc = useTransport(itemId, itemDuration, audio, sync, offset);
   return { tc, music: sync || !audio ? tc : audio, sync };
 }

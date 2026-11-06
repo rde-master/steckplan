@@ -7,6 +7,11 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+### Hinzugefügt
+
+- Audio-Versatz je Punkt (Ablauf, bei Punkten mit Audio): Die Musik setzt erst bei dieser Zeit des Punkts ein – davor läuft der Timecode, die Musik wartet am Anfang
+- Player: zeigt die Werte der Audiodatei (Position, Länge, Restzeit der Datei); der Zeitstrahl umfasst den ganzen Punkt, ein Balken darunter zeigt, wo die Audiodatei liegt. Timecode, Restzeit am Timecode, Text und Szenen bleiben auf der geplanten Zeit des Punkts
+
 ## [0.26.2] - 2026-11-06
 
 ### Hinzugefügt

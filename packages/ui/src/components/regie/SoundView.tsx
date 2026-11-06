@@ -25,7 +25,7 @@ export function SoundView({ projectId, doc, origin, data, editable }: { projectI
   const item = items.find((i) => i.id === selectedId) ?? (narrow ? undefined : items[0]);
   const numbers = itemNumbers(items);
   const [audio, setAudio] = useState<HTMLAudioElement | null>(null);
-  const { tc, music, sync } = usePointPlayback(item?.id, item?.durationSec, audio);
+  const { tc, music, sync } = usePointPlayback(item?.id, item?.durationSec, audio, item?.audioOffsetSec);
   const time = usePlayerTime(music);
 
   if (items.length === 0) return <p className="mx-auto max-w-2xl p-6 text-sm text-slate-500" data-testid="sound-view">{t.empty}</p>;

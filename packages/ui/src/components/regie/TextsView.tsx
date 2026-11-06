@@ -81,7 +81,7 @@ function TextDetail({ projectId, doc, origin, data, item, editable, onBack }: { 
   const sections = itemSections(data.show.sections, item.id);
   const [pasting, setPasting] = useState(false);
   const [audio, setAudio] = useState<HTMLAudioElement | null>(null);
-  const { tc, music, sync } = usePointPlayback(item.id, item.durationSec, audio);
+  const { tc, music, sync } = usePointPlayback(item.id, item.durationSec, audio, item.audioOffsetSec);
   const time = usePlayerTime(music);
   const hasAudio = item.kind === 'song' && (item.media?.length ?? 0) > 0;
   const [textMode, setTextMode] = useState<'edit' | 'read' | 'record'>('edit');
