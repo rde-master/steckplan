@@ -92,7 +92,7 @@ export function RegieView(
       ) : area === 'scenes' ? (
         <ScenesView projectId={props.projectId} doc={props.doc} origin={props.origin} data={props.data} library={props.library} editable={props.editable} />
       ) : area === 'sound' ? (
-        <SoundView doc={props.doc} origin={props.origin} data={props.data} editable={props.editable} />
+        <SoundView projectId={props.projectId} doc={props.doc} origin={props.origin} data={props.data} editable={props.editable} />
       ) : area === 'light' ? (
         <div className="min-h-0 flex-1 overflow-y-auto">
           <LightSetupView doc={props.doc} origin={props.origin} data={props.data} library={props.library} editable={props.editable} />

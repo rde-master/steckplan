@@ -30,13 +30,28 @@ export function stateId(sceneId: string, deviceId: string): string {
 }
 
 /** Zeitpunkt einer Szene: eigener Zeitpunkt, sonst der Zeitpunkt ihrer Textzeile */
-export function sceneTime(scene: LightScene, lines: TextLine[]): number | undefined {
+/** Szene mit Auslöser (Licht- oder Tonszene) */
+export type TimedScene = Pick<LightScene, 'id' | 'atSec' | 'lineId'>;
+
+/**
+ * Notiz für die Szene an Position index: ihre eigene, sonst die letzte davor – eine Notiz bleibt stehen,
+ * bis eine Szene mit neuer Notiz kommt.
+ */
+export function stickyNote<T extends { notes?: string }>(scenes: T[], index: number, hasContent: (notes: string) => boolean = (n) => n.trim() !== ''): string | undefined {
+  for (let i = Math.min(index, scenes.length - 1); i >= 0; i--) {
+    const notes = scenes[i]!.notes;
+    if (notes && hasContent(notes)) return notes;
+  }
+  return undefined;
+}
+
+export function sceneTime(scene: TimedScene, lines: TextLine[]): number | undefined {
   if (scene.atSec !== undefined) return scene.atSec;
   return scene.lineId ? lines.find((l) => l.id === scene.lineId)?.atSec : undefined;
 }
 
 /** Aktuelle Szene zur Abspielzeit: die zuletzt begonnene (Szenen ohne Zeitpunkt zählen nicht). */
-export function currentSceneId(scenes: LightScene[], lines: TextLine[], t: number): string | undefined {
+export function currentSceneId(scenes: TimedScene[], lines: TextLine[], t: number): string | undefined {
   let best: { id: string; at: number } | undefined;
   for (const scene of scenes) {
     const at = sceneTime(scene, lines);

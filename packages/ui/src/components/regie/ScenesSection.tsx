@@ -479,7 +479,7 @@ function seek(el: Playback, sec: number): void {
   el.currentTime = sec;
 }
 
-function SceneTimeInput({ value, editable, onChange }: { value: number | undefined; editable: boolean; onChange: (sec: number | undefined) => void }) {
+export function SceneTimeInput({ value, editable, onChange }: { value: number | undefined; editable: boolean; onChange: (sec: number | undefined) => void }) {
   const [draft, setDraft] = useState(value !== undefined ? formatSceneTime(value) : '');
   const invalid = draft.trim() !== '' && parseSceneTime(draft) === undefined;
   return (
