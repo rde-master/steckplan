@@ -1,6 +1,6 @@
 import dgram from 'node:dgram';
 import { expect, test } from '@playwright/test';
-import { loginAs } from './helpers';
+import { loginAs, openPerformance } from './helpers';
 
 const OSC_PORT = 18_767;
 
@@ -51,8 +51,8 @@ test('OSC: in den Einstellungen einschalten, Vorstellung per OSC steuern (Punkt,
     })
   ).json();
   await page.goto(`/projekt/${id}?ansicht=regie`);
-  await page.getByRole('button', { name: 'Vorstellung' }).click();
-  const perf = page.getByTestId('performance');
+  const show = await openPerformance(page);
+  const perf = show.getByTestId('performance');
   const clock = perf.getByTestId('timecode-panel').getByTestId('timecode');
   await expect(perf.getByTestId('performance-title')).toHaveText('Erstes');
 
@@ -79,7 +79,19 @@ test('OSC: in den Einstellungen einschalten, Vorstellung per OSC steuern (Punkt,
   } finally {
     socket.close();
   }
+
+  // Übersicht aller Befehle: Zustand, Tabelle, Ausprobieren wirkt auf die offene Vorstellung
+  await page.goto('/osc');
+  const overview = page.getByTestId('osc-page');
+  await expect(overview.getByTestId('osc-page-status')).toContainText(`UDP-Port ${OSC_PORT}`);
+  await expect(overview.getByTestId('osc-commands').locator('tbody tr')).toHaveCount(12);
+  await expect(overview.getByTestId('osc-commands')).toContainText('/steckplan/scene/next');
+  await overview.getByLabel('Nummer: /steckplan/item').fill('2');
+  await overview.getByRole('button', { name: 'Ausprobieren: /steckplan/item' }).click();
+  await expect(page.getByText('/steckplan/item gesendet')).toBeVisible();
+  await expect(perf.getByTestId('performance-title')).toHaveText('Zweites');
+  await page.screenshot({ path: 'test-results/osc-befehle.png', fullPage: true });
   // wieder aus (Port frei für andere Läufe)
-  await page.keyboard.press('Escape');
+  await show.close();
   expect((await page.request.put('/api/settings/osc', { data: { enabled: false } })).ok()).toBe(true);
 });

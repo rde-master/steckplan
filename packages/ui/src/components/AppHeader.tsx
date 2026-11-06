@@ -45,12 +45,12 @@ export function AppHeader({ title, left, nav, right }: { title?: ReactNode; left
 }
 
 /** Umschalter Projekte / Bibliothek (nur im Browser; am Desktop gibt es eigene Fenster). */
-export function MainNav({ active }: { active: 'projects' | 'library' | 'settings' }) {
+export function MainNav({ active }: { active: 'projects' | 'library' | 'settings' | 'osc' }) {
   const session = useSession((s) => s.session);
   const mode = useSession((s) => s.mode);
   if (getDesktop()) return null;
   const showSettings = mode === 'standalone' && !!session && can(session.access, 'manageProjects');
-  const item = (key: 'projects' | 'library' | 'settings', href: string, label: string) => (
+  const item = (key: 'projects' | 'library' | 'settings' | 'osc', href: string, label: string) => (
     <a
       href={href}
       aria-current={active === key ? 'page' : undefined}
@@ -68,6 +68,7 @@ export function MainNav({ active }: { active: 'projects' | 'library' | 'settings
       {item('projects', '/', texts.nav.projects)}
       {item('library', '/bibliothek', texts.nav.library)}
       {showSettings && item('settings', '/einstellungen', texts.nav.settings)}
+      {!!session && item('osc', '/osc', texts.nav.osc)}
     </nav>
   );
 }

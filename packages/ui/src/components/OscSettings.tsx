@@ -62,6 +62,18 @@ export function OscSettings() {
           {error && <Banner tone="error">{error}</Banner>}
         </form>
       )}
+      <a
+        href="/osc"
+        target="_blank"
+        rel="noopener"
+        className="inline-block text-sm font-medium text-sky-700 underline dark:text-sky-400"
+        onClick={(e) => {
+          e.preventDefault();
+          window.open('/osc', 'steckplan-osc')?.focus();
+        }}
+      >
+        {t.allCommands}
+      </a>
       <details className="text-sm">
         <summary className="cursor-pointer font-medium">{t.addresses}</summary>
         <table className="mt-2 w-full text-left text-xs">

@@ -2,7 +2,7 @@
 import { join } from 'node:path';
 import { BrowserWindow, shell } from 'electron';
 import { formatAppTitle } from '@steckplan/core';
-import { isLyricsWindow, lyricsWindowOptions } from './lyrics-window';
+import { appWindowOptions } from './lyrics-window';
 
 export interface WindowManagerOptions {
   baseUrl: string;
@@ -37,7 +37,8 @@ export class WindowManager {
     const base = this.options.baseUrl;
     // Nur die eigene Oberfläche im Fenster; externe Links im Standardbrowser öffnen.
     win.webContents.setWindowOpenHandler((details) => {
-      if (isLyricsWindow(details, base)) return { action: 'allow', overrideBrowserWindowOptions: lyricsWindowOptions };
+      const own = appWindowOptions(details, base);
+      if (own) return { action: 'allow', overrideBrowserWindowOptions: own };
       const target = details.url;
       if (/^https?:\/\//.test(target) && !target.startsWith(base)) void shell.openExternal(target);
       return { action: 'deny' };

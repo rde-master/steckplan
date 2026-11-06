@@ -1,6 +1,6 @@
 import dgram from 'node:dgram';
 import { expect, test } from '@playwright/test';
-import { loginAs } from './helpers';
+import { loginAs, openPerformance } from './helpers';
 
 function wav(seconds: number): Buffer {
   const rate = 8000;
@@ -55,25 +55,25 @@ test('Timecode je Ablaufpunkt ab 00:00:00:00, feste Nummern, Lied hängt am Time
   await expect(detail.getByTestId('timecode')).toHaveText('00:00:00:00');
 
   // Vorstellung: große Uhr unten rechts; Audio endet bei 3 s, der Timecode läuft bis 5 s und hält an
-  await page.getByRole('button', { name: 'Vorstellung' }).click();
-  const perf = page.getByTestId('performance');
+  let show = await openPerformance(page);
+  let perf = show.getByTestId('performance');
   const clock = perf.locator('footer [data-testid=timecode]');
   await expect(clock).toHaveText('00:00:00:00');
   await perf.getByRole('button', { name: 'Abspielen' }).click();
   await expect.poll(() => clock.textContent(), { timeout: 5000 }).toMatch(/^00:00:0[34]:\d\d$/);
-  await expect.poll(() => page.evaluate(() => document.querySelector('audio')!.ended || document.querySelector('audio')!.paused)).toBe(true);
+  await expect.poll(() => show.evaluate(() => document.querySelector('audio')!.ended || document.querySelector('audio')!.paused)).toBe(true);
   await expect(clock).toHaveText('00:00:05:00', { timeout: 4000 });
   await expect(perf.getByRole('button', { name: 'Abspielen' })).toBeVisible();
   await expect(perf.getByTestId('remaining')).toHaveText('−0:00');
-  await page.screenshot({ path: 'test-results/timecode-vorstellung.png' });
+  await show.screenshot({ path: 'test-results/timecode-vorstellung.png' });
 
   // nächster Punkt ohne Audio: beginnt wieder bei 0, läuft mit eigener Uhr bis zur Dauer
-  await page.keyboard.press('ArrowDown');
+  await show.keyboard.press('ArrowDown');
   await expect(clock).toHaveText('00:00:00:00');
   await perf.getByRole('button', { name: 'Abspielen' }).click();
   await expect(clock).toHaveText('00:00:02:00', { timeout: 4000 });
   await expect(perf.getByRole('button', { name: 'Abspielen' })).toBeVisible();
-  await page.keyboard.press('Escape');
+  await show.close();
 
   // Umsortieren behält die Nummern, „Neu nummerieren“ zählt in Reihenfolge
   await page.getByTestId('regie-item').filter({ hasText: 'Szene am Brunnen' }).click();
@@ -101,7 +101,8 @@ test('Timecode je Ablaufpunkt ab 00:00:00:00, feste Nummern, Lied hängt am Time
     await settings.getByLabel('Ziel (IP oder Broadcast)').press('Enter');
     await settings.getByLabel('Senden').check();
     await page.getByRole('button', { name: 'Fertig' }).click();
-    await page.getByRole('button', { name: 'Vorstellung' }).click();
+    show = await openPerformance(page);
+    perf = show.getByTestId('performance');
     await expect(perf.getByTestId('artnet-state')).toContainText('„Führen“ wählen');
     await perf.getByRole('radio', { name: 'Führen' }).click();
     await expect(perf.getByTestId('artnet-state')).toContainText('sendet an 127.0.0.1');
@@ -143,11 +144,11 @@ test('Timecode-Steuerung: Restzeit rot, „Mit Musik“ an/aus, eigene Knöpfe, 
   const detail = page.getByTestId('regie-detail');
   await detail.locator('input[type=file]').setInputFiles({ name: 'Lang.wav', mimeType: 'audio/wav', buffer: wav(4) });
   await expect(detail.getByTestId('regie-player').locator('audio')).toHaveCount(1);
-  await page.getByRole('button', { name: 'Vorstellung' }).click();
-  const perf = page.getByTestId('performance');
+  let show = await openPerformance(page);
+  let perf = show.getByTestId('performance');
   const panel = perf.getByTestId('timecode-panel');
   const clock = panel.getByTestId('timecode');
-  const audioPaused = () => page.evaluate(() => document.querySelector('audio')!.paused);
+  const audioPaused = () => show.evaluate(() => document.querySelector('audio')!.paused);
   await expect(panel.getByTestId('timecode-remaining')).toHaveText('−00:00:02:00');
 
   // mit Musik: Länge aus dem Projekt – Timecode und Musik halten bei 2 s an (Audio wäre 4 s)
@@ -180,10 +181,11 @@ test('Timecode-Steuerung: Restzeit rot, „Mit Musik“ an/aus, eigene Knöpfe, 
   await panel.getByRole('button', { name: 'Timecode stoppen (zurück auf 0)' }).click();
   await panel.getByRole('button', { name: 'Timecode 1 s vor' }).click();
   await expect(clock).toHaveText('00:00:01:00');
-  await page.screenshot({ path: 'test-results/timecode-steuerung.png' });
+  await show.screenshot({ path: 'test-results/timecode-steuerung.png' });
   // die Wahl bleibt (je Gerät)
-  await page.keyboard.press('Escape');
-  await page.getByRole('button', { name: 'Vorstellung' }).click();
+  await show.close();
+  show = await openPerformance(page);
+  perf = show.getByTestId('performance');
   await expect(perf.getByTestId('timecode-panel').getByLabel('Mit Musik')).not.toBeChecked();
   await perf.getByTestId('timecode-panel').getByLabel('Mit Musik').check();
 });

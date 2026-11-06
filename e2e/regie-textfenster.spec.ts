@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { loginAs, newContextPage } from './helpers';
+import { loginAs, newContextPage, openPerformance } from './helpers';
 
 function wav(seconds: number): Buffer {
   const rate = 8000;
@@ -67,8 +67,8 @@ test('Textfenster: eigene Seite, im selben Browser und auf anderen Geräten (Fü
   expect(bg.media.some((m: { id: string; mime: string }) => m.id === bg.showSettings.lyricsBackground.mediaId && m.mime === 'image/png')).toBe(true);
 
   // Vorstellung (ohne Führen): das Fenster im selben Browser folgt
-  await page.getByRole('button', { name: 'Vorstellung' }).click();
-  const perf = page.getByTestId('performance');
+  let show = await openPerformance(page);
+  let perf = show.getByTestId('performance');
   await expect(perf.getByTestId('regie-player')).toBeVisible();
   const rows = popup.getByTestId('lyrics-row');
   // vor dem Start: die ersten Zeilen auf den Plätzen 3–5
@@ -92,7 +92,7 @@ test('Textfenster: eigene Seite, im selben Browser und auf anderen Geräten (Fü
   await popup.setViewportSize({ width: 1100, height: 600 });
   await popup.waitForTimeout(900); // Animation abwarten
   await popup.screenshot({ path: 'test-results/textfenster.png' });
-  await page.screenshot({ path: 'test-results/vorstellung-countdown.png' });
+  await show.screenshot({ path: 'test-results/vorstellung-countdown.png' });
 
   // anderes Gerät: Link öffnen (Lese-Zugang), Vorstellung führt mit Abspielposition
   const other = await newContextPage(browser);
@@ -104,15 +104,15 @@ test('Textfenster: eigene Seite, im selben Browser und auf anderen Geräten (Fü
   await expect(otherCurrent).toHaveText('Zeile 2');
   // Spulen: +5 s, −1 s (Knöpfe), Umschalt+→ (+1 s) – wirkt auch auf dem anderen Gerät
   await perf.getByRole('button', { name: '5 s vor', exact: true }).click();
-  await expect.poll(() => page.evaluate(() => document.querySelector('audio')!.currentTime)).toBeCloseTo(7, 1);
+  await expect.poll(() => show.evaluate(() => document.querySelector('audio')!.currentTime)).toBeCloseTo(7, 1);
   await perf.getByRole('button', { name: '1 s zurück', exact: true }).click();
-  await expect.poll(() => page.evaluate(() => document.querySelector('audio')!.currentTime)).toBeCloseTo(6, 1);
+  await expect.poll(() => show.evaluate(() => document.querySelector('audio')!.currentTime)).toBeCloseTo(6, 1);
   await perf.getByRole('button', { name: '0,5 s vor' }).click();
-  await expect.poll(() => page.evaluate(() => document.querySelector('audio')!.currentTime)).toBeCloseTo(6.5, 1);
+  await expect.poll(() => show.evaluate(() => document.querySelector('audio')!.currentTime)).toBeCloseTo(6.5, 1);
   await perf.getByRole('button', { name: '0,5 s zurück' }).click();
-  await expect.poll(() => page.evaluate(() => document.querySelector('audio')!.currentTime)).toBeCloseTo(6, 1);
-  await page.keyboard.press('Shift+ArrowRight');
-  await expect.poll(() => page.evaluate(() => document.querySelector('audio')!.currentTime)).toBeCloseTo(7, 1);
+  await expect.poll(() => show.evaluate(() => document.querySelector('audio')!.currentTime)).toBeCloseTo(6, 1);
+  await show.keyboard.press('Shift+ArrowRight');
+  await expect.poll(() => show.evaluate(() => document.querySelector('audio')!.currentTime)).toBeCloseTo(7, 1);
   await expect(otherCurrent).toHaveText('Zeile 7');
   await expect(popup.locator('[data-current]')).toHaveText('Zeile 7');
   // Wiedergabe läuft: das andere Gerät zählt selbst weiter
@@ -123,8 +123,7 @@ test('Textfenster: eigene Seite, im selben Browser und auf anderen Geräten (Fü
   await other.context().close();
 
   // Zeilen vor/nach der aktuellen einstellen: 2 davor, 5 danach
-  await page.keyboard.press('Escape');
-  await expect(perf).toBeHidden();
+  await show.close();
   // Schließen der Vorstellung: Seite bleibt bedienbar, das Textfenster wartet wieder
   await expect(page.getByRole('radio', { name: 'Lichtszenen' })).toBeVisible();
   await expect(popup.getByTestId('lyrics-page')).toContainText('Warte auf die Vorstellung');
@@ -132,7 +131,8 @@ test('Textfenster: eigene Seite, im selben Browser und auf anderen Geräten (Fü
   await page.getByLabel('vor der aktuellen').selectOption('2');
   await page.getByLabel('nach der aktuellen').selectOption('5');
   await page.getByRole('button', { name: 'Fertig' }).click();
-  await page.getByRole('button', { name: 'Vorstellung' }).click();
+  show = await openPerformance(page);
+  perf = show.getByTestId('performance');
   await perf.getByLabel('Position').fill('3');
   // aktuell Zeile 3 → Zeile 1–2 davor, Zeile 4–8 danach
   await expect(rows).toHaveText(['Zeile 1', 'Zeile 2', 'Zeile 3', 'Zeile 4', 'Zeile 5', 'Zeile 6', 'Zeile 7', 'Zeile 8']);

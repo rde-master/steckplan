@@ -11,9 +11,17 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 - OSC-Fernsteuerung der Vorstellung (UDP, in den Einstellungen ein- und Port einstellbar, Standard 8000): `/steckplan/play`, `/pause`, `/toggle`, `/stop`, `/forward [s]`, `/back [s]`, `/seek s`, `/item n` (Punkt mit Nummer n), `/next`, `/prev`, `/scene/next`, `/scene/prev`; Werte als int, float oder string, Bundles werden aufgelöst, das Loslassen eines Tasters (0) löst nichts aus. Ausgeführt wird in der Vorstellung, die führt – führt niemand, in jeder geöffneten, die nicht folgt; die Vorstellung zeigt kurz, welcher Befehl ankam. Die Einstellungen zeigen, ob empfangen wird, und den zuletzt erkannten Befehl
 - Dieselben Befehle per HTTP: `POST /api/remote` mit `{ "action": "play" }` bzw. `{ "action": "item", "value": 3 }` (Bearbeiten- oder Regie-Zugang), optional `projectId`
+- Seite „OSC-Befehle“ (`/osc`, im Menü „OSC“, verlinkt aus den Einstellungen und den Regie-Einstellungen): alle Befehle mit Adresse, Wert, Wirkung und HTTP-Gegenstück, Zustand des Empfangs (Adresse, Port, zuletzt erkannter Befehl) und je Befehl „Senden“ zum Ausprobieren an der offenen Vorstellung (Bearbeiten- oder Regie-Zugang)
+- Vorstellung: Vorschau auf die nächste Szene – im Ton unten zuschaltbar („Vorschau anzeigen“, mit Name und Notiz der nächsten Tonszene), im Licht umschaltbar „Bild: Aktuell | Nächste“ (Lichtplan der nächsten Szene, als Vorschau markiert); beides je Gerät gemerkt
+
+### Geändert
+
+- Vorstellung „Folgen“: keine eigenen Bedienknöpfe mehr (Audio-Player, Szene/Eintrag zurück/weiter, Timecode-Knöpfe, Liedliste); Timecode und Restzeit bleiben sichtbar. Selbst bedienen: „Frei“ wählen (oder Pfeiltasten)
+- Vorstellung öffnet sich als eigener Tab (Desktop-App: eigenes Fenster) unter `/projekt/<id>/vorstellung` statt über der Seite; ist sie schon offen, holt der Knopf sie nach vorn. Esc schließt nur noch die Liedliste, ✕ schließt den Tab
 
 ### Behoben
 
+- Vorstellung „Folgen“: Timecode, mitlaufender Text, Countdowns, Balken und Szenen-Timer standen still – jetzt laufen sie mit der Zeit der führenden Vorstellung mit (ohne eigenen Ton); die Timecode-Knöpfe sind beim Folgen ausgeblendet
 - Vorstellung: Lichtplan mittig (Kacheln werden bei breiten Rastern schmaler statt nach rechts überzulaufen); rechts Abstand zum Bildschirmrand; Szenen-Zeiten (Start, „läuft“, Countdown) immer mit Zehntelsekunde, damit die Anzeige nicht springt
 
 ## [0.25.0] - 2026-11-06

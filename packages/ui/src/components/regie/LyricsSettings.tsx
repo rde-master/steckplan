@@ -55,6 +55,18 @@ export function LyricsSettings({ projectId, doc, origin, settings, onClose }: { 
         </div>
         <p className="text-xs text-slate-500">{t.remainHint}</p>
         <ArtNetSettings doc={doc} origin={origin} settings={settings} inputClass={selectClass} />
+        <p className="text-sm">
+          <a
+            href="/osc"
+            className="font-medium text-sky-700 underline dark:text-sky-400"
+            onClick={(e) => {
+              e.preventDefault();
+              window.open('/osc', 'steckplan-osc')?.focus();
+            }}
+          >
+            {t.oscLink}
+          </a>
+        </p>
         <h3 className="border-t border-slate-200 pt-3 text-sm font-semibold dark:border-slate-700">{t.lyricsSection}</h3>
         <h4 className="text-xs font-semibold text-slate-500 uppercase">{t.lines}</h4>
         <div className="flex flex-wrap items-center gap-4 text-sm">

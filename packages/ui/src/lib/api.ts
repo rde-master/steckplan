@@ -127,6 +127,7 @@ export const api = {
   deleteProject: (id: string) => request<{ ok: true }>('DELETE', `/api/projects/${encodeURIComponent(id)}`),
   getLabelQr: () => request<LabelQrSettings>('GET', '/api/settings/label-qr'),
   getOsc: () => request<{ settings: OscSettings; status: OscStatus }>('GET', '/api/settings/osc'),
+  remote: (action: string, value?: number) => request<{ rooms: number }>('POST', '/api/remote', value !== undefined ? { action, value } : { action }),
   setOsc: (patch: Partial<OscSettings>) => request<{ settings: OscSettings; status: OscStatus }>('PUT', '/api/settings/osc', patch),
   setLabelQr: (patch: Partial<LabelQrSettings>) => request<LabelQrSettings>('PUT', '/api/settings/label-qr', patch),
   listShareLinks: () => request<{ links: ShareLinkInfo[] }>('GET', '/api/settings/label-qr/links'),
