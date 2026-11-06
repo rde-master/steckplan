@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import WebSocket from 'ws';
 import * as Y from 'yjs';
-import { SyncClient, type SocketLike } from '@steckplan/core';
+import { SyncClient, type RemoteCommand, type SocketLike } from '@steckplan/core';
 import { PasswordChecker } from './auth/passwords';
 import { LoginRateLimiter } from './auth/rate-limit';
 import { DesktopKeyStore } from './auth/desktop-keys';
@@ -92,11 +92,12 @@ export async function login(server: TestServer, access: 'edit' | 'read' | 'direc
   return `steckplan_session=${cookie.value}`;
 }
 
-export function connect(server: TestServer, projectId: string, cookie: string | null, doc = new Y.Doc()): SyncClient {
+export function connect(server: TestServer, projectId: string, cookie: string | null, doc = new Y.Doc(), onRemote?: (command: RemoteCommand) => void): SyncClient {
   const url = `${server.baseUrl.replace('http', 'ws')}/api/projects/${projectId}/sync`;
   return new SyncClient({
     url,
     doc,
+    onRemote,
     reconnectDelay: 20,
     createSocket: (u) => new WebSocket(u, { headers: cookie ? { cookie } : {} }) as unknown as SocketLike,
   });

@@ -17,12 +17,13 @@ import {
   sceneTime,
   type Cue,
   type Library,
+  type RemoteCommand,
   type SyncClientState,
 } from '@steckplan/core';
 import type { ProjectData } from '../../lib/useProjectData';
 import { texts } from '../../texts';
 import { Button } from '../ui';
-import { openLyricsWindow, useLocalCueSender } from './LyricsWindow';
+import { openLyricsWindow, useCueClock, useLocalCueSender, type ReceivedCue } from './LyricsWindow';
 import { ItemNumber, KIND_ICONS } from './RegieView';
 import { RichTextView } from './RichTextEditor';
 import { SceneProgress, type SceneMark } from './SceneProgress';
@@ -30,11 +31,34 @@ import { hasRichText } from '../../lib/richText';
 import { SceneGrid } from './SceneGrid';
 import { formatSceneTime } from './ScenesSection';
 import { PlayerBar, seekAudio, TimecodePanel, usePlayerTime } from './SongMedia';
-import { usePointPlayback } from '../../lib/transport';
+import { usePointPlayback, type Playback } from '../../lib/transport';
 
 const t = texts.regie.performance;
 
 type Mode = 'free' | 'lead' | 'follow';
+
+type LightView = 'current' | 'next';
+
+/** Einstellung je Gerät (localStorage), nur erlaubte Werte */
+function useLocalOption<T extends string>(key: string, fallback: T, allowed: T[]): [T, (next: T) => void] {
+  const [value, setValue] = useState<T>(() => {
+    try {
+      const saved = localStorage.getItem(key) as T | null;
+      return saved && allowed.includes(saved) ? saved : fallback;
+    } catch {
+      return fallback;
+    }
+  });
+  const set = (next: T) => {
+    setValue(next);
+    try {
+      localStorage.setItem(key, next);
+    } catch {
+      // ohne Speicher gilt die Wahl bis zum Neuladen
+    }
+  };
+  return [value, set];
+}
 
 /** rechte Seite der Vorstellung: Licht oder Ton (je Gerät gemerkt) */
 type Side = 'light' | 'sound';
@@ -53,6 +77,7 @@ export function PerformanceView({
   library,
   sync,
   sendCue,
+  onRemote,
   canLead,
   onClose,
 }: {
@@ -61,6 +86,8 @@ export function PerformanceView({
   library: Library | null;
   sync: SyncClientState;
   sendCue: (cue: Cue | null) => void;
+  /** Fernsteuerung (OSC/HTTP) abonnieren */
+  onRemote: (listener: (command: RemoteCommand) => void) => () => void;
   canLead: boolean;
   onClose: () => void;
 }) {
@@ -100,8 +127,13 @@ export function PerformanceView({
   const [audioEl, setAudioEl] = useState<HTMLAudioElement | null>(null);
   // tc = Timecode des Punkts; audio = Musik (mit „Mit Musik“ dasselbe), danach laufen Text und Szenen
   const { tc, music: audio, sync: withMusic } = usePointPlayback(item?.id, item?.durationSec, audioEl);
-  const time = usePlayerTime(audio);
-  const playing = !audio.paused;
+  // Folgen: Zeit der führenden Vorstellung (Abspielposition + seit Empfang vergangene Zeit) – ohne eigenen Ton
+  const leadCue: ReceivedCue | null = following && lead ? { ...lead, receivedAt: sync.leadReceivedAt ?? 0 } : null;
+  const leadMusic = useCueClock(leadCue);
+  const leadTc = useCueClock(leadCue?.tc ? { itemId: leadCue.itemId, at: leadCue.tc.at, playing: leadCue.tc.playing, receivedAt: leadCue.receivedAt } : leadCue);
+  const ownTime = usePlayerTime(audio);
+  const time = leadMusic ?? ownTime;
+  const playing = leadCue ? !!leadCue.playing : !audio.paused;
   const numbers = itemNumbers(items);
   const number = item ? (numbers.get(item.id) ?? itemIndex + 1) : undefined;
   const choiceHolds = !!sceneChoice && !playing && Math.abs(time - choice.at) < 0.05;
@@ -208,8 +240,68 @@ export function PerformanceView({
     if (audio) seekAudio(audio, audio.currentTime + sec);
   };
 
+  // Fernsteuerung (OSC/HTTP): ausführen, wenn diese Vorstellung führt – führt niemand, wenn sie nicht folgt.
+  // Ohne „Mit Musik“ wirken Start/Pause/Stopp/Spulen auf Timecode und Musik gemeinsam.
+  const [remoteNote, setRemoteNote] = useState('');
+  const noteTimer = useRef<number | undefined>(undefined);
+  const runRemote = (command: RemoteCommand) => {
+    if (lead ? !iLead : mode === 'follow') return;
+    const both = (fn: (p: Playback) => void) => {
+      fn(tc);
+      if (audio !== tc) fn(audio);
+    };
+    const v = command.value ?? 0;
+    switch (command.action) {
+      case 'play':
+        both((p) => void p.play());
+        break;
+      case 'pause':
+        both((p) => p.pause());
+        break;
+      case 'toggle':
+        if (tc.paused) both((p) => void p.play());
+        else both((p) => p.pause());
+        break;
+      case 'stop':
+        both((p) => {
+          p.pause();
+          seekAudio(p, 0);
+        });
+        break;
+      case 'forward':
+      case 'back':
+        both((p) => seekAudio(p, p.currentTime + (command.action === 'back' ? -v : v)));
+        break;
+      case 'seek':
+        both((p) => seekAudio(p, v));
+        break;
+      case 'item': {
+        const index = items.findIndex((i) => numbers.get(i.id) === v);
+        if (index >= 0) goTo(index);
+        break;
+      }
+      case 'next':
+      case 'prev':
+        goItem(command.action === 'next' ? 1 : -1);
+        break;
+      case 'sceneNext':
+      case 'scenePrev':
+        goScene(command.action === 'sceneNext' ? 1 : -1);
+        break;
+    }
+    setRemoteNote(t.remote(command.action, command.value));
+    window.clearTimeout(noteTimer.current);
+    noteTimer.current = window.setTimeout(() => setRemoteNote(''), 2000);
+  };
+  const remoteRef = useRef(runRemote);
+  useEffect(() => {
+    remoteRef.current = runRemote;
+  });
+  useEffect(() => onRemote((command) => remoteRef.current(command)), [onRemote]);
+
   // Tasten: ←/→ Szene, Umschalt+←/→ eine Sekunde spulen, ↑/↓ bzw. Bild↑/Bild↓ Eintrag, Esc beendet
-  const closeOrList = () => (listOpen ? setListOpen(false) : onClose());
+  // Esc schließt nur die Liedliste – die Vorstellung ist ein eigener Tab (schließen mit ✕)
+  const closeOrList = () => setListOpen(false);
   const keys = useRef({ goItem, goScene, nudge, onClose: closeOrList });
   useEffect(() => {
     keys.current = { goItem, goScene, nudge, onClose: closeOrList };
@@ -238,6 +330,14 @@ export function PerformanceView({
   }, [currentLine]);
 
   const states = scene ? sceneStates(data.sceneStates, scene.id) : new Map();
+  // Licht: Bild der aktuellen oder Vorschau der nächsten Szene; Ton: Vorschau ein/aus (je Gerät)
+  const [lightView, setLightView] = useLocalOption<LightView>('steckplan.lightView', 'current', ['current', 'next']);
+  const [soundPreviewSetting, setSoundPreviewSetting] = useLocalOption<'on' | 'off'>('steckplan.soundPreview', 'off', ['on', 'off']);
+  const soundPreview = soundPreviewSetting === 'on';
+  const setSoundPreview = (on: boolean) => setSoundPreviewSetting(on ? 'on' : 'off');
+  const nextLightScene = scenes[sceneIndex + 1];
+  const showNext = lightView === 'next' && !!nextLightScene;
+  const nextStates = nextLightScene ? sceneStates(data.sceneStates, nextLightScene.id) : new Map();
   // Szenen-Marken (Nummer, Name, Startpunkt) für Licht und Ton; Notizen bleiben stehen, bis eine neue kommt
   const lightMark = (i: number): SceneMark | undefined => (scenes[i] ? { number: i + 1, name: scenes[i]!.name, at: sceneTime(scenes[i]!, plainLines) } : undefined);
   const lightNote = sceneIndex >= 0 ? stickyNote(scenes, sceneIndex) : undefined;
@@ -270,7 +370,7 @@ export function PerformanceView({
 
   return (
     <div className="dark fixed inset-0 z-50 flex flex-col bg-slate-950 text-slate-100" role="dialog" aria-label={t.title} data-testid="performance">
-      <header className="flex shrink-0 flex-wrap items-center gap-2 border-b border-slate-800 px-3 py-2">
+      <header className="flex shrink-0 flex-wrap items-center gap-2 border-b border-slate-800 py-2 pr-6 pl-3">
         <Button variant="ghost" aria-label={t.close} title={t.close} onClick={onClose}>
           <X size={22} aria-hidden />
         </Button>
@@ -294,7 +394,7 @@ export function PerformanceView({
             </span>
           )}
         </div>
-        <div className="relative">
+        <div className={`relative ${following ? 'hidden' : ''}`}>
           <Button variant="ghost" className="text-sm" aria-expanded={listOpen} aria-haspopup="true" title={t.listTitle} onClick={() => setListOpen(!listOpen)}>
             <ListMusic size={18} aria-hidden /> {t.list}
           </Button>
@@ -342,6 +442,11 @@ export function PerformanceView({
         <Button variant="ghost" className="text-sm" title={t.lyricsWindowHint} onClick={() => openLyricsWindow(projectId)}>
           <Monitor size={18} aria-hidden /> {t.lyricsWindow}
         </Button>
+        {remoteNote && (
+          <span className="rounded bg-sky-900 px-2 py-0.5 text-xs text-sky-100" role="status" data-testid="performance-remote">
+            {remoteNote}
+          </span>
+        )}
         <span className="flex items-center gap-1 text-xs text-slate-400" data-testid="performance-lead">
           {lead ? (
             <>
@@ -357,7 +462,7 @@ export function PerformanceView({
       {!item ? (
         <p className="m-auto text-slate-400">{t.empty}</p>
       ) : (
-        <main className="grid min-h-0 flex-1 gap-4 overflow-y-auto p-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:overflow-hidden">
+        <main className="grid min-h-0 flex-1 gap-4 overflow-y-auto py-4 pr-6 pl-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:overflow-hidden">
           <section className="min-h-0 space-y-3 lg:overflow-y-auto" aria-label={texts.regie.text}>
             {item.notes && <p className="rounded-md bg-slate-900 p-3 text-slate-300">{item.notes}</p>}
             {lines.length === 0 ? (
@@ -421,13 +526,49 @@ export function PerformanceView({
                   </div>
                 )}
                 {soundScenes.length === 0 && !hasRichText(item.soundNotes) && <p className="text-slate-500">{texts.regie.sound.none}</p>}
+                {/* Vorschau auf die nächste Tonszene (je Gerät ein-/ausschaltbar) */}
+                {soundScenes.length > 0 && (
+                  <div className="space-y-2 border-t border-slate-800 pt-3" data-testid="sound-preview">
+                    <label className="flex items-center gap-2 text-sm text-slate-300">
+                      <input type="checkbox" checked={soundPreview} onChange={(e) => setSoundPreview(e.target.checked)} />
+                      {t.showPreview}
+                    </label>
+                    {soundPreview &&
+                      (soundScenes[soundIndex + 1] ? (
+                        <div className="space-y-1 rounded-lg border-2 border-dashed border-amber-500/70 p-3">
+                          <div className="text-xs font-semibold tracking-wide text-amber-400 uppercase">
+                            {t.previewOf(`${soundIndex + 2}. ${soundScenes[soundIndex + 1]!.name || '–'}`)}
+                          </div>
+                          {hasRichText(soundScenes[soundIndex + 1]!.notes) ? (
+                            <RichTextView html={soundScenes[soundIndex + 1]!.notes} className="rounded-lg bg-white/90 p-3 text-lg text-slate-900" />
+                          ) : (
+                            <p className="text-sm text-slate-400">{t.previewNoNote}</p>
+                          )}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-slate-500">{t.previewNone}</p>
+                      ))}
+                  </div>
+                )}
               </>
             ) : scenes.length > 0 ? (
               <>
                 <SceneProgress current={lightMark(sceneIndex)} next={lightMark(sceneIndex + 1)} time={time} nextItemTitle={nextItem ? nextItem.title || texts.regie.untitled : undefined} testPrefix="performance" />
                 {lightNote && <p className="text-lg text-slate-200" data-testid="performance-scene-note">{lightNote}</p>}
-                <div className="mx-auto w-fit max-w-full">
-                  <SceneGrid grid={data.lightGrid} layout={layout} states={states} targets={data.lightTargets} templates={templates} selected={new Set()} onToggle={undefined} />
+                {/* Bild: aktuelle Szene oder Vorschau auf die nächste (je Gerät gemerkt) */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex w-fit overflow-hidden rounded-md border border-slate-700 text-xs" role="radiogroup" aria-label={t.lightView}>
+                    {(['current', 'next'] as LightView[]).map((v) => (
+                      <button key={v} type="button" role="radio" aria-checked={lightView === v} onClick={() => setLightView(v)} className={`px-3 py-1 ${lightView === v ? 'bg-sky-600 text-white' : 'hover:bg-slate-800'}`}>
+                        {t.lightViews[v]}
+                      </button>
+                    ))}
+                  </div>
+                  {showNext && <span className="text-sm font-semibold text-amber-400" data-testid="light-preview-label">{t.previewOf(`${sceneIndex + 2}. ${scenes[sceneIndex + 1]!.name || '–'}`)}</span>}
+                  {lightView === 'next' && !scenes[sceneIndex + 1] && <span className="text-sm text-slate-500">{t.previewNone}</span>}
+                </div>
+                <div className={showNext ? 'rounded-lg border-2 border-dashed border-amber-500/70 p-2' : ''} data-testid={showNext ? 'light-preview' : 'light-current'}>
+                  <SceneGrid grid={data.lightGrid} layout={layout} states={showNext ? nextStates : states} targets={data.lightTargets} templates={templates} selected={new Set()} onToggle={undefined} center />
                 </div>
               </>
             ) : (
@@ -437,9 +578,10 @@ export function PerformanceView({
         </main>
       )}
 
-      <footer className="flex shrink-0 items-end gap-3 border-t border-slate-800 px-3 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+      <footer className="flex shrink-0 items-end gap-3 border-t border-slate-800 pt-2 pr-6 pl-3 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
         <div className="min-w-0 flex-1">
-        {item && (
+        {/* Folgen: keine eigenen Bedienknöpfe (Audio, Szenen, Timecode) – „Frei“ wählen, um selbst zu bedienen */}
+        {item && !following && (
           <div className="mx-auto max-w-4xl [&>[data-testid=regie-player]]:static [&>[data-testid=regie-player]]:mx-0 [&>[data-testid=regie-player]]:border-0">
             <PlayerBar
               settings={data.showSettings}
@@ -461,25 +603,27 @@ export function PerformanceView({
             />
           </div>
         )}
-        <div className="mx-auto grid max-w-4xl grid-cols-4 gap-2 py-1">
-          <NavButton label={t.prevItem} onClick={() => goItem(-1)} disabled={itemIndex <= 0}>
-            <ChevronsLeft size={26} aria-hidden />
-          </NavButton>
-          <NavButton label={t.prevScene} onClick={() => goScene(-1)} disabled={itemIndex <= 0 && sceneIndex <= 0}>
-            <ChevronLeft size={26} aria-hidden />
-          </NavButton>
-          <NavButton label={t.nextSceneButton} onClick={() => goScene(1)} disabled={itemIndex >= items.length - 1 && sceneIndex >= scenes.length - 1}>
-            <ChevronRight size={26} aria-hidden />
-          </NavButton>
-          <NavButton label={t.nextItemButton} onClick={() => goItem(1)} disabled={itemIndex >= items.length - 1}>
-            <ChevronsRight size={26} aria-hidden />
-          </NavButton>
-        </div>
+        {!following && (
+          <div className="mx-auto grid max-w-4xl grid-cols-4 gap-2 py-1">
+            <NavButton label={t.prevItem} onClick={() => goItem(-1)} disabled={itemIndex <= 0}>
+              <ChevronsLeft size={26} aria-hidden />
+            </NavButton>
+            <NavButton label={t.prevScene} onClick={() => goScene(-1)} disabled={itemIndex <= 0 && sceneIndex <= 0}>
+              <ChevronLeft size={26} aria-hidden />
+            </NavButton>
+            <NavButton label={t.nextSceneButton} onClick={() => goScene(1)} disabled={itemIndex >= items.length - 1 && sceneIndex >= scenes.length - 1}>
+              <ChevronRight size={26} aria-hidden />
+            </NavButton>
+            <NavButton label={t.nextItemButton} onClick={() => goItem(1)} disabled={itemIndex >= items.length - 1}>
+              <ChevronsRight size={26} aria-hidden />
+            </NavButton>
+          </div>
+        )}
         </div>
         {/* Timecode unten rechts: gelaufene Zeit des Punkts, läuft mit dem Transport */}
         {item && (
           <div className="flex shrink-0 flex-col items-end gap-1">
-            <TimecodePanel tc={tc} sync={withMusic} large />
+            <TimecodePanel tc={tc} sync={withMusic} large follow={leadCue && leadTc !== undefined ? { time: leadTc, playing: !!(leadCue.tc?.playing ?? leadCue.playing) } : undefined} />
             {data.showSettings.artnet?.enabled && (
               <span className={`text-xs ${iLead ? 'text-emerald-400' : 'text-amber-400'}`} data-testid="artnet-state">
                 {iLead ? t.artnetSending(data.showSettings.artnet.host) : t.artnetLeadHint}

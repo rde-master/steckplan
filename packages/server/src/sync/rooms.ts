@@ -1,7 +1,7 @@
 // Verwaltung aller geöffneten Projekte (Räume) und Annahme von WebSocket-Verbindungen.
 import type { FastifyRequest } from 'fastify';
 import type { WebSocket } from 'ws';
-import { CloseCode } from '@steckplan/core';
+import { CloseCode, type RemoteCommand } from '@steckplan/core';
 import type { Session, SessionStore } from '../auth/sessions';
 import { ProjectNotFoundError, type ProjectStore } from '../storage/types';
 import type { VersionStore } from '../storage/version-store';
@@ -102,6 +102,20 @@ export class RoomManager {
   }
 
   /** Trennt alle Verbindungen einer Sitzung (z. B. nach dem Abmelden). */
+  /**
+   * Fernsteuerung an die Vorstellungen: an ein bestimmtes Projekt, sonst an die Projekte, in denen jemand führt,
+   * führt niemand, an alle geöffneten. Ergebnis: Zahl der erreichten Projekte.
+   */
+  remote(command: RemoteCommand, projectId?: string): number {
+    let targets = projectId ? [this.rooms.get(projectId)].filter((r): r is Room => !!r) : [...this.rooms.values()];
+    if (!projectId) {
+      const leading = targets.filter((r) => r.hasLead);
+      if (leading.length) targets = leading;
+    }
+    for (const room of targets) room.remote(command);
+    return targets.length;
+  }
+
   disconnectSession(sessionId: string, reason = 'Abgemeldet'): void {
     for (const room of this.rooms.values()) {
       for (const connection of room.connections) {

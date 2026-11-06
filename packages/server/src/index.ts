@@ -7,3 +7,4 @@ export * from './sync';
 export * from './library';
 export * from './events/event-hub';
 export { qrCodeSvg } from './qr';
+export { OscSettingsStore, type OscSettings, type OscStatus } from './osc/listener';

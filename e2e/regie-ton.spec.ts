@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { loginAs } from './helpers';
+import { loginAs, openPerformance } from './helpers';
 
 function wav(seconds: number): Buffer {
   const rate = 8000;
@@ -74,13 +74,14 @@ test('Tonszenen: formatierter Text je Punkt (bereinigt), Vorstellung mit Licht/T
   await expect(page.getByTestId('sound-items').getByRole('button', { name: /Chorfinale/ }).getByLabel('Toninfos vorhanden')).toBeVisible();
 
   // Vorstellung: nächstes Lied im Kopf, rechts Licht/Ton
-  await page.getByRole('button', { name: 'Vorstellung' }).click();
-  const perf = page.getByTestId('performance');
+  const show = await openPerformance(page);
+  const perf = show.getByTestId('performance');
   await expect(perf.getByTestId('performance-title')).toContainText('Auftakt');
   await expect(perf.getByTestId('performance-next-item')).toContainText('Als Nächstes: 2 Brunnenszene');
   await perf.getByRole('tab', { name: 'Ton' }).click();
   await expect(perf.locator('.rich-text h3')).toHaveText('Mikros');
   await expect(perf.locator('.rich-text img, .rich-text script')).toHaveCount(0);
+  expect(await show.evaluate(() => (window as unknown as { __xss?: number }).__xss)).toBeUndefined();
   // Liedliste: direkt zu „Chorfinale“
   await perf.getByRole('button', { name: 'Liedliste' }).click();
   await perf.getByTestId('performance-list').getByRole('button', { name: /Chorfinale/ }).click();
@@ -88,10 +89,10 @@ test('Tonszenen: formatierter Text je Punkt (bereinigt), Vorstellung mit Licht/T
   await expect(perf.getByTestId('performance-title')).toContainText('Chorfinale');
   await expect(perf.getByTestId('performance-next-item')).toHaveCount(0);
   await expect(perf.locator('.rich-text')).toContainText('Chor-Mikros an');
-  await page.screenshot({ path: 'test-results/vorstellung-ton.png' });
-  // Esc schließt erst die Liste, dann die Vorstellung
+  await show.screenshot({ path: 'test-results/vorstellung-ton.png' });
+  // Esc schließt die Liste (die Vorstellung bleibt – eigener Tab)
   await perf.getByRole('button', { name: 'Liedliste' }).click();
-  await page.keyboard.press('Escape');
+  await show.keyboard.press('Escape');
   await expect(perf.getByTestId('performance-list')).toBeHidden();
   await expect(perf).toBeVisible();
   // die Wahl Licht/Ton bleibt
@@ -144,18 +145,18 @@ test('Tonszenen wie beim Licht: vom Licht übernehmen, Vorstellung mit nächster
   await expect(sound.getByRole('status')).toHaveText('Abgeglichen – keine neuen Szenen');
 
   // Vorstellung: Gesamtdauer im Kopf, Licht mit nächster Szene, Countdown, Balken
-  await page.getByRole('button', { name: 'Vorstellung' }).click();
-  const perf = page.getByTestId('performance');
+  const show = await openPerformance(page);
+  const perf = show.getByTestId('performance');
   await expect(perf.getByTestId('performance-duration')).toHaveText('(0:06)');
   await perf.getByRole('tab', { name: 'Licht' }).click();
   await expect(perf.getByTestId('performance-scene')).toHaveText('1. Intro');
   await expect(perf.getByTestId('performance-next')).toContainText('Als Nächstes: 2. Refrain');
   await expect(perf.getByTestId('performance-next')).toContainText('ab 0:02');
-  await expect(perf.getByTestId('performance-countdown')).toHaveText('−0:02');
+  await expect(perf.getByTestId('performance-countdown')).toHaveText('−0:02.0');
   await expect(perf.getByTestId('performance-progress')).toHaveAttribute('data-progress', '0.00');
   await perf.getByLabel('Position').fill('3');
   await expect(perf.getByTestId('performance-scene')).toHaveText('2. Refrain');
-  await expect(perf.getByTestId('performance-elapsed')).toHaveText('läuft 0:01');
+  await expect(perf.getByTestId('performance-elapsed')).toHaveText('läuft 0:01.0');
   await expect(perf.getByTestId('performance-progress')).toHaveAttribute('data-progress', '0.50');
   await expect(perf.getByTestId('performance-scene-note')).toHaveText('Nebel an');
   // Bridge ohne Notiz: die letzte bleibt stehen
@@ -170,9 +171,25 @@ test('Tonszenen wie beim Licht: vom Licht übernehmen, Vorstellung mit nächster
   await perf.getByLabel('Position').fill('1');
   await expect(perf.getByTestId('sound-scene')).toHaveText('1. Intro');
   await expect(perf.getByTestId('sound-next')).toContainText('Als Nächstes: 2. Refrain');
-  await expect(perf.getByTestId('sound-countdown')).toHaveText('−0:01');
+  await expect(perf.getByTestId('sound-countdown')).toHaveText('−0:01.0');
   await expect(perf.getByText('Noch keine Notiz zur Szene.')).toBeVisible();
-  await page.screenshot({ path: 'test-results/vorstellung-tonszenen.png' });
+  // Ton: Vorschau auf die nächste Szene (mit deren Notiz)
+  const preview = perf.getByTestId('sound-preview');
+  await expect(preview.getByText('Vorschau: 2. Refrain')).toHaveCount(0);
+  await preview.getByLabel('Vorschau anzeigen').check();
+  await expect(preview).toContainText('Vorschau: 2. Refrain');
+  await expect(preview.locator('.rich-text')).toContainText('Funk 2 laut');
+  // Licht: Bild der nächsten Szene statt der aktuellen
   await perf.getByRole('tab', { name: 'Licht' }).click();
-  await page.screenshot({ path: 'test-results/vorstellung-lichtszenen.png' });
+  await expect(perf.getByTestId('light-current')).toBeVisible();
+  await perf.getByRole('radio', { name: 'Nächste' }).click();
+  await expect(perf.getByTestId('light-preview')).toBeVisible();
+  await expect(perf.getByTestId('light-preview-label')).toHaveText('Vorschau: 2. Refrain');
+  await show.screenshot({ path: 'test-results/vorstellung-vorschau.png' });
+  await perf.getByRole('radio', { name: 'Aktuell' }).click();
+  await expect(perf.getByTestId('light-current')).toBeVisible();
+  await perf.getByRole('tab', { name: 'Ton' }).click();
+  await show.screenshot({ path: 'test-results/vorstellung-tonszenen.png' });
+  await perf.getByRole('tab', { name: 'Licht' }).click();
+  await show.screenshot({ path: 'test-results/vorstellung-lichtszenen.png' });
 });

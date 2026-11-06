@@ -263,15 +263,29 @@ function usePlaybackState(playback: Playback | null): { playing: boolean; durati
  * Timecode-Feld: „Mit Musik“, eigene Knöpfe (Stopp, Start/Pause, Spulen), grüne Uhr und darunter rot die Restzeit
  * bis zur geplanten Dauer. Mit Musik wirken die Knöpfe auch auf die Musik, sonst nur auf den Timecode.
  */
-export function TimecodePanel({ tc, sync, large = false }: { tc: Playback & { stop(): void }; sync: boolean; large?: boolean }) {
-  const time = usePlayerTime(tc);
-  const { playing, duration } = usePlaybackState(tc);
+export function TimecodePanel({
+  tc,
+  sync,
+  large = false,
+  follow,
+}: {
+  tc: Playback & { stop(): void };
+  sync: boolean;
+  large?: boolean;
+  /** beim Folgen: Timecode der führenden Vorstellung anzeigen (eigene Knöpfe aus) */
+  follow?: { time: number; playing: boolean };
+}) {
+  const ownTime = usePlayerTime(tc);
+  const own = usePlaybackState(tc);
+  const time = follow ? follow.time : ownTime;
+  const playing = follow ? follow.playing : own.playing;
+  const duration = own.duration;
   const remaining = Number.isFinite(duration) ? Math.max(0, duration - time) : undefined;
   const button = `rounded tabular-nums text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 ${large ? 'min-h-9 min-w-9 px-2 py-1.5 text-sm' : 'px-1.5 py-1 text-xs'}`;
   const icon = large ? 20 : 16;
   return (
     <div className="flex shrink-0 flex-col items-end gap-1" data-testid="timecode-panel">
-      <div className="flex flex-wrap items-center justify-end gap-0.5">
+      <div className={`flex flex-wrap items-center justify-end gap-0.5 ${follow ? 'hidden' : ''}`}>
         <label className={`mr-1 flex items-center gap-1 text-slate-600 dark:text-slate-300 ${large ? 'text-sm' : 'text-xs'}`} title={t.tcSyncHint}>
           <input type="checkbox" checked={sync} onChange={(e) => setTimecodeSync(e.target.checked)} />
           {t.tcSync}

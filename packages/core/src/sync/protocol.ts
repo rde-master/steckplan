@@ -22,6 +22,27 @@ export interface Cue {
   tc?: { at: number; playing: boolean };
 }
 
+/** Fernsteuerung der Vorstellung (OSC bzw. HTTP) */
+export const REMOTE_ACTIONS = ['play', 'pause', 'stop', 'toggle', 'forward', 'back', 'seek', 'item', 'next', 'prev', 'sceneNext', 'scenePrev'] as const;
+export type RemoteAction = (typeof REMOTE_ACTIONS)[number];
+export interface RemoteCommand {
+  action: RemoteAction;
+  /** Sekunden (forward/back/seek) bzw. Nummer des Ablaufpunkts (item) */
+  value?: number;
+}
+
+/** Befehl prüfen (aus OSC oder HTTP); null = ungültig */
+export function parseRemoteCommand(action: unknown, value?: unknown): RemoteCommand | null {
+  if (typeof action !== 'string' || !(REMOTE_ACTIONS as readonly string[]).includes(action)) return null;
+  const a = action as RemoteAction;
+  const n = typeof value === 'number' ? value : typeof value === 'string' && value.trim() !== '' ? Number(value) : undefined;
+  if (n !== undefined && !Number.isFinite(n)) return null;
+  if ((a === 'seek' || a === 'item') && n === undefined) return null;
+  if (a === 'item' && (!Number.isInteger(n) || n! < 1)) return null;
+  if (a === 'seek' && n! < 0) return null;
+  return { action: a, ...(n !== undefined ? { value: a === 'forward' || a === 'back' ? Math.abs(n) : n } : {}) };
+}
+
 /** Wer führt und wo die Vorstellung gerade steht */
 export interface LeadInfo extends Cue {
   connectionId: string;
@@ -59,7 +80,9 @@ export type ServerInfo =
     }
   | { type: 'presence'; users: PresenceUser[] }
   | { type: 'notice'; message: string }
-  | { type: 'lead'; lead: LeadInfo | null };
+  | { type: 'lead'; lead: LeadInfo | null }
+  /** Fernsteuerung: ausführen soll die führende Vorstellung, führt niemand, jede nicht folgende */
+  | { type: 'remote'; command: RemoteCommand };
 
 export function encodeInfo(info: ServerInfo): Uint8Array {
   const encoder = encoding.createEncoder();

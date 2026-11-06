@@ -3,6 +3,7 @@ import { useCallback, useState, type FormEvent } from 'react';
 import { can } from '@steckplan/core';
 import { AppHeader, MainNav } from '../components/AppHeader';
 import { LabelQrSettings } from '../components/LabelQrSettings';
+import { OscSettings } from '../components/OscSettings';
 import { AccessBadge, Banner, Button, Field, Spinner, TextInput } from '../components/ui';
 import { selectClass } from '../components/library/fields';
 import { api, errorMessage, type DesktopKeyInfo } from '../lib/api';
@@ -25,6 +26,7 @@ export function SettingsPage() {
           <>
             <DesktopKeys />
             <LabelQrSettings addressHint={window.location.origin} />
+            <OscSettings />
           </>
         ) : (
           <Banner tone="warn">{t.notAllowed}</Banner>

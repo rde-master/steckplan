@@ -23,6 +23,7 @@ export function SceneGrid({
   templates,
   selected,
   onToggle,
+  center = false,
 }: {
   grid: LightGrid;
   layout: GridLayout;
@@ -31,6 +32,8 @@ export function SceneGrid({
   templates: Map<string, Template>;
   selected: ReadonlySet<string>;
   onToggle: ((deviceId: string) => void) | undefined;
+  /** Kacheln mit fester Höchstbreite mittig statt über die ganze Breite (Vorstellung) */
+  center?: boolean;
 }) {
   const at = new Map(layout.placed.map((p) => [`${p.col}/${p.row}`, p.device]));
   const targetById = new Map(targets.map((x) => [x.id, x]));
@@ -72,7 +75,11 @@ export function SceneGrid({
   return (
     <div className="space-y-2">
       <div className="overflow-x-auto p-1">
-        <div className="grid gap-1" style={{ gridTemplateColumns: `minmax(3rem, 7rem) repeat(${grid.cols}, minmax(4.25rem, 1fr))`, minWidth: `${3 + grid.cols * 4.5}rem` }} data-testid="scene-grid">
+        <div className="grid gap-1" style={{
+            // Vorstellung: Kacheln dürfen schmaler werden und stehen mittig (kein Überlaufen nach rechts)
+            gridTemplateColumns: center ? `fit-content(7rem) repeat(${grid.cols}, minmax(0, 6.5rem))` : `minmax(3rem, 7rem) repeat(${grid.cols}, minmax(4.25rem, 1fr))`,
+            ...(center ? { justifyContent: 'center' } : { minWidth: `${3 + grid.cols * 4.5}rem` }),
+          }} data-testid="scene-grid">
           {Array.from({ length: grid.rows }, (_, row) => (
             <div key={row} className="contents">
               <div className="self-center truncate px-1 text-xs text-slate-500">{grid.rowLabels[row] ?? ''}</div>

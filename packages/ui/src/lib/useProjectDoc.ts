@@ -1,7 +1,7 @@
 // Verbindet ein Projekt live per Yjs mit dem Server.
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import * as Y from 'yjs';
-import { SyncClient, type Cue, type SyncClientState } from '@steckplan/core';
+import { SyncClient, type Cue, type RemoteCommand, type SyncClientState } from '@steckplan/core';
 import { api } from './api';
 
 export interface ProjectDoc {
@@ -9,6 +9,8 @@ export interface ProjectDoc {
   state: SyncClientState;
   /** Vorstellung: führen (Stelle senden) bzw. Führen beenden */
   sendCue: (cue: Cue | null) => void;
+  /** Fernsteuerung (OSC/HTTP) abonnieren; Ergebnis: abbestellen */
+  onRemote: (listener: (command: RemoteCommand) => void) => () => void;
 }
 
 export function useProjectDoc(projectId: string): ProjectDoc | null {
@@ -19,10 +21,18 @@ export function useProjectDoc(projectId: string): ProjectDoc | null {
     // onChange meldet auch den Startzustand (der Client verbindet sich sofort).
     // je Verbindung eine feste Funktion (sonst sendet „Führen“ bei jeder Zustandsänderung erneut)
     const sendCue = (cue: Cue | null) => client.sendCue(cue);
+    const remoteListeners = new Set<(command: RemoteCommand) => void>();
+    const onRemote = (listener: (command: RemoteCommand) => void) => {
+      remoteListeners.add(listener);
+      return () => void remoteListeners.delete(listener);
+    };
     const client: SyncClient = new SyncClient({
       url: api.syncUrl(projectId),
       doc,
-      onChange: (state) => setValue({ doc, state, sendCue }),
+      onChange: (state) => setValue({ doc, state, sendCue, onRemote }),
+      onRemote: (command) => {
+        for (const listener of remoteListeners) listener(command);
+      },
     });
     return () => {
       client.destroy();

@@ -25,6 +25,7 @@ import {
   updateShowItem,
   updateShowSettings,
   type Person,
+  type RemoteCommand,
   type ShowItem,
   type ShowItemKind,
   type ShowSettings,
@@ -37,8 +38,8 @@ import { Button, Field, TextArea, TextInput } from '../ui';
 import { LightSetupView } from './LightSetupView';
 import { ScenesView } from './ScenesView';
 import { SoundView } from './SoundView';
+import { openPerformance } from '../../pages/PerformancePage';
 import { TextsView } from './TextsView';
-import { PerformanceView } from './PerformanceView';
 import { MediaSection, PlayerBar, TimecodePanel, usePlayerTime } from './SongMedia';
 import { usePointPlayback } from '../../lib/transport';
 import { lyricsUrl, openLyricsWindow } from './LyricsWindow';
@@ -54,11 +55,11 @@ export function RegieView(
   props: { projectId: string; doc: Y.Doc; origin: object; data: ProjectData; library: Library | null; editable: boolean } & {
     sync: SyncClientState;
     sendCue: (cue: Cue | null) => void;
+    onRemote: (listener: (command: RemoteCommand) => void) => () => void;
     canLead: boolean;
   },
 ) {
   const [area, setArea] = useState<Area>(readArea);
-  const [performing, setPerforming] = useState(false);
   const choose = (next: Area) => {
     setArea(next);
     try {
@@ -80,13 +81,10 @@ export function RegieView(
         </div>
         <div className="flex-1" />
         <LyricsButtons projectId={props.projectId} doc={props.doc} origin={props.origin} settings={props.data.showSettings} editable={props.editable} />
-        <Button variant="secondary" className="shrink-0 text-sm" title={t.performance.openTitle} aria-label={t.performance.open} onClick={() => setPerforming(true)} disabled={props.data.show.items.length === 0}>
+        <Button variant="secondary" className="shrink-0 text-sm" title={t.performance.openTitle} aria-label={t.performance.open} onClick={() => openPerformance(props.projectId)} disabled={props.data.show.items.length === 0}>
           <Clapperboard {...ICON} /> <span className="hidden sm:inline">{t.performance.open}</span>
         </Button>
       </div>
-      {performing && (
-        <PerformanceView projectId={props.projectId} data={props.data} library={props.library} sync={props.sync} sendCue={props.sendCue} canLead={props.canLead} onClose={() => setPerforming(false)} />
-      )}
       {area === 'texts' ? (
         <TextsView projectId={props.projectId} doc={props.doc} origin={props.origin} data={props.data} editable={props.editable} />
       ) : area === 'scenes' ? (

@@ -39,13 +39,16 @@ function post(channel: BroadcastChannel | null, cue: Cue | null): void {
 /** Die Vorstellung meldet ihre Stelle an Textfenster im selben Browser; beim Schließen „keine Stelle“ */
 export function useLocalCueSender(projectId: string): (cue: Cue | null) => void {
   const [channel] = useState(() => (typeof BroadcastChannel === 'undefined' ? null : new BroadcastChannel(channelName(projectId))));
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    // auch beim Schließen des Tabs (dabei räumt React nicht mehr auf)
+    const gone = () => post(channel, null);
+    window.addEventListener('pagehide', gone);
+    return () => {
+      window.removeEventListener('pagehide', gone);
       post(channel, null);
       channel?.close();
-    },
-    [channel],
-  );
+    };
+  }, [channel]);
   return (cue) => post(channel, cue);
 }
 
