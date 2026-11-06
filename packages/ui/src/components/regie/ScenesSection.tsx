@@ -2,6 +2,7 @@
 import { ArrowLeft, ArrowRight, ClipboardCopy, ClipboardPaste, Copy, CopyPlus, Keyboard, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type * as Y from 'yjs';
+import type { Playback } from '../../lib/transport';
 import {
   addScene,
   clearFixtureValues,
@@ -69,7 +70,7 @@ export function ScenesSection({
   library: Library | null;
   lines: TimedLine[];
   time: number;
-  audio: HTMLAudioElement | null;
+  audio: Playback | null;
   editable: boolean;
 }) {
   const templates = useMemo(() => new Map((library?.templates ?? []).map((tp) => [tp.id, tp])), [library]);
@@ -474,7 +475,7 @@ function KeyOverview() {
   );
 }
 
-function seek(el: HTMLAudioElement, sec: number): void {
+function seek(el: Playback, sec: number): void {
   el.currentTime = sec;
 }
 

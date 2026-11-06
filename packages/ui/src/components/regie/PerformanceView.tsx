@@ -8,6 +8,7 @@ import {
   formatDuration,
   gridLayout,
   itemLines,
+  itemNumbers,
   itemScenes,
   lightDevices,
   sceneStates,
@@ -20,10 +21,11 @@ import type { ProjectData } from '../../lib/useProjectData';
 import { texts } from '../../texts';
 import { Button } from '../ui';
 import { openLyricsWindow, useLocalCueSender } from './LyricsWindow';
-import { KIND_ICONS } from './RegieView';
+import { ItemNumber, KIND_ICONS } from './RegieView';
 import { SceneGrid } from './SceneGrid';
 import { formatSceneTime } from './ScenesSection';
-import { PlayerBar, seekAudio, usePlayerTime } from './SongMedia';
+import { PlayerBar, seekAudio, TimecodeClock, usePlayerTime } from './SongMedia';
+import { useTransport } from '../../lib/transport';
 
 const t = texts.regie.performance;
 
@@ -65,9 +67,13 @@ export function PerformanceView({
   const lines = item ? itemLines(data.show.sections, item.id) : [];
   const plainLines = lines.map((l) => l.line);
 
-  const [audio, setAudio] = useState<HTMLAudioElement | null>(null);
+  // Transport des Ablaufpunkts (Timecode); das Audio des Lieds hängt daran
+  const [audioEl, setAudioEl] = useState<HTMLAudioElement | null>(null);
+  const audio = useTransport(item?.id, item?.durationSec, audioEl);
   const time = usePlayerTime(audio);
-  const playing = !!audio && !audio.paused;
+  const playing = !audio.paused;
+  const numbers = itemNumbers(items);
+  const number = item ? (numbers.get(item.id) ?? itemIndex + 1) : undefined;
   const timeScene = playing ? currentSceneId(scenes, plainLines, time) : undefined;
   const sceneId = following ? lead.sceneId : (timeScene ?? (scenes.some((s) => s.id === sceneChoice) ? sceneChoice : scenes[0]?.id) ?? undefined);
   const sceneIndex = scenes.findIndex((s) => s.id === sceneId);
@@ -75,7 +81,7 @@ export function PerformanceView({
   const nextScene = scenes[sceneIndex + 1];
   const nextItem = items[itemIndex + 1];
   // mit Audio die Abspielposition (auch angehalten, z. B. nach dem Spulen), sonst die Zeile der Szene
-  const currentLine = playing || (audio && time > 0) ? currentLineId(lines, time) : scene?.lineId;
+  const currentLine = playing || time > 0 ? currentLineId(lines, time) : scene?.lineId;
 
   // Stelle mit Abspielposition senden: beim Führen an alle (Server), immer an Textfenster im selben Browser.
   // Bei Eintrag/Szene, Start, Pause, Spulen und alle zwei Sekunden während der Wiedergabe.
@@ -217,6 +223,7 @@ export function PerformanceView({
         <span className="text-sm tabular-nums text-slate-400" data-testid="performance-position">
           {items.length ? `${itemIndex + 1} / ${items.length}` : ''}
         </span>
+        {number !== undefined && <ItemNumber number={number} />}
         {Icon && <Icon size={20} className="text-slate-400" aria-hidden />}
         <h2 className="min-w-[10rem] flex-1 truncate text-lg font-semibold" data-testid="performance-title">
           {item?.title || (item ? texts.regie.untitled : t.empty)}
@@ -317,8 +324,9 @@ export function PerformanceView({
         </main>
       )}
 
-      <footer className="shrink-0 border-t border-slate-800 px-3 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
-        {item && (item.media?.length ?? 0) > 0 && (
+      <footer className="flex shrink-0 items-end gap-3 border-t border-slate-800 px-3 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+        <div className="min-w-0 flex-1">
+        {item && (
           <div className="mx-auto max-w-4xl [&>[data-testid=regie-player]]:static [&>[data-testid=regie-player]]:mx-0 [&>[data-testid=regie-player]]:border-0">
             <PlayerBar
               settings={data.showSettings}
@@ -326,8 +334,8 @@ export function PerformanceView({
               projectId={projectId}
               item={item}
               media={data.media}
-              audio={audio}
-              setAudio={setAudio}
+              playback={audio}
+              setAudio={setAudioEl}
               time={time}
               recording={false}
               onNextLine={() => undefined}
@@ -354,6 +362,9 @@ export function PerformanceView({
             <ChevronsRight size={26} aria-hidden />
           </NavButton>
         </div>
+        </div>
+        {/* Timecode unten rechts: Stunde = Nummer des Punkts, läuft mit dem Transport */}
+        {number !== undefined && <TimecodeClock number={number} time={time} className="mb-1 px-4 py-2 text-3xl sm:text-5xl" />}
       </footer>
     </div>
   );

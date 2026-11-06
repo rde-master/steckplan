@@ -7,6 +7,12 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+### Hinzugefügt
+
+- Regie: Timecode je Ablaufpunkt (25 fps) als große grüne Uhr unten rechts – in der Vorstellung und im Player von Ablauf, Texte und Lichtszenen. Stunde = Nummer des Punkts (Punkt 3 → 03:00:00:00), dahinter die gelaufene Zeit; Vorbereitung für Timecode per Art-Net
+- Regie: Jeder Ablaufpunkt hat einen eigenen Transport (Start, Pause, Spulen); das Lied hängt daran. Der Timecode läuft bis zur Dauer des Punkts weiter (auch nach dem Ende des Audios und bei Punkten ohne Audio) und hält dort an
+- Ablauf: feste Nummern je Punkt (bleiben beim Umsortieren, neue Punkte bekommen die nächste freie, von Hand änderbar, „Neu nummerieren“ zählt in der aktuellen Reihenfolge); Nummern auch in Texte, Lichtszenen und Vorstellung
+
 ## [0.23.4] - 2026-11-05
 
 ### Hinzugefügt

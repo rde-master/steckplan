@@ -130,11 +130,9 @@ test('Regie Lichtszenen: Werte je Gerät, „wie vorige“, Auslöser, Marken im
     .toEqual([2, 'z2', 0, 'Sterne', 'slow']);
 
   // „+ Szene jetzt“: neue Szene an der Abspielzeit, eingereiht nach der Szene davor, mit deren Werten
-  await page.evaluate(() => {
-    const audio = document.querySelector('audio')!;
-    audio.pause();
-    audio.currentTime = 1.2;
-  });
+  const pauseButton = sceneDetail.getByRole('button', { name: 'Pause', exact: true });
+  if (await pauseButton.isVisible()) await pauseButton.click();
+  await sceneDetail.getByLabel('Position').fill('1.2');
   await scenes.getByRole('button', { name: '+ Szene jetzt' }).click();
   await expect(scenes.getByTestId('scene-tab')).toHaveCount(3);
   await expect(scenes.getByTestId('scene-tab').nth(1)).toHaveAttribute('aria-selected', 'true');

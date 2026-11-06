@@ -5,6 +5,7 @@ import { ChevronLeft, ClipboardPaste, Trash2 } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import type * as Y from 'yjs';
 import {
+  itemNumbers,
   appendPastedText,
   clearLineTimes,
   itemLines,
@@ -23,7 +24,8 @@ import type { ProjectData } from '../../lib/useProjectData';
 import { texts } from '../../texts';
 import { ICON } from '../icons';
 import { Button, Modal, TextArea } from '../ui';
-import { KIND_ICONS } from './RegieView';
+import { ItemNumber, KIND_ICONS } from './RegieView';
+import { useTransport } from '../../lib/transport';
 import { SectionsEditor } from './SectionsEditor';
 import { LyricsView, PlayerBar, seekAudio, usePlayerTime, useRecordKey } from './SongMedia';
 
@@ -38,6 +40,7 @@ export function TextsView({ projectId, doc, origin, data, editable }: { projectI
 
   if (items.length === 0) return <p className="mx-auto max-w-2xl p-6 text-sm text-slate-500" data-testid="texts-view">{tv.empty}</p>;
 
+  const numbers = itemNumbers(data.show.items);
   const list = (
     <ul className="min-h-0 flex-1 overflow-y-auto" aria-label={tv.items} data-testid="texts-items">
       {items.map((i) => {
@@ -52,6 +55,7 @@ export function TextsView({ projectId, doc, origin, data, editable }: { projectI
               onClick={() => setSelectedId(i.id)}
               className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm ${isSelected ? 'bg-sky-50 dark:bg-sky-950' : 'hover:bg-slate-50 dark:hover:bg-slate-800'}`}
             >
+              <ItemNumber number={numbers.get(i.id)} />
               <Icon size={16} className="shrink-0 text-slate-500" aria-label={t.kinds[i.kind]} />
               <span className="min-w-0 flex-1 truncate font-medium">{i.title || t.untitled}</span>
               <span className="shrink-0 text-xs text-slate-500">{t.lines(count)}</span>
@@ -77,15 +81,16 @@ function TextDetail({ projectId, doc, origin, data, item, editable, onBack }: { 
   const sections = itemSections(data.show.sections, item.id);
   const [pasting, setPasting] = useState(false);
   const [audio, setAudio] = useState<HTMLAudioElement | null>(null);
-  const time = usePlayerTime(audio);
+  const transport = useTransport(item.id, item.durationSec, audio);
+  const time = usePlayerTime(transport);
   const hasAudio = item.kind === 'song' && (item.media?.length ?? 0) > 0;
   const [textMode, setTextMode] = useState<'edit' | 'read' | 'record'>('edit');
   const mode = hasAudio ? textMode : 'edit';
   const lines = itemLines(data.show.sections, item.id);
   const next = nextUntimedLine(lines);
   const recordNext = useCallback(() => {
-    if (next && editable) setLineTime(doc, next.sectionId, next.line.id, audio?.currentTime ?? 0, origin);
-  }, [next, editable, doc, origin, audio]);
+    if (next && editable) setLineTime(doc, next.sectionId, next.line.id, transport.currentTime, origin);
+  }, [next, editable, doc, origin, transport]);
   useRecordKey(mode === 'record' && editable, recordNext);
   const Icon = KIND_ICONS[item.kind];
 
@@ -129,17 +134,18 @@ function TextDetail({ projectId, doc, origin, data, item, editable, onBack }: { 
         {mode === 'edit' ? (
           <SectionsEditor doc={doc} origin={origin} item={item} sections={sections} editable={editable} />
         ) : (
-          <LyricsView doc={doc} origin={origin} lines={lines} time={time} recording={mode === 'record'} editable={editable} onSeek={(sec) => seekAudio(audio, sec)} />
+          <LyricsView doc={doc} origin={origin} lines={lines} time={time} recording={mode === 'record'} editable={editable} onSeek={(sec) => seekAudio(transport, sec)} />
         )}
       </section>
 
-      {hasAudio && (
+      {(
         <PlayerBar
           settings={data.showSettings}
+          number={itemNumbers(data.show.items).get(item.id)}
           projectId={projectId}
           item={item}
           media={data.media}
-          audio={audio}
+          playback={transport}
           setAudio={setAudio}
           time={time}
           recording={mode === 'record' && editable}
