@@ -7,6 +7,11 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+### Hinzugefügt
+
+- OSC: Lied bzw. Ablaufpunkt über die Nummer in der Adresse wählen – `/steckplan/lied/13` (auch `/steckplan/item/13`), für Pulte, die ohne Wert senden
+- Seite „OSC-Befehle“: Spalte mit dem passenden grandMA3-Befehl (z. B. `SendOSC 1 "/steckplan/play,,"`) und Anleitung zum Einrichten der OSC-Zeile im Pult
+
 ## [0.26.1] - 2026-11-06
 
 ### Hinzugefügt

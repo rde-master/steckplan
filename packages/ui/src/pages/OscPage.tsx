@@ -14,26 +14,43 @@ import { texts } from '../texts';
 const t = texts.oscPage;
 
 interface CommandInfo {
+  /** Schlüssel der Zeile */
+  key: string;
   action: RemoteAction;
   address: string;
+  /** Nummer steht in der Adresse (/steckplan/lied/13) statt als Wert */
+  numberInAddress?: boolean;
   /** Wert: Beschreibung, Beispiel, Vorgabe beim Ausprobieren */
   value?: { label: string; example: number; optional?: boolean };
   meaning: string;
 }
 
+/** Adresse, wie sie gesendet wird (Nummer ggf. in der Adresse) */
+function shownAddress(c: CommandInfo, value?: number): string {
+  return c.numberInAddress ? `${c.address}/${value ?? c.value?.example ?? 1}` : c.address;
+}
+
+/** grandMA3: SendOSC <OSC-Zeile> "<Adresse>,<Typen>,<Werte>" */
+function grandMa3(c: CommandInfo): string {
+  if (!c.value || c.numberInAddress) return `SendOSC 1 "${shownAddress(c)},,"`;
+  const v = c.value.example;
+  return `SendOSC 1 "${c.address},${Number.isInteger(v) ? 'i' : 'f'},${v}"`;
+}
+
 const COMMANDS: CommandInfo[] = [
-  { action: 'play', address: '/steckplan/play', meaning: t.meanings.play },
-  { action: 'pause', address: '/steckplan/pause', meaning: t.meanings.pause },
-  { action: 'toggle', address: '/steckplan/toggle', meaning: t.meanings.toggle },
-  { action: 'stop', address: '/steckplan/stop', meaning: t.meanings.stop },
-  { action: 'forward', address: '/steckplan/forward', value: { label: t.seconds, example: 5, optional: true }, meaning: t.meanings.forward },
-  { action: 'back', address: '/steckplan/back', value: { label: t.seconds, example: 5, optional: true }, meaning: t.meanings.back },
-  { action: 'seek', address: '/steckplan/seek', value: { label: t.seconds, example: 61.5 }, meaning: t.meanings.seek },
-  { action: 'item', address: '/steckplan/item', value: { label: t.number, example: 3 }, meaning: t.meanings.item },
-  { action: 'next', address: '/steckplan/next', meaning: t.meanings.next },
-  { action: 'prev', address: '/steckplan/prev', meaning: t.meanings.prev },
-  { action: 'sceneNext', address: '/steckplan/scene/next', meaning: t.meanings.sceneNext },
-  { action: 'scenePrev', address: '/steckplan/scene/prev', meaning: t.meanings.scenePrev },
+  { key: 'play', action: 'play', address: '/steckplan/play', meaning: t.meanings.play },
+  { key: 'pause', action: 'pause', address: '/steckplan/pause', meaning: t.meanings.pause },
+  { key: 'toggle', action: 'toggle', address: '/steckplan/toggle', meaning: t.meanings.toggle },
+  { key: 'stop', action: 'stop', address: '/steckplan/stop', meaning: t.meanings.stop },
+  { key: 'forward', action: 'forward', address: '/steckplan/forward', value: { label: t.seconds, example: 5, optional: true }, meaning: t.meanings.forward },
+  { key: 'back', action: 'back', address: '/steckplan/back', value: { label: t.seconds, example: 5, optional: true }, meaning: t.meanings.back },
+  { key: 'seek', action: 'seek', address: '/steckplan/seek', value: { label: t.seconds, example: 61.5 }, meaning: t.meanings.seek },
+  { key: 'lied', action: 'item', address: '/steckplan/lied', numberInAddress: true, value: { label: t.number, example: 13 }, meaning: t.meanings.lied },
+  { key: 'item', action: 'item', address: '/steckplan/item', value: { label: t.number, example: 3 }, meaning: t.meanings.item },
+  { key: 'next', action: 'next', address: '/steckplan/next', meaning: t.meanings.next },
+  { key: 'prev', action: 'prev', address: '/steckplan/prev', meaning: t.meanings.prev },
+  { key: 'sceneNext', action: 'sceneNext', address: '/steckplan/scene/next', meaning: t.meanings.sceneNext },
+  { key: 'scenePrev', action: 'scenePrev', address: '/steckplan/scene/prev', meaning: t.meanings.scenePrev },
 ];
 
 export function OscPage() {
@@ -46,12 +63,12 @@ export function OscPage() {
   const host = window.location.hostname;
 
   const run = (command: CommandInfo) => {
-    const raw = values[command.action] ?? (command.value ? String(command.value.example) : '');
+    const raw = values[command.key] ?? (command.value ? String(command.value.example) : '');
     const value = raw.trim() === '' ? undefined : Number(raw.replace(',', '.'));
     setResult(null);
     void api
       .remote(command.action, value)
-      .then((r) => setResult(r.rooms > 0 ? { ok: true, text: t.sent(command.address, r.rooms) } : { ok: false, text: t.noRoom }))
+      .then((r) => setResult(r.rooms > 0 ? { ok: true, text: t.sent(shownAddress(command, value), r.rooms) } : { ok: false, text: t.noRoom }))
       .catch((e: unknown) => setResult({ ok: false, text: errorMessage(e) }));
   };
 
@@ -85,30 +102,30 @@ export function OscPage() {
                 <th className="px-3 py-2">{t.columns.address}</th>
                 <th className="px-3 py-2">{t.columns.value}</th>
                 <th className="px-3 py-2">{t.columns.meaning}</th>
-                <th className="px-3 py-2">{t.columns.http}</th>
+                <th className="px-3 py-2">{t.columns.grandma3}</th>
                 {canTry && <th className="px-3 py-2">{t.columns.try}</th>}
               </tr>
             </thead>
             <tbody>
               {COMMANDS.map((c) => (
-                <tr key={c.action} className="border-t border-slate-100 align-top dark:border-slate-800">
-                  <td className="px-3 py-2 font-mono whitespace-nowrap">{c.address}</td>
-                  <td className="px-3 py-2 text-xs whitespace-nowrap">{c.value ? (c.value.optional ? `[${c.value.label}]` : c.value.label) : '–'}</td>
+                <tr key={c.key} className="border-t border-slate-100 align-top dark:border-slate-800">
+                  <td className="px-3 py-2 font-mono whitespace-nowrap">{c.numberInAddress ? `${c.address}/‹${c.value!.label}›` : c.address}</td>
+                  <td className="px-3 py-2 text-xs whitespace-nowrap">{c.numberInAddress ? t.inAddress : c.value ? (c.value.optional ? `[${c.value.label}]` : c.value.label) : '–'}</td>
                   <td className="px-3 py-2">{c.meaning}</td>
-                  <td className="px-3 py-2 font-mono text-xs whitespace-nowrap">{JSON.stringify(c.value ? { action: c.action, value: c.value.example } : { action: c.action })}</td>
+                  <td className="px-3 py-2 font-mono text-xs whitespace-nowrap" data-testid="osc-grandma3">{grandMa3(c)}</td>
                   {canTry && (
                     <td className="px-3 py-2 whitespace-nowrap">
                       <span className="flex items-center gap-1">
                         {c.value && (
                           <input
-                            aria-label={`${c.value.label}: ${c.address}`}
+                            aria-label={`${c.value.label}: ${shownAddress(c, 0).replace(/\/0$/, '')}${c.numberInAddress ? '/…' : ''}`}
                             className="w-16 rounded border border-slate-300 bg-white px-1.5 py-0.5 text-xs dark:border-slate-600 dark:bg-slate-800"
                             inputMode="decimal"
-                            value={values[c.action] ?? String(c.value.example)}
-                            onChange={(e) => setValues({ ...values, [c.action]: e.target.value })}
+                            value={values[c.key] ?? String(c.value.example)}
+                            onChange={(e) => setValues({ ...values, [c.key]: e.target.value })}
                           />
                         )}
-                        <Button variant="secondary" className="min-h-7 px-2 py-0.5 text-xs" aria-label={`${t.columns.try}: ${c.address}`} onClick={() => run(c)}>
+                        <Button variant="secondary" className="min-h-7 px-2 py-0.5 text-xs" aria-label={`${t.columns.try}: ${c.numberInAddress ? `${c.address}/…` : c.address}`} onClick={() => run(c)}>
                           <Play size={12} aria-hidden /> {t.send}
                         </Button>
                       </span>
@@ -119,6 +136,15 @@ export function OscPage() {
             </tbody>
           </table>
         </div>
+        <section className="space-y-1 rounded-lg border border-slate-200 bg-white p-4 text-sm dark:border-slate-700 dark:bg-slate-900" data-testid="osc-grandma3-help">
+          <h2 className="font-semibold">{t.grandma3.title}</h2>
+          <ol className="list-decimal space-y-1 pl-5">
+            {t.grandma3.steps.map((step) => (
+              <li key={step}>{step}</li>
+            ))}
+          </ol>
+          <p className="font-mono text-xs">{t.grandma3.example}</p>
+        </section>
         <p className="text-xs text-slate-500">{t.httpHint}</p>
       </main>
     </div>

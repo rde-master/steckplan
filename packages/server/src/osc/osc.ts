@@ -93,6 +93,7 @@ const ADDRESSES: Record<string, RemoteAction> = {
   back: 'back',
   seek: 'seek',
   item: 'item',
+  lied: 'item',
   next: 'next',
   prev: 'prev',
   'scene/next': 'sceneNext',
@@ -107,6 +108,13 @@ export const DEFAULT_NUDGE = 5;
  * Taster senden oft beim Loslassen 0 – bei Befehlen ohne Wert wird 0/false ignoriert.
  */
 export function oscToCommand(message: OscMessage): RemoteCommand | null {
+  // Nummer in der Adresse: /steckplan/lied/13 bzw. /steckplan/item/13 (für Pulte, die ohne Wert senden)
+  const numbered = /^\/steckplan\/(?:lied|item)\/(\d{1,3})$/.exec(message.address);
+  if (numbered) {
+    const first = message.args[0];
+    if (first === 0 || first === false) return null; // Loslassen eines Tasters
+    return parseRemoteCommand('item', Number(numbered[1]));
+  }
   const match = /^\/steckplan\/(.+)$/.exec(message.address);
   const action = match ? ADDRESSES[match[1]!] : undefined;
   if (!action) return null;
