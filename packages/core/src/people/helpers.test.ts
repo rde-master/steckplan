@@ -71,3 +71,29 @@ describe('Nachrichten an die Technik', () => {
     expect(readHelperMessages(doc)).toEqual([]);
   });
 });
+
+import { handoverState, personHandover, readHandovers, setHandover } from '../index';
+
+describe('Technik-Übergabe', () => {
+  it('Empfang, Rückgabe (nur nach Empfang), erneute Ausgabe, zurücksetzen; Person gelöscht → weg', () => {
+    const doc = new Y.Doc();
+    const anna = addPerson(doc, { lastName: 'Muster', firstName: 'Anna', kind: '' }, null);
+    expect(handoverState(personHandover(readHandovers(doc), anna.id))).toBe('open');
+    expect(setHandover(doc, anna.id, 'return', 'Anna', null)).toBe(false);
+    expect(setHandover(doc, 'niemand', 'receive', 'Anna', null)).toBe(false);
+    expect(setHandover(doc, anna.id, 'receive', 'Anna', null)).toBe(true);
+    expect(personHandover(readHandovers(doc), anna.id)).toMatchObject({ receivedBy: 'Anna' });
+    expect(handoverState(personHandover(readHandovers(doc), anna.id))).toBe('received');
+    expect(setHandover(doc, anna.id, 'return', 'Ralf', null)).toBe(true);
+    expect(personHandover(readHandovers(doc), anna.id)).toMatchObject({ receivedBy: 'Anna', returnedBy: 'Ralf' });
+    expect(handoverState(personHandover(readHandovers(doc), anna.id))).toBe('returned');
+    // neue Ausgabe: Rückgabe wieder offen
+    setHandover(doc, anna.id, 'receive', 'Ralf', null);
+    expect(personHandover(readHandovers(doc), anna.id)!.returnedAt).toBeUndefined();
+    setHandover(doc, anna.id, 'reset', 'Ralf', null);
+    expect(readHandovers(doc)).toEqual([]);
+    setHandover(doc, anna.id, 'receive', 'Anna', null);
+    removePerson(doc, anna.id, null);
+    expect(readHandovers(doc)).toEqual([]);
+  });
+});

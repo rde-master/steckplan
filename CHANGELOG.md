@@ -7,6 +7,14 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+### Hinzugefügt
+
+- Helfer: Empfangs- und Rückgabebestätigung der Technik. Wer Geräte hat, bekommt beim Scannen des QR-Codes (bzw. über den Link) ein Fenster, das erst mit „Ich habe die Technik erhalten“ verschwindet; danach „Technik zurückgeben“ mit kurzer Rückfrage. Bearbeiten sieht in der Übersicht je Person Empfang und Rückgabe (wann, von wem), bestätigt beides auch selbst und kann zurücksetzen
+
+### Behoben
+
+- Helfer → Übersicht: der kopierte Link in der Tabelle je Person wurde vom Tabellenrand abgeschnitten
+
 ## [0.30.0] - 2026-11-06
 
 ### Hinzugefügt

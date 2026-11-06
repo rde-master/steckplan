@@ -607,6 +607,17 @@ export const HelperMessageSchema = z.object({
 });
 export type HelperMessage = z.infer<typeof HelperMessageSchema>;
 
+/** Technik-Übergabe einer Person (id = Person): Empfang und Rückgabe mit Zeit und wer bestätigt hat */
+export const HandoverSchema = z.object({
+  id,
+  personId: id,
+  receivedAt: z.string().optional(),
+  receivedBy: z.string().optional(),
+  returnedAt: z.string().optional(),
+  returnedBy: z.string().optional(),
+});
+export type Handover = z.infer<typeof HandoverSchema>;
+
 export const SoundSceneSchema = z.object({
   id,
   itemId: id,
@@ -724,6 +735,7 @@ export const ProjectSchema = z.object({
   gigs: z.array(GigSchema).default([]),
   helperSignups: z.array(HelperSignupSchema).default([]),
   helperMessages: z.array(HelperMessageSchema).default([]),
+  handovers: z.array(HandoverSchema).default([]),
   network: z
     .object({
       subnets: z.array(SubnetSchema).default([]),

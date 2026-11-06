@@ -34,6 +34,7 @@ export const Y_COLLECTIONS = {
   gigs: ['gigs'],
   helperSignups: ['helperSignups'],
   helperMessages: ['helperMessages'],
+  handovers: ['handovers'],
 } as const satisfies Record<string, CollectionPath>;
 
 /** Bereiche des Dokuments, die der Zugang „Regie“ ändern darf */

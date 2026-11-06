@@ -159,6 +159,8 @@ export function scopeAllows(method: string, url: string, projectId: string): boo
   if (method === 'POST' && path === `${own}/helper`) return true;
   // … und schreiben der Technik (eigene Nachrichten; geprüft in der Route)
   if (method === 'POST' && path === `${own}/messages`) return true;
+  // … und Empfang / Rückgabe der Technik bestätigen
+  if (method === 'POST' && path === `${own}/handover`) return true;
   if ((method === 'PUT' || method === 'DELETE') && /^\/[^/]+$/.test(path.slice(`${own}/messages`.length)) && path.startsWith(`${own}/messages/`)) return true;
   if (method !== 'GET' && method !== 'HEAD') return false;
   if (path === '/api/events' || path === '/api/projects' || path === '/api/settings/label-qr') return true;

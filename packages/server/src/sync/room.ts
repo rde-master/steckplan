@@ -28,6 +28,8 @@ import {
   MESSAGE_SYNC,
   readProjectFromYDoc,
   setHelperSignup,
+  setHandover,
+  type HandoverAction,
   addHelperMessage,
   readHelperMessage,
   removeHelperMessage,
@@ -302,6 +304,12 @@ export class Room {
   private assertWritable(): void {
     const reason = this.deps.store.readOnlyReason(this.id) ?? (this.pending ? RECONCILE_PENDING_REASON : undefined);
     if (reason) throw new Error(reason);
+  }
+
+  /** Technik-Übergabe (Rechte prüft die Route) */
+  applyHandover(personId: string, action: HandoverAction, by: string): boolean {
+    this.assertWritable();
+    return setHandover(this.doc, personId, action, by, new ServerOrigin(by));
   }
 
   addHelperMessage(personId: string, text: string, by: string): string | undefined {
