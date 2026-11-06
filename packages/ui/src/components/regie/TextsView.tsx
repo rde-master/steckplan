@@ -2,7 +2,7 @@
 // (Abschnitte, Rollen, Text einfügen; mit Audio: Mitlesen und Mitschreiben), unten der Player.
 // Auf dem Handy erst die Liste, Antippen öffnet das Stück.
 import { ChevronLeft, ClipboardPaste, Trash2 } from 'lucide-react';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type * as Y from 'yjs';
 import {
   itemNumbers,
@@ -13,7 +13,7 @@ import {
   itemTimedLines,
   itemScenes,
   itemSections,
-  nextUntimedLine,
+  nextLineToRecord,
   personName,
   sceneTime,
   setLineTime,
@@ -91,79 +91,91 @@ function TextDetail({ projectId, doc, origin, data, item, editable, onBack }: { 
   // Zeiten auf der Zeitachse des Punkts; gespeichert wird ab Musikbeginn, wenn der Versatz auch für den Text gilt
   const lines = itemTimedLines(data.show.sections, item);
   const offset = textOffset(item);
-  const next = nextUntimedLine(lines);
+  // zuletzt mit „Nächste Zeile“ gesetzte Zeile; Spulen/Springen beginnt neu an der Abspielposition
+  const [recorded, setRecorded] = useState<string | undefined>(undefined);
+  useEffect(() => {
+    const reset = () => setRecorded(undefined);
+    music.addEventListener('seeked', reset);
+    return () => music.removeEventListener('seeked', reset);
+  }, [music]);
+  const next = nextLineToRecord(lines, time, recorded);
   const recordNext = useCallback(() => {
-    if (next && editable) setLineTime(doc, next.sectionId, next.line.id, Math.max(0, music.currentTime - offset), origin);
-  }, [next, editable, doc, origin, music, offset]);
+    // genaue Position im Moment des Drückens (die angezeigte Zeit läuft etwas hinterher)
+    const at = music.currentTime;
+    const line = nextLineToRecord(lines, at, recorded);
+    if (!line || !editable) return;
+    setLineTime(doc, line.sectionId, line.line.id, Math.max(0, at - offset), origin);
+    setRecorded(line.line.id);
+  }, [lines, recorded, editable, doc, origin, music, offset, setRecorded]);
   useRecordKey(mode === 'record' && editable, recordNext);
   const Icon = KIND_ICONS[item.kind];
 
   return (
-    <article className="mx-auto max-w-3xl space-y-4 p-4" aria-label={item.title || t.untitled} data-testid="texts-detail">
-      <header className="flex items-center gap-2">
-        {onBack && (
-          <Button variant="ghost" aria-label={tv.back} onClick={onBack}>
-            <ChevronLeft {...ICON} />
-          </Button>
-        )}
-        <Icon size={20} className="shrink-0 text-slate-500" aria-hidden />
-        <h2 className="min-w-0 flex-1 truncate text-lg font-semibold">{item.title || t.untitled}</h2>
-      </header>
-
-      {item.kind === 'play' && <RolesEditor item={item} sections={sections} people={data.people} editable={editable} onChange={(roles) => updateShowItem(doc, item.id, { roles }, origin)} />}
-
-      <section className="space-y-2" aria-label={t.text}>
-        <div className="flex flex-wrap items-center gap-2 *:whitespace-nowrap">
-          <h3 className="text-sm font-semibold tracking-wide text-slate-500 uppercase">{t.text}</h3>
-          {hasAudio && (
-            <div className="flex shrink-0 overflow-hidden rounded-md border border-slate-300 text-xs dark:border-slate-600" role="radiogroup" aria-label={t.textModeLabel}>
-              {(['edit', 'read', 'record'] as const)
-                .filter((m) => m !== 'record' || editable)
-                .map((m) => (
-                  <button key={m} type="button" role="radio" aria-checked={mode === m} onClick={() => setTextMode(m)} className={`px-2 py-1 ${mode === m ? 'bg-sky-600 text-white' : ''}`}>
-                    {t.textModes[m]}
-                  </button>
-                ))}
-            </div>
-          )}
-          <div className="flex-1" />
-          {editable && mode === 'edit' && (
-            <Button variant="ghost" className="text-xs" onClick={() => setPasting(true)}>
-              <ClipboardPaste {...ICON} /> {t.paste}
+    <div className="flex min-h-full flex-col px-4" data-testid="texts-detail">
+      <article className="mx-auto w-full max-w-3xl flex-1 space-y-4 py-4" aria-label={item.title || t.untitled}>
+        <header className="flex items-center gap-2">
+          {onBack && (
+            <Button variant="ghost" aria-label={tv.back} onClick={onBack}>
+              <ChevronLeft {...ICON} />
             </Button>
           )}
-        </div>
-        {item.kind === 'song' && !hasAudio && <p className="text-xs text-slate-500">{tv.noAudio}</p>}
-        {mode === 'record' && <p className="text-xs text-slate-500">{t.recordHint}</p>}
-        {mode === 'edit' ? (
-          <SectionsEditor projectId={projectId} doc={doc} origin={origin} item={item} sections={sections} settings={data.showSettings} editable={editable} />
-        ) : (
-          <LyricsView doc={doc} origin={origin} lines={lines} time={time} timeOffset={offset} recording={mode === 'record'} editable={editable} onSeek={(sec) => seekAudio(music, sec)} />
-        )}
-      </section>
+          <Icon size={20} className="shrink-0 text-slate-500" aria-hidden />
+          <h2 className="min-w-0 flex-1 truncate text-lg font-semibold">{item.title || t.untitled}</h2>
+        </header>
 
-      {(
-        <PlayerBar
-          settings={data.showSettings}
-          aside={<TimecodePanel tc={tc} sync={sync} />}
-          projectId={projectId}
-          item={item}
-          media={data.media}
-          playback={music}
-          setAudio={setAudio}
-          time={time}
-          recording={mode === 'record' && editable}
-          onNextLine={recordNext}
-          nextLineText={next?.line.text}
-          onClearTimes={() => {
-            if (window.confirm(t.clearTimesConfirm)) clearLineTimes(doc, item.id, origin);
-          }}
-          markers={itemScenes(data.lightScenes, item.id).flatMap((s, i) => {
-            const at = sceneTime(s, lines.map((l) => l.line));
-            return at === undefined ? [] : [{ id: s.id, at, label: `${i + 1} ${s.name}` }];
-          })}
-        />
-      )}
+        {item.kind === 'play' && <RolesEditor item={item} sections={sections} people={data.people} editable={editable} onChange={(roles) => updateShowItem(doc, item.id, { roles }, origin)} />}
+
+        <section className="space-y-2" aria-label={t.text}>
+          <div className="flex flex-wrap items-center gap-2 *:whitespace-nowrap">
+            <h3 className="text-sm font-semibold tracking-wide text-slate-500 uppercase">{t.text}</h3>
+            {hasAudio && (
+              <div className="flex shrink-0 overflow-hidden rounded-md border border-slate-300 text-xs dark:border-slate-600" role="radiogroup" aria-label={t.textModeLabel}>
+                {(['edit', 'read', 'record'] as const)
+                  .filter((m) => m !== 'record' || editable)
+                  .map((m) => (
+                    <button key={m} type="button" role="radio" aria-checked={mode === m} onClick={() => setTextMode(m)} className={`px-2 py-1 ${mode === m ? 'bg-sky-600 text-white' : ''}`}>
+                      {t.textModes[m]}
+                    </button>
+                  ))}
+              </div>
+            )}
+            <div className="flex-1" />
+            {editable && mode === 'edit' && (
+              <Button variant="ghost" className="text-xs" onClick={() => setPasting(true)}>
+                <ClipboardPaste {...ICON} /> {t.paste}
+              </Button>
+            )}
+          </div>
+          {item.kind === 'song' && !hasAudio && <p className="text-xs text-slate-500">{tv.noAudio}</p>}
+          {mode === 'record' && <p className="text-xs text-slate-500">{t.recordHint}</p>}
+          {mode === 'edit' ? (
+            <SectionsEditor projectId={projectId} doc={doc} origin={origin} item={item} sections={sections} settings={data.showSettings} editable={editable} />
+          ) : (
+            <LyricsView doc={doc} origin={origin} lines={lines} time={time} timeOffset={offset} recording={mode === 'record'} editable={editable} onSeek={(sec) => seekAudio(music, sec)} />
+          )}
+        </section>
+      </article>
+      {/* Player über die ganze Breite – der Timecode steht rechts am Rand */}
+      <PlayerBar
+        settings={data.showSettings}
+        aside={<TimecodePanel tc={tc} sync={sync} />}
+        projectId={projectId}
+        item={item}
+        media={data.media}
+        playback={music}
+        setAudio={setAudio}
+        time={time}
+        recording={mode === 'record' && editable}
+        onNextLine={recordNext}
+        nextLineText={next?.line.text}
+        onClearTimes={() => {
+          if (window.confirm(t.clearTimesConfirm)) clearLineTimes(doc, item.id, origin);
+        }}
+        markers={itemScenes(data.lightScenes, item.id).flatMap((s, i) => {
+          const at = sceneTime(s, lines.map((l) => l.line));
+          return at === undefined ? [] : [{ id: s.id, at, label: `${i + 1} ${s.name}` }];
+        })}
+      />
 
       {pasting && (
         <PasteDialog
@@ -175,7 +187,7 @@ function TextDetail({ projectId, doc, origin, data, item, editable, onBack }: { 
           }}
         />
       )}
-    </article>
+    </div>
   );
 }
 

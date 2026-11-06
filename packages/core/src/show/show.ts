@@ -711,6 +711,17 @@ export function nextUntimedLine(lines: TimedLine[]): TimedLine | undefined {
   return lines.slice(lastTimed + 1).find((l) => l.line.atSec === undefined);
 }
 
+/**
+ * Zeile, die „Nächste Zeile“ beim Mitschreiben setzt: nach der zuletzt so gesetzten Zeile (afterId), sonst die Zeile
+ * nach der, die zur Abspielzeit gerade dran ist (vor der ersten Zeit: die erste Zeile). Damit lässt sich auch ein Lied
+ * mit Zeiten neu mitschreiben – ab Anfang oder ab einer angesprungenen Zeile.
+ */
+export function nextLineToRecord(lines: TimedLine[], t: number, afterId?: string): TimedLine | undefined {
+  const anchor = afterId !== undefined && lines.some((l) => l.line.id === afterId) ? afterId : currentLineId(lines, t);
+  if (anchor === undefined) return lines[0];
+  return lines[lines.findIndex((l) => l.line.id === anchor) + 1];
+}
+
 /** Zeitpunkt einer Zeile setzen (undefined = entfernen); auf eine Zehntelsekunde gerundet. */
 export function setLineTime(doc: Y.Doc, sectionId: string, lineId: string, atSec: number | undefined, origin: unknown): void {
   const section = readShow(doc).sections.find((s) => s.id === sectionId);

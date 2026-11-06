@@ -7,6 +7,11 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+### Geändert
+
+- Mitschreiben: „Nächste Zeile“ (und Leertaste) geht auch, wenn schon Zeiten da sind – es setzt die Zeile nach der, die gerade dran ist, bzw. nach der zuletzt gesetzten; nach Spulen oder Springen geht es ab dort weiter (neu mitschreiben ab Anfang oder ab einer Zeile)
+- Texte (Bearbeiten, Mitlesen, Mitschreiben): der Player läuft über die ganze Breite, der Timecode steht rechts am Rand
+
 ## [0.27.2] - 2026-11-06
 
 ### Hinzugefügt

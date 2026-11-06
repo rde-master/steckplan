@@ -582,7 +582,7 @@ export const texts = {
       noAccess: 'Kein Zugriff auf dieses Projekt.',
     },
     textModeLabel: 'Textansicht',
-    recordHint: 'Lied abspielen und bei jeder neuen Zeile „Nächste Zeile“ drücken (oder Leertaste). Klick auf eine Zeile springt dorthin; die Zeit davor lässt sich direkt bearbeiten, die Uhr daneben setzt die aktuelle Zeit.',
+    recordHint: 'Lied abspielen und bei jeder neuen Zeile „Nächste Zeile“ drücken (oder Leertaste) – das geht auch, wenn schon Zeiten da sind: ab Anfang oder ab einer angesprungenen Zeile wird neu gesetzt. Klick auf eine Zeile springt dorthin; die Zeit davor lässt sich direkt bearbeiten, die Uhr daneben setzt die aktuelle Zeit.',
     clearTimesConfirm: 'Alle Zeitpunkte dieses Lieds löschen?',
     media: {
       title: 'Audio',
