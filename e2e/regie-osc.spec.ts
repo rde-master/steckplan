@@ -76,6 +76,19 @@ test('OSC: in den Einstellungen einschalten, Vorstellung per OSC steuern (Punkt,
     await expect(perf.getByTestId('performance-scene')).toHaveText('2. Abgang');
     await send('/steckplan/prev');
     await expect(perf.getByTestId('performance-title')).toHaveText('Erstes');
+    // Liedliste: Nummer in der Adresse (z. B. aus grandMA3: SendOSC 1 "/steckplan/lied/2,,")
+    await send('/steckplan/lied/2');
+    await expect(perf.getByTestId('performance-title')).toHaveText('Zweites');
+    await send('/steckplan/lied/1');
+    await expect(perf.getByTestId('performance-title')).toHaveText('Erstes');
+    // nur den Timecode verschieben: ohne Wert 0,1 s (= 2 Frames bei 25 fps), mit Wert beliebig
+    await expect(clock).toHaveText('00:00:00:00');
+    await send('/steckplan/tc/forward');
+    await expect(clock).toHaveText('00:00:00:02');
+    await send('/steckplan/tc/forward', 1.5);
+    await expect(clock).toHaveText('00:00:01:15');
+    await send('/steckplan/tc/back');
+    await expect(clock).toHaveText('00:00:01:12');
   } finally {
     socket.close();
   }
@@ -84,8 +97,11 @@ test('OSC: in den Einstellungen einschalten, Vorstellung per OSC steuern (Punkt,
   await page.goto('/osc');
   const overview = page.getByTestId('osc-page');
   await expect(overview.getByTestId('osc-page-status')).toContainText(`UDP-Port ${OSC_PORT}`);
-  await expect(overview.getByTestId('osc-commands').locator('tbody tr')).toHaveCount(12);
+  await expect(overview.getByTestId('osc-commands').locator('tbody tr')).toHaveCount(15);
   await expect(overview.getByTestId('osc-commands')).toContainText('/steckplan/scene/next');
+  await expect(overview.getByTestId('osc-grandma3').first()).toHaveText('SendOSC 1 "/steckplan/play,,"');
+  await expect(overview.getByTestId('osc-commands')).toContainText('SendOSC 1 "/steckplan/lied/13,,"');
+  await expect(overview.getByTestId('osc-grandma3-help')).toContainText('In & Out');
   await overview.getByLabel('Nummer: /steckplan/item').fill('2');
   await overview.getByRole('button', { name: 'Ausprobieren: /steckplan/item' }).click();
   await expect(page.getByText('/steckplan/item gesendet')).toBeVisible();

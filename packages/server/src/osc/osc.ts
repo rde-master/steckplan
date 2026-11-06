@@ -93,31 +93,44 @@ const ADDRESSES: Record<string, RemoteAction> = {
   back: 'back',
   seek: 'seek',
   item: 'item',
+  lied: 'item',
   next: 'next',
   prev: 'prev',
   'scene/next': 'sceneNext',
   'scene/prev': 'scenePrev',
+  'tc/forward': 'tcForward',
+  'tc/back': 'tcBack',
 };
 
 /** Standard-Sprungweite für /forward und /back ohne Argument (Sekunden) */
 export const DEFAULT_NUDGE = 5;
+/** Standard-Verschiebung des Timecodes (/tc/forward, /tc/back) ohne Argument (Sekunden) */
+export const DEFAULT_TC_NUDGE = 0.1;
 
 /**
  * OSC-Nachricht → Befehl. Adressen unter /steckplan/… (z. B. /steckplan/play, /steckplan/item 3).
  * Taster senden oft beim Loslassen 0 – bei Befehlen ohne Wert wird 0/false ignoriert.
  */
 export function oscToCommand(message: OscMessage): RemoteCommand | null {
+  // Nummer in der Adresse: /steckplan/lied/13 bzw. /steckplan/item/13 (für Pulte, die ohne Wert senden)
+  const numbered = /^\/steckplan\/(?:lied|item)\/(\d{1,3})$/.exec(message.address);
+  if (numbered) {
+    const first = message.args[0];
+    if (first === 0 || first === false) return null; // Loslassen eines Tasters
+    return parseRemoteCommand('item', Number(numbered[1]));
+  }
   const match = /^\/steckplan\/(.+)$/.exec(message.address);
   const action = match ? ADDRESSES[match[1]!] : undefined;
   if (!action) return null;
   const first = message.args[0];
   const value = typeof first === 'number' ? first : typeof first === 'string' ? Number(first) : undefined;
   const needsValue = action === 'seek' || action === 'item';
-  const takesValue = needsValue || action === 'forward' || action === 'back';
+  const relative = action === 'forward' || action === 'back' || action === 'tcForward' || action === 'tcBack';
+  const takesValue = needsValue || relative;
   if (!takesValue && (first === 0 || first === false)) return null; // Loslassen eines Tasters
-  if (action === 'forward' || action === 'back') {
+  if (relative) {
     if (value === 0) return null;
-    return parseRemoteCommand(action, value ?? DEFAULT_NUDGE);
+    return parseRemoteCommand(action, value ?? (action === 'tcForward' || action === 'tcBack' ? DEFAULT_TC_NUDGE : DEFAULT_NUDGE));
   }
   return parseRemoteCommand(action, takesValue ? value : undefined);
 }

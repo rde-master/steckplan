@@ -41,6 +41,19 @@ describe('OSC', () => {
     expect(cmd('/steckplan/item', [4])).toEqual({ action: 'item', value: 4 });
     expect(cmd('/steckplan/item', ['4'])).toEqual({ action: 'item', value: 4 });
     expect(cmd('/steckplan/item')).toBeNull();
+    // Nummer in der Adresse (Liedliste)
+    expect(cmd('/steckplan/lied/13')).toEqual({ action: 'item', value: 13 });
+    expect(cmd('/steckplan/item/2')).toEqual({ action: 'item', value: 2 });
+    expect(cmd('/steckplan/lied/13', [1])).toEqual({ action: 'item', value: 13 });
+    expect(cmd('/steckplan/lied/13', [0])).toBeNull();
+    expect(cmd('/steckplan/lied/0')).toBeNull();
+    expect(cmd('/steckplan/lied', [7])).toEqual({ action: 'item', value: 7 });
+    expect(cmd('/steckplan/lied/x')).toBeNull();
+    // nur den Timecode verschieben (Standard 0,1 s)
+    expect(cmd('/steckplan/tc/forward')).toEqual({ action: 'tcForward', value: 0.1 });
+    expect(cmd('/steckplan/tc/back')).toEqual({ action: 'tcBack', value: 0.1 });
+    expect(cmd('/steckplan/tc/back', [0.04])).toEqual({ action: 'tcBack', value: 0.04 });
+    expect(cmd('/steckplan/tc/forward', [0])).toBeNull();
     expect(cmd('/steckplan/scene/next')).toEqual({ action: 'sceneNext' });
     expect(cmd('/steckplan/unbekannt')).toBeNull();
     expect(cmd('/anderes/play')).toBeNull();

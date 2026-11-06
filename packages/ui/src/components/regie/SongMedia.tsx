@@ -293,17 +293,17 @@ export function TimecodePanel({
         <button type="button" className={button} aria-label={t.tcStop} title={t.tcStop} onClick={() => tc.stop()}>
           <Square size={icon - 2} aria-hidden />
         </button>
-        {[-5, -1].map((d) => (
+        {[-5, -1, -0.1].map((d) => (
           <button key={d} type="button" className={button} aria-label={t.tcBack(-d)} title={t.tcBack(-d)} onClick={() => seekAudio(tc, tc.currentTime + d)}>
-            {d}
+            {String(d).replace('.', ',')}
           </button>
         ))}
         <button type="button" className={`${button} text-emerald-600 dark:text-emerald-400`} aria-label={playing ? t.tcPause : t.tcStart} title={playing ? t.tcPause : t.tcStart} onClick={() => (playing ? tc.pause() : void tc.play())}>
           {playing ? <Pause size={icon} aria-hidden /> : <Play size={icon} aria-hidden />}
         </button>
-        {[1, 5].map((d) => (
+        {[0.1, 1, 5].map((d) => (
           <button key={d} type="button" className={button} aria-label={t.tcForward(d)} title={t.tcForward(d)} onClick={() => seekAudio(tc, tc.currentTime + d)}>
-            +{d}
+            +{String(d).replace('.', ',')}
           </button>
         ))}
       </div>
