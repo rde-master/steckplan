@@ -12,10 +12,12 @@ export type Permission =
   | 'restoreVersion'
   | 'manageProjects'
   | 'viewSecrets'
-  | 'editShow';
+  | 'editShow'
+  /** sich als Helfer zu Auftritten an-/abmelden (auch Lesen und Regie, z. B. über den QR-Code) */
+  | 'helperSignup';
 
-const READ_PERMISSIONS: ReadonlySet<Permission> = new Set(['checkItems']);
-const DIRECTION_PERMISSIONS: ReadonlySet<Permission> = new Set(['editShow']);
+const READ_PERMISSIONS: ReadonlySet<Permission> = new Set(['checkItems', 'helperSignup']);
+const DIRECTION_PERMISSIONS: ReadonlySet<Permission> = new Set(['editShow', 'helperSignup']);
 
 export function can(access: Access, permission: Permission): boolean {
   if (access === 'local' || access === 'edit') return true;

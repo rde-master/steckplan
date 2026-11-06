@@ -7,6 +7,22 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.28.0] - 2026-11-06
+
+### Hinzugefügt
+
+- Helfer: neuer Tab „Helfer“ mit einer persönlichen Seite je Person – wo sie ihre Geräte einsteckt (Anschluss → Gegenstelle mit Kabel, farbig nach Signalart, dazu der Bühnenplan mit den eigenen Geräten rot umrandet) und die Anmeldung zu den Auftritten: mit einem Klick zum Aufbau an- oder abmelden, „Anhänger zur Location“, „Anhänger zur nächsten Location“, Bemerkung
+- QR-Code auf dem Etikett eines Geräts, das einer Person gehört: öffnet direkt deren Helfer-Seite (Geräte ohne Person wie bisher im Signalfluss); an- und abmelden geht mit dieser QR-Sitzung (nur für sich selbst)
+- Projektdaten → Auftritte: Titel, Ort, Datum, Aufbau ab, Beginn, Notiz
+- Helfer: „Nachricht an die Technik“ auf einer eigenen Seite (Knopf unten auf der Helfer-Seite, ohne Antwort); eigene Nachrichten lesen, ändern, löschen, mit „gelesen“/„noch nicht gelesen“. Bearbeiten sieht alle Nachrichten im Helfer-Bereich unter „Nachrichten“, kann sie ändern und löschen; ungelesene zeigt ein roter Zähler am Tab „Helfer“ und am Knopf „Nachrichten“, beim Lesen verschwindet er (geänderte Nachrichten gelten wieder als ungelesen)
+- Helfer tragen nur sich selbst ein: der QR-Code bindet die Sitzung an die Person des Geräts (Name „Vorname Name (QR-Code)“); nur Bearbeiten wählt andere Personen und ändert deren Einträge
+- Helfer → Übersicht (Bearbeiten): je Auftritt Helfer beim Aufbau, Anhänger hin und weiter, Bemerkungen; dazu eine Tabelle je Person
+
+### Geändert
+
+- Mitschreiben: „Nächste Zeile“ (und Leertaste) geht auch, wenn schon Zeiten da sind – es setzt die Zeile nach der, die gerade dran ist, bzw. nach der zuletzt gesetzten; nach Spulen oder Springen geht es ab dort weiter (neu mitschreiben ab Anfang oder ab einer Zeile)
+- Texte (Bearbeiten, Mitlesen, Mitschreiben): der Player läuft über die ganze Breite, der Timecode steht rechts am Rand
+
 ## [0.27.2] - 2026-11-06
 
 ### Hinzugefügt
@@ -618,7 +634,8 @@ Meilenstein M0 – Projektgerüst.
 - Docker-Image mit Datenvolume `/data` und Beispiel-`docker-compose.yml`
 - GitHub Actions: Tests und Smoke-Test bei jedem Push, Installer als Artefakte, Docker-Image `:develop`, Release-Workflow für Tags `vX.Y.Z`
 
-[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.27.2...develop
+[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.28.0...develop
+[0.28.0]: https://github.com/rde-master/steckplan/compare/v0.27.2...v0.28.0
 [0.27.2]: https://github.com/rde-master/steckplan/compare/v0.27.1...v0.27.2
 [0.27.1]: https://github.com/rde-master/steckplan/compare/v0.27.0...v0.27.1
 [0.27.0]: https://github.com/rde-master/steckplan/compare/v0.26.2...v0.27.0
