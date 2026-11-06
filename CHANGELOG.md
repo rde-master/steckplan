@@ -7,6 +7,15 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+### Hinzugefügt
+
+- Regie-Einstellungen → Textfenster: Farbe der aktiven Zeile (Textfarbe, Hervorhebung an/aus mit eigener Farbe, Vorschau, Zurücksetzen)
+
+### Geändert
+
+- Mitschreiben: Klick auf eine Zeile springt dorthin (statt die Zeit zu setzen); die Zeit vorne ist direkt bearbeitbar (z. B. 1:12.5, Enter übernimmt, leer löscht); „Auf aktuelle Zeit setzen“ als eigener Knopf je Zeile
+- Mitlesen/Mitschreiben: anklickbare Zeilen zeigen den Hand-Zeiger
+
 ## [0.27.1] - 2026-11-06
 
 ### Hinzugefügt

@@ -83,6 +83,10 @@ export function useCueClock(cue: ReceivedCue | null): number | undefined {
 
 // ---------- Anzeige ----------
 
+/** Standardfarben der aktiven Zeile: Text weiß, Hervorhebung dunkelblau */
+export const LYRICS_ACTIVE_COLOR = '#ffffff';
+export const LYRICS_ACTIVE_BG = '#0c4a6e';
+
 
 /**
  * Zeilen zentriert: vorige (ausgegraut, Anzahl before), aktuelle (hervorgehoben), nächste (Anzahl after).
@@ -97,6 +101,8 @@ export function LyricsDisplay({
   roleNames,
   before = 1,
   after = 3,
+  activeColor = LYRICS_ACTIVE_COLOR,
+  activeBg = LYRICS_ACTIVE_BG,
 }: {
   title: string;
   lines: TimedLine[];
@@ -104,6 +110,10 @@ export function LyricsDisplay({
   roleNames: Map<string, string>;
   before?: number;
   after?: number;
+  /** Farbe der aktiven Zeile */
+  activeColor?: string;
+  /** Hervorhebung der aktiven Zeile ('none' = keine) */
+  activeBg?: string;
 }) {
   const current = lines.findIndex((l) => l.line.id === currentLineId);
   const slots = before + 1 + after;
@@ -135,9 +145,13 @@ export function LyricsDisplay({
                   aria-hidden={!visible || undefined}
                 >
                   <span
-                    style={{ fontSize: `min(4.5vw, ${ROW_VH * 0.42}vh)` }}
+                    style={{
+                      fontSize: `min(4.5vw, ${ROW_VH * 0.42}vh)`,
+                      ...(isCurrent ? { color: activeColor, backgroundColor: activeBg === 'none' ? 'transparent' : `${activeBg}d9` } : {}),
+                    }}
+                    data-testid={isCurrent ? 'lyrics-active-line' : undefined}
                     className={`max-w-full truncate rounded-xl px-[2vw] py-[0.4em] leading-tight transition-all duration-700 ease-out motion-reduce:transition-none [text-shadow:0_2px_10px_rgb(0_0_0/0.85)] ${
-                      isCurrent ? 'scale-[1.2] bg-sky-900/85 font-semibold text-white' : d < 0 && visible ? 'scale-90 text-slate-400 opacity-70' : visible ? 'text-slate-100' : 'opacity-0'
+                      isCurrent ? 'scale-[1.2] font-semibold' : d < 0 && visible ? 'scale-90 text-slate-400 opacity-70' : visible ? 'text-slate-100' : 'opacity-0'
                     } ${l.line.direction ? 'italic' : ''}`}
                   >
                     {speaker && <span className="mr-[1vw] text-sky-300">{speaker}:</span>}

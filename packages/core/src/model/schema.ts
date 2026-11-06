@@ -611,6 +611,9 @@ export const ShowSettingsSchema = z.object({
   /** Textfenster: Zeilen vor bzw. nach der aktuellen (Standard 1 und 3) */
   lyricsBefore: z.number().int().min(0).max(LYRICS_MAX_BEFORE).optional(),
   lyricsAfter: z.number().int().min(0).max(LYRICS_MAX_AFTER).optional(),
+  /** Textfenster: Farbe der aktiven Zeile (Text) und ihrer Hervorhebung (#rrggbb; 'none' = ohne Hervorhebung) */
+  lyricsActiveColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+  lyricsActiveBg: z.union([z.string().regex(/^#[0-9a-fA-F]{6}$/), z.literal('none')]).optional(),
   /** Textfenster: false = Titel des Lieds nicht anzeigen (Standard: anzeigen) */
   lyricsShowTitle: z.boolean().optional(),
   /** Restzeit im Player: ab so vielen Sekunden vor Schluss allmählich rot (Standard 30), ab so vielen blinkend (Standard 5) */
