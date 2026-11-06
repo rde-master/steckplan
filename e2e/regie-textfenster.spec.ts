@@ -79,9 +79,7 @@ test('Textfenster: eigene Seite, im selben Browser und auf anderen Geräten (Fü
   await expect(perf.getByTestId('line-time').nth(0)).toHaveText('0:05.5');
 
   // an 2,0 s: vorige Zeile 1, aktuelle Zeile 2 (zentriert), dann 3–5
-  await page.evaluate(() => {
-    document.querySelector('audio')!.currentTime = 2;
-  });
+  await perf.getByLabel('Position').fill('2');
   await expect(rows).toHaveText(['Zeile 1', 'Zeile 2', 'Zeile 3', 'Zeile 4', 'Zeile 5']);
   await expect(popup.locator('[data-current]')).toHaveText('Zeile 2');
   await expect(popup.locator('[data-current]')).toHaveCSS('text-align', 'center');
@@ -118,9 +116,7 @@ test('Textfenster: eigene Seite, im selben Browser und auf anderen Geräten (Fü
   await expect(otherCurrent).toHaveText('Zeile 7');
   await expect(popup.locator('[data-current]')).toHaveText('Zeile 7');
   // Wiedergabe läuft: das andere Gerät zählt selbst weiter
-  await page.evaluate(() => {
-    document.querySelector('audio')!.currentTime = 3;
-  });
+  await perf.getByLabel('Position').fill('3');
   await expect(otherCurrent).toHaveText('Zeile 3');
   await perf.getByRole('button', { name: 'Abspielen' }).click();
   await expect(otherCurrent).toHaveText('Zeile 4', { timeout: 3000 });
@@ -137,9 +133,7 @@ test('Textfenster: eigene Seite, im selben Browser und auf anderen Geräten (Fü
   await page.getByLabel('nach der aktuellen').selectOption('5');
   await page.getByRole('button', { name: 'Fertig' }).click();
   await page.getByRole('button', { name: 'Vorstellung' }).click();
-  await page.evaluate(() => {
-    document.querySelector('audio')!.currentTime = 3;
-  });
+  await perf.getByLabel('Position').fill('3');
   // aktuell Zeile 3 → Zeile 1–2 davor, Zeile 4–8 danach
   await expect(rows).toHaveText(['Zeile 1', 'Zeile 2', 'Zeile 3', 'Zeile 4', 'Zeile 5', 'Zeile 6', 'Zeile 7', 'Zeile 8']);
   await expect(popup.locator('[data-current]')).toHaveText('Zeile 3');
@@ -150,14 +144,10 @@ test('Textfenster: eigene Seite, im selben Browser und auf anderen Geräten (Fü
   const remaining = perf.getByTestId('remaining');
   await expect(remaining).toHaveText('−0:09');
   await expect(remaining).toHaveAttribute('data-state', 'normal');
-  await page.evaluate(() => {
-    document.querySelector('audio')!.currentTime = 9;
-  });
+  await perf.getByLabel('Position').fill('9');
   await expect(remaining).toHaveText('−0:03');
   await expect(remaining).toHaveAttribute('data-state', 'warn');
   await perf.getByTestId('regie-player').screenshot({ path: 'test-results/restzeit.png' });
-  await page.evaluate(() => {
-    document.querySelector('audio')!.currentTime = 10.5;
-  });
+  await perf.getByLabel('Position').fill('10.5');
   await expect(remaining).toHaveAttribute('data-state', 'blink');
 });

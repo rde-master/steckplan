@@ -22,6 +22,11 @@ import {
   duplicateSection,
   duplicateShowItem,
   formatDuration,
+  formatTimecode,
+  artTimecodePacket,
+  isArtNetHost,
+  itemNumbers,
+  renumberShowItems,
   itemSections,
   moveSection,
   moveShowItem,
@@ -275,5 +280,67 @@ describe('Regie: Hintergrundbild des Textfensters', () => {
     p = read();
     expect(p.showSettings.lyricsBackground).toBeUndefined();
     expect(p.media).toEqual([]);
+  });
+});
+
+describe('Regie: Nummern und Timecode', () => {
+  it('feste Nummern: neue Einträge die nächste freie, Kopie eine neue, Umsortieren ändert nichts, neu durchnummerieren', () => {
+    const d = doc();
+    const a = addShowItem(d, 'song', null, { title: 'A' });
+    const b = addShowItem(d, 'play', null, { title: 'B' });
+    const c = addShowItem(d, 'break', null, { title: 'C' });
+    const numbers = () => itemNumbers(readShow(d).items);
+    expect([a, b, c].map((id) => numbers().get(id))).toEqual([1, 2, 3]);
+    moveShowItem(d, c, 0, null);
+    expect([a, b, c].map((id) => numbers().get(id))).toEqual([1, 2, 3]);
+    const copy = duplicateShowItem(d, a, null)!;
+    expect(numbers().get(copy)).toBe(4);
+    removeShowItem(d, b, null);
+    const e = addShowItem(d, 'song', null, { title: 'E' });
+    expect(numbers().get(e)).toBe(5);
+    renumberShowItems(d, null);
+    expect(readShow(d).items.map((i) => `${i.title}:${i.number}`)).toEqual(['C:1', 'A:2', 'A (Kopie):3', 'E:4']);
+  });
+
+  it('ältere Projekte: Nummern werden vor dem Umsortieren/Löschen festgeschrieben und bleiben', () => {
+    const d = doc();
+    const ids = ['A', 'B', 'C'].map((title) => addShowItem(d, 'song', null, { title }));
+    // wie ein älteres Projekt: Nummern entfernen
+    for (const id of ids) (d.getMap('showItems').get(id) as Y.Map<unknown>).delete('number');
+    moveShowItem(d, ids[2]!, 0, null);
+    expect(readShow(d).items.map((i) => `${i.title}:${i.number}`)).toEqual(['C:3', 'A:1', 'B:2']);
+    removeShowItem(d, ids[0]!, null);
+    expect(readShow(d).items.map((i) => `${i.title}:${i.number}`)).toEqual(['C:3', 'B:2']);
+  });
+
+  it('ältere Projekte ohne Nummern: in Reihenfolge die freien Nummern', () => {
+    expect([...itemNumbers([{ id: 'x' }, { id: 'y', number: 1 }, { id: 'z' }]).entries()]).toEqual([
+      ['x', 2],
+      ['y', 1],
+      ['z', 3],
+    ]);
+  });
+
+  it('Timecode HH:MM:SS:FF mit 25 fps, jeder Eintrag ab 00:00:00:00', () => {
+    expect(formatTimecode(0)).toBe('00:00:00:00');
+    expect(formatTimecode(61.52)).toBe('00:01:01:13');
+    expect(formatTimecode(3599.999)).toBe('00:59:59:24');
+    expect(formatTimecode(3600)).toBe('01:00:00:00');
+  });
+});
+
+describe('Art-Net Timecode', () => {
+  it('ArtTimeCode-Paket: Kopf, OpCode 0x9700, Protokoll 14, Frames/Sek/Min/Std, Typ EBU', () => {
+    const p = artTimecodePacket(3723.52);
+    expect(p.length).toBe(19);
+    expect(new TextDecoder().decode(p.slice(0, 7))).toBe('Art-Net');
+    expect([...p.slice(7, 12)]).toEqual([0, 0x00, 0x97, 0, 14]);
+    expect([...p.slice(14)]).toEqual([13, 3, 2, 1, 1]);
+  });
+  it('Zieladresse', () => {
+    expect(isArtNetHost('2.255.255.255')).toBe(true);
+    expect(isArtNetHost('192.168.1.40')).toBe(true);
+    expect(isArtNetHost('256.1.1.1')).toBe(false);
+    expect(isArtNetHost('konsole.local')).toBe(false);
   });
 });

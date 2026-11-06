@@ -1,11 +1,12 @@
 // Regie (M11a): Ablauf links, gewählter Eintrag rechts (Angaben, Rollen, Texte).
 // Auf dem Handy erst der Ablauf, Antippen öffnet den Eintrag.
-import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Clapperboard, Coffee, Copy, Drama, GripVertical, Link2, Megaphone, Monitor, Music, Settings2, Trash2, type LucideIcon } from 'lucide-react';
+import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Clapperboard, Coffee, Copy, Drama, GripVertical, Link2, ListOrdered, Megaphone, Monitor, Music, Settings2, Trash2, type LucideIcon } from 'lucide-react';
 import { useState, type DragEvent, type ReactNode } from 'react';
 import type * as Y from 'yjs';
 import {
   addShowItem,
   itemLines,
+  itemNumbers,
   itemScenes,
   sceneTime,
   type Cue,
@@ -18,6 +19,7 @@ import {
   parseDuration,
   personName,
   removeShowItem,
+  renumberShowItems,
   duplicateShowItem,
   showSchedule,
   updateShowItem,
@@ -34,9 +36,11 @@ import { ICON } from '../icons';
 import { Button, Field, TextArea, TextInput } from '../ui';
 import { LightSetupView } from './LightSetupView';
 import { ScenesView } from './ScenesView';
+import { SoundView } from './SoundView';
 import { TextsView } from './TextsView';
 import { PerformanceView } from './PerformanceView';
 import { MediaSection, PlayerBar, usePlayerTime } from './SongMedia';
+import { useTransport } from '../../lib/transport';
 import { lyricsUrl, openLyricsWindow } from './LyricsWindow';
 import { LyricsSettings } from './LyricsSettings';
 
@@ -87,6 +91,8 @@ export function RegieView(
         <TextsView projectId={props.projectId} doc={props.doc} origin={props.origin} data={props.data} editable={props.editable} />
       ) : area === 'scenes' ? (
         <ScenesView projectId={props.projectId} doc={props.doc} origin={props.origin} data={props.data} library={props.library} editable={props.editable} />
+      ) : area === 'sound' ? (
+        <SoundView doc={props.doc} origin={props.origin} data={props.data} editable={props.editable} />
       ) : area === 'light' ? (
         <div className="min-h-0 flex-1 overflow-y-auto">
           <LightSetupView doc={props.doc} origin={props.origin} data={props.data} library={props.library} editable={props.editable} />
@@ -98,8 +104,8 @@ export function RegieView(
   );
 }
 
-type Area = 'show' | 'texts' | 'scenes' | 'light';
-const AREAS: Area[] = ['show', 'texts', 'scenes', 'light'];
+type Area = 'show' | 'texts' | 'scenes' | 'sound' | 'light';
+const AREAS: Area[] = ['show', 'texts', 'scenes', 'sound', 'light'];
 const AREA_KEY = 'steckplan.regieArea';
 function readArea(): Area {
   try {
@@ -116,6 +122,7 @@ function ShowView({ projectId, doc, origin, data, editable }: { projectId: strin
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const selected = items.find((i) => i.id === selectedId) ?? (narrow ? undefined : items[0]);
   const schedule = showSchedule(items, data.showSettings);
+  const numbers = itemNumbers(items);
   const [dragId, setDragId] = useState<string | null>(null);
 
   const add = (kind: ShowItemKind) => {
@@ -137,6 +144,18 @@ function ShowView({ projectId, doc, origin, data, editable }: { projectId: strin
               onChange={(e) => updateShowSettings(doc, { startTime: e.target.value || undefined }, origin)}
             />
           </label>
+          {editable && items.length > 0 && (
+            <Button
+              variant="ghost"
+              className="min-h-8 px-2 text-xs"
+              title={t.renumberTitle}
+              onClick={() => {
+                if (window.confirm(t.renumberConfirm)) renumberShowItems(doc, origin);
+              }}
+            >
+              <ListOrdered {...ICON} /> {t.renumber}
+            </Button>
+          )}
           <span className="ml-auto text-xs text-slate-500" data-testid="regie-total">
             {t.total(formatDuration(schedule.totalSec), schedule.missingDurations)}
           </span>
@@ -185,6 +204,7 @@ function ShowView({ projectId, doc, origin, data, editable }: { projectId: strin
                   className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm ${isSelected ? 'bg-sky-50 dark:bg-sky-950' : 'hover:bg-slate-50 dark:hover:bg-slate-800'}`}
                 >
                   {editable && !narrow && <GripVertical size={14} className="shrink-0 cursor-grab text-slate-300" aria-label={t.dragHint} />}
+                  <ItemNumber number={numbers.get(item.id)} />
                   <span className="w-11 shrink-0 tabular-nums text-xs text-slate-500">{entry?.clock ?? `+${formatDuration(entry?.offsetSec ?? 0)}`}</span>
                   <Icon size={16} className="shrink-0 text-slate-500" aria-label={t.kinds[item.kind]} />
                   <span className={`min-w-0 flex-1 truncate ${item.kind === 'break' ? 'italic text-slate-600 dark:text-slate-300' : 'font-medium'}`}>{item.title || t.untitled}</span>
@@ -204,6 +224,8 @@ function ShowView({ projectId, doc, origin, data, editable }: { projectId: strin
       projectId={projectId}
       data={data}
       media={data.media}
+      number={numbers.get(selected.id) ?? 1}
+      numbers={numbers}
       doc={doc}
       origin={origin}
       item={selected}
@@ -232,6 +254,8 @@ function ItemDetail({
   projectId,
   data,
   media,
+  number,
+  numbers,
   doc,
   origin,
   item,
@@ -246,6 +270,8 @@ function ItemDetail({
   projectId: string;
   data: ProjectData;
   media: MediaRef[];
+  number: number;
+  numbers: Map<string, number>;
   doc: Y.Doc;
   origin: object;
   item: ShowItem;
@@ -261,8 +287,8 @@ function ItemDetail({
   const set = (patch: Partial<Omit<ShowItem, 'id'>>) => updateShowItem(doc, item.id, patch, origin);
   // Player zum Anhören (Text und Mitschreiben im Bereich „Texte“)
   const [audio, setAudio] = useState<HTMLAudioElement | null>(null);
-  const time = usePlayerTime(audio);
-  const hasAudio = item.kind === 'song' && (item.media?.length ?? 0) > 0;
+  const transport = useTransport(item.id, item.durationSec, audio);
+  const time = usePlayerTime(transport);
   const lines = itemLines(sections, item.id);
   return (
     <article className="mx-auto max-w-3xl space-y-4 p-4" aria-label={item.title || t.untitled} data-testid="regie-detail">
@@ -307,6 +333,9 @@ function ItemDetail({
           <TextInput value={item.title} disabled={!editable} onChange={(e) => set({ title: e.target.value })} />
         </Field>
         <DurationField value={item.durationSec} editable={editable} onChange={(durationSec) => set({ durationSec })} />
+        <div className="sm:col-start-2">
+          <NumberField number={number} taken={[...numbers].some(([id, n]) => id !== item.id && n === number)} editable={editable} onChange={(n) => set({ number: n })} />
+        </div>
         {item.kind === 'song' && (
           <div className="sm:col-span-2">
             <Field label={t.fields.artist}>
@@ -337,9 +366,10 @@ function ItemDetail({
 
       {item.kind === 'song' && <MediaSection projectId={projectId} doc={doc} origin={origin} item={item} media={media} editable={editable} />}
 
-      {hasAudio && (
+      {(
         <PlayerBar
           settings={data.showSettings}
+          clock
           markers={itemScenes(data.lightScenes, item.id).flatMap((s, i) => {
             const at = sceneTime(s, lines.map((l) => l.line));
             return at === undefined ? [] : [{ id: s.id, at, label: `${i + 1} ${s.name}` }];
@@ -347,7 +377,7 @@ function ItemDetail({
           projectId={projectId}
           item={item}
           media={media}
-          audio={audio}
+          playback={transport}
           setAudio={setAudio}
           time={time}
           recording={false}
@@ -357,6 +387,40 @@ function ItemDetail({
         />
       )}
     </article>
+  );
+}
+
+/** Nummer des Ablaufpunkts (Stunde im Timecode) */
+export function ItemNumber({ number }: { number: number | undefined }) {
+  return (
+    <span className="w-7 shrink-0 rounded bg-slate-800 px-1 text-center font-mono text-xs font-semibold text-emerald-400 tabular-nums dark:bg-black" title={number !== undefined ? t.numberTitle(number) : undefined} data-testid="item-number">
+      {number ?? ''}
+    </span>
+  );
+}
+
+function NumberField({ number, taken, editable, onChange }: { number: number; taken: boolean; editable: boolean; onChange: (n: number) => void }) {
+  const [draft, setDraft] = useState<string | null>(null);
+  const value = Number(draft);
+  const invalid = draft !== null && !(Number.isInteger(value) && value >= 1 && value <= 999);
+  return (
+    <Field label={t.fields.number} hint={taken ? t.numberTaken : t.fields.numberHint}>
+      <TextInput
+        value={draft ?? String(number)}
+        inputMode="numeric"
+        disabled={!editable}
+        aria-invalid={invalid || taken}
+        onFocus={() => setDraft(String(number))}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={() => {
+          if (draft !== null && !invalid && value !== number) onChange(value);
+          setDraft(null);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+        }}
+      />
+    </Field>
   );
 }
 

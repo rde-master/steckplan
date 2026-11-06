@@ -276,13 +276,100 @@ function sectionsMap(doc: Y.Doc): Y.Map<Y.Map<unknown>> {
 }
 
 /** Neuer Eintrag am Ende bzw. nach afterId; gibt die Kennung zurück. */
+// ---------- Nummern und Timecode ----------
+
+/**
+ * Feste Nummer je Eintrag (= Stunde im Timecode). Einträge ohne gespeicherte Nummer (ältere Projekte)
+ * bekommen in Ablauf-Reihenfolge die nächsten freien Nummern – für alle Geräte gleich.
+ */
+export function itemNumbers(items: Pick<ShowItem, 'id' | 'number'>[]): Map<string, number> {
+  const used = new Set(items.flatMap((i) => (i.number !== undefined ? [i.number] : [])));
+  const result = new Map<string, number>();
+  let next = 1;
+  for (const item of items) {
+    if (item.number !== undefined) {
+      result.set(item.id, item.number);
+      continue;
+    }
+    while (used.has(next)) next++;
+    used.add(next);
+    result.set(item.id, next);
+  }
+  return result;
+}
+
+/** Nächste freie Nummer (größte + 1) */
+export function nextItemNumber(items: Pick<ShowItem, 'id' | 'number'>[]): number {
+  return Math.min(999, Math.max(0, ...itemNumbers(items).values()) + 1);
+}
+
+/** Abgeleitete Nummern (ältere Projekte) speichern – vor Umsortieren und Löschen, damit sie dabei bleiben */
+function pinItemNumbers(doc: Y.Doc): void {
+  const items = readShow(doc).items;
+  if (items.every((i) => i.number !== undefined)) return;
+  for (const [id, number] of itemNumbers(items)) {
+    const map = itemsMap(doc).get(id);
+    if (map && map.get('number') === undefined) map.set('number', number);
+  }
+}
+
+/** Alle Einträge in Ablauf-Reihenfolge neu durchnummerieren (1, 2, 3 …) */
+export function renumberShowItems(doc: Y.Doc, origin: unknown): void {
+  doc.transact(() => {
+    readShow(doc).items.forEach((item, i) => itemsMap(doc).get(item.id)?.set('number', i + 1));
+  }, origin);
+}
+
+/** Timecode-Bildrate (EBU) */
+export const TIMECODE_FPS = 25;
+
+/** „HH:MM:SS:FF“ – gelaufene Zeit des Eintrags; jeder Eintrag beginnt bei 00:00:00:00 */
+export function formatTimecode(sec: number, fps = TIMECODE_FPS): string {
+  const totalFrames = Math.max(0, Math.floor(sec * fps + 1e-6));
+  const frames = totalFrames % fps;
+  const totalSec = Math.floor(totalFrames / fps);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const h = Math.floor(totalSec / 3600) % 24;
+  return `${pad(h)}:${pad(Math.floor(totalSec / 60) % 60)}:${pad(totalSec % 60)}:${pad(frames)}`;
+}
+
+/** Art-Net: UDP-Port */
+export const ARTNET_PORT = 6454;
+
+/**
+ * ArtTimeCode-Paket (Art-Net 4, OpTimeCode 0x9700), 19 Bytes: „Art-Net\0“, OpCode (little endian), Protokoll 14,
+ * zwei Füllbytes, Frames, Sekunden, Minuten, Stunden, Typ (1 = EBU 25 fps).
+ */
+export function artTimecodePacket(sec: number, fps = TIMECODE_FPS): Uint8Array {
+  const totalFrames = Math.max(0, Math.floor(sec * fps + 1e-6));
+  const totalSec = Math.floor(totalFrames / fps);
+  const packet = new Uint8Array(19);
+  packet.set([0x41, 0x72, 0x74, 0x2d, 0x4e, 0x65, 0x74, 0x00], 0); // „Art-Net\0“
+  packet[8] = 0x00; // OpCode low
+  packet[9] = 0x97; // OpCode high
+  packet[10] = 0; // ProtVerHi
+  packet[11] = 14; // ProtVerLo
+  packet[14] = totalFrames % fps;
+  packet[15] = totalSec % 60;
+  packet[16] = Math.floor(totalSec / 60) % 60;
+  packet[17] = Math.floor(totalSec / 3600) % 24;
+  packet[18] = fps === 24 ? 0 : fps === 30 ? 3 : 1;
+  return packet;
+}
+
+/** Zieladresse für Art-Net prüfen (IPv4, auch Broadcast) */
+export function isArtNetHost(host: string): boolean {
+  const parts = host.trim().split('.');
+  return parts.length === 4 && parts.every((p) => /^\d{1,3}$/.test(p) && Number(p) <= 255);
+}
+
 export function addShowItem(doc: Y.Doc, kind: ShowItemKind, origin: unknown, init: Partial<Omit<ShowItem, 'id' | 'kind' | 'order'>> = {}, afterId?: string): string {
   const id = newId();
   doc.transact(() => {
     const items = readShow(doc).items;
     const map = new Y.Map<unknown>();
     itemsMap(doc).set(id, map);
-    setFields(map, { personIds: [], title: '', ...init, id, kind, order: items.length });
+    setFields(map, { personIds: [], title: '', ...init, id, kind, order: items.length, number: nextItemNumber(items) });
     if (afterId) moveShowItem(doc, id, items.findIndex((i) => i.id === afterId) + 1, origin);
   }, origin);
   return id;
@@ -297,6 +384,7 @@ export function updateShowItem(doc: Y.Doc, id: string, patch: Partial<Omit<ShowI
 /** Eintrag mit seinen Texten löschen. */
 export function removeShowItem(doc: Y.Doc, id: string, origin: unknown): void {
   doc.transact(() => {
+    pinItemNumbers(doc);
     itemsMap(doc).delete(id);
     for (const s of readShow(doc).sections) if (s.itemId === id) sectionsMap(doc).delete(s.id);
     removeItemScenes(doc, id);
@@ -314,6 +402,7 @@ function renumber(doc: Y.Doc, ids: string[], map = itemsMap(doc)): void {
 /** Eintrag an Position toIndex (0 = oben) verschieben. */
 export function moveShowItem(doc: Y.Doc, id: string, toIndex: number, origin: unknown): void {
   doc.transact(() => {
+    pinItemNumbers(doc);
     const ids = readShow(doc).items.map((i) => i.id).filter((x) => x !== id);
     ids.splice(Math.max(0, Math.min(toIndex, ids.length)), 0, id);
     renumber(doc, ids);

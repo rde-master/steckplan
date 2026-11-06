@@ -7,6 +7,17 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.24.0] - 2026-11-06
+
+### Hinzugefügt
+
+- Regie: neuer Bereich „Tonszenen“ – je Ablaufpunkt ein großes Textfeld mit Formatierung (fett, kursiv, unterstrichen, durchgestrichen, Überschrift, Listen) und Textfarbe; gespeichert als HTML, angezeigt nur mit erlaubten Elementen (keine Skripte, Links oder Bilder)
+- Vorstellung: rechte Seite umschaltbar „Licht | Ton“ (je Gerät gemerkt), links bleibt der Text; im Kopf das nächste Lied („Als Nächstes: …“) und die „Liedliste“ zum direkten Wählen eines Punkts
+- Regie: Timecode je Ablaufpunkt (25 fps) als große grüne Uhr unten rechts – in der Vorstellung und im Player von Ablauf, Texte und Lichtszenen. Jeder Punkt beginnt bei 00:00:00:00
+- Regie: Jeder Ablaufpunkt hat einen eigenen Transport (Start, Pause, Spulen); das Lied hängt daran. Der Timecode läuft bis zur Dauer des Punkts weiter (auch nach dem Ende des Audios und bei Punkten ohne Audio) und hält dort an
+- Timecode per Art-Net (ArtTimeCode, EBU 25 fps, UDP 6454): in den Regie-Einstellungen ein- und Zieladresse (IP oder Broadcast) einstellbar; der Server sendet, solange in der Vorstellung jemand führt – 25 Pakete pro Sekunde, angehalten einmal die Position. Die Vorstellung zeigt an der Uhr, ob gesendet wird
+- Ablauf: feste Nummern je Punkt (bleiben beim Umsortieren, neue Punkte bekommen die nächste freie, von Hand änderbar, „Neu nummerieren“ zählt in der aktuellen Reihenfolge); Nummern auch in Texte, Lichtszenen und Vorstellung
+
 ## [0.23.4] - 2026-11-05
 
 ### Hinzugefügt
@@ -522,7 +533,8 @@ Meilenstein M0 – Projektgerüst.
 - Docker-Image mit Datenvolume `/data` und Beispiel-`docker-compose.yml`
 - GitHub Actions: Tests und Smoke-Test bei jedem Push, Installer als Artefakte, Docker-Image `:develop`, Release-Workflow für Tags `vX.Y.Z`
 
-[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.23.4...develop
+[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.24.0...develop
+[0.24.0]: https://github.com/rde-master/steckplan/compare/v0.23.4...v0.24.0
 [0.23.4]: https://github.com/rde-master/steckplan/compare/v0.23.3...v0.23.4
 [0.23.3]: https://github.com/rde-master/steckplan/compare/v0.23.2...v0.23.3
 [0.23.2]: https://github.com/rde-master/steckplan/compare/v0.23.1...v0.23.2

@@ -3,13 +3,14 @@
 import { ChevronLeft } from 'lucide-react';
 import { useState } from 'react';
 import type * as Y from 'yjs';
-import { itemLines, itemScenes, sceneTime, type Library } from '@steckplan/core';
+import { itemLines, itemNumbers, itemScenes, sceneTime, type Library } from '@steckplan/core';
+import { useTransport } from '../../lib/transport';
 import { useIsNarrow } from '../../lib/useProjectDoc';
 import type { ProjectData } from '../../lib/useProjectData';
 import { texts } from '../../texts';
 import { ICON } from '../icons';
 import { Button } from '../ui';
-import { KIND_ICONS } from './RegieView';
+import { ItemNumber, KIND_ICONS } from './RegieView';
 import { ScenesSection } from './ScenesSection';
 import { PlayerBar, usePlayerTime } from './SongMedia';
 
@@ -21,7 +22,9 @@ export function ScenesView({ projectId, doc, origin, data, library, editable }: 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const item = items.find((i) => i.id === selectedId) ?? (narrow ? undefined : items[0]);
   const [audio, setAudio] = useState<HTMLAudioElement | null>(null);
-  const time = usePlayerTime(audio);
+  const transport = useTransport(item?.id, item?.durationSec, audio);
+  const time = usePlayerTime(transport);
+  const numbers = itemNumbers(data.show.items);
 
   if (items.length === 0) return <p className="mx-auto max-w-2xl p-6 text-sm text-slate-500" data-testid="scenes-view">{t.empty}</p>;
 
@@ -39,6 +42,7 @@ export function ScenesView({ projectId, doc, origin, data, library, editable }: 
               onClick={() => setSelectedId(i.id)}
               className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm ${isSelected ? 'bg-sky-50 dark:bg-sky-950' : 'hover:bg-slate-50 dark:hover:bg-slate-800'}`}
             >
+              <ItemNumber number={numbers.get(i.id)} />
               <Icon size={16} className="shrink-0 text-slate-500" aria-label={texts.regie.kinds[i.kind]} />
               <span className="min-w-0 flex-1 truncate font-medium">{i.title || texts.regie.untitled}</span>
               <span className="shrink-0 text-xs text-slate-500">{t.count(count)}</span>
@@ -63,16 +67,17 @@ export function ScenesView({ projectId, doc, origin, data, library, editable }: 
         {!hasAudio && item.kind === 'song' && <span className="text-xs text-slate-500">{t.noAudio}</span>}
       </header>
       {/* eigene Schlüssel je Kind: gleiche Schlüssel bei Geschwistern ließen beim Wechsel des Stücks die alten Szenen stehen */}
-      <ScenesSection key={`scenes-${item.id}`} doc={doc} origin={origin} item={item} data={data} library={library} lines={lines} time={time} audio={hasAudio ? audio : null} editable={editable} />
-      {hasAudio && (
+      <ScenesSection key={`scenes-${item.id}`} doc={doc} origin={origin} item={item} data={data} library={library} lines={lines} time={time} audio={transport} editable={editable} />
+      {(
         <PlayerBar
           settings={data.showSettings}
           key={`player-${item.id}`}
           projectId={projectId}
           item={item}
           media={data.media}
-          audio={audio}
+          playback={transport}
           setAudio={setAudio}
+          clock
           time={time}
           recording={false}
           onNextLine={() => undefined}

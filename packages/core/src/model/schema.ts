@@ -468,6 +468,10 @@ export const ShowItemSchema = z.object({
   roles: z.array(ShowRoleSchema).optional(),
   /** Lied: Audiodateien (eine davon Standard) */
   media: z.array(ItemMediaSchema).optional(),
+  /** Tonszenen: Informationen für den Ton (formatierter Text als HTML, beim Anzeigen bereinigt) */
+  soundNotes: z.string().optional(),
+  /** Feste Nummer im Ablauf (bleibt beim Umsortieren) */
+  number: z.number().int().min(1).max(999).optional(),
 });
 export type ShowItem = z.infer<typeof ShowItemSchema>;
 
@@ -584,6 +588,8 @@ export const ShowSettingsSchema = z.object({
   /** Restzeit im Player: ab so vielen Sekunden vor Schluss allmählich rot (Standard 30), ab so vielen blinkend (Standard 5) */
   remainWarnSec: z.number().int().min(0).max(REMAIN_MAX_WARN).optional(),
   remainBlinkSec: z.number().int().min(0).max(REMAIN_MAX_BLINK).optional(),
+  /** Timecode per Art-Net senden (vom Server, solange in der Vorstellung jemand führt) */
+  artnet: z.object({ enabled: z.boolean().default(false), host: z.string().default('255.255.255.255') }).optional(),
 });
 
 /** Restzeit im Player: Schwellen aus den Einstellungen, sonst Standard */

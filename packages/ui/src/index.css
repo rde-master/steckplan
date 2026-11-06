@@ -26,3 +26,26 @@ body {
     opacity: 0.15;
   }
 }
+
+/* Formatierter Text (Tonszenen): Überschriften, Listen und Absätze trotz Tailwind-Grundstil sichtbar */
+.rich-text h3 {
+  margin: 0.6em 0 0.3em;
+  font-size: 1.3em;
+  font-weight: 700;
+}
+.rich-text h4 {
+  margin: 0.5em 0 0.2em;
+  font-size: 1.1em;
+  font-weight: 700;
+}
+.rich-text ul {
+  list-style: disc;
+  padding-left: 1.5em;
+}
+.rich-text ol {
+  list-style: decimal;
+  padding-left: 1.5em;
+}
+.rich-text p {
+  margin: 0.3em 0;
+}

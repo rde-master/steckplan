@@ -7,6 +7,7 @@ import {
   currentLineId,
   defaultItemMedia,
   formatDuration,
+  formatTimecode,
   remainRange,
   removeItemMedia,
   setLineTime,
@@ -20,6 +21,7 @@ import {
 import { api, errorMessage } from '../../lib/api';
 import { readAudioDuration, uploadMedia } from '../../lib/mediaUpload';
 import { useSession } from '../../lib/session';
+import type { Playback } from '../../lib/transport';
 import { texts } from '../../texts';
 import { ICON } from '../icons';
 import { Button } from '../ui';
@@ -198,27 +200,18 @@ export function MediaSection({ projectId, doc, origin, item, media, editable }: 
 
 // ---------- Player ----------
 
-/** Abspielposition setzen (außerhalb der Komponenten: das Element gehört dem Browser, nicht dem React-Zustand) */
-export function seekAudio(el: HTMLAudioElement | null, sec: number): void {
+/** Abspielposition setzen (außerhalb der Komponenten: Transport bzw. Element gehören nicht dem React-Zustand) */
+export function seekAudio(el: Playback | null, sec: number): void {
   if (el) el.currentTime = Math.max(0, sec);
 }
-function setAudioVolume(el: HTMLAudioElement | null, volume: number): void {
+/** Lautstärke des Audio-Elements im Player */
+function setAudioVolume(container: HTMLElement | null, volume: number): void {
+  const el = container?.querySelector('audio');
   if (el) el.volume = volume;
-}
-/** Nach dem Wechsel der Datei (Playback ↔ Klick) an derselben Stelle weiterspielen */
-function resumeAfterSwitch(el: HTMLAudioElement | null, at: number, play: boolean): void {
-  el?.addEventListener(
-    'loadedmetadata',
-    () => {
-      el.currentTime = at;
-      if (play) void el.play().catch(() => undefined);
-    },
-    { once: true },
-  );
 }
 
 /** Aktuelle Abspielzeit (flüssig per requestAnimationFrame, solange abgespielt wird). */
-export function usePlayerTime(el: HTMLAudioElement | null): number {
+export function usePlayerTime(el: Playback | null): number {
   const [time, setTime] = useState(0);
   useEffect(() => {
     if (!el) return;
@@ -232,27 +225,59 @@ export function usePlayerTime(el: HTMLAudioElement | null): number {
       frame = requestAnimationFrame(tick);
     };
     const update = () => setTime(el.currentTime);
+    update();
     el.addEventListener('play', start);
     el.addEventListener('seeked', update);
     el.addEventListener('timeupdate', update);
+    el.addEventListener('pause', update);
     el.addEventListener('loadedmetadata', update);
     return () => {
       cancelAnimationFrame(frame);
       el.removeEventListener('play', start);
       el.removeEventListener('seeked', update);
       el.removeEventListener('timeupdate', update);
+      el.removeEventListener('pause', update);
       el.removeEventListener('loadedmetadata', update);
     };
   }, [el]);
   return time;
 }
 
+/** Läuft der Transport? Ende (Dauer) – für die Anzeige */
+function usePlaybackState(playback: Playback | null): { playing: boolean; duration: number } {
+  const [state, setState] = useState({ playing: false, duration: Number.POSITIVE_INFINITY });
+  useEffect(() => {
+    if (!playback) return;
+    const sync = () => setState({ playing: !playback.paused, duration: playback.duration });
+    sync();
+    const events = ['play', 'pause', 'ended', 'durationchange', 'loadedmetadata'];
+    for (const e of events) playback.addEventListener(e, sync);
+    return () => {
+      for (const e of events) playback.removeEventListener(e, sync);
+    };
+  }, [playback]);
+  return state;
+}
+
+/** Große Timecode-Uhr (HH:MM:SS:FF, grün): gelaufene Zeit des Ablaufpunkts, jeder beginnt bei 00:00:00:00 */
+export function TimecodeClock({ time, className = '' }: { time: number; className?: string }) {
+  return (
+    <span
+      className={`inline-block shrink-0 rounded-md bg-black px-2.5 py-1 font-mono text-2xl leading-none font-bold tracking-wider text-emerald-400 tabular-nums [text-shadow:0_0_8px_rgb(52_211_153/0.6)] ${className}`}
+      title={t.timecode}
+      data-testid="timecode"
+    >
+      {formatTimecode(time)}
+    </span>
+  );
+}
+
 export function PlayerBar({
   projectId,
   item,
   media,
-  audio,
   setAudio,
+  playback,
   time,
   recording,
   onNextLine,
@@ -260,6 +285,7 @@ export function PlayerBar({
   onClearTimes,
   markers = [],
   settings = {},
+  clock = false,
 }: {
   markers?: { id: string; at: number; label: string }[];
   /** Regie-Einstellungen (Schwellen der Restzeit) */
@@ -267,50 +293,39 @@ export function PlayerBar({
   projectId: string;
   item: ShowItem;
   media: MediaRef[];
-  audio: HTMLAudioElement | null;
+  /** Audio-Element des Punkts (für den Transport) */
   setAudio: (el: HTMLAudioElement | null) => void;
+  /** Transport des Ablaufpunkts */
+  playback: Playback | null;
   time: number;
   recording: boolean;
   onNextLine: () => void;
   nextLineText: string | undefined;
   onClearTimes: () => void;
+  /** rechts die Timecode-Uhr zeigen (aus, wenn sie woanders steht) */
+  clock?: boolean;
 }) {
   const list = item.media ?? [];
   const [selected, setSelected] = useState<string | undefined>(defaultItemMedia(item)?.mediaId);
   const current = list.find((m) => m.mediaId === selected) ?? defaultItemMedia(item);
-  const ref = media.find((m) => m.id === current?.mediaId);
-  const [playing, setPlaying] = useState(false);
-  // Dauer laut Browser; bis dahin die beim Hochladen ermittelte
-  const [metaDuration, setMetaDuration] = useState(0);
-  const duration = metaDuration || ref?.durationSec || 0;
+  const { playing, duration: end } = usePlaybackState(playback);
+  const duration = Number.isFinite(end) ? end : 0;
   const [volume, setVolume] = useState(1);
-  useEffect(() => {
-    const el = audio;
-    if (!el) return;
-    const sync = () => {
-      setPlaying(!el.paused);
-      if (Number.isFinite(el.duration)) setMetaDuration(el.duration);
-    };
-    for (const e of ['play', 'pause', 'ended', 'loadedmetadata', 'durationchange']) el.addEventListener(e, sync);
-    return () => {
-      for (const e of ['play', 'pause', 'ended', 'loadedmetadata', 'durationchange']) el.removeEventListener(e, sync);
-    };
-  }, [audio]);
-  usePlayPauseKey(audio, !recording && !!current);
-  if (!current) return null;
+  const container = useRef<HTMLDivElement>(null);
+  usePlayPauseKey(playback, !recording);
   const toggle = () => {
-    const el = audio;
-    if (!el) return;
-    if (el.paused) void el.play().catch(() => undefined);
-    else el.pause();
+    if (!playback) return;
+    if (playback.paused) void playback.play();
+    else playback.pause();
   };
+  const nudge = (d: number) => playback && seekAudio(playback, playback.currentTime + d);
   return (
-    <div className="sticky bottom-0 z-10 -mx-4 space-y-1.5 border-t border-slate-200 bg-white/95 px-4 py-2 backdrop-blur dark:border-slate-700 dark:bg-slate-900/95" data-testid="regie-player">
-      <audio ref={setAudio} src={api.mediaUrl(projectId, current.mediaId)} preload="metadata" />
-      <div className="flex items-center gap-2">
+    <div ref={container} className="sticky bottom-0 z-10 -mx-4 space-y-1.5 border-t border-slate-200 bg-white/95 px-4 py-2 backdrop-blur dark:border-slate-700 dark:bg-slate-900/95" data-testid="regie-player">
+      {current && <audio ref={setAudio} src={api.mediaUrl(projectId, current.mediaId)} preload="metadata" />}
+      <div className="flex flex-wrap items-center gap-2">
         <span className="flex shrink-0 items-center gap-0.5">
           {[-5, -1, -0.5].map((d) => (
-            <Button key={d} variant="ghost" className="min-h-8 px-1 text-xs tabular-nums" aria-label={t.back(-d)} title={`${t.back(-d)}${d === -1 ? ` (${t.nudgeKey})` : ''}`} onClick={() => audio && seekAudio(audio, audio.currentTime + d)}>
+            <Button key={d} variant="ghost" className="min-h-8 px-1 text-xs tabular-nums" aria-label={t.back(-d)} title={`${t.back(-d)}${d === -1 ? ` (${t.nudgeKey})` : ''}`} onClick={() => nudge(d)}>
               {String(d).replace('.', ',')}
             </Button>
           ))}
@@ -318,22 +333,22 @@ export function PlayerBar({
             {playing ? <Pause size={18} aria-hidden /> : <Play size={18} aria-hidden />}
           </Button>
           {[0.5, 1, 5].map((d) => (
-            <Button key={d} variant="ghost" className="min-h-8 px-1 text-xs tabular-nums" aria-label={t.forward(d)} title={`${t.forward(d)}${d === 1 ? ` (${t.nudgeKey})` : ''}`} onClick={() => audio && seekAudio(audio, audio.currentTime + d)}>
+            <Button key={d} variant="ghost" className="min-h-8 px-1 text-xs tabular-nums" aria-label={t.forward(d)} title={`${t.forward(d)}${d === 1 ? ` (${t.nudgeKey})` : ''}`} onClick={() => nudge(d)}>
               +{String(d).replace('.', ',')}
             </Button>
           ))}
         </span>
-        <div className="relative min-w-0 flex-1">
+        <div className="relative min-w-32 flex-1">
           <input
             type="range"
             aria-label={t.position}
             className="w-full accent-sky-600"
             min={0}
-            max={duration || 0}
+            max={duration || Math.max(1, time)}
             step={0.1}
-            value={Math.min(time, duration || 0)}
+            value={duration ? Math.min(time, duration) : time}
             onChange={(e) => {
-              seekAudio(audio, Number(e.target.value));
+              seekAudio(playback, Number(e.target.value));
             }}
           />
           {/* Lichtszenen als Marken auf der Zeitleiste */}
@@ -347,67 +362,67 @@ export function PlayerBar({
                   title={m.label}
                   aria-label={`${t.marker}: ${m.label}`}
                   data-testid="scene-marker"
-                  onClick={() => seekAudio(audio, m.at)}
+                  onClick={() => seekAudio(playback, m.at)}
                   className="absolute -top-1.5 h-2.5 w-1.5 -translate-x-1/2 rounded-sm bg-amber-500 hover:bg-amber-600"
                   style={{ left: `${(m.at / duration) * 100}%` }}
                 />
               ))}
         </div>
         <span className="shrink-0 text-xs tabular-nums text-slate-600 dark:text-slate-300" data-testid="regie-time">
-          {formatDuration(time)} / {formatDuration(duration)}
+          {formatDuration(time)}
+          {duration > 0 ? ` / ${formatDuration(duration)}` : ''}
         </span>
         {duration > 0 && <RemainingTime remaining={Math.max(0, duration - time)} {...remainRange(settings)} />}
-        <label className="hidden items-center gap-1 sm:flex" title={t.volume}>
-          <Volume2 size={16} className="text-slate-500" aria-hidden />
-          <input
-            type="range"
-            aria-label={t.volume}
-            className="w-20 accent-sky-600"
-            min={0}
-            max={1}
-            step={0.05}
-            value={volume}
-            onChange={(e) => {
-              setVolume(Number(e.target.value));
-              setAudioVolume(audio, Number(e.target.value));
-            }}
-          />
-        </label>
-      </div>
-      <div className="flex flex-wrap items-center gap-2">
-        {list.length > 1 && (
-          <select
-            aria-label={t.file}
-            className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs dark:border-slate-600 dark:bg-slate-800"
-            value={current.mediaId}
-            onChange={(e) => {
-              // Position übernehmen (z. B. von Playback auf Klick wechseln)
-              const el = audio;
-              const at = el?.currentTime ?? 0;
-              const wasPlaying = el ? !el.paused : false;
-              setSelected(e.target.value);
-              resumeAfterSwitch(el, at, wasPlaying);
-            }}
-          >
-            {list.map((m) => (
-              <option key={m.mediaId} value={m.mediaId}>
-                {m.label || media.find((r) => r.id === m.mediaId)?.name}
-              </option>
-            ))}
-          </select>
+        {current && (
+          <label className="hidden items-center gap-1 sm:flex" title={t.volume}>
+            <Volume2 size={16} className="text-slate-500" aria-hidden />
+            <input
+              type="range"
+              aria-label={t.volume}
+              className="w-20 accent-sky-600"
+              min={0}
+              max={1}
+              step={0.05}
+              value={volume}
+              onChange={(e) => {
+                setVolume(Number(e.target.value));
+                setAudioVolume(container.current, Number(e.target.value));
+              }}
+            />
+          </label>
         )}
-        {recording && (
-          <>
-            <Button variant="primary" className="min-h-9 flex-1 text-sm" disabled={!nextLineText} onClick={onNextLine} title={t.nextLineKey}>
-              {t.nextLine}
-              {nextLineText ? <span className="ml-1 truncate font-normal opacity-80">„{nextLineText}“</span> : null}
-            </Button>
-            <Button variant="ghost" className="text-xs" onClick={onClearTimes}>
-              {t.clearTimes}
-            </Button>
-          </>
-        )}
+        {clock && <TimecodeClock time={time} className="ml-auto" />}
       </div>
+      {(list.length > 1 || recording) && (
+        <div className="flex flex-wrap items-center gap-2">
+          {list.length > 1 && current && (
+            <select
+              aria-label={t.file}
+              className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs dark:border-slate-600 dark:bg-slate-800"
+              value={current.mediaId}
+              // Position und Wiedergabe übernimmt der Transport (z. B. von Playback auf Klick wechseln)
+              onChange={(e) => setSelected(e.target.value)}
+            >
+              {list.map((m) => (
+                <option key={m.mediaId} value={m.mediaId}>
+                  {m.label || media.find((r) => r.id === m.mediaId)?.name}
+                </option>
+              ))}
+            </select>
+          )}
+          {recording && (
+            <>
+              <Button variant="primary" className="min-h-9 flex-1 text-sm" disabled={!nextLineText} onClick={onNextLine} title={t.nextLineKey}>
+                {t.nextLine}
+                {nextLineText ? <span className="ml-1 truncate font-normal opacity-80">„{nextLineText}“</span> : null}
+              </Button>
+              <Button variant="ghost" className="text-xs" onClick={onClearTimes}>
+                {t.clearTimes}
+              </Button>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -508,7 +523,7 @@ function RemainingTime({ remaining, warn, blink }: { remaining: number; warn: nu
  * Leertaste startet und stoppt die Wiedergabe (außer beim Tippen in Feldern; beim Mitschreiben setzt sie die Zeile).
  * Auch auf einem fokussierten Knopf: der Knopf wird dann nicht zusätzlich ausgelöst.
  */
-function usePlayPauseKey(audio: HTMLAudioElement | null, active: boolean): void {
+function usePlayPauseKey(audio: Playback | null, active: boolean): void {
   useEffect(() => {
     if (!audio || !active) return;
     const isSpace = (e: KeyboardEvent) => e.code === 'Space' && !e.ctrlKey && !e.metaKey && !e.altKey;
