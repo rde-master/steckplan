@@ -470,6 +470,10 @@ export const ShowItemSchema = z.object({
   media: z.array(ItemMediaSchema).optional(),
   /** Tonszenen: Informationen für den Ton (formatierter Text als HTML, beim Anzeigen bereinigt) */
   soundNotes: z.string().optional(),
+  /** Textfenster: false = bei diesem Punkt keinen Text zeigen (Standard: zeigen) */
+  lyricsVisible: z.boolean().optional(),
+  /** Textfenster: false = Text am Ende der Dauer stehen lassen (Standard: ausblenden) */
+  lyricsHideAtEnd: z.boolean().optional(),
   /** Feste Nummer im Ablauf (bleibt beim Umsortieren) */
   number: z.number().int().min(1).max(999).optional(),
 });

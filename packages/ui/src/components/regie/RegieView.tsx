@@ -334,6 +334,19 @@ function ItemDetail({
         <div className="sm:col-start-2">
           <NumberField number={number} taken={[...numbers].some(([id, n]) => id !== item.id && n === number)} editable={editable} onChange={(n) => set({ number: n })} />
         </div>
+        {/* Textfenster: Text dieses Punkts zeigen, am Ende ausblenden */}
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-sm sm:col-span-2" data-testid="lyrics-options">
+          <label className="flex items-center gap-2">
+            <input type="checkbox" checked={item.lyricsVisible !== false} disabled={!editable} onChange={(e) => set({ lyricsVisible: e.target.checked ? undefined : false })} />
+            {t.lyricsVisible}
+          </label>
+          {item.lyricsVisible !== false && (
+            <label className="flex items-center gap-2" title={t.lyricsHideAtEndHint}>
+              <input type="checkbox" checked={item.lyricsHideAtEnd !== false} disabled={!editable} onChange={(e) => set({ lyricsHideAtEnd: e.target.checked ? undefined : false })} />
+              {t.lyricsHideAtEnd}
+            </label>
+          )}
+        </div>
         {item.kind === 'song' && (
           <div className="sm:col-span-2">
             <Field label={t.fields.artist}>

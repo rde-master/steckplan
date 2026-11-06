@@ -154,3 +154,55 @@ test('Textfenster: eigene Seite, im selben Browser und auf anderen Geräten (Fü
   await perf.getByRole('button', { name: 'Abspielen' }).click();
   await expect(remaining).toHaveAttribute('data-state', 'blink');
 });
+
+test('Textfenster je Punkt: anzeigen an/aus, Text am Ende der Dauer ausblenden (Standard an, abschaltbar)', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await loginAs(page, 'edit', 'Ralf');
+  const { id } = await (
+    await page.request.post('/api/projects/upload', {
+      data: {
+        schemaVersion: 9,
+        id: 'textfenster-optionen',
+        meta: { name: 'Textfenster-Optionen' },
+        layers: [{ id: 'l1', name: 'Bühne', order: 0 }],
+        devices: [],
+        cables: [],
+        show: {
+          items: [{ id: 'song', order: 0, kind: 'song', title: 'Kurzlied', number: 1, durationSec: 3 }],
+          sections: [{ id: 's1', itemId: 'song', order: 0, kind: 'verse', label: 'Strophe', lines: [{ id: 'z1', text: 'Eins', atSec: 0.5 }, { id: 'z2', text: 'Zwei', atSec: 1.5 }] }],
+        },
+      },
+    })
+  ).json();
+  await page.goto(`/projekt/${id}?ansicht=regie`);
+  await page.getByRole('radio', { name: 'Ablauf' }).click();
+  const detail = page.getByTestId('regie-detail');
+  await detail.locator('input[type=file]').setInputFiles({ name: 'Kurz.wav', mimeType: 'audio/wav', buffer: wav(4) });
+  await expect(detail.getByTestId('regie-player').locator('audio')).toHaveCount(1);
+  const options = detail.getByTestId('lyrics-options');
+  await expect(options.getByLabel('Im Textfenster anzeigen')).toBeChecked();
+  await expect(options.getByLabel('Text am Ende ausblenden')).toBeChecked();
+
+  const popupPromise = page.waitForEvent('popup');
+  await page.getByRole('button', { name: 'Textfenster', exact: true }).click();
+  const lyrics = await popupPromise;
+  const show = await openPerformance(page);
+  const perf = show.getByTestId('performance');
+  await perf.getByLabel('Position').fill('2');
+  await expect(lyrics.getByTestId('lyrics-active')).toBeVisible();
+  await expect(lyrics.locator('[data-current]')).toHaveText('Zwei');
+  // Ende der Dauer (3 s): Text blendet aus
+  await perf.getByLabel('Position').fill('3');
+  await expect(lyrics.getByTestId('lyrics-ended')).toHaveCount(1);
+  await expect(lyrics.getByTestId('lyrics-ended')).toHaveCSS('opacity', '0');
+  // abgeschaltet: Text bleibt stehen
+  await options.getByLabel('Text am Ende ausblenden').uncheck();
+  await expect(lyrics.getByTestId('lyrics-active')).toBeVisible();
+  // gar nicht im Textfenster
+  await options.getByLabel('Im Textfenster anzeigen').uncheck();
+  await expect(options.getByLabel('Text am Ende ausblenden')).toHaveCount(0);
+  await expect(lyrics.getByTestId('lyrics-hidden')).toHaveCount(1);
+  await expect(lyrics.getByTestId('lyrics-row')).toHaveCount(0);
+  const saved = (await (await page.request.get(`/api/projects/${id}/download`)).json()).show.items[0];
+  expect(saved).toMatchObject({ lyricsVisible: false, lyricsHideAtEnd: false });
+});
