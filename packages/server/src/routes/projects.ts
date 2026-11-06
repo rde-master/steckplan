@@ -49,6 +49,18 @@ export function registerProjectRoutes(app: FastifyInstance, rooms: RoomManager, 
     return room ? room.currentProject() : store.load(id);
   }
 
+  // Verbundenes Gerät trennen (Bearbeiten-Zugang; nicht sich selbst)
+  app.post<{ Params: { id: string; connectionId: string } }>('/api/projects/:id/connections/:connectionId/disconnect', async (request, reply) => {
+    const session = requireSession(request, reply, 'editProject');
+    if (!session) return reply;
+    const room = rooms.peek(request.params.id);
+    const target = room ? [...room.connections].find((c) => c.id === request.params.connectionId) : undefined;
+    if (!room || !target) return reply.code(404).send({ error: 'Verbindung nicht gefunden' });
+    if (target.session.id === session.id) return reply.code(400).send({ error: 'Die eigene Verbindung kann man nicht trennen.' });
+    room.disconnectConnection(target.id, session.name);
+    return reply.code(204).send();
+  });
+
   app.get('/api/projects', async (request, reply) => {
     const session = requireSession(request, reply);
     if (!session) return reply;

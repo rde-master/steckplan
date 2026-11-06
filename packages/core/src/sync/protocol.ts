@@ -60,6 +60,8 @@ export const CloseCode = {
   NotFound: 4404,
   /** Projekt wurde geschlossen oder gelöscht */
   ProjectClosed: 4410,
+  /** Von einem Bearbeiter getrennt – nicht von selbst neu verbinden */
+  Disconnected: 4409,
 } as const;
 
 export interface PresenceUser {

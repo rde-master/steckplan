@@ -1,7 +1,7 @@
 // Vorstellung als eigene Seite (eigener Tab bzw. in der Desktop-App eigenes Fenster): /projekt/<id>/vorstellung.
 import { useEffect } from 'react';
 import { can } from '@steckplan/core';
-import { Spinner } from '../components/ui';
+import { Banner, Button, Spinner } from '../components/ui';
 import { PerformanceView } from '../components/regie/PerformanceView';
 import { useLibrary } from '../lib/library';
 import { navigate } from '../lib/router';
@@ -41,6 +41,16 @@ export function PerformancePage({ id }: { id: string }) {
     document.title = meta.name ? `${texts.regie.performance.title} – ${meta.name}` : texts.regie.performance.title;
   }, [meta.name]);
 
+  if (state?.status === 'kicked') {
+    return (
+      <div className="mx-auto max-w-xl space-y-3 p-6" data-testid="kicked">
+        <Banner tone="warn">{state.notice ?? texts.project.kicked}</Banner>
+        <Button variant="primary" onClick={() => project?.reconnect()}>
+          {texts.project.reconnect}
+        </Button>
+      </div>
+    );
+  }
   // erst nach dem ersten Abgleich zeigen: dann ist auch bekannt, ob jemand führt (Folgen beim Öffnen)
   if (!project || !state || !state.everSynced) return <Spinner />;
   return <PerformanceView projectId={id} data={data} library={library} sync={state} sendCue={project.sendCue} onRemote={project.onRemote} canLead={canLead} onClose={() => closeTab(id)} />;

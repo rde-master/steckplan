@@ -7,6 +7,10 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+### Hinzugefügt
+
+- Bearbeiter können verbundene Geräte trennen (✕ in der Liste „Verbunden“, mit Rückfrage; nicht die eigene Verbindung). Das getrennte Gerät verbindet sich nicht von selbst wieder, sondern zeigt „Die Verbindung wurde von … getrennt“ mit „Neu verbinden“ – auch in Vorstellung und Textfenster. Dauerhaft aussperren weiterhin über Passwörter, Desktop- bzw. QR-Schlüssel
+
 ## [0.26.2] - 2026-11-06
 
 ### Hinzugefügt
