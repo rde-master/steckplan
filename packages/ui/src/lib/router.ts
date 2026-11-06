@@ -27,6 +27,7 @@ export type Route =
   | { page: 'login'; next: string }
   | { page: 'project'; id: string }
   | { page: 'lyrics'; id: string }
+  | { page: 'performance'; id: string }
   | { page: 'library'; section: string }
   | { page: 'settings' }
   | { page: 'notFound' };
@@ -42,6 +43,8 @@ export function matchRoute(pathWithQuery: string): Route {
     return { page: 'library', section: new URLSearchParams(query).get('bereich') ?? 'device' };
   }
   if (path === '/einstellungen') return { page: 'settings' };
+  const performance = /^\/projekt\/([^/]+)\/vorstellung\/?$/.exec(path);
+  if (performance) return { page: 'performance', id: decodeURIComponent(performance[1]!) };
   const lyrics = /^\/projekt\/([^/]+)\/text\/?$/.exec(path);
   if (lyrics) return { page: 'lyrics', id: decodeURIComponent(lyrics[1]!) };
   const project = /^\/projekt\/([^/]+)\/?$/.exec(path);

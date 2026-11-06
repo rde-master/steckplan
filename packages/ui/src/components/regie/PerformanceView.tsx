@@ -272,7 +272,8 @@ export function PerformanceView({
   useEffect(() => onRemote((command) => remoteRef.current(command)), [onRemote]);
 
   // Tasten: ←/→ Szene, Umschalt+←/→ eine Sekunde spulen, ↑/↓ bzw. Bild↑/Bild↓ Eintrag, Esc beendet
-  const closeOrList = () => (listOpen ? setListOpen(false) : onClose());
+  // Esc schließt nur die Liedliste – die Vorstellung ist ein eigener Tab (schließen mit ✕)
+  const closeOrList = () => setListOpen(false);
   const keys = useRef({ goItem, goScene, nudge, onClose: closeOrList });
   useEffect(() => {
     keys.current = { goItem, goScene, nudge, onClose: closeOrList };

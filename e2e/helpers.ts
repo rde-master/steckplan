@@ -33,3 +33,14 @@ export async function openTab(page: Page, name: string): Promise<void> {
   if (await menuButton.isVisible()) await menuButton.click();
   await tab.click();
 }
+
+/** Vorstellung öffnen (eigener Tab): Knopf im Regie-Menü, Ergebnis ist der neue Tab */
+export async function openPerformance(page: Page): Promise<Page> {
+  const popup = page.waitForEvent('popup');
+  await page.getByRole('button', { name: 'Vorstellung' }).click();
+  const show = await popup;
+  const size = page.viewportSize();
+  if (size) await show.setViewportSize(size);
+  await show.getByTestId('performance').waitFor();
+  return show;
+}

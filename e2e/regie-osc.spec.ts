@@ -1,6 +1,6 @@
 import dgram from 'node:dgram';
 import { expect, test } from '@playwright/test';
-import { loginAs } from './helpers';
+import { loginAs, openPerformance } from './helpers';
 
 const OSC_PORT = 18_767;
 
@@ -51,8 +51,8 @@ test('OSC: in den Einstellungen einschalten, Vorstellung per OSC steuern (Punkt,
     })
   ).json();
   await page.goto(`/projekt/${id}?ansicht=regie`);
-  await page.getByRole('button', { name: 'Vorstellung' }).click();
-  const perf = page.getByTestId('performance');
+  const show = await openPerformance(page);
+  const perf = show.getByTestId('performance');
   const clock = perf.getByTestId('timecode-panel').getByTestId('timecode');
   await expect(perf.getByTestId('performance-title')).toHaveText('Erstes');
 
@@ -80,6 +80,6 @@ test('OSC: in den Einstellungen einschalten, Vorstellung per OSC steuern (Punkt,
     socket.close();
   }
   // wieder aus (Port frei für andere Läufe)
-  await page.keyboard.press('Escape');
+  await show.close();
   expect((await page.request.put('/api/settings/osc', { data: { enabled: false } })).ok()).toBe(true);
 });

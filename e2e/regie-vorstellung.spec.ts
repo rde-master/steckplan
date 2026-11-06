@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { loginAs, newContextPage } from './helpers';
+import { loginAs, newContextPage, openPerformance } from './helpers';
 
 test('Vorstellung: Regie führt, Lesen folgt; Tasten; eigenes Bedienen verlässt das Folgen; Regie-PDFs', async ({ page, browser }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -41,8 +41,8 @@ test('Vorstellung: Regie führt, Lesen folgt; Tasten; eigenes Bedienen verlässt
   await regie.setViewportSize({ width: 1280, height: 800 });
   await loginAs(regie, 'direction', 'Regina');
   await regie.goto(`/projekt/${id}?ansicht=regie`);
-  await regie.getByRole('button', { name: 'Vorstellung' }).click();
-  const r = regie.getByTestId('performance');
+  const regieShow = await openPerformance(regie);
+  const r = regieShow.getByTestId('performance');
   await expect(r.getByTestId('performance-title')).toHaveText('Opener');
   await expect(r.getByTestId('performance-scene')).toHaveText('1. Intro');
   await r.getByRole('radio', { name: 'Führen' }).click();
@@ -53,14 +53,14 @@ test('Vorstellung: Regie führt, Lesen folgt; Tasten; eigenes Bedienen verlässt
   await reader.setViewportSize({ width: 1280, height: 800 });
   await loginAs(reader, 'read', 'Leo');
   await reader.goto(`/projekt/${id}?ansicht=regie`);
-  await reader.getByRole('button', { name: 'Vorstellung' }).click();
-  const l = reader.getByTestId('performance');
+  const readerShow = await openPerformance(reader);
+  const l = readerShow.getByTestId('performance');
   await expect(l.getByRole('radio', { name: 'Folgen' })).toHaveAttribute('aria-checked', 'true');
   await expect(l.getByRole('radio', { name: 'Führen' })).toHaveCount(0);
   await expect(l.getByTestId('performance-lead')).toHaveText('Regina führt');
 
   // Regie: Taste → nächste Szene, Knopf → nächster Eintrag
-  await regie.keyboard.press('ArrowRight');
+  await regieShow.keyboard.press('ArrowRight');
   await expect(r.getByTestId('performance-scene')).toHaveText('2. Strophe');
   await expect(l.getByTestId('performance-scene')).toHaveText('2. Strophe');
   await expect(l.getByTestId('scene-fixture')).toContainText('100 % · Blau');
@@ -75,9 +75,9 @@ test('Vorstellung: Regie führt, Lesen folgt; Tasten; eigenes Bedienen verlässt
   await expect(l.getByTestId('performance-scene')).toHaveText('2. Strophe');
   await expect(r.getByTestId('performance-title')).toHaveText('Die Begegnung');
 
-  // Regie beendet die Vorstellung → niemand führt
-  await regie.keyboard.press('Escape');
-  await expect(r).toHaveCount(0);
+  // Regie schließt die Vorstellung (Tab) → niemand führt
+  await r.getByRole('button', { name: 'Vorstellung beenden' }).click();
+  await expect.poll(() => regieShow.isClosed()).toBe(true);
   await expect(l.getByTestId('performance-lead')).toHaveText('Niemand führt');
 
   // Regie-PDFs im Export
