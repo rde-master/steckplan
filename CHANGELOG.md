@@ -7,6 +7,8 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.27.0] - 2026-11-06
+
 ### Hinzugefügt
 
 - Ablauf: je Punkt „Im Textfenster anzeigen“ (Standard an; aus = das Textfenster zeigt bei diesem Punkt keinen Text) und „Text am Ende ausblenden“ (Standard an; ist die Dauer des Punkts erreicht, blendet das Textfenster den Text weich aus)
@@ -598,7 +600,8 @@ Meilenstein M0 – Projektgerüst.
 - Docker-Image mit Datenvolume `/data` und Beispiel-`docker-compose.yml`
 - GitHub Actions: Tests und Smoke-Test bei jedem Push, Installer als Artefakte, Docker-Image `:develop`, Release-Workflow für Tags `vX.Y.Z`
 
-[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.26.2...develop
+[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.27.0...develop
+[0.27.0]: https://github.com/rde-master/steckplan/compare/v0.26.2...v0.27.0
 [0.26.2]: https://github.com/rde-master/steckplan/compare/v0.26.1...v0.26.2
 [0.26.1]: https://github.com/rde-master/steckplan/compare/v0.26.0...v0.26.1
 [0.26.0]: https://github.com/rde-master/steckplan/compare/v0.25.0...v0.26.0
