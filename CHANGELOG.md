@@ -7,6 +7,15 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+### Hinzugefügt
+
+- Mitschreiben: Zeitleiste mit allen Zeilen als Blöcke an ihrer Zeit – per Ziehen verschieben (0,1-s-Raster, nicht über die Nachbarzeilen hinaus), Klick auf Block oder Leiste springt dorthin, Abspielposition als rote Linie, Zoom
+- Mitschreiben: neben ±0,5 auch ±0,1 je Zeile
+
+### Geändert
+
+- Helfer-Seite: der Bühnenplan „Auf der Bühne“ ist auf- und zuklappbar (Standard zugeklappt)
+
 ## [0.28.1] - 2026-11-06
 
 ### Geändert

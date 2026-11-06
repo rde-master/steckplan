@@ -65,6 +65,24 @@ test('Regie Medien: Audio hochladen, abspielen, Zeiten mitschreiben, mitlesen; m
   for (const li of await lyrics.locator('li').all()) await expect(li).not.toContainText('–');
   // fein verschieben
   await lyrics.getByRole('button', { name: 'Später: Dritte Zeile' }).click();
+  // fein: ±0,1
+  const third = textDetail.getByTestId('timeline-line').filter({ hasText: 'Dritte Zeile' });
+  const atOf = async () => Number(await third.getAttribute('data-at'));
+  const before = await atOf();
+  await lyrics.getByRole('button', { name: 'Später (0,1 s): Dritte Zeile' }).click();
+  await expect.poll(atOf).toBeCloseTo(before + 0.1, 5);
+  await lyrics.getByRole('button', { name: 'Früher (0,1 s): Dritte Zeile' }).click();
+  await expect.poll(atOf).toBeCloseTo(before, 5);
+  // Zeitleiste: alle Zeilen als Blöcke; ziehen verschiebt (40 px je Sekunde)
+  await expect(textDetail.getByTestId('timeline-line')).toHaveCount(3);
+  const box = (await third.boundingBox())!;
+  await page.mouse.move(box.x + 10, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + 30, box.y + box.height / 2, { steps: 3 });
+  await page.mouse.move(box.x + 50, box.y + box.height / 2, { steps: 3 });
+  await page.mouse.up();
+  await expect.poll(atOf).toBeCloseTo(before + 1, 5);
+  await expect(lyrics.getByRole('textbox', { name: 'Zeit: Dritte Zeile' })).toHaveValue(`0:0${(before + 1).toFixed(1)}`);
   // Zeit vorne direkt bearbeiten; Klick auf die Zeile springt dorthin (setzt nicht die Zeit)
   const firstTime = lyrics.getByLabel('Zeit: Erste Zeile');
   await firstTime.fill('0:00.2');
