@@ -54,12 +54,13 @@ export class ArtNetTimecode {
   update(lead: LeadInfo | null, receivedAt: number, config: ArtNetConfig | undefined): void {
     this.stop();
     const sender = this.sender;
-    if (!sender || !config?.enabled || !isArtNetHost(config.host) || !lead || lead.at === undefined) return;
+    // Timecode der Stelle (eigener, wenn mitgesendet – sonst die Abspielposition)
+    const source = lead?.tc ?? (lead?.at !== undefined ? { at: lead.at, playing: lead.playing === true } : undefined);
+    if (!sender || !config?.enabled || !isArtNetHost(config.host) || !source) return;
     const host = config.host.trim();
-    const at = lead.at;
-    const position = () => (lead.playing ? at + Math.max(0, this.now() - receivedAt) / 1000 : at);
+    const position = () => (source.playing ? source.at + Math.max(0, this.now() - receivedAt) / 1000 : source.at);
     sender.send(artTimecodePacket(position()), host);
-    if (lead.playing) this.timer = setInterval(() => sender.send(artTimecodePacket(position()), host), 1000 / TIMECODE_FPS);
+    if (source.playing) this.timer = setInterval(() => sender.send(artTimecodePacket(position()), host), 1000 / TIMECODE_FPS);
   }
 
   stop(): void {

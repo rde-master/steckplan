@@ -25,9 +25,9 @@ import { texts } from '../../texts';
 import { ICON } from '../icons';
 import { Button, Modal, TextArea } from '../ui';
 import { ItemNumber, KIND_ICONS } from './RegieView';
-import { useTransport } from '../../lib/transport';
+import { usePointPlayback } from '../../lib/transport';
 import { SectionsEditor } from './SectionsEditor';
-import { LyricsView, PlayerBar, seekAudio, usePlayerTime, useRecordKey } from './SongMedia';
+import { LyricsView, PlayerBar, seekAudio, TimecodePanel, usePlayerTime, useRecordKey } from './SongMedia';
 
 const t = texts.regie;
 const tv = texts.regie.textsView;
@@ -81,16 +81,16 @@ function TextDetail({ projectId, doc, origin, data, item, editable, onBack }: { 
   const sections = itemSections(data.show.sections, item.id);
   const [pasting, setPasting] = useState(false);
   const [audio, setAudio] = useState<HTMLAudioElement | null>(null);
-  const transport = useTransport(item.id, item.durationSec, audio);
-  const time = usePlayerTime(transport);
+  const { tc, music, sync } = usePointPlayback(item.id, item.durationSec, audio);
+  const time = usePlayerTime(music);
   const hasAudio = item.kind === 'song' && (item.media?.length ?? 0) > 0;
   const [textMode, setTextMode] = useState<'edit' | 'read' | 'record'>('edit');
   const mode = hasAudio ? textMode : 'edit';
   const lines = itemLines(data.show.sections, item.id);
   const next = nextUntimedLine(lines);
   const recordNext = useCallback(() => {
-    if (next && editable) setLineTime(doc, next.sectionId, next.line.id, transport.currentTime, origin);
-  }, [next, editable, doc, origin, transport]);
+    if (next && editable) setLineTime(doc, next.sectionId, next.line.id, music.currentTime, origin);
+  }, [next, editable, doc, origin, music]);
   useRecordKey(mode === 'record' && editable, recordNext);
   const Icon = KIND_ICONS[item.kind];
 
@@ -134,18 +134,18 @@ function TextDetail({ projectId, doc, origin, data, item, editable, onBack }: { 
         {mode === 'edit' ? (
           <SectionsEditor doc={doc} origin={origin} item={item} sections={sections} editable={editable} />
         ) : (
-          <LyricsView doc={doc} origin={origin} lines={lines} time={time} recording={mode === 'record'} editable={editable} onSeek={(sec) => seekAudio(transport, sec)} />
+          <LyricsView doc={doc} origin={origin} lines={lines} time={time} recording={mode === 'record'} editable={editable} onSeek={(sec) => seekAudio(music, sec)} />
         )}
       </section>
 
       {(
         <PlayerBar
           settings={data.showSettings}
-          clock
+          aside={<TimecodePanel tc={tc} sync={sync} />}
           projectId={projectId}
           item={item}
           media={data.media}
-          playback={transport}
+          playback={music}
           setAudio={setAudio}
           time={time}
           recording={mode === 'record' && editable}

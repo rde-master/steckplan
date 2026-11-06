@@ -167,6 +167,10 @@ describe('Live-Sync', () => {
     await new Promise((r) => setTimeout(r, 200));
     expect(sent.length).toBe(count);
     expect(sent.at(-1)).toMatchObject({ hour: 0, min: 1, sec: 1, frames: 13 });
+    // Timecode getrennt von der Musik („Mit Musik“ aus): Art-Net folgt dem Timecode, nicht der Musik
+    regie.sendCue({ itemId: 'song', at: 5, playing: false, tc: { at: 125, playing: false } });
+    await waitFor(() => sent.at(-1)!.min === 2);
+    expect(sent.at(-1)).toMatchObject({ min: 2, sec: 5, frames: 0 });
     // Führen beenden → kein Senden mehr
     regie.sendCue({ itemId: 'song', at: 0, playing: true });
     await waitFor(() => sent.length > count + 2);

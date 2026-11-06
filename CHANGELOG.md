@@ -7,6 +7,16 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+### Hinzugefügt
+
+- Timecode-Feld (Vorstellung unten rechts, sonst im Player): unter der grünen Uhr rot die Restzeit bis zur geplanten Dauer (rückwärts, gleiches Format); darüber eigene Knöpfe – Stopp (zurück auf 0), Start/Pause, ±1 und ±5 Sekunden
+- „Mit Musik“ (je Gerät gemerkt): an – Timecode und Musik laufen gemeinsam, Stopp/Pause/Spulen wirken auf beides; aus – der Timecode läuft für sich, die Musik unabhängig davon. Text und Szenen folgen der Musik, Art-Net dem Timecode (beim Führen werden beide Positionen gesendet)
+
+### Geändert
+
+- Timecode: Die Länge kommt allein aus der Dauer im Projekt (nicht mehr aus der Länge des Audios); ist das Audio länger, hält „Mit Musik“ es am Ende der Dauer mit an. Ohne Dauer läuft der Timecode bis Stopp
+- Player: Die Restzeit blinkt nur noch, solange abgespielt wird
+
 ## [0.24.0] - 2026-11-06
 
 ### Hinzugefügt

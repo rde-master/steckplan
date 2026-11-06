@@ -149,5 +149,8 @@ test('Textfenster: eigene Seite, im selben Browser und auf anderen Geräten (Fü
   await expect(remaining).toHaveAttribute('data-state', 'warn');
   await perf.getByTestId('regie-player').screenshot({ path: 'test-results/restzeit.png' });
   await perf.getByLabel('Position').fill('10.5');
+  // angehalten: rot, aber kein Blinken; läuft: blinkt in den letzten 2 s
+  await expect(remaining).toHaveAttribute('data-state', 'warn');
+  await perf.getByRole('button', { name: 'Abspielen' }).click();
   await expect(remaining).toHaveAttribute('data-state', 'blink');
 });

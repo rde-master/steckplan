@@ -1,6 +1,6 @@
 // Lied: Audiodateien (hochladen, Standard, Bezeichnung), Player-Leiste und Text zum Mitlesen/Mitschreiben.
-import { Pause, Play, Star, Trash2, Upload, Volume2, X } from 'lucide-react';
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { Pause, Play, Square, Star, Trash2, Upload, Volume2, X } from 'lucide-react';
+import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import type * as Y from 'yjs';
 import {
   addItemMedia,
@@ -21,7 +21,7 @@ import {
 import { api, errorMessage } from '../../lib/api';
 import { readAudioDuration, uploadMedia } from '../../lib/mediaUpload';
 import { useSession } from '../../lib/session';
-import type { Playback } from '../../lib/transport';
+import { setTimecodeSync, type Playback } from '../../lib/transport';
 import { texts } from '../../texts';
 import { ICON } from '../icons';
 import { Button } from '../ui';
@@ -259,6 +259,50 @@ function usePlaybackState(playback: Playback | null): { playing: boolean; durati
   return state;
 }
 
+/**
+ * Timecode-Feld: „Mit Musik“, eigene Knöpfe (Stopp, Start/Pause, Spulen), grüne Uhr und darunter rot die Restzeit
+ * bis zur geplanten Dauer. Mit Musik wirken die Knöpfe auch auf die Musik, sonst nur auf den Timecode.
+ */
+export function TimecodePanel({ tc, sync, large = false }: { tc: Playback & { stop(): void }; sync: boolean; large?: boolean }) {
+  const time = usePlayerTime(tc);
+  const { playing, duration } = usePlaybackState(tc);
+  const remaining = Number.isFinite(duration) ? Math.max(0, duration - time) : undefined;
+  const button = `rounded tabular-nums text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 ${large ? 'min-h-9 min-w-9 px-2 py-1.5 text-sm' : 'px-1.5 py-1 text-xs'}`;
+  const icon = large ? 20 : 16;
+  return (
+    <div className="flex shrink-0 flex-col items-end gap-1" data-testid="timecode-panel">
+      <div className="flex flex-wrap items-center justify-end gap-0.5">
+        <label className={`mr-1 flex items-center gap-1 text-slate-600 dark:text-slate-300 ${large ? 'text-sm' : 'text-xs'}`} title={t.tcSyncHint}>
+          <input type="checkbox" checked={sync} onChange={(e) => setTimecodeSync(e.target.checked)} />
+          {t.tcSync}
+        </label>
+        <button type="button" className={button} aria-label={t.tcStop} title={t.tcStop} onClick={() => tc.stop()}>
+          <Square size={icon - 2} aria-hidden />
+        </button>
+        {[-5, -1].map((d) => (
+          <button key={d} type="button" className={button} aria-label={t.tcBack(-d)} title={t.tcBack(-d)} onClick={() => seekAudio(tc, tc.currentTime + d)}>
+            {d}
+          </button>
+        ))}
+        <button type="button" className={`${button} text-emerald-600 dark:text-emerald-400`} aria-label={playing ? t.tcPause : t.tcStart} title={playing ? t.tcPause : t.tcStart} onClick={() => (playing ? tc.pause() : void tc.play())}>
+          {playing ? <Pause size={icon} aria-hidden /> : <Play size={icon} aria-hidden />}
+        </button>
+        {[1, 5].map((d) => (
+          <button key={d} type="button" className={button} aria-label={t.tcForward(d)} title={t.tcForward(d)} onClick={() => seekAudio(tc, tc.currentTime + d)}>
+            +{d}
+          </button>
+        ))}
+      </div>
+      <TimecodeClock time={time} className={large ? 'px-4 py-2 text-3xl sm:text-5xl' : ''} />
+      {remaining !== undefined && (
+        <span className={`font-mono font-bold tabular-nums text-red-500 ${large ? 'text-xl sm:text-3xl' : 'text-base'}`} title={t.tcRemaining} data-testid="timecode-remaining">
+          −{formatTimecode(remaining)}
+        </span>
+      )}
+    </div>
+  );
+}
+
 /** Große Timecode-Uhr (HH:MM:SS:FF, grün): gelaufene Zeit des Ablaufpunkts, jeder beginnt bei 00:00:00:00 */
 export function TimecodeClock({ time, className = '' }: { time: number; className?: string }) {
   return (
@@ -285,7 +329,7 @@ export function PlayerBar({
   onClearTimes,
   markers = [],
   settings = {},
-  clock = false,
+  aside,
 }: {
   markers?: { id: string; at: number; label: string }[];
   /** Regie-Einstellungen (Schwellen der Restzeit) */
@@ -302,8 +346,8 @@ export function PlayerBar({
   onNextLine: () => void;
   nextLineText: string | undefined;
   onClearTimes: () => void;
-  /** rechts die Timecode-Uhr zeigen (aus, wenn sie woanders steht) */
-  clock?: boolean;
+  /** rechts daneben (z. B. das Timecode-Feld) */
+  aside?: ReactNode;
 }) {
   const list = item.media ?? [];
   const [selected, setSelected] = useState<string | undefined>(defaultItemMedia(item)?.mediaId);
@@ -313,6 +357,12 @@ export function PlayerBar({
   const [volume, setVolume] = useState(1);
   const container = useRef<HTMLDivElement>(null);
   usePlayPauseKey(playback, !recording);
+  // beim Wechsel des Punkts bzw. der Datei die Musik anhalten (ohne „Mit Musik“ hängt sie nicht am Timecode)
+  const mediaId = current?.mediaId;
+  useEffect(() => {
+    const el = container.current?.querySelector('audio');
+    return () => el?.pause();
+  }, [mediaId]);
   const toggle = () => {
     if (!playback) return;
     if (playback.paused) void playback.play();
@@ -372,7 +422,7 @@ export function PlayerBar({
           {formatDuration(time)}
           {duration > 0 ? ` / ${formatDuration(duration)}` : ''}
         </span>
-        {duration > 0 && <RemainingTime remaining={Math.max(0, duration - time)} {...remainRange(settings)} />}
+        {duration > 0 && <RemainingTime remaining={Math.max(0, duration - time)} playing={playing} {...remainRange(settings)} />}
         {current && (
           <label className="hidden items-center gap-1 sm:flex" title={t.volume}>
             <Volume2 size={16} className="text-slate-500" aria-hidden />
@@ -391,7 +441,7 @@ export function PlayerBar({
             />
           </label>
         )}
-        {clock && <TimecodeClock time={time} className="ml-auto" />}
+        {aside && <div className="ml-auto">{aside}</div>}
       </div>
       {(list.length > 1 || recording) && (
         <div className="flex flex-wrap items-center gap-2">
@@ -503,9 +553,10 @@ export function LyricsView({
 }
 
 /** Restzeit des Titels als Countdown: in den letzten warn Sekunden allmählich rot, in den letzten blink Sekunden blinkend */
-function RemainingTime({ remaining, warn, blink }: { remaining: number; warn: number; blink: number }) {
+function RemainingTime({ remaining, warn, blink, playing }: { remaining: number; warn: number; blink: number; playing: boolean }) {
   const red = warn > 0 && remaining <= warn ? (warn - remaining) / warn : 0;
-  const blinking = blink > 0 && remaining > 0 && remaining <= blink;
+  // blinken nur, solange es läuft
+  const blinking = playing && blink > 0 && remaining > 0 && remaining <= blink;
   return (
     <span
       className={`shrink-0 text-xl font-semibold tabular-nums ${blinking ? 'animate-[steckplan-blink_1s_step-end_infinite]' : ''}`}
