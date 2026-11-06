@@ -7,6 +7,10 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+### Geändert
+
+- Helfer-Seite: der Bühnenplan „Auf der Bühne“ ist ohne Beschriftung (nur Geräte, Kabel und die rote Markierung der eigenen Geräte)
+
 ## [0.28.0] - 2026-11-06
 
 ### Hinzugefügt
