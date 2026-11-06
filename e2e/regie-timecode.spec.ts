@@ -194,3 +194,55 @@ test('Timecode-Steuerung: Restzeit rot, „Mit Musik“ an/aus, eigene Knöpfe, 
   await expect(perf.getByTestId('timecode-panel').getByLabel('Mit Musik')).not.toBeChecked();
   await perf.getByTestId('timecode-panel').getByLabel('Mit Musik').check();
 });
+
+test('Audio-Versatz: Musik setzt erst beim Versatz ein, Player zeigt die Werte der Audiodatei, Zeitstrahl zeigt ihre Lage', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await loginAs(page, 'edit', 'Ralf');
+  const { id } = await (
+    await page.request.post('/api/projects/upload', {
+      data: {
+        schemaVersion: 9,
+        id: 'audio-versatz',
+        meta: { name: 'Versatz' },
+        layers: [{ id: 'l1', name: 'Bühne', order: 0 }],
+        devices: [],
+        cables: [],
+        show: { items: [{ id: 'lied', order: 0, kind: 'song', title: 'Mit Vorlauf', number: 1, durationSec: 6 }], sections: [] },
+      },
+    })
+  ).json();
+  await page.goto(`/projekt/${id}?ansicht=regie`);
+  await page.getByRole('radio', { name: 'Ablauf' }).click();
+  const detail = page.getByTestId('regie-detail');
+  await detail.locator('input[type=file]').setInputFiles({ name: 'Kurz.wav', mimeType: 'audio/wav', buffer: wav(3) });
+  await expect(detail.getByTestId('regie-player').locator('audio')).toHaveCount(1);
+  await detail.getByLabel('Audio-Versatz').fill('2');
+  await detail.getByLabel('Audio-Versatz').press('Enter');
+  await expect.poll(async () => (await (await page.request.get(`/api/projects/${id}/download`)).json()).show.items[0].audioOffsetSec).toBe(2);
+
+  const show = await openPerformance(page);
+  const perf = show.getByTestId('performance');
+  const player = perf.getByTestId('regie-player');
+  // Werte der Audiodatei; Lage im Punkt: ab 2 s (von 6 s), 3 s lang
+  await expect(player.getByTestId('regie-time')).toHaveText('0:00 / 0:03');
+  const segment = player.getByTestId('audio-segment');
+  await expect(segment).toHaveAttribute('style', /left: 33\.3\d*%; width: 50%/);
+  await perf.locator('footer').screenshot({ path: 'test-results/audio-versatz.png' });
+  const clock = perf.getByTestId('timecode-panel').getByTestId('timecode');
+  const audio = () => show.evaluate(() => ({ paused: document.querySelector('audio')!.paused, t: document.querySelector('audio')!.currentTime }));
+
+  await perf.getByRole('button', { name: 'Abspielen' }).click();
+  // vor dem Versatz: Timecode läuft, Musik wartet am Anfang
+  await expect.poll(() => clock.textContent()).toMatch(/^00:00:01:/);
+  expect(await audio()).toMatchObject({ paused: true, t: 0 });
+  // nach dem Versatz: Musik spielt, um 2 s versetzt
+  await expect.poll(async () => (await audio()).paused, { timeout: 4000 }).toBe(false);
+  await expect.poll(() => clock.textContent()).toMatch(/^00:00:03:/);
+  const now = await audio();
+  expect(now.t).toBeGreaterThan(0.6);
+  expect(now.t).toBeLessThan(1.6);
+  await expect(player.getByTestId('regie-time')).toHaveText(/^0:0[01] \/ 0:03$/);
+  // Timecode läuft bis zur geplanten Dauer (6 s), auch nach dem Ende der Datei (2 + 3 = 5 s)
+  await expect(clock).toHaveText('00:00:06:00', { timeout: 6000 });
+  await expect(perf.getByTestId('timecode-panel').getByTestId('timecode-remaining')).toHaveText('−00:00:00:00');
+});

@@ -474,6 +474,8 @@ export const ShowItemSchema = z.object({
   lyricsVisible: z.boolean().optional(),
   /** Textfenster: false = Text am Ende der Dauer stehen lassen (Standard: ausblenden) */
   lyricsHideAtEnd: z.boolean().optional(),
+  /** Versatz des Audios: die Musik setzt bei dieser Zeit des Punkts (Timecode) ein (Sekunden) */
+  audioOffsetSec: z.number().min(0).max(3600).optional(),
   /** Feste Nummer im Ablauf (bleibt beim Umsortieren) */
   number: z.number().int().min(1).max(999).optional(),
 });
