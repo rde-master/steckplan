@@ -11,6 +11,7 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 - Ablauf: je Punkt „Im Textfenster anzeigen“ (Standard an; aus = das Textfenster zeigt bei diesem Punkt keinen Text) und „Text am Ende ausblenden“ (Standard an; ist die Dauer des Punkts erreicht, blendet das Textfenster den Text weich aus)
 - Bearbeiter können verbundene Geräte trennen (✕ in der Liste „Verbunden“, mit Rückfrage; nicht die eigene Verbindung). Das getrennte Gerät verbindet sich nicht von selbst wieder, sondern zeigt „Die Verbindung wurde von … getrennt“ mit „Neu verbinden“ – auch in Vorstellung und Textfenster. Dauerhaft aussperren weiterhin über Passwörter, Desktop- bzw. QR-Schlüssel
+- Vorstellung: Tastenkürzel, vor allem zum Spulen – `,`/`.` 0,5 s, Umschalt+←/→ 1 s, `J`/`L` 5 s, `[`/`]` nur Timecode 0,1 s, `K` Start/Pause, `S`/Pos1 Stopp, `Z` Liedliste; Übersicht über das Tastatur-Symbol im Kopf oder `?`. Beim Folgen übernimmt das Bedienen per Taste
 
 ## [0.26.2] - 2026-11-06
 
