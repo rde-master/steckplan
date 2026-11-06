@@ -65,11 +65,21 @@ test('Regie Medien: Audio hochladen, abspielen, Zeiten mitschreiben, mitlesen; m
   for (const li of await lyrics.locator('li').all()) await expect(li).not.toContainText('–');
   // fein verschieben
   await lyrics.getByRole('button', { name: 'Später: Dritte Zeile' }).click();
+  // Zeit vorne direkt bearbeiten; Klick auf die Zeile springt dorthin (setzt nicht die Zeit)
+  const firstTime = lyrics.getByLabel('Zeit: Erste Zeile');
+  await firstTime.fill('0:00.2');
+  await firstTime.press('Enter');
+  await expect(firstTime).toHaveValue('0:00.2');
+  await lyrics.getByRole('button', { name: 'Erste Zeile', exact: true }).click();
+  await expect(lyrics.locator('li[data-current]')).toContainText('Erste Zeile');
+  await expect(firstTime).toHaveValue('0:00.2');
 
   // Mitlesen: Sprung auf eine Zeile setzt die Position, die Zeile ist die aktuelle
   await textDetail.getByRole('radio', { name: 'Mitlesen' }).click();
-  await textDetail.getByRole('button', { name: 'Pause' }).click().catch(() => undefined);
-  await lyrics.getByRole('button', { name: 'Zweite Zeile' }).click();
+  // anklickbare Zeilen zeigen den Hand-Zeiger
+  await expect(lyrics.getByRole('button').first()).toHaveCSS('cursor', 'pointer');
+  await textDetail.getByRole('button', { name: 'Pause' }).click({ timeout: 2000 }).catch(() => undefined);
+  await lyrics.getByRole('button', { name: 'Zweite Zeile', exact: true }).click();
   await expect(lyrics.locator('li[data-current]')).toContainText('Zweite Zeile');
 
   // gespeichert: Zeiten und Medienverweis

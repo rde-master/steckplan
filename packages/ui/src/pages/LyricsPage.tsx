@@ -99,7 +99,11 @@ export function LyricsPage({ id }: { id: string }) {
       ) : (
         // am Ende der Dauer weich ausblenden (abschaltbar je Punkt)
         <div className={`h-full transition-opacity duration-1000 ${ended ? 'opacity-0' : 'opacity-100'}`} data-testid={ended ? 'lyrics-ended' : 'lyrics-active'}>
-          <LyricsDisplay title={showTitle ? title : ''} lines={lines} currentLineId={current} roleNames={roleNames} {...lyricsRange(data.showSettings)} />
+          <LyricsDisplay
+            activeColor={data.showSettings.lyricsActiveColor}
+            activeBg={data.showSettings.lyricsActiveBg}
+            title={showTitle ? title : ''}
+            lines={lines} currentLineId={current} roleNames={roleNames} {...lyricsRange(data.showSettings)} />
         </div>
       )}
       </div>

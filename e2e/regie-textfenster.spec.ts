@@ -198,6 +198,13 @@ test('Textfenster je Punkt: anzeigen an/aus, Text am Ende der Dauer ausblenden (
   await page.getByRole('button', { name: 'Fertig' }).click();
   await expect(lyrics.getByTestId('lyrics-title')).toHaveText('');
   await expect(lyrics.locator('[data-current]')).toHaveText('Zwei');
+  // Farbe der aktiven Zeile: Text rot, ohne Hervorhebung
+  await page.getByRole('button', { name: 'Regie-Einstellungen' }).click();
+  await page.getByTestId('lyrics-colors').getByLabel('Textfarbe').fill('#ff0000');
+  await page.getByTestId('lyrics-colors').getByLabel('Hervorhebung', { exact: true }).uncheck();
+  await page.getByRole('button', { name: 'Fertig' }).click();
+  await expect(lyrics.getByTestId('lyrics-active-line')).toHaveCSS('color', 'rgb(255, 0, 0)');
+  await expect(lyrics.getByTestId('lyrics-active-line')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
   // Ende der Dauer (3 s): Text blendet aus
   await perf.getByLabel('Position').fill('3');
   await expect(lyrics.getByTestId('lyrics-ended')).toHaveCount(1);
