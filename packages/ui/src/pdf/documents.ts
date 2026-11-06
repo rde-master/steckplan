@@ -57,6 +57,51 @@ export function fitText(text: string, fontSize: number, maxWidth: number, bold =
   return cut.length ? `${cut.trimEnd()}…` : '';
 }
 
+/** Schriftgröße, bei der der Text ganz in maxWidth passt (nicht kleiner als minSize); null = passt auch dann nicht */
+export function fitSize(text: string, fontSize: number, maxWidth: number, bold = false, minSize = fontSize * 0.6): number | null {
+  const w = textWidth(text, fontSize, bold);
+  if (w <= maxWidth) return fontSize;
+  const size = (fontSize * maxWidth) / w;
+  return size >= minSize ? size : null;
+}
+
+/** Text in Zeilen umbrechen (an Leerzeichen; zu lange Wörter zeichenweise) – ohne Kürzen */
+export function wrapText(text: string, fontSize: number, maxWidth: number, bold = false): string[] {
+  const lines: string[] = [];
+  let line = '';
+  const push = (word: string) => {
+    const next = line ? `${line} ${word}` : word;
+    if (textWidth(next, fontSize, bold) <= maxWidth) {
+      line = next;
+      return;
+    }
+    if (line) lines.push(line);
+    line = '';
+    // Wort allein zu lang: zeichenweise
+    let part = '';
+    for (const ch of word) {
+      if (part && textWidth(part + ch, fontSize, bold) > maxWidth) {
+        lines.push(part);
+        part = '';
+      }
+      part += ch;
+    }
+    line = part;
+  };
+  for (const word of text.split(/\s+/).filter(Boolean)) push(word);
+  if (line) lines.push(line);
+  return lines;
+}
+
+/** Größte Schrift (zwischen maxSize und minSize), bei der der umbrochene Text in Breite und Höhe passt */
+export function fitWrapped(text: string, maxSize: number, minSize: number, maxWidth: number, maxHeight: number, bold = false, lineHeight = 1.15): { size: number; lines: string[] } | null {
+  for (let size = maxSize; size >= minSize - 0.01; size -= 0.25) {
+    const lines = wrapText(text, size, maxWidth, bold);
+    if (lines.length * size * lineHeight <= maxHeight) return { size, lines };
+  }
+  return null;
+}
+
 /** Zeichen, die der eingebetteten Schrift fehlen, ersetzen. */
 export function pdfText(text: string | undefined | null): string {
   return (text ?? '').replace(/→/g, '–>').replace(/[✓✔]/g, 'x').replace(/[☐☑]/g, '');
@@ -497,37 +542,60 @@ function personIcon(size: number, color: string): Content {
   return { svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10" width="10" height="10"><circle cx="5" cy="3.2" r="2" fill="${color}"/><path d="M1.4 9.4c.3-2.2 1.8-3.4 3.6-3.4s3.3 1.2 3.6 3.4z" fill="${color}"/></svg>`, width: size, height: size };
 }
 
-/** Inhalt eines Etiketts: farbiger Kopf (Gerät, Vorlage), Person, je Verbindung Symbol, Anschluss, Richtung, Gegenstelle, Kabel. */
-/** Fußzeile unten im Etikett; gibt ihre Höhe zurück (die Verbindungen enden darüber) */
-function labelFooter(out: Content[], label: LabelContent, box: { left: number; top: number; right: number; bottom: number }, lineSize: number, footer: LabelFooter): number {
-  const width = box.right - box.left;
+/** Platz, den die Fußzeile unten im Etikett belegt */
+interface FooterSpace {
+  /** Höhe der Zeile mit Logo und Projektname (über die ganze Breite links neben dem QR-Code) */
+  band: number;
+  /** Breite und Oberkante des QR-Codes unten rechts (0 = keiner) */
+  qrW: number;
+  qrTop: number;
+  /** Hinweis neben dem QR-Code, falls darüber noch Platz ist */
+  hint: (out: Content[], freeTop: number) => void;
+}
+
+/** Fußzeile: QR-Code unten rechts, Logo und Projektname schmal unten links – der Platz darüber gehört dem Einstecken */
+function labelFooter(out: Content[], label: LabelContent, box: { left: number; top: number; right: number; bottom: number }, lineSize: number, footer: LabelFooter): FooterSpace {
   const height = box.bottom - box.top;
   const url = footer.qrUrl && label.deviceId ? footer.qrUrl(label.deviceId) : undefined;
   // QR-Code: höchstens 16 mm, höchstens 40 % der Höhe, mindestens 9 mm (sonst nicht lesbar → weglassen)
   const qr = url ? Math.min(16 * PT_PER_MM, height * 0.42) : 0;
   const withQr = qr >= 9 * PT_PER_MM;
+  const qrW = withQr ? qr + 3 : 0;
   const small = lineSize * 0.85;
-  const logoSize = Math.min(5 * PT_PER_MM, small * 2.6);
-  const band = Math.max(withQr ? qr : 0, logoSize);
-  const top = box.bottom - band;
-  out.push({ canvas: [{ type: 'line', x1: 0, y1: 0, x2: width, y2: 0, lineWidth: 0.3, lineColor: '#cbd5e1' }], absolutePosition: { x: box.left, y: top - 1.5 } });
-  out.push({ image: LOGO_PNG, width: logoSize, height: logoSize, absolutePosition: { x: box.left, y: top + (band - logoSize) / 2 } });
-  const textX = box.left + logoSize + 2.5;
-  const textW = box.right - textX - (withQr ? qr + 3 : 0);
-  const name = fitText(pdfText(footer.project), small, textW, true);
-  const hint = withQr && footer.hint ? fitText(pdfText(footer.hint), small * 0.92, textW) : '';
-  const textH = small * 1.2 * (hint ? 2 : 1);
-  const textY = top + (band - textH) / 2;
-  out.push({ text: name, bold: true, fontSize: small, color: '#334155', noWrap: true, absolutePosition: { x: textX, y: textY } });
-  if (hint) out.push({ text: hint, fontSize: small * 0.92, color: '#64748b', noWrap: true, absolutePosition: { x: textX, y: textY + small * 1.2 } });
+  const logoSize = Math.min(4 * PT_PER_MM, small * 2.2);
+  const top = box.bottom - logoSize;
+  const textX = box.left + logoSize + 2;
+  const textW = box.right - qrW - textX;
+  out.push({ canvas: [{ type: 'line', x1: 0, y1: 0, x2: box.right - qrW - box.left, y2: 0, lineWidth: 0.3, lineColor: '#cbd5e1' }], absolutePosition: { x: box.left, y: top - 1.5 } });
+  out.push({ image: LOGO_PNG, width: logoSize, height: logoSize, absolutePosition: { x: box.left, y: top } });
+  // nichts mit „…“: Projektname notfalls kleiner (sonst gekürzt)
+  const projectText = pdfText(footer.project);
+  const fit = fitSize(projectText, small, textW, true);
+  const nameSize = fit ?? small * 0.6;
+  const name = fit === null ? fitText(projectText, nameSize, textW, true) : projectText;
+  out.push({ text: name, bold: true, fontSize: nameSize, color: '#334155', noWrap: true, absolutePosition: { x: textX, y: top + (logoSize - nameSize * 1.15) / 2 } });
   if (withQr) out.push({ qr: url, fit: qr, margin: [0, 0, 0, 0], eccLevel: 'M', absolutePosition: { x: box.right - qr, y: box.bottom - qr } });
-  return band + 3;
+  const hintText = withQr && footer.hint ? pdfText(footer.hint) : '';
+  return {
+    band: logoSize + 3,
+    qrW,
+    qrTop: withQr ? box.bottom - qr : box.bottom,
+    hint: (o, freeTop) => {
+      // Hinweis direkt über der Logo-Zeile, nur ganz und nur wenn frei
+      const size = small * 0.92;
+      const y = top - 2 - size * 1.2;
+      if (!hintText || y < freeTop || textWidth(hintText, size) > box.right - qrW - box.left) return;
+      o.push({ text: hintText, fontSize: size, color: '#64748b', noWrap: true, absolutePosition: { x: box.left, y } });
+    },
+  };
 }
 
+/** Inhalt eines Etiketts: farbiger Kopf (Gerät, Vorlage), Person, wo es eingesteckt wird (erster Steckplatz). */
 function labelContent(label: LabelContent, outer: { left: number; top: number; right: number; bottom: number }, titleSize: number, lineSize: number, footer?: LabelFooter): Content[] {
   const out: Content[] = [];
   // Fußzeile zuerst: der Rest endet darüber
-  const box = footer ? { ...outer, bottom: outer.bottom - labelFooter(out, label, outer, lineSize, footer) } : outer;
+  const space = footer ? labelFooter(out, label, outer, lineSize, footer) : undefined;
+  const box = space ? { ...outer, bottom: outer.bottom - space.band } : outer;
   const width = box.right - box.left;
   let y = box.top;
   // Kopf: Gerätename weiß auf Farbe, rechts die Vorlage
@@ -535,10 +603,16 @@ function labelContent(label: LabelContent, outer: { left: number; top: number; r
   const headPad = 0.35 * headH;
   out.push({ canvas: [{ type: 'rect', x: 0, y: 0, w: width, h: headH, r: 2, color: '#075985' }], absolutePosition: { x: box.left, y } });
   const smallSize = lineSize * 0.95;
-  const templateText = fitText(pdfText(label.templateName), smallSize, width * 0.4);
+  const titleFull = pdfText(label.title);
+  const titleRoom = width - 2 * headPad;
+  const templateFull = pdfText(label.templateName);
+  // Vorlage nur, wenn sie ganz neben den (vollständigen) Gerätenamen passt
+  const templateText = templateFull && textWidth(templateFull, smallSize) <= width * 0.4 && textWidth(titleFull, titleSize, true) + textWidth(templateFull, smallSize) + 4 <= titleRoom ? templateFull : '';
   const templateW = templateText ? textWidth(templateText, smallSize) : 0;
-  const titleText = fitText(pdfText(label.title), titleSize, width - 2 * headPad - (templateW ? templateW + 4 : 0), true);
-  out.push({ text: titleText, bold: true, fontSize: titleSize, color: '#ffffff', noWrap: true, absolutePosition: { x: box.left + headPad, y: y + (headH - titleSize * 1.15) / 2 } });
+  const titleFit = fitSize(titleFull, titleSize, titleRoom - (templateW ? templateW + 4 : 0), true);
+  const titleSizeUsed = titleFit ?? titleSize * 0.6;
+  const titleText = titleFit === null ? fitText(titleFull, titleSizeUsed, titleRoom, true) : titleFull;
+  out.push({ text: titleText, bold: true, fontSize: titleSizeUsed, color: '#ffffff', noWrap: true, absolutePosition: { x: box.left + headPad, y: y + (headH - titleSizeUsed * 1.15) / 2 } });
   if (templateText) out.push({ text: templateText, fontSize: smallSize, color: '#e0f2fe', noWrap: true, absolutePosition: { x: box.right - headPad - templateW, y: y + (headH - smallSize * 1.15) / 2 } });
   y += headH + lineSize * 0.45;
 
@@ -546,10 +620,15 @@ function labelContent(label: LabelContent, outer: { left: number; top: number; r
   const personSize = lineSize * 1.15;
   const personColor = label.person ? '#0369a1' : '#b91c1c';
   out.push({ ...(personIcon(personSize, personColor) as object), absolutePosition: { x: box.left, y: y + personSize * 0.05 } });
-  const personText = fitText(pdfText(label.person || 'Person nicht zugeordnet'), personSize, width - personSize - 3, true);
-  const kindText = label.personKind ? fitText(pdfText(label.personKind), lineSize, width - personSize - 3 - textWidth(personText, personSize, true) - 6) : '';
+  const personFull = pdfText(label.person || 'Person nicht zugeordnet');
+  const personRoom = width - personSize - 3;
+  const personFit = fitSize(personFull, personSize, personRoom, true);
+  const personSizeUsed = personFit ?? personSize * 0.6;
+  const personText = personFit === null ? fitText(personFull, personSizeUsed, personRoom, true) : personFull;
+  const kindFull = pdfText(label.personKind);
+  const kindText = kindFull && textWidth(personText, personSizeUsed, true) + 6 + textWidth(kindFull, lineSize) <= personRoom ? kindFull : '';
   out.push({
-    text: [{ text: personText, bold: true, color: personColor, fontSize: personSize }, kindText ? { text: `  ${kindText}`, color: '#64748b', fontSize: lineSize } : ''],
+    text: [{ text: personText, bold: true, color: personColor, fontSize: personSizeUsed }, kindText ? { text: `  ${kindText}`, color: '#64748b', fontSize: lineSize } : ''],
     noWrap: true,
     absolutePosition: { x: box.left + personSize + 3, y },
   });
@@ -557,43 +636,49 @@ function labelContent(label: LabelContent, outer: { left: number; top: number; r
   out.push({ canvas: [{ type: 'line', x1: 0, y1: 0, x2: width, y2: 0, lineWidth: 0.4, lineColor: '#cbd5e1' }], absolutePosition: { x: box.left, y } });
   y += lineSize * 0.4;
 
-  // Verbindungen
-  const rowH = lineSize * 1.5;
+  // Wo einstecken: nur der erste Steckplatz – Gegenstelle groß, umbrochen statt gekürzt; Kabel klein darunter
   const icon = lineSize * 1.2;
   const arrow = lineSize * 1.1;
   const connections: LabelConnection[] = label.connections ?? label.lines.map((line) => ({ port: '', target: line, cable: '', signal: 'other', role: 'bi' }));
-  if (connections.length === 0) {
+  const c = connections[0];
+  if (!c) {
     out.push({ text: 'Keine Verbindungen', italics: true, color: '#64748b', fontSize: lineSize, noWrap: true, absolutePosition: { x: box.left, y } });
     return out;
   }
-  const fits = Math.max(1, Math.floor((box.bottom - y) / rowH));
-  const shown = connections.length > fits ? connections.slice(0, fits - 1) : connections;
-  for (const c of shown) {
-    let x = box.left;
-    out.push({ ...(signalIcon(c.signal, icon) as object), absolutePosition: { x, y: y + (lineSize * 1.15 - icon) / 2 } });
-    x += icon + 3;
-    if (c.port) {
-      const port = fitText(pdfText(c.port), lineSize, width * 0.3, true);
-      out.push({ text: port, bold: true, fontSize: lineSize, noWrap: true, absolutePosition: { x, y } });
-      x += textWidth(port, lineSize, true) + 2;
-      out.push({ ...(directionArrow(c.role, arrow) as object), absolutePosition: { x, y: y + (lineSize * 1.15 - arrow) / 2 } });
-      x += arrow + 2;
-    }
-    const rest = box.right - x;
-    const cable = [c.cable, c.cableLabel].filter(Boolean).join(', ');
-    const cableSize = lineSize * 0.9;
-    const targetFull = pdfText(c.target);
-    const targetW = Math.min(textWidth(targetFull, lineSize), cable ? rest * 0.62 : rest);
-    const target = fitText(targetFull, lineSize, targetW);
-    const cableText = cable ? fitText(pdfText(cable), cableSize, rest - textWidth(target, lineSize) - 5) : '';
-    out.push({
-      text: [{ text: target, fontSize: lineSize }, cableText ? { text: `  ${cableText}`, fontSize: cableSize, color: '#64748b' } : ''],
-      noWrap: true,
-      absolutePosition: { x, y },
-    });
-    y += rowH;
+  // Zeile 1: Symbol, eigener Anschluss, Richtung
+  let x = box.left;
+  out.push({ ...(signalIcon(c.signal, icon) as object), absolutePosition: { x, y: y + (lineSize * 1.15 - icon) / 2 } });
+  x += icon + 3;
+  if (c.port) {
+    const portFull = pdfText(c.port);
+    const portSize = fitSize(portFull, lineSize, box.right - x - arrow - 2, true, lineSize * 0.5) ?? lineSize * 0.5;
+    out.push({ text: portFull, bold: true, fontSize: portSize, noWrap: true, absolutePosition: { x, y } });
+    x += textWidth(portFull, portSize, true) + 2;
+    out.push({ ...(directionArrow(c.role, arrow) as object), absolutePosition: { x, y: y + (lineSize * 1.15 - arrow) / 2 } });
   }
-  if (shown.length < connections.length) out.push({ text: `… und ${connections.length - shown.length} weitere`, italics: true, color: '#64748b', fontSize: lineSize, noWrap: true, absolutePosition: { x: box.left, y } });
+  y += lineSize * 1.45;
+  // Gegenstelle: so groß wie möglich (bis 1,6 × Zeilenschrift), umbrochen
+  const cableFull = pdfText([c.cable, c.cableLabel].filter(Boolean).join(', '));
+  const cableSize = lineSize * 0.9;
+  const room = box.bottom - y;
+  // links neben dem QR-Code (reicht der Text nicht bis dorthin, darf er die ganze Breite nutzen)
+  const textW = space && space.qrW && y + lineSize * 1.6 * 1.15 > space.qrTop - 1 ? width - space.qrW : width;
+  const targetFull = pdfText(c.target);
+  const target = fitWrapped(targetFull, lineSize * 1.6, lineSize * 0.55, textW, room, true) ?? { size: lineSize * 0.55, lines: wrapText(targetFull, lineSize * 0.55, textW, true) };
+  for (const line of target.lines) {
+    out.push({ text: line, bold: true, fontSize: target.size, color: '#0f172a', noWrap: true, absolutePosition: { x: box.left, y } });
+    y += target.size * 1.15;
+  }
+  // Kabel: nur wenn es ganz darunter passt
+  const cable = cableFull ? fitWrapped(cableFull, cableSize, cableSize * 0.75, space?.qrW ? width - space.qrW : width, box.bottom - y - 1) : null;
+  if (cable) {
+    y += 1;
+    for (const line of cable.lines) {
+      out.push({ text: line, fontSize: cable.size, color: '#64748b', noWrap: true, absolutePosition: { x: box.left, y } });
+      y += cable.size * 1.15;
+    }
+  }
+  space?.hint(out, y + 1);
   return out;
 }
 

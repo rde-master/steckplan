@@ -276,10 +276,15 @@ export class Room {
   /** Person, der ein Gerät zugeordnet ist (nur wenn es die Person gibt), mit Namen */
   devicePerson(deviceId: string): { id: string; name: string } | undefined {
     const personId = this.doc.getMap<Y.Map<unknown>>('devices').get(deviceId)?.get('personId');
-    const person = typeof personId === 'string' ? this.doc.getMap<Y.Map<unknown>>('people').get(personId) : undefined;
+    return typeof personId === 'string' ? this.person(personId) : undefined;
+  }
+
+  /** Person mit Namen (undefined, wenn es sie nicht gibt) */
+  person(personId: string): { id: string; name: string } | undefined {
+    const person = this.doc.getMap<Y.Map<unknown>>('people').get(personId);
     if (!person) return undefined;
     const name = [person.get('firstName'), person.get('lastName')].filter((x) => typeof x === 'string' && x.trim()).join(' ');
-    return { id: personId as string, name };
+    return { id: personId, name };
   }
 
   /** Helfer-Anmeldung ändern (auch mit Lesezugang – wird in der Route geprüft). false = Auftritt/Person fehlt. */
