@@ -26,14 +26,27 @@ function writeParam(value: string | null): void {
   window.history.replaceState(null, '', url.pathname + url.search);
 }
 
-export function HelpersView({ projectId, data, library, canSignup, isEditor }: { projectId: string; data: ProjectData; library: Library | null; canSignup: boolean; isEditor: boolean }) {
-  const [chosen, setChosenState] = useState<string | null>(() => readParam() ?? (isEditor ? OVERVIEW : null));
+export function HelpersView({ projectId, data, library, canSignup, isEditor, ownPersonId }: { projectId: string; data: ProjectData; library: Library | null; canSignup: boolean; isEditor: boolean; ownPersonId: string | undefined }) {
+  // Helfer sehen und ändern nur ihre eigene Seite (Person aus dem QR-Code ihres Etiketts); Bearbeiten sieht alle
+  if (!isEditor) {
+    const own = data.people.find((p) => p.id === ownPersonId);
+    return (
+      <main className="min-h-0 flex-1 overflow-y-auto" data-testid="helpers-view">
+        <div className="mx-auto w-full max-w-4xl space-y-4 p-4">{own ? <PersonPage key={own.id} projectId={projectId} person={own} data={data} library={library} canSignup={canSignup} /> : <p className="text-sm text-slate-500">{t.scanHint}</p>}</div>
+      </main>
+    );
+  }
+  return <EditorHelpers projectId={projectId} data={data} library={library} canSignup={canSignup} />;
+}
+
+function EditorHelpers({ projectId, data, library, canSignup }: { projectId: string; data: ProjectData; library: Library | null; canSignup: boolean }) {
+  const [chosen, setChosenState] = useState<string | null>(() => readParam() ?? OVERVIEW);
   const setChosen = (value: string | null) => {
     setChosenState(value);
     writeParam(value === OVERVIEW ? null : value);
   };
   const person = data.people.find((p) => p.id === chosen);
-  const showOverview = isEditor && (chosen === OVERVIEW || (!person && chosen !== null));
+  const showOverview = chosen === OVERVIEW || !person;
 
   return (
     <main className="min-h-0 flex-1 overflow-y-auto" data-testid="helpers-view">
@@ -45,7 +58,7 @@ export function HelpersView({ projectId, data, library, canSignup, isEditor }: {
               aria-label={t.choose}
               className="min-w-0 flex-1 rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm sm:max-w-xs dark:border-slate-600 dark:bg-slate-800"
               value={person?.id ?? ''}
-              onChange={(e) => setChosen(e.target.value || (isEditor ? OVERVIEW : null))}
+              onChange={(e) => setChosen(e.target.value || OVERVIEW)}
             >
               <option value="">{t.choosePlaceholder}</option>
               {data.people.map((p) => (
@@ -55,11 +68,9 @@ export function HelpersView({ projectId, data, library, canSignup, isEditor }: {
               ))}
             </select>
           </label>
-          {isEditor && (
-            <Button variant={showOverview ? 'primary' : 'secondary'} onClick={() => setChosen(OVERVIEW)}>
-              {t.overview}
-            </Button>
-          )}
+          <Button variant={showOverview ? 'primary' : 'secondary'} onClick={() => setChosen(OVERVIEW)}>
+            {t.overview}
+          </Button>
         </div>
 
         {showOverview ? (

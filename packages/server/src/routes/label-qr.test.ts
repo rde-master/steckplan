@@ -91,7 +91,7 @@ describe('QR-Code auf Etiketten', () => {
     if (!isManagedStore(server.store)) throw new Error();
     const base = createEmptyProject({ name: 'Helfer' });
     const device = DeviceInstanceSchema.parse({ id: 'v', templateId: 't', layerId: base.layers[0]!.id, label: 'Vox', personId: 'anna' });
-    const a = await server.store.create({ ...base, people: [{ id: 'anna', lastName: 'Muster', firstName: 'Anna', kind: '' }], devices: [device], gigs: [{ id: 'g1', title: 'Konzert', location: '' }] });
+    const a = await server.store.create({ ...base, people: [{ id: 'anna', lastName: 'Muster', firstName: 'Anna', kind: '' }, { id: 'ben', lastName: 'Beispiel', firstName: 'Ben', kind: '' }], devices: [device], gigs: [{ id: 'g1', title: 'Konzert', location: '' }] });
     const b = await server.store.create(createEmptyProject({ name: 'Anderes' }));
     const edit = await login(server, 'edit');
     const { token } = (await server.app.inject({ method: 'POST', url: `/api/projects/${a}/share`, headers: { cookie: edit }, payload: {} })).json() as { token: string };
@@ -100,15 +100,21 @@ describe('QR-Code auf Etiketten', () => {
     // Gerät ohne Person: wie bisher
     expect((await server.app.inject({ method: 'GET', url: `/s/${token}?g=x` })).headers.location).toBe(`/projekt/${a}?ansicht=signalfluss&geraet=x`);
     const qr = cookieOf(scan);
+    expect((await server.app.inject({ method: 'GET', url: '/api/auth/session', headers: { cookie: qr } })).json()).toMatchObject({ name: 'Anna Muster (QR-Code)', access: 'read', personId: 'anna' });
     const helper = (cookie: string, project: string, payload: object) => server!.app.inject({ method: 'POST', url: `/api/projects/${project}/helper`, headers: { cookie }, payload });
     expect((await helper(qr, a, { gigId: 'g1', personId: 'anna', helps: true, trailerNext: true, note: 'später' })).json()).toEqual({ ok: true });
     const project = (await server.app.inject({ method: 'GET', url: `/api/projects/${a}/download`, headers: { cookie: edit } })).json() as { helperSignups: { personId: string; helps: boolean; trailerNext: boolean; note: string; by: string }[] };
-    expect(project.helperSignups).toEqual([expect.objectContaining({ personId: 'anna', helps: true, trailerNext: true, note: 'später', by: 'Gast (QR-Code)' })]);
+    expect(project.helperSignups).toEqual([expect.objectContaining({ personId: 'anna', helps: true, trailerNext: true, note: 'später', by: 'Anna Muster (QR-Code)' })]);
     expect((await helper(qr, a, { gigId: 'gibts-nicht', personId: 'anna', helps: true })).statusCode).toBe(404);
     expect((await helper(qr, a, { gigId: 'g1', personId: 'anna', helps: 'ja' })).statusCode).toBe(400);
     expect((await helper(qr, b, { gigId: 'g1', personId: 'anna', helps: true })).statusCode).toBe(403);
-    // Lesen und Regie dürfen sich ebenfalls anmelden
-    expect((await helper(await login(server, 'read'), a, { gigId: 'g1', personId: 'anna', helps: false })).statusCode).toBe(200);
+    // nur für sich selbst: andere Person → 403; Lesen/Regie ohne Person auch; Bearbeiten darf für alle
+    expect((await helper(qr, a, { gigId: 'g1', personId: 'ben', helps: true })).statusCode).toBe(403);
+    expect((await helper(await login(server, 'read'), a, { gigId: 'g1', personId: 'anna', helps: false })).statusCode).toBe(403);
+    expect((await helper(edit, a, { gigId: 'g1', personId: 'ben', helps: true })).statusCode).toBe(200);
+    // Etikett eines anderen Geräts derselben Person / ohne Person: Sitzung bleibt, Person bleibt
+    expect((await server.app.inject({ method: 'GET', url: `/s/${token}?g=x`, headers: { cookie: qr } })).headers.location).toBe(`/projekt/${a}?ansicht=signalfluss&geraet=x`);
+    expect((await server.app.inject({ method: 'GET', url: '/api/auth/session', headers: { cookie: qr } })).json()).toMatchObject({ personId: 'anna' });
   });
 
   it('Bereich einer QR-Sitzung', () => {

@@ -361,6 +361,7 @@ export function ProjectPage({ id }: { id: string }) {
           library={library}
           canSignup={online && !state?.readOnlyReason && !!access && can(access, 'helperSignup')}
           isEditor={!!access && can(access, 'editProject')}
+          ownPersonId={session?.personId}
         />
       ) : tab === 'lists' ? (
         <ListsView

@@ -181,6 +181,8 @@ export function registerProjectRoutes(app: FastifyInstance, rooms: RoomManager, 
       if (!session) return reply;
       const { gigId, personId, helps, trailerThere, trailerNext, note } = request.body ?? {};
       if (typeof gigId !== 'string' || typeof personId !== 'string') return reply.code(400).send({ error: 'Ungültige Angaben.' });
+      // Helfer tragen nur sich selbst ein (Person aus dem QR-Code ihres Etiketts); für andere nur mit Bearbeiten-Zugang
+      if (!can(session.access, 'editProject') && session.scope?.personId !== personId) return reply.code(403).send({ error: 'Du kannst nur deine eigenen Einträge ändern.' });
       const patch: SignupPatch = {};
       for (const [key, value] of Object.entries({ helps, trailerThere, trailerNext })) {
         if (value === undefined) continue;

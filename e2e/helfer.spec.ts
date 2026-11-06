@@ -53,6 +53,9 @@ test('Helfer: Auftritte in den Projektdaten, QR-Code führt auf die Seite der Pe
   await expect(phone).toHaveURL(new RegExp(`/projekt/${id}\\?ansicht=helfer&person=anna$`));
   const mine = phone.getByTestId('helper-page');
   await expect(mine.getByRole('heading', { name: 'Hallo Anna!' })).toBeVisible();
+  // Helfer sehen nur ihre eigene Seite – keine Auswahl anderer Personen, keine Übersicht
+  await expect(phone.getByLabel('Person', { exact: true })).toHaveCount(0);
+  await expect(phone.getByRole('button', { name: 'Übersicht' })).toHaveCount(0);
   // wo einstecken: Anschluss → Gegenstelle, Bühnenplan mit dem eigenen Gerät
   await expect(mine.getByTestId('helper-connection')).toContainText('Out');
   await expect(mine.getByTestId('helper-connection')).toContainText('Pult · In 1');
@@ -87,6 +90,15 @@ test('Helfer: Auftritte in den Projektdaten, QR-Code führt auf die Seite der Pe
   await page.getByRole('button', { name: 'Übersicht' }).click();
   await expect(matrix.getByRole('row', { name: /Anna Muster/ })).not.toContainText('✓');
   await expect(matrix.getByRole('row', { name: /Anna Muster/ })).toContainText('H');
+
+  // Bearbeiten darf auch für andere eintragen
+  await page.getByLabel('Person', { exact: true }).selectOption({ label: 'Ben Beispiel' });
+  const benGig = page.getByTestId('helper-gig');
+  await benGig.getByRole('button', { name: 'Ich helfe beim Aufbau' }).click();
+  await expect(benGig.getByRole('button', { name: /Angemeldet/ })).toBeVisible();
+  // die QR-Sitzung von Anna darf Ben nicht eintragen
+  const gigId = (await (await page.request.get(`/api/projects/${id}/download`)).json()).gigs[0].id as string;
+  expect((await phone.request.post(`/api/projects/${id}/helper`, { data: { gigId, personId: 'ben', helps: false } })).status()).toBe(403);
 
   // QR-Sitzung darf sonst nichts ändern
   expect((await phone.request.post(`/api/projects/${id}/check`, { data: { kind: 'device', id: 'v', direction: 'out', status: 'ok' } })).status()).toBe(403);

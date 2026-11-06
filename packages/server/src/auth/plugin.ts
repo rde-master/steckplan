@@ -108,8 +108,8 @@ export async function registerAuth(app: FastifyInstance, options: AuthOptions): 
         ...(request.keyRejected ? { keyRejected: request.keyRejected } : {}),
       });
     }
-    const { name, access, via } = request.session;
-    return { name, access, via };
+    const { name, access, via, scope } = request.session;
+    return { name, access, via, ...(scope?.personId ? { personId: scope.personId } : {}) };
   });
 
   app.post<{ Body: { password?: unknown; name?: unknown } }>('/api/auth/login', async (request, reply) => {

@@ -62,6 +62,8 @@ export interface SessionInfo {
   name: string;
   access: Access;
   via: 'desktop' | 'browser' | 'desktopKey';
+  /** QR-Code vom Etikett einer Person: diese Person (trägt sich nur selbst als Helfer ein) */
+  personId?: string;
 }
 
 export interface ProjectSummary {
