@@ -335,6 +335,7 @@ export function ProjectPage({ id }: { id: string }) {
           editable={showEditable}
           sync={project.state}
           sendCue={project.sendCue}
+          onRemote={project.onRemote}
           canLead={online && !!access && can(access, 'editShow')}
         />
       ) : tab === 'lists' ? (

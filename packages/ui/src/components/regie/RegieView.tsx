@@ -25,6 +25,7 @@ import {
   updateShowItem,
   updateShowSettings,
   type Person,
+  type RemoteCommand,
   type ShowItem,
   type ShowItemKind,
   type ShowSettings,
@@ -54,6 +55,7 @@ export function RegieView(
   props: { projectId: string; doc: Y.Doc; origin: object; data: ProjectData; library: Library | null; editable: boolean } & {
     sync: SyncClientState;
     sendCue: (cue: Cue | null) => void;
+    onRemote: (listener: (command: RemoteCommand) => void) => () => void;
     canLead: boolean;
   },
 ) {
@@ -85,7 +87,7 @@ export function RegieView(
         </Button>
       </div>
       {performing && (
-        <PerformanceView projectId={props.projectId} data={props.data} library={props.library} sync={props.sync} sendCue={props.sendCue} canLead={props.canLead} onClose={() => setPerforming(false)} />
+        <PerformanceView projectId={props.projectId} data={props.data} library={props.library} sync={props.sync} sendCue={props.sendCue} onRemote={props.onRemote} canLead={props.canLead} onClose={() => setPerforming(false)} />
       )}
       {area === 'texts' ? (
         <TextsView projectId={props.projectId} doc={props.doc} origin={props.origin} data={props.data} editable={props.editable} />

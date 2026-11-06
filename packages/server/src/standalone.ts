@@ -12,6 +12,7 @@ import { DataDirProjectStore } from './storage/data-dir-store';
 import { VersionStore } from './storage/version-store';
 import { MediaStore } from './storage/media-store';
 import { LabelQrStore } from './auth/label-qr';
+import { OscSettingsStore } from './osc/listener';
 
 const TRASH_PURGE_INTERVAL_MS = 12 * 60 * 60 * 1000;
 
@@ -31,6 +32,8 @@ async function main(): Promise<void> {
   const store = new DataDirProjectStore(config.dataDir);
   const labelQr = new LabelQrStore(join(config.dataDir, 'label-qr.json'));
   await labelQr.load();
+  const osc = new OscSettingsStore(join(config.dataDir, 'osc.json'));
+  await osc.load();
   const media = new MediaStore((id) => (/^[A-Za-z0-9-]{1,64}$/.test(id) ? join(config.dataDir, 'media', id) : undefined));
   await store.init();
   const versions = new VersionStore(join(config.dataDir, 'versions'));
@@ -56,6 +59,7 @@ async function main(): Promise<void> {
     desktopKeys,
     media,
     labelQr,
+    osc,
     uiDir: config.uiDir,
     logger: true,
     trustProxy: config.trustProxy,
