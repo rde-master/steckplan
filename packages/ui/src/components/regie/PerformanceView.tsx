@@ -9,6 +9,8 @@ import {
   gridLayout,
   itemLines,
   itemNumbers,
+  itemSoundScenes,
+  stickyNote,
   itemScenes,
   lightDevices,
   sceneStates,
@@ -23,6 +25,7 @@ import { Button } from '../ui';
 import { openLyricsWindow, useLocalCueSender } from './LyricsWindow';
 import { ItemNumber, KIND_ICONS } from './RegieView';
 import { RichTextView } from './RichTextEditor';
+import { SceneProgress, type SceneMark } from './SceneProgress';
 import { hasRichText } from '../../lib/richText';
 import { SceneGrid } from './SceneGrid';
 import { formatSceneTime } from './ScenesSection';
@@ -71,7 +74,10 @@ export function PerformanceView({
   const [mode, setMode] = useState<Mode>(lead && !iLead ? 'follow' : 'free');
   const following = mode === 'follow' && !!lead && !iLead;
   const [index, setIndex] = useState(0);
-  const [sceneChoice, setSceneChoice] = useState<string | null>(null);
+  // von Hand gewählte Szene und die Position, an der sie gewählt wurde: gilt, bis sich die Position ändert
+  const [choice, setChoice] = useState<{ id: string | null; at: number }>({ id: null, at: 0 });
+  const sceneChoice = choice.id;
+  const pick = (id: string | null, at: number) => setChoice({ id, at });
   const [listOpen, setListOpen] = useState(false);
   const [side, setSide] = useState<Side>(readSide);
   const chooseSide = (next: Side) => {
@@ -98,11 +104,11 @@ export function PerformanceView({
   const playing = !audio.paused;
   const numbers = itemNumbers(items);
   const number = item ? (numbers.get(item.id) ?? itemIndex + 1) : undefined;
-  const timeScene = playing ? currentSceneId(scenes, plainLines, time) : undefined;
+  const choiceHolds = !!sceneChoice && !playing && Math.abs(time - choice.at) < 0.05;
+  const timeScene = choiceHolds ? undefined : currentSceneId(scenes, plainLines, time);
   const sceneId = following ? lead.sceneId : (timeScene ?? (scenes.some((s) => s.id === sceneChoice) ? sceneChoice : scenes[0]?.id) ?? undefined);
   const sceneIndex = scenes.findIndex((s) => s.id === sceneId);
   const scene = scenes[sceneIndex];
-  const nextScene = scenes[sceneIndex + 1];
   const nextItem = items[itemIndex + 1];
   // mit Audio die Abspielposition (auch angehalten, z. B. nach dem Spulen), sonst die Zeile der Szene
   const currentLine = playing || time > 0 ? currentLineId(lines, time) : scene?.lineId;
@@ -163,7 +169,7 @@ export function PerformanceView({
   const takeOver = () => {
     if (following) {
       setIndex(itemIndex);
-      setSceneChoice(sceneId ?? null);
+      pick(sceneId ?? null, audio.currentTime);
       setMode('free');
     }
   };
@@ -171,22 +177,22 @@ export function PerformanceView({
   const goTo = (index: number) => {
     takeOver();
     setIndex(Math.max(0, Math.min(items.length - 1, index)));
-    setSceneChoice(null);
+    pick(null, 0);
     setListOpen(false);
   };
   const goItem = (delta: number) => {
     takeOver();
     const next = Math.max(0, Math.min(items.length - 1, itemIndex + delta));
     setIndex(next);
-    setSceneChoice(null);
+    pick(null, 0);
   };
   const goScene = (delta: number) => {
     takeOver();
     const target = scenes[sceneIndex + delta];
     if (target) {
-      setSceneChoice(target.id);
       const at = sceneTime(target, plainLines);
-      if (at !== undefined && audio) seekAudio(audio, at);
+      if (at !== undefined) seekAudio(audio, at);
+      pick(target.id, at ?? audio.currentTime);
       return;
     }
     // über das Ende hinaus: nächster/voriger Eintrag
@@ -194,7 +200,7 @@ export function PerformanceView({
     if (nextIndex < 0 || nextIndex >= items.length) return;
     const nextScenes = itemScenes(data.lightScenes, items[nextIndex]!.id);
     setIndex(nextIndex);
-    setSceneChoice(delta > 0 ? (nextScenes[0]?.id ?? null) : (nextScenes[nextScenes.length - 1]?.id ?? null));
+    pick(delta > 0 ? (nextScenes[0]?.id ?? null) : (nextScenes[nextScenes.length - 1]?.id ?? null), 0);
   };
 
   // Spulen (um im Live den Text an den Gesang anzupassen)
@@ -232,6 +238,14 @@ export function PerformanceView({
   }, [currentLine]);
 
   const states = scene ? sceneStates(data.sceneStates, scene.id) : new Map();
+  // Szenen-Marken (Nummer, Name, Startpunkt) für Licht und Ton; Notizen bleiben stehen, bis eine neue kommt
+  const lightMark = (i: number): SceneMark | undefined => (scenes[i] ? { number: i + 1, name: scenes[i]!.name, at: sceneTime(scenes[i]!, plainLines) } : undefined);
+  const lightNote = sceneIndex >= 0 ? stickyNote(scenes, sceneIndex) : undefined;
+  const soundScenes = item ? itemSoundScenes(data.soundScenes, item.id) : [];
+  const soundCurrent = currentSceneId(soundScenes, plainLines, time);
+  const soundIndex = soundScenes.length ? Math.max(0, soundScenes.findIndex((s) => s.id === soundCurrent)) : -1;
+  const soundMark = (i: number): SceneMark | undefined => (soundScenes[i] ? { number: i + 1, name: soundScenes[i]!.name, at: sceneTime(soundScenes[i]!, plainLines) } : undefined);
+  const soundNote = soundIndex >= 0 ? stickyNote(soundScenes, soundIndex, hasRichText) : undefined;
   const Icon = item ? KIND_ICONS[item.kind] : null;
   const roleNames = new Map((item?.roles ?? []).map((r) => [r.id, r.name]));
   // Countdown bis zu den nächsten fünf Zeilen (mit Audio), sonst die feste Zeit
@@ -269,6 +283,11 @@ export function PerformanceView({
           <h2 className="min-w-0 truncate text-lg font-semibold" data-testid="performance-title">
             {item?.title || (item ? texts.regie.untitled : t.empty)}
           </h2>
+          {item?.durationSec !== undefined && (
+            <span className="shrink-0 text-lg tabular-nums text-slate-400" data-testid="performance-duration">
+              ({formatDuration(item.durationSec)})
+            </span>
+          )}
           {nextItem && (
             <span className="min-w-0 truncate text-sm text-slate-400" data-testid="performance-next-item">
               {t.nextUp} <ItemNumber number={numbers.get(nextItem.id)} /> {nextItem.title || texts.regie.untitled}
@@ -386,30 +405,34 @@ export function PerformanceView({
               ))}
             </div>
             {side === 'sound' ? (
-              hasRichText(item.soundNotes) ? (
-                <RichTextView html={item.soundNotes} className="rounded-lg bg-white p-4 text-xl text-slate-900" />
-              ) : (
-                <p className="text-slate-500">{texts.regie.sound.none}</p>
-              )
+              <>
+                {soundScenes.length > 0 && (
+                  <SceneProgress current={soundMark(soundIndex)} next={soundMark(soundIndex + 1)} time={time} nextItemTitle={nextItem ? nextItem.title || texts.regie.untitled : undefined} testPrefix="sound" />
+                )}
+                {soundNote ? (
+                  <RichTextView html={soundNote} className="rounded-lg bg-white p-4 text-xl text-slate-900" />
+                ) : (
+                  soundScenes.length > 0 && <p className="text-slate-500">{texts.regie.sound.noSceneNote}</p>
+                )}
+                {hasRichText(item.soundNotes) && (
+                  <div className="space-y-1">
+                    <div className="text-xs font-semibold tracking-wide text-slate-500 uppercase">{t.general}</div>
+                    <RichTextView html={item.soundNotes} className="rounded-lg bg-white p-4 text-lg text-slate-900" />
+                  </div>
+                )}
+                {soundScenes.length === 0 && !hasRichText(item.soundNotes) && <p className="text-slate-500">{texts.regie.sound.none}</p>}
+              </>
             ) : scenes.length > 0 ? (
               <>
-                <div className="flex flex-wrap items-baseline gap-2">
-                  <span className="text-xs font-semibold tracking-wide text-slate-500 uppercase">{t.currentScene}</span>
-                  <span className="text-xl font-semibold" data-testid="performance-scene">
-                    {sceneIndex + 1}. {scene?.name || '–'}
-                  </span>
-                  {scene && sceneTime(scene, plainLines) !== undefined && <span className="tabular-nums text-slate-400">{formatSceneTime(sceneTime(scene, plainLines)!)}</span>}
+                <SceneProgress current={lightMark(sceneIndex)} next={lightMark(sceneIndex + 1)} time={time} nextItemTitle={nextItem ? nextItem.title || texts.regie.untitled : undefined} testPrefix="performance" />
+                {lightNote && <p className="text-lg text-slate-200" data-testid="performance-scene-note">{lightNote}</p>}
+                <div className="mx-auto w-fit max-w-full">
+                  <SceneGrid grid={data.lightGrid} layout={layout} states={states} targets={data.lightTargets} templates={templates} selected={new Set()} onToggle={undefined} />
                 </div>
-                {scene?.notes && <p className="text-slate-300">{scene.notes}</p>}
-                <SceneGrid grid={data.lightGrid} layout={layout} states={states} targets={data.lightTargets} templates={templates} selected={new Set()} onToggle={undefined} />
-                <p className="text-sm text-slate-400" data-testid="performance-next">
-                  {nextScene ? t.nextScene(`${sceneIndex + 2}. ${nextScene.name}`) : nextItem ? t.nextItem(nextItem.title || texts.regie.untitled) : t.end}
-                </p>
               </>
             ) : (
               <p className="text-slate-500">{nextItem ? t.nextItem(nextItem.title || texts.regie.untitled) : t.end}</p>
             )}
-            <p className="text-sm text-slate-500">{item.durationSec !== undefined ? `${t.duration}: ${formatDuration(item.durationSec)}` : ''}</p>
           </section>
         </main>
       )}

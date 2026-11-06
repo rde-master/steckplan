@@ -119,6 +119,7 @@ function setup(): { data: ProjectData; library: Library } {
     lightTargets: [],
     lightScenes: [],
     sceneStates: [],
+    soundScenes: [],
   };
   return { data, library };
 }

@@ -4,6 +4,7 @@
 import * as Y from 'yjs';
 import { newId } from '../model/project';
 import { copyItemScenes, removeItemScenes } from './scenes';
+import { copyItemSoundScenes, removeItemSoundScenes } from './sound';
 import type { ItemMedia, MediaRef, SectionKind, ShowItem, ShowItemKind, ShowRole, ShowSettings, TextLine, TextSection } from '../model/schema';
 
 // ---------- Lesen ----------
@@ -388,6 +389,7 @@ export function removeShowItem(doc: Y.Doc, id: string, origin: unknown): void {
     itemsMap(doc).delete(id);
     for (const s of readShow(doc).sections) if (s.itemId === id) sectionsMap(doc).delete(s.id);
     removeItemScenes(doc, id);
+    removeItemSoundScenes(doc, id);
     renumber(doc, readShow(doc).items.map((i) => i.id));
   }, origin);
 }
@@ -428,6 +430,7 @@ export function duplicateShowItem(doc: Y.Doc, id: string, origin: unknown): stri
       addSection(doc, copyId, s.kind, s.label, origin, lines);
     }
     copyItemScenes(doc, id, copyId, lineIds);
+    copyItemSoundScenes(doc, id, copyId, lineIds);
   }, origin);
   return copyId;
 }

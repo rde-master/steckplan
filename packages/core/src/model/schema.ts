@@ -542,6 +542,20 @@ export const LightSceneSchema = z.object({
 });
 export type LightScene = z.infer<typeof LightSceneSchema>;
 
+/** Tonszene: wie eine Lichtszene (Name, Auslöser), dazu eine formatierte Notiz (HTML, beim Anzeigen bereinigt) */
+export const SoundSceneSchema = z.object({
+  id,
+  itemId: id,
+  order: z.number(),
+  name: z.string().default(''),
+  notes: z.string().optional(),
+  atSec: z.number().nonnegative().optional(),
+  lineId: id.optional(),
+  /** aus dieser Lichtszene übernommen (erneutes Übernehmen gleicht Name und Auslöser an) */
+  lightSceneId: id.optional(),
+});
+export type SoundScene = z.infer<typeof SoundSceneSchema>;
+
 export const EFFECT_KINDS = ['circle', 'eight', 'pan', 'tilt', 'wave', 'random', 'chase', 'other'] as const;
 export type EffectKind = (typeof EFFECT_KINDS)[number];
 export const EFFECT_SPEEDS = ['slow', 'medium', 'fast'] as const;
@@ -635,6 +649,8 @@ export const ProjectSchema = z.object({
   /** Lichtszenen und Werte je Gerät (seit Format 9) */
   lightScenes: z.array(LightSceneSchema).default([]),
   sceneStates: z.array(FixtureStateSchema).default([]),
+  /** Tonszenen (seit 0.25) */
+  soundScenes: z.array(SoundSceneSchema).default([]),
   network: z
     .object({
       subnets: z.array(SubnetSchema).default([]),

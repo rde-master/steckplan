@@ -9,6 +9,17 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Hinzugefügt
 
+- Tonszenen: Szenen wie beim Licht (Name, Auslöser per Zeitpunkt/„Jetzt“/Textzeile, sortieren, löschen) mit formatierter Notiz je Szene; „Szenen vom Licht übernehmen“ legt die Lichtszenen als Tonszenen an bzw. gleicht Name und Auslöser an (Notizen bleiben); Player mit Timecode und Szenen-Marken; der bisherige Text je Punkt bleibt als „Allgemein“
+- Vorstellung (Licht und Ton): aktuelle Szene mit Startpunkt und wie lange sie schon läuft, rechtsbündig die nächste Szene mit Startpunkt und Countdown, darunter ein grüner Balken bis zur nächsten Szene
+- Vorstellung: Notizen wechseln mit der Szene; hat eine Szene keine, bleibt die letzte stehen, bis eine neue kommt (Licht und Ton)
+
+### Geändert
+
+- Vorstellung: Gesamtdauer in Klammern neben dem Namen im Kopf statt unten; Lichtplan zentriert
+- Vorstellung: Auch angehalten folgt die Szene der Position (z. B. nach dem Spulen); eine von Hand gewählte Szene gilt, bis sich die Position ändert
+
+### Hinzugefügt
+
 - Timecode-Feld (Vorstellung unten rechts, sonst im Player): unter der grünen Uhr rot die Restzeit bis zur geplanten Dauer (rückwärts, gleiches Format); darüber eigene Knöpfe – Stopp (zurück auf 0), Start/Pause, ±1 und ±5 Sekunden
 - „Mit Musik“ (je Gerät gemerkt): an – Timecode und Musik laufen gemeinsam, Stopp/Pause/Spulen wirken auf beides; aus – der Timecode läuft für sich, die Musik unabhängig davon. Text und Szenen folgen der Musik, Art-Net dem Timecode (beim Führen werden beide Positionen gesendet)
 
