@@ -11,6 +11,7 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 - OSC-Fernsteuerung der Vorstellung (UDP, in den Einstellungen ein- und Port einstellbar, Standard 8000): `/steckplan/play`, `/pause`, `/toggle`, `/stop`, `/forward [s]`, `/back [s]`, `/seek s`, `/item n` (Punkt mit Nummer n), `/next`, `/prev`, `/scene/next`, `/scene/prev`; Werte als int, float oder string, Bundles werden aufgelöst, das Loslassen eines Tasters (0) löst nichts aus. Ausgeführt wird in der Vorstellung, die führt – führt niemand, in jeder geöffneten, die nicht folgt; die Vorstellung zeigt kurz, welcher Befehl ankam. Die Einstellungen zeigen, ob empfangen wird, und den zuletzt erkannten Befehl
 - Dieselben Befehle per HTTP: `POST /api/remote` mit `{ "action": "play" }` bzw. `{ "action": "item", "value": 3 }` (Bearbeiten- oder Regie-Zugang), optional `projectId`
+- Seite „OSC-Befehle“ (`/osc`, im Menü „OSC“, verlinkt aus den Einstellungen und den Regie-Einstellungen): alle Befehle mit Adresse, Wert, Wirkung und HTTP-Gegenstück, Zustand des Empfangs (Adresse, Port, zuletzt erkannter Befehl) und je Befehl „Senden“ zum Ausprobieren an der offenen Vorstellung (Bearbeiten- oder Regie-Zugang)
 - Vorstellung: Vorschau auf die nächste Szene – im Ton unten zuschaltbar („Vorschau anzeigen“, mit Name und Notiz der nächsten Tonszene), im Licht umschaltbar „Bild: Aktuell | Nächste“ (Lichtplan der nächsten Szene, als Vorschau markiert); beides je Gerät gemerkt
 
 ### Geändert

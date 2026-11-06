@@ -8,6 +8,7 @@ export function appWindowOptions(details: Pick<HandlerDetails, 'url' | 'frameNam
   const path = new URL(details.url).pathname;
   if (details.frameName.startsWith('steckplan-text-') && /^\/projekt\/[^/]+\/text\/?$/.test(path)) return lyricsWindowOptions;
   if (details.frameName.startsWith('steckplan-vorstellung-') && /^\/projekt\/[^/]+\/vorstellung\/?$/.test(path)) return performanceWindowOptions;
+  if (details.frameName === 'steckplan-osc' && path === '/osc') return { width: 1100, height: 800, autoHideMenuBar: true };
   return null;
 }
 
