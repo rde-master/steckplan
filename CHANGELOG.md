@@ -7,6 +7,10 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+### Hinzugefügt
+
+- Ablauf: je Punkt „Im Textfenster anzeigen“ (Standard an; aus = das Textfenster zeigt bei diesem Punkt keinen Text) und „Text am Ende ausblenden“ (Standard an; ist die Dauer des Punkts erreicht, blendet das Textfenster den Text weich aus)
+
 ## [0.26.2] - 2026-11-06
 
 ### Hinzugefügt

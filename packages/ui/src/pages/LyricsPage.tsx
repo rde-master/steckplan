@@ -51,6 +51,8 @@ export function LyricsPage({ id }: { id: string }) {
   const status = state?.status;
   const message = status === 'unauthorized' || status === 'notFound' ? t.noAccess : !item ? (lead || local ? t.waiting : t.nobodyLeads) : null;
 
+  // Ende des Punkts erreicht (Dauer) → Text ausblenden, sofern nicht abgeschaltet
+  const ended = !!item && item.lyricsHideAtEnd !== false && item.durationSec !== undefined && time !== undefined && time >= item.durationSec - 0.05;
   // Hintergrund nach dem Abschnitt der aktuellen (bzw. vor dem Start: der ersten) Zeile; sonst Standardbild
   const standard = data.showSettings.lyricsBackground;
   const dim = standard?.dim ?? 0.5;
@@ -77,8 +79,13 @@ export function LyricsPage({ id }: { id: string }) {
         <p className="flex h-full items-center justify-center p-8 text-center text-[3vw] text-slate-500">{message}</p>
       ) : lines.length === 0 ? (
         <p className="flex h-full items-center justify-center p-8 text-center text-[6vw] font-semibold">{title}</p>
+      ) : item?.lyricsVisible === false ? (
+        <div data-testid="lyrics-hidden" />
       ) : (
-        <LyricsDisplay title={title} lines={lines} currentLineId={current} roleNames={roleNames} {...lyricsRange(data.showSettings)} />
+        // am Ende der Dauer weich ausblenden (abschaltbar je Punkt)
+        <div className={`h-full transition-opacity duration-1000 ${ended ? 'opacity-0' : 'opacity-100'}`} data-testid={ended ? 'lyrics-ended' : 'lyrics-active'}>
+          <LyricsDisplay title={title} lines={lines} currentLineId={current} roleNames={roleNames} {...lyricsRange(data.showSettings)} />
+        </div>
       )}
       </div>
       {!fullscreen && <div className="pointer-events-none absolute right-0 bottom-2 left-0 text-center text-sm text-slate-500">{t.fullscreenHint}</div>}
