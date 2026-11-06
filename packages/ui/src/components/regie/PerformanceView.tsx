@@ -256,14 +256,16 @@ export function PerformanceView({
         </span>
         {number !== undefined && <ItemNumber number={number} />}
         {Icon && <Icon size={20} className="text-slate-400" aria-hidden />}
-        <h2 className="min-w-[10rem] flex-1 truncate text-lg font-semibold" data-testid="performance-title">
-          {item?.title || (item ? texts.regie.untitled : t.empty)}
+        <div className="flex min-w-[10rem] flex-1 items-baseline gap-3 overflow-hidden">
+          <h2 className="min-w-0 truncate text-lg font-semibold" data-testid="performance-title">
+            {item?.title || (item ? texts.regie.untitled : t.empty)}
+          </h2>
           {nextItem && (
-            <span className="ml-3 text-sm font-normal text-slate-400" data-testid="performance-next-item">
+            <span className="min-w-0 truncate text-sm text-slate-400" data-testid="performance-next-item">
               {t.nextUp} <ItemNumber number={numbers.get(nextItem.id)} /> {nextItem.title || texts.regie.untitled}
             </span>
           )}
-        </h2>
+        </div>
         <div className="relative">
           <Button variant="ghost" className="text-sm" aria-expanded={listOpen} aria-haspopup="true" title={t.listTitle} onClick={() => setListOpen(!listOpen)}>
             <ListMusic size={18} aria-hidden /> {t.list}
