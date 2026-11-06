@@ -476,6 +476,8 @@ export const ShowItemSchema = z.object({
   lyricsHideAtEnd: z.boolean().optional(),
   /** Versatz des Audios: die Musik setzt bei dieser Zeit des Punkts (Timecode) ein (Sekunden) */
   audioOffsetSec: z.number().min(0).max(3600).optional(),
+  /** true: der Versatz gilt auch für die Zeitpunkte der Textzeilen (sie zählen ab Musikbeginn) */
+  audioOffsetText: z.boolean().optional(),
   /** Feste Nummer im Ablauf (bleibt beim Umsortieren) */
   number: z.number().int().min(1).max(999).optional(),
 });

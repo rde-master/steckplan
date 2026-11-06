@@ -7,6 +7,10 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+### Hinzugefügt
+
+- Audio-Versatz: Option „Versatz gilt auch für den Text“ (Ablauf, am Versatz). An: Zeitpunkte der Textzeilen zählen ab Musikbeginn – im Textfenster, in der Vorstellung (mit Countdowns und Balken), beim Mitlesen und für Szenen an einer Textzeile; beim Mitschreiben und Verschieben wird die Zeit ab Musikbeginn gespeichert. Aus (Standard): Textzeiten zählen ab Timecode 0
+
 ## [0.27.0] - 2026-11-06
 
 ### Hinzugefügt

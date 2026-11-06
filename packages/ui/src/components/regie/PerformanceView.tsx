@@ -7,7 +7,7 @@ import {
   currentSceneId,
   formatDuration,
   gridLayout,
-  itemLines,
+  itemTimedLines,
   itemNumbers,
   itemSoundScenes,
   stickyNote,
@@ -120,7 +120,7 @@ export function PerformanceView({
   const itemIndex = followIndex >= 0 ? followIndex : Math.min(index, Math.max(0, items.length - 1));
   const item = items[itemIndex];
   const scenes = item ? itemScenes(data.lightScenes, item.id) : [];
-  const lines = item ? itemLines(data.show.sections, item.id) : [];
+  const lines = item ? itemTimedLines(data.show.sections, item) : [];
   const plainLines = lines.map((l) => l.line);
 
   // Transport des Ablaufpunkts (Timecode); das Audio des Lieds hängt daran

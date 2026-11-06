@@ -11,6 +11,8 @@ import {
   currentLineId,
   defaultItemMedia,
   itemLines,
+  itemTimedLines,
+  textOffset,
   nextUntimedLine,
   readMedia,
   removeItemMedia,
@@ -390,5 +392,17 @@ describe('Regie: Hintergrundbilder der Abschnitte', () => {
     setSectionBackground(d, addSection(d, other, 'verse', 'S', null), ref('see'), null);
     removeShowItem(d, other, null);
     expect(readMedia(d)).toEqual([]);
+  });
+});
+
+describe('Regie: Audio-Versatz und Text', () => {
+  it('Textzeiten werden nur verschoben, wenn der Versatz auch für den Text gilt', () => {
+    const sections = [{ id: 's', itemId: 'i', order: 0, kind: 'verse' as const, label: 'S', lines: [{ id: 'a', text: 'A', atSec: 1 }, { id: 'b', text: 'B' }] }];
+    const at = (item: { id: string; audioOffsetSec?: number; audioOffsetText?: boolean }) => itemTimedLines(sections, item).map((l) => l.line.atSec);
+    expect(at({ id: 'i', audioOffsetSec: 4 })).toEqual([1, undefined]);
+    expect(at({ id: 'i', audioOffsetSec: 4, audioOffsetText: true })).toEqual([5, undefined]);
+    expect(at({ id: 'i', audioOffsetText: true })).toEqual([1, undefined]);
+    expect(textOffset({ audioOffsetSec: 2.5, audioOffsetText: true })).toBe(2.5);
+    expect(textOffset({ audioOffsetSec: 2.5 })).toBe(0);
   });
 });

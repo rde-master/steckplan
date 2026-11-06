@@ -523,11 +523,14 @@ export function LyricsView({
   recording,
   editable,
   onSeek,
+  timeOffset = 0,
 }: {
   doc: Y.Doc;
   origin: object;
   lines: TimedLine[];
   time: number;
+  /** Zeiten der Zeilen sind um diesen Versatz verschoben (gespeichert wird ohne) */
+  timeOffset?: number;
   recording: boolean;
   editable: boolean;
   onSeek: (sec: number) => void;
@@ -555,7 +558,7 @@ export function LyricsView({
                 className={`min-w-0 flex-1 text-left ${isCurrent ? 'text-lg font-semibold' : 'text-base'} ${line.direction ? 'italic text-slate-500' : ''}`}
                 title={recording ? t.setHere : line.atSec !== undefined ? t.jump : undefined}
                 onClick={() => {
-                  if (recording && editable) setLineTime(doc, sectionId, line.id, time, origin);
+                  if (recording && editable) setLineTime(doc, sectionId, line.id, Math.max(0, time - timeOffset), origin);
                   else if (line.atSec !== undefined) onSeek(line.atSec);
                 }}
               >
@@ -563,10 +566,10 @@ export function LyricsView({
               </button>
               {recording && editable && line.atSec !== undefined && (
                 <span className="flex shrink-0">
-                  <Button variant="ghost" className="min-h-7 px-1.5 text-xs" aria-label={`${t.earlier}: ${line.text}`} onClick={() => setLineTime(doc, sectionId, line.id, line.atSec! - 0.5, origin)}>
+                  <Button variant="ghost" className="min-h-7 px-1.5 text-xs" aria-label={`${t.earlier}: ${line.text}`} onClick={() => setLineTime(doc, sectionId, line.id, Math.max(0, line.atSec! - timeOffset - 0.5), origin)}>
                     −0,5
                   </Button>
-                  <Button variant="ghost" className="min-h-7 px-1.5 text-xs" aria-label={`${t.later}: ${line.text}`} onClick={() => setLineTime(doc, sectionId, line.id, line.atSec! + 0.5, origin)}>
+                  <Button variant="ghost" className="min-h-7 px-1.5 text-xs" aria-label={`${t.later}: ${line.text}`} onClick={() => setLineTime(doc, sectionId, line.id, line.atSec! - timeOffset + 0.5, origin)}>
                     +0,5
                   </Button>
                   <Button variant="ghost" className="min-h-7 px-1.5" aria-label={`${t.clearTime}: ${line.text}`} onClick={() => setLineTime(doc, sectionId, line.id, undefined, origin)}>
