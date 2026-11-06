@@ -242,6 +242,24 @@ export function registerProjectRoutes(app: FastifyInstance, rooms: RoomManager, 
     }
   });
 
+  // Technik-Übergabe: Empfang / Rückgabe bestätigen (Helfer für sich selbst), zurücksetzen nur Bearbeiten
+  app.post<{ Params: { id: string }; Body: { personId?: unknown; action?: unknown } }>('/api/projects/:id/handover', async (request, reply) => {
+    const session = requireSession(request, reply, 'helperSignup');
+    if (!session) return reply;
+    const { personId, action } = request.body ?? {};
+    if (typeof personId !== 'string' || (action !== 'receive' && action !== 'return' && action !== 'reset')) return reply.code(400).send({ error: 'Ungültige Angaben.' });
+    const editor = can(session.access, 'editProject');
+    if (!editor && (session.scope?.personId !== personId || action === 'reset')) return reply.code(403).send({ error: 'Du kannst nur deine eigene Übergabe bestätigen.' });
+    const room = await messageRoom(request.params.id, reply);
+    if (!room) return reply;
+    try {
+      if (!room.applyHandover(personId, action, session.name)) return reply.code(409).send({ error: action === 'return' ? 'Erst den Empfang bestätigen.' : 'Person nicht gefunden.' });
+    } catch (error) {
+      return reply.code(409).send({ error: (error as Error).message });
+    }
+    return { ok: true };
+  });
+
   app.route<{ Params: { id: string; messageId: string }; Body: { text?: unknown } }>({
     method: ['PUT', 'DELETE'],
     url: '/api/projects/:id/messages/:messageId',

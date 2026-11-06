@@ -123,6 +123,7 @@ function setup(): { data: ProjectData; library: Library } {
     gigs: [],
     helperSignups: [],
     helperMessages: [],
+    handovers: [],
   };
   return { data, library };
 }

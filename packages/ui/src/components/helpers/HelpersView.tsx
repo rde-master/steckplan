@@ -4,7 +4,7 @@
 import { ArrowLeft, ArrowRight, Check, ChevronRight, Link2, MessageSquare, Truck } from 'lucide-react';
 import { useState } from 'react';
 import type * as Y from 'yjs';
-import { buildPeopleList, EMPTY_FILTER, formatGigDate, formatGigTimes, gigSummaries, personName, personSignup, type Gig, type HelperSignup, unreadHelperMessages, type Library, type Person, type PersonEntry } from '@steckplan/core';
+import { buildPeopleList, EMPTY_FILTER, formatGigDate, formatGigTimes, gigSummaries, personName, personSignup, handoverState, personHandover, type Gig, type HelperSignup, unreadHelperMessages, type Library, type Person, type PersonEntry } from '@steckplan/core';
 import { api, errorMessage } from '../../lib/api';
 import { personLink, resolveShare } from '../../lib/shareLink';
 import type { ProjectData } from '../../lib/useProjectData';
@@ -15,6 +15,7 @@ import { buildMulticoreRoutes, buildStageCables, buildStageItems } from '../stag
 import { ICON } from '../icons';
 import { Banner, Button } from '../ui';
 import { CountBadge, MessagesInbox, PersonMessages } from './HelperMessages';
+import { HandoverCard, HandoverOverview, ReceiptPrompt } from './Handover';
 
 const t = texts.helpers;
 const OVERVIEW = '__uebersicht';
@@ -38,11 +39,21 @@ export function HelpersView({ projectId, doc, origin, userName, data, library, c
 }
 
 /** Helfer: die eigene Seite; die Nachricht an die Technik auf einer eigenen Seite (Knopf unten) */
+/** Personen mit ihren Geräten („benutzt von Mensch“) und wohin diese gesteckt werden */
+function peopleEntries(data: ProjectData, library: Library | null): PersonEntry[] {
+  const settings = { gridMm: 500, snap: true, defaultReservePercent: 10, defaultReservePerEndMm: 500, ...data.settings };
+  return buildPeopleList({ devices: data.devices, cables: data.cables, settings, people: data.people }, { templates: library?.templates ?? [] });
+}
+
 function OwnHelpers({ projectId, data, library, canSignup, ownPersonId }: { projectId: string; data: ProjectData; library: Library | null; canSignup: boolean; ownPersonId: string | undefined }) {
   const own = data.people.find((p) => p.id === ownPersonId);
   const [messages, setMessages] = useState(false);
+  const devices = own ? (peopleEntries(data, library).find((e) => e.person?.id === own.id)?.devices ?? []) : [];
+  // Empfangsbestätigung: solange offen, kommt das Fenster bei jedem Öffnen (wer Geräte hat)
+  const mustConfirm = !!own && canSignup && devices.length > 0 && handoverState(personHandover(data.handovers, own.id)) === 'open';
   return (
     <main className="min-h-0 flex-1 overflow-y-auto" data-testid="helpers-view">
+      {mustConfirm && <ReceiptPrompt projectId={projectId} person={own} devices={devices} />}
       <div className="mx-auto w-full max-w-4xl space-y-4 p-4">
         {!own ? (
           <p className="text-sm text-slate-500">{t.scanHint}</p>
@@ -55,6 +66,7 @@ function OwnHelpers({ projectId, data, library, canSignup, ownPersonId }: { proj
           </>
         ) : (
           <>
+            <HandoverCard projectId={projectId} person={own} handover={personHandover(data.handovers, own.id)} canAct={canSignup} />
             <PersonPage key={own.id} projectId={projectId} person={own} data={data} library={library} canSignup={canSignup} />
             <div className="flex justify-center pt-2">
               <Button variant="ghost" className="text-sm text-slate-500" onClick={() => setMessages(true)}>
@@ -113,9 +125,19 @@ function EditorHelpers({ projectId, doc, origin, userName, data, library, canSig
         {showMessages ? (
           <MessagesInbox projectId={projectId} doc={doc} origin={origin} userName={userName} messages={data.helperMessages} people={data.people} onOpen={(id) => setChosen(id)} />
         ) : showOverview ? (
-          <Overview projectId={projectId} data={data} onOpen={(id) => setChosen(id)} />
+          <>
+            <HandoverOverview
+              projectId={projectId}
+              entries={peopleEntries(data, library).flatMap((e) => (e.person && e.devices.length > 0 ? [{ person: e.person, devices: e.devices }] : []))}
+              handovers={data.handovers}
+            />
+            <Overview projectId={projectId} data={data} onOpen={(id) => setChosen(id)} />
+          </>
         ) : person ? (
-          <PersonPage key={person.id} projectId={projectId} person={person} data={data} library={library} canSignup={canSignup} />
+          <>
+            <HandoverCard projectId={projectId} person={person} handover={personHandover(data.handovers, person.id)} canAct={false} />
+            <PersonPage key={person.id} projectId={projectId} person={person} data={data} library={library} canSignup={canSignup} />
+          </>
         ) : (
           <p className="text-sm text-slate-500">{data.people.length ? t.pickHint : t.noPeople}</p>
         )}
@@ -128,8 +150,7 @@ function EditorHelpers({ projectId, doc, origin, userName, data, library, canSig
 
 /** Seite einer Person: wo einstecken und Anmeldung zu den Auftritten */
 function PersonPage({ projectId, person, data, library, canSignup }: { projectId: string; person: Person; data: ProjectData; library: Library | null; canSignup: boolean }) {
-  const settings = { gridMm: 500, snap: true, defaultReservePercent: 10, defaultReservePerEndMm: 500, ...data.settings };
-  const entry: PersonEntry = buildPeopleList({ devices: data.devices, cables: data.cables, settings, people: data.people }, { templates: library?.templates ?? [] }).find((e) => e.person?.id === person.id) ?? { person, devices: [] };
+  const entry: PersonEntry = peopleEntries(data, library).find((e) => e.person?.id === person.id) ?? { person, devices: [] };
   return (
     <div className="space-y-4" data-testid="helper-page">
       <header>
@@ -389,12 +410,10 @@ function Overview({ projectId, data, onOpen }: { projectId: string; data: Projec
                 {data.people.map((p) => (
                   <tr key={p.id} className="border-t border-slate-100 dark:border-slate-800">
                     <th className="px-3 py-1.5 text-left font-normal">
-                      <span className="flex items-center gap-1">
-                        <button type="button" className="cursor-pointer text-sky-700 hover:underline dark:text-sky-400" title={t.openPerson(personName(p))} onClick={() => onOpen(p.id)}>
-                          {personName(p)}
-                        </button>
-                        <CopyPersonLink projectId={projectId} person={p} compact />
-                      </span>
+                      <button type="button" className="cursor-pointer text-sky-700 hover:underline dark:text-sky-400" title={t.openPerson(personName(p))} onClick={() => onOpen(p.id)}>
+                        {personName(p)}
+                      </button>{' '}
+                      <CopyPersonLink projectId={projectId} person={p} compact />
                     </th>
                     {summaries.map((s) => {
                       const su = personSignup(data.helperSignups, s.gig.id, p.id);
@@ -442,7 +461,7 @@ function CopyPersonLink({ projectId, person, compact = false }: { projectId: str
   };
   const label = t.copyLink(personName(person));
   return (
-    <span className="relative inline-flex items-center">
+    <span className={compact ? 'inline' : 'relative inline-flex items-center'}>
       {compact ? (
         <button type="button" className="cursor-pointer rounded p-0.5 text-slate-400 hover:bg-slate-100 hover:text-sky-700 dark:hover:bg-slate-800" aria-label={label} title={label} onClick={() => void copy()}>
           <Link2 size={14} aria-hidden />
@@ -453,7 +472,7 @@ function CopyPersonLink({ projectId, person, compact = false }: { projectId: str
         </Button>
       )}
       {state && (
-        <span role="status" className="absolute top-full right-0 z-30 mt-1 w-80 max-w-[90vw] space-y-1 rounded-md border border-slate-200 bg-white p-2 text-left text-xs font-normal shadow-lg dark:border-slate-700 dark:bg-slate-900" data-testid="person-link">
+        <span role="status" className={`${compact ? 'relative mt-1 block w-72' : 'absolute top-full right-0 z-30 mt-1 w-80 shadow-lg'} max-w-[90vw] space-y-1 rounded-md border border-slate-200 bg-white p-2 text-left text-xs font-normal dark:border-slate-700 dark:bg-slate-900`} data-testid="person-link">
           {state.error ? (
             <span className="text-red-700 dark:text-red-400">{state.error}</span>
           ) : (
