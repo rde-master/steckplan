@@ -20,6 +20,10 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 - OSC-Fernsteuerung der Vorstellung (UDP, in den Einstellungen ein- und Port einstellbar, Standard 8000): `/steckplan/play`, `/pause`, `/toggle`, `/stop`, `/forward [s]`, `/back [s]`, `/seek s`, `/item n` (Punkt mit Nummer n), `/next`, `/prev`, `/scene/next`, `/scene/prev`; Werte als int, float oder string, Bundles werden aufgelöst, das Loslassen eines Tasters (0) löst nichts aus. Ausgeführt wird in der Vorstellung, die führt – führt niemand, in jeder geöffneten, die nicht folgt; die Vorstellung zeigt kurz, welcher Befehl ankam. Die Einstellungen zeigen, ob empfangen wird, und den zuletzt erkannten Befehl
 - Dieselben Befehle per HTTP: `POST /api/remote` mit `{ "action": "play" }` bzw. `{ "action": "item", "value": 3 }` (Bearbeiten- oder Regie-Zugang), optional `projectId`
 
+### Behoben
+
+- Vorstellung: Lichtplan mittig (Kacheln werden bei breiten Rastern schmaler statt nach rechts überzulaufen); rechts Abstand zum Bildschirmrand; Szenen-Zeiten (Start, „läuft“, Countdown) immer mit Zehntelsekunde, damit die Anzeige nicht springt
+
 ## [0.25.0] - 2026-11-06
 
 ### Hinzugefügt

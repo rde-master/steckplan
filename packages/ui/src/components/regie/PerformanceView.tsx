@@ -339,7 +339,7 @@ export function PerformanceView({
 
   return (
     <div className="dark fixed inset-0 z-50 flex flex-col bg-slate-950 text-slate-100" role="dialog" aria-label={t.title} data-testid="performance">
-      <header className="flex shrink-0 flex-wrap items-center gap-2 border-b border-slate-800 px-3 py-2">
+      <header className="flex shrink-0 flex-wrap items-center gap-2 border-b border-slate-800 py-2 pr-6 pl-3">
         <Button variant="ghost" aria-label={t.close} title={t.close} onClick={onClose}>
           <X size={22} aria-hidden />
         </Button>
@@ -431,7 +431,7 @@ export function PerformanceView({
       {!item ? (
         <p className="m-auto text-slate-400">{t.empty}</p>
       ) : (
-        <main className="grid min-h-0 flex-1 gap-4 overflow-y-auto p-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:overflow-hidden">
+        <main className="grid min-h-0 flex-1 gap-4 overflow-y-auto py-4 pr-6 pl-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:overflow-hidden">
           <section className="min-h-0 space-y-3 lg:overflow-y-auto" aria-label={texts.regie.text}>
             {item.notes && <p className="rounded-md bg-slate-900 p-3 text-slate-300">{item.notes}</p>}
             {lines.length === 0 ? (
@@ -500,9 +500,7 @@ export function PerformanceView({
               <>
                 <SceneProgress current={lightMark(sceneIndex)} next={lightMark(sceneIndex + 1)} time={time} nextItemTitle={nextItem ? nextItem.title || texts.regie.untitled : undefined} testPrefix="performance" />
                 {lightNote && <p className="text-lg text-slate-200" data-testid="performance-scene-note">{lightNote}</p>}
-                <div className="mx-auto w-fit max-w-full">
-                  <SceneGrid grid={data.lightGrid} layout={layout} states={states} targets={data.lightTargets} templates={templates} selected={new Set()} onToggle={undefined} />
-                </div>
+                <SceneGrid grid={data.lightGrid} layout={layout} states={states} targets={data.lightTargets} templates={templates} selected={new Set()} onToggle={undefined} center />
               </>
             ) : (
               <p className="text-slate-500">{nextItem ? t.nextItem(nextItem.title || texts.regie.untitled) : t.end}</p>
@@ -511,7 +509,7 @@ export function PerformanceView({
         </main>
       )}
 
-      <footer className="flex shrink-0 items-end gap-3 border-t border-slate-800 px-3 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+      <footer className="flex shrink-0 items-end gap-3 border-t border-slate-800 pt-2 pr-6 pl-3 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
         <div className="min-w-0 flex-1">
         {item && (
           <div className="mx-auto max-w-4xl [&>[data-testid=regie-player]]:static [&>[data-testid=regie-player]]:mx-0 [&>[data-testid=regie-player]]:border-0">

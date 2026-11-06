@@ -1,7 +1,7 @@
 // Kopf einer Szenenfolge in der Vorstellung (Licht und Ton): links die aktuelle Szene mit Startpunkt und wie lange
 // sie schon läuft, rechts die nächste mit Startpunkt und Countdown; darunter ein grüner Balken bis zur nächsten.
 import { texts } from '../../texts';
-import { formatSceneTime } from './ScenesSection';
+import { formatSceneClock } from './ScenesSection';
 
 const t = texts.regie.performance;
 
@@ -27,10 +27,10 @@ export function SceneProgress({ current, next, time, nextItemTitle, testPrefix }
               <span className="text-xl font-semibold" data-testid={`${testPrefix}-scene`}>
                 {current.number}. {current.name || '–'}
               </span>
-              {current.at !== undefined && <span className="tabular-nums text-slate-400">{formatSceneTime(current.at)}</span>}
+              {current.at !== undefined && <span className="tabular-nums text-slate-400">{formatSceneClock(current.at)}</span>}
               {elapsed !== undefined && (
                 <span className="tabular-nums text-emerald-400" data-testid={`${testPrefix}-elapsed`}>
-                  {t.running(formatSceneTime(elapsed))}
+                  {t.running(formatSceneClock(elapsed))}
                 </span>
               )}
             </>
@@ -43,10 +43,10 @@ export function SceneProgress({ current, next, time, nextItemTitle, testPrefix }
             <>
               <div>{t.nextScene(`${next.number}. ${next.name || '–'}`)}</div>
               <div className="tabular-nums">
-                {next.at !== undefined && <span className="text-slate-400">{t.startsAt(formatSceneTime(next.at))}</span>}
+                {next.at !== undefined && <span className="text-slate-400">{t.startsAt(formatSceneClock(next.at))}</span>}
                 {countdown !== undefined && (
                   <span className="ml-2 text-lg font-semibold text-amber-400" data-testid={`${testPrefix}-countdown`}>
-                    −{formatSceneTime(countdown)}
+                    −{formatSceneClock(countdown)}
                   </span>
                 )}
               </div>
