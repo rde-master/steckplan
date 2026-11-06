@@ -24,6 +24,8 @@ import { RegieView } from '../components/regie/RegieView';
 import { NetworkView } from '../components/network/NetworkView';
 import { ExportDialog } from '../components/ExportDialog';
 import { CasesPanel } from '../components/project/CasesPanel';
+import { GigsPanel } from '../components/project/GigsPanel';
+import { HelpersView } from '../components/helpers/HelpersView';
 import { PeoplePanel } from '../components/project/PeoplePanel';
 import { WebAccessDialog } from '../components/WebAccessDialog';
 import { UploadToServerDialog } from '../components/ServerDialogs';
@@ -31,9 +33,9 @@ import { useIssues } from '../lib/useIssues';
 import { MeterField } from '../components/library/fields';
 import { AccessBadge, Banner, Button, Field, Spinner, TextArea, TextInput } from '../components/ui';
 
-type Tab = 'signalflow' | 'stageplan' | 'network' | 'lists' | 'regie' | 'meta';
-const TAB_PARAM: Record<Tab, string> = { signalflow: 'signalfluss', stageplan: 'buehnenplan', network: 'netzwerk', lists: 'listen', regie: 'regie', meta: 'projektdaten' };
-const TABS: Tab[] = ['signalflow', 'stageplan', 'network', 'lists', 'regie', 'meta'];
+type Tab = 'signalflow' | 'stageplan' | 'network' | 'lists' | 'regie' | 'helpers' | 'meta';
+const TAB_PARAM: Record<Tab, string> = { signalflow: 'signalfluss', stageplan: 'buehnenplan', network: 'netzwerk', lists: 'listen', regie: 'regie', helpers: 'helfer', meta: 'projektdaten' };
+const TABS: Tab[] = ['signalflow', 'stageplan', 'network', 'lists', 'regie', 'helpers', 'meta'];
 
 /** Ohne Angabe in der Adresse: Regie-Zugang startet in der Regie, auf schmalen Bildschirmen (Handy) die Packliste, sonst der Signalfluss. */
 function initialTab(): Tab {
@@ -352,6 +354,14 @@ export function ProjectPage({ id }: { id: string }) {
           onRemote={project.onRemote}
           canLead={online && !!access && can(access, 'editShow')}
         />
+      ) : tab === 'helpers' ? (
+        <HelpersView
+          projectId={id}
+          data={data}
+          library={library}
+          canSignup={online && !state?.readOnlyReason && !!access && can(access, 'helperSignup')}
+          isEditor={!!access && can(access, 'editProject')}
+        />
       ) : tab === 'lists' ? (
         <ListsView
           projectId={id}
@@ -367,6 +377,7 @@ export function ProjectPage({ id }: { id: string }) {
         <main className="mx-auto w-full max-w-3xl flex-1 space-y-4 overflow-y-auto p-4">
           <MetaForm doc={project.doc} meta={meta} editable={editable} />
           <PeoplePanel doc={project.doc} origin={undo.origin} data={data} library={library} editable={editable} />
+          <GigsPanel doc={project.doc} origin={undo.origin} data={data} editable={editable} />
           <CasesPanel doc={project.doc} origin={undo.origin} data={data} library={library} editable={editable} />
           <SettingsForm doc={project.doc} settings={data.settings} editable={editable} />
           {session && can(session.access, 'manageProjects') && <CopyProject projectId={id} name={meta.name ?? ''} />}

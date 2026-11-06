@@ -7,6 +7,7 @@
 //   POST /api/projects/:id/share                anlegen bzw. { renew: true } erneuern (Bearbeiten-Zugang)
 //   DELETE /api/projects/:id/share              sperren (Bearbeiten-Zugang)
 //   GET  /s/:token?g=<Gerät>                    öffnet ohne Passwort die Leseansicht dieses Projekts
+//                                               (Gerät einer Person: deren Helfer-Seite)
 import { basename } from 'node:path';
 import type { FastifyInstance, FastifyReply } from 'fastify';
 import { LABEL_HINT_MAX, normalizeBaseUrl, type LabelQrStore, type ShareLink } from '../auth/label-qr';
@@ -35,6 +36,8 @@ export function registerLabelQrRoutes(
     disconnect: (sessionId: string, reason: string) => void;
     /** dauerhafte Kennung → aktuelle Projekt-id (Desktop: nur geöffnete Dateien) */
     resolve: (key: string) => Promise<string | undefined>;
+    /** Person, der das Gerät zugeordnet ist (aktueller Stand des Projekts) */
+    devicePerson: (projectId: string, deviceId: string) => Promise<string | undefined>;
   },
 ): void {
   const { labelQr, store, sessions } = deps;
@@ -146,7 +149,11 @@ export function registerLabelQrRoutes(
       const { token } = sessions.create(QR_SESSION_NAME, 'read', 'browser', { scope: { projectId, key: link.key } });
       setSessionCookie(reply, token, request.protocol === 'https');
     }
-    const device = typeof request.query.g === 'string' && SAFE_ID.test(request.query.g) ? `&geraet=${encodeURIComponent(request.query.g)}` : '';
+    const deviceId = typeof request.query.g === 'string' && SAFE_ID.test(request.query.g) ? request.query.g : undefined;
+    // Gerät einer Person → ihre Helfer-Seite (wo einstecken, Anmeldung zu den Auftritten); sonst das Gerät im Signalfluss
+    const personId = deviceId ? await deps.devicePerson(projectId, deviceId) : undefined;
+    if (personId) return reply.redirect(`/projekt/${encodeURIComponent(projectId)}?ansicht=helfer&person=${encodeURIComponent(personId)}`, 302);
+    const device = deviceId ? `&geraet=${encodeURIComponent(deviceId)}` : '';
     return reply.redirect(`/projekt/${encodeURIComponent(projectId)}?ansicht=signalfluss${device}`, 302);
   });
 }

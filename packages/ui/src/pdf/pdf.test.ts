@@ -120,6 +120,8 @@ function setup(): { data: ProjectData; library: Library } {
     lightScenes: [],
     sceneStates: [],
     soundScenes: [],
+    gigs: [],
+    helperSignups: [],
   };
   return { data, library };
 }

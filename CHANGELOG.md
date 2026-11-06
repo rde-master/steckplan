@@ -7,6 +7,13 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+### Hinzugefügt
+
+- Helfer: neuer Tab „Helfer“ mit einer persönlichen Seite je Person – wo sie ihre Geräte einsteckt (Anschluss → Gegenstelle mit Kabel, farbig nach Signalart, dazu der Bühnenplan mit den eigenen Geräten rot umrandet) und die Anmeldung zu den Auftritten: mit einem Klick zum Aufbau an- oder abmelden, „Anhänger zur Location“, „Anhänger zur nächsten Location“, Bemerkung
+- QR-Code auf dem Etikett eines Geräts, das einer Person gehört: öffnet direkt deren Helfer-Seite (Geräte ohne Person wie bisher im Signalfluss); an- und abmelden geht auch mit dieser QR-Sitzung bzw. mit Lese- und Regie-Zugang
+- Projektdaten → Auftritte: Titel, Ort, Datum, Aufbau ab, Beginn, Notiz
+- Helfer → Übersicht (Bearbeiten): je Auftritt Helfer beim Aufbau, Anhänger hin und weiter, Bemerkungen; dazu eine Tabelle je Person
+
 ### Geändert
 
 - Mitschreiben: „Nächste Zeile“ (und Leertaste) geht auch, wenn schon Zeiten da sind – es setzt die Zeile nach der, die gerade dran ist, bzw. nach der zuletzt gesetzten; nach Spulen oder Springen geht es ab dort weiter (neu mitschreiben ab Anfang oder ab einer Zeile)

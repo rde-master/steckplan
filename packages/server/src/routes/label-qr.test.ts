@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { createEmptyProject } from '@steckplan/core';
+import { createEmptyProject, DeviceInstanceSchema } from '@steckplan/core';
 import { normalizeBaseUrl } from '../auth/label-qr';
 import { scopeAllows } from '../auth/plugin';
 import { isManagedStore } from '../storage/types';
@@ -86,7 +86,34 @@ describe('QR-Code auf Etiketten', () => {
     expect((await server.app.inject({ method: 'GET', url: `/s/${again}` })).statusCode).toBe(404);
   });
 
+  it('Helfer: QR-Code eines Geräts mit Person öffnet ihre Helfer-Seite; anmelden geht auch mit der QR-Sitzung', async () => {
+    server = await startTestServer();
+    if (!isManagedStore(server.store)) throw new Error();
+    const base = createEmptyProject({ name: 'Helfer' });
+    const device = DeviceInstanceSchema.parse({ id: 'v', templateId: 't', layerId: base.layers[0]!.id, label: 'Vox', personId: 'anna' });
+    const a = await server.store.create({ ...base, people: [{ id: 'anna', lastName: 'Muster', firstName: 'Anna', kind: '' }], devices: [device], gigs: [{ id: 'g1', title: 'Konzert', location: '' }] });
+    const b = await server.store.create(createEmptyProject({ name: 'Anderes' }));
+    const edit = await login(server, 'edit');
+    const { token } = (await server.app.inject({ method: 'POST', url: `/api/projects/${a}/share`, headers: { cookie: edit }, payload: {} })).json() as { token: string };
+    const scan = await server.app.inject({ method: 'GET', url: `/s/${token}?g=v` });
+    expect(scan.headers.location).toBe(`/projekt/${a}?ansicht=helfer&person=anna`);
+    // Gerät ohne Person: wie bisher
+    expect((await server.app.inject({ method: 'GET', url: `/s/${token}?g=x` })).headers.location).toBe(`/projekt/${a}?ansicht=signalfluss&geraet=x`);
+    const qr = cookieOf(scan);
+    const helper = (cookie: string, project: string, payload: object) => server!.app.inject({ method: 'POST', url: `/api/projects/${project}/helper`, headers: { cookie }, payload });
+    expect((await helper(qr, a, { gigId: 'g1', personId: 'anna', helps: true, trailerNext: true, note: 'später' })).json()).toEqual({ ok: true });
+    const project = (await server.app.inject({ method: 'GET', url: `/api/projects/${a}/download`, headers: { cookie: edit } })).json() as { helperSignups: { personId: string; helps: boolean; trailerNext: boolean; note: string; by: string }[] };
+    expect(project.helperSignups).toEqual([expect.objectContaining({ personId: 'anna', helps: true, trailerNext: true, note: 'später', by: 'Gast (QR-Code)' })]);
+    expect((await helper(qr, a, { gigId: 'gibts-nicht', personId: 'anna', helps: true })).statusCode).toBe(404);
+    expect((await helper(qr, a, { gigId: 'g1', personId: 'anna', helps: 'ja' })).statusCode).toBe(400);
+    expect((await helper(qr, b, { gigId: 'g1', personId: 'anna', helps: true })).statusCode).toBe(403);
+    // Lesen und Regie dürfen sich ebenfalls anmelden
+    expect((await helper(await login(server, 'read'), a, { gigId: 'g1', personId: 'anna', helps: false })).statusCode).toBe(200);
+  });
+
   it('Bereich einer QR-Sitzung', () => {
+    expect(scopeAllows('POST', '/api/projects/p1/helper', 'p1')).toBe(true);
+    expect(scopeAllows('POST', '/api/projects/p2/helper', 'p1')).toBe(false);
     expect(scopeAllows('GET', '/projekt/p1', 'p1')).toBe(true);
     expect(scopeAllows('GET', '/api/projects/p1/sync', 'p1')).toBe(true);
     expect(scopeAllows('GET', '/api/projects/p10/sync', 'p1')).toBe(false);

@@ -154,10 +154,12 @@ export function scopeAllows(method: string, url: string, projectId: string): boo
   const path = url.split('?')[0]!;
   if (!path.startsWith('/api/')) return true; // Oberfläche
   if (path === '/api/auth/session' || path === '/api/auth/logout' || path === '/api/health') return true;
+  const own = `/api/projects/${encodeURIComponent(projectId)}`;
+  // Helfer melden sich über den QR-Code ihres Geräts an und ab
+  if (method === 'POST' && path === `${own}/helper`) return true;
   if (method !== 'GET' && method !== 'HEAD') return false;
   if (path === '/api/events' || path === '/api/projects' || path === '/api/settings/label-qr') return true;
   if (path === '/api/library' || path.startsWith('/api/library/')) return true;
-  const own = `/api/projects/${encodeURIComponent(projectId)}`;
   return path === own || path.startsWith(`${own}/`);
 }
 

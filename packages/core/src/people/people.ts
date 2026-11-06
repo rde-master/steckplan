@@ -94,6 +94,9 @@ export function removePerson(doc: Y.Doc, id: string, origin: unknown): void {
     for (const map of doc.getMap<Y.Map<unknown>>('devices').values()) {
       if (map.get('personId') === id) map.delete('personId');
     }
+    // Helfer-Anmeldungen der Person
+    const signups = doc.getMap<Y.Map<unknown>>('helperSignups');
+    for (const [key, map] of [...signups.entries()]) if (map.get('personId') === id) signups.delete(key);
   }, origin);
 }
 

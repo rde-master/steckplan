@@ -27,6 +27,8 @@ import {
   encodeInfo,
   MESSAGE_SYNC,
   readProjectFromYDoc,
+  setHelperSignup,
+  type SignupPatch,
   writeProjectToYDoc,
   type Conflict,
   type PresenceUser,
@@ -264,6 +266,19 @@ export class Room {
     if (reason) throw new Error(reason);
     const mark: CheckMark | null = status ? { at: new Date().toISOString(), by, status, ...(note?.trim() ? { note: note.trim() } : {}) } : null;
     return setCheck(this.doc, kind, id, direction, mark, new ServerOrigin(by));
+  }
+
+  /** Person, der ein Gerät zugeordnet ist (nur wenn es die Person gibt) */
+  devicePerson(deviceId: string): string | undefined {
+    const personId = this.doc.getMap<Y.Map<unknown>>('devices').get(deviceId)?.get('personId');
+    return typeof personId === 'string' && this.doc.getMap('people').has(personId) ? personId : undefined;
+  }
+
+  /** Helfer-Anmeldung ändern (auch mit Lesezugang – wird in der Route geprüft). false = Auftritt/Person fehlt. */
+  applyHelperSignup(gigId: string, personId: string, patch: SignupPatch, by: string): boolean {
+    const reason = this.deps.store.readOnlyReason(this.id) ?? (this.pending ? RECONCILE_PENDING_REASON : undefined);
+    if (reason) throw new Error(reason);
+    return setHelperSignup(this.doc, gigId, personId, patch, by, new ServerOrigin(by));
   }
 
   /** Geschützter Bereich: WLAN-Passwörter (nur für Bearbeiten-Zugang, nie im Yjs-Dokument). */

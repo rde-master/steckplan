@@ -155,6 +155,8 @@ export const api = {
 
   check: (id: string, body: { kind: 'device' | 'cable'; id: string; direction: 'out' | 'in'; status: 'ok' | 'missing' | 'damaged' | null; note?: string }) =>
     request<{ ok: true }>('POST', `/api/projects/${encodeURIComponent(id)}/check`, body),
+  helper: (id: string, body: { gigId: string; personId: string; helps?: boolean; trailerThere?: boolean; trailerNext?: boolean; note?: string }) =>
+    request<{ ok: true }>('POST', `/api/projects/${encodeURIComponent(id)}/helper`, body),
   resetChecks: (id: string, direction: 'out' | 'in' | 'both') =>
     request<{ removed: number }>('POST', `/api/projects/${encodeURIComponent(id)}/checks/reset`, { direction }),
   getChangeLog: (id: string) => request<{ entries: ChangeLogEntry[] }>('GET', `/api/projects/${encodeURIComponent(id)}/changelog`),

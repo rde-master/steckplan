@@ -181,6 +181,13 @@ export async function createServer(options: ServerOptions): Promise<SteckplanSer
         events.disconnectSession(sessionId);
       },
       resolve: async (key) => (await options.store.list()).find((p) => options.store.persistentKey(p.id) === key)?.id,
+      devicePerson: async (projectId, deviceId) => {
+        try {
+          return (await rooms.get(projectId)).devicePerson(deviceId);
+        } catch {
+          return undefined;
+        }
+      },
     });
   }
   if (options.media) {

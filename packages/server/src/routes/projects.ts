@@ -14,6 +14,7 @@ import {
   withoutSecrets,
   type Project,
   type Resolution,
+  type SignupPatch,
 } from '@steckplan/core';
 import QRCode from 'qrcode';
 import { requireSession } from '../auth/plugin';
@@ -170,6 +171,41 @@ export function registerProjectRoutes(app: FastifyInstance, rooms: RoomManager, 
   });
 
   // ---------- Packliste: Häkchen ----------
+
+  // ---------- Helfer: Anmeldung zu einem Auftritt ----------
+
+  app.post<{ Params: { id: string }; Body: { gigId?: unknown; personId?: unknown; helps?: unknown; trailerThere?: unknown; trailerNext?: unknown; note?: unknown } }>(
+    '/api/projects/:id/helper',
+    async (request, reply) => {
+      const session = requireSession(request, reply, 'helperSignup');
+      if (!session) return reply;
+      const { gigId, personId, helps, trailerThere, trailerNext, note } = request.body ?? {};
+      if (typeof gigId !== 'string' || typeof personId !== 'string') return reply.code(400).send({ error: 'Ungültige Angaben.' });
+      const patch: SignupPatch = {};
+      for (const [key, value] of Object.entries({ helps, trailerThere, trailerNext })) {
+        if (value === undefined) continue;
+        if (typeof value !== 'boolean') return reply.code(400).send({ error: 'Ungültige Angaben.' });
+        patch[key as 'helps'] = value;
+      }
+      if (note !== undefined) {
+        if (typeof note !== 'string' || note.length > 1000) return reply.code(400).send({ error: 'Bemerkung zu lang.' });
+        patch.note = note;
+      }
+      let room;
+      try {
+        room = await rooms.get(request.params.id);
+      } catch (error) {
+        if (error instanceof ProjectNotFoundError) return notFound(reply);
+        throw error;
+      }
+      try {
+        if (!room.applyHelperSignup(gigId, personId, patch, session.name)) return reply.code(404).send({ error: 'Auftritt oder Person nicht gefunden.' });
+      } catch (error) {
+        return reply.code(409).send({ error: (error as Error).message });
+      }
+      return { ok: true };
+    },
+  );
 
   app.post<{ Params: { id: string }; Body: { kind?: unknown; id?: unknown; direction?: unknown; status?: unknown; note?: unknown } }>(
     '/api/projects/:id/check',
