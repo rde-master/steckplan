@@ -7,6 +7,8 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.30.0] - 2026-11-06
+
 ### Hinzugefügt
 
 - Helfer: Bearbeiten kopiert den Link zur persönlichen Seite einer Person (Knopf „Link kopieren“ auf ihrer Seite, Link-Symbol in der Tabelle je Person) – öffnet wie der QR-Code ohne Passwort ihre Seite, eintragen nur für sich selbst
@@ -659,7 +661,8 @@ Meilenstein M0 – Projektgerüst.
 - Docker-Image mit Datenvolume `/data` und Beispiel-`docker-compose.yml`
 - GitHub Actions: Tests und Smoke-Test bei jedem Push, Installer als Artefakte, Docker-Image `:develop`, Release-Workflow für Tags `vX.Y.Z`
 
-[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.29.0...develop
+[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.30.0...develop
+[0.30.0]: https://github.com/rde-master/steckplan/compare/v0.29.0...v0.30.0
 [0.29.0]: https://github.com/rde-master/steckplan/compare/v0.28.1...v0.29.0
 [0.28.1]: https://github.com/rde-master/steckplan/compare/v0.28.0...v0.28.1
 [0.28.0]: https://github.com/rde-master/steckplan/compare/v0.27.2...v0.28.0
