@@ -555,6 +555,7 @@ export const texts = {
       artnetHost: 'Ziel (IP oder Broadcast)',
       artnetPort: 'UDP 6454 · 25 fps (EBU)',
       artnetHint: 'Der Server sendet ArtTimeCode, solange in der Vorstellung jemand „Führen“ gewählt hat (25 Pakete pro Sekunde, angehalten einmal die Position). Ziel: IP des Lichtpults bzw. Nodes oder der Broadcast des Netzes, z. B. 2.255.255.255 oder 192.168.1.255. Im Docker-Betrieb erreicht Broadcast das Netz nur mit Host-Netzwerk.',
+      showTitle: 'Titel des Lieds anzeigen',
       lines: 'Zeilen',
       linesBefore: 'vor der aktuellen',
       linesAfter: 'nach der aktuellen',

@@ -42,6 +42,7 @@ export function LyricsPage({ id }: { id: string }) {
   const scene = cue?.sceneId ? data.lightScenes.find((s) => s.id === cue.sceneId) : undefined;
   const current = time !== undefined ? currentLineId(lines, time) : scene?.lineId;
   const title = item?.title || (item ? texts.regie.untitled : '');
+  const showTitle = data.showSettings.lyricsShowTitle !== false;
   const roleNames = new Map((item?.roles ?? []).map((r) => [r.id, r.name]));
 
   useEffect(() => {
@@ -92,13 +93,13 @@ export function LyricsPage({ id }: { id: string }) {
           )}
         </div>
       ) : lines.length === 0 ? (
-        <p className="flex h-full items-center justify-center p-8 text-center text-[6vw] font-semibold">{title}</p>
+        <p className="flex h-full items-center justify-center p-8 text-center text-[6vw] font-semibold">{showTitle ? title : ''}</p>
       ) : item?.lyricsVisible === false ? (
         <div data-testid="lyrics-hidden" />
       ) : (
         // am Ende der Dauer weich ausblenden (abschaltbar je Punkt)
         <div className={`h-full transition-opacity duration-1000 ${ended ? 'opacity-0' : 'opacity-100'}`} data-testid={ended ? 'lyrics-ended' : 'lyrics-active'}>
-          <LyricsDisplay title={title} lines={lines} currentLineId={current} roleNames={roleNames} {...lyricsRange(data.showSettings)} />
+          <LyricsDisplay title={showTitle ? title : ''} lines={lines} currentLineId={current} roleNames={roleNames} {...lyricsRange(data.showSettings)} />
         </div>
       )}
       </div>

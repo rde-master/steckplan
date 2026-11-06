@@ -113,7 +113,10 @@ export function LyricsDisplay({
   const shift = (before - current) * ROW_VH;
   return (
     <div className="relative flex h-full flex-col" data-testid="lyrics-window">
-      <div className="truncate px-[4vw] pt-[3vh] text-center text-[2.2vw] font-semibold text-slate-400 [text-shadow:0_2px_8px_rgb(0_0_0/0.8)]">{title}</div>
+      {/* Titel abschaltbar (Regie-Einstellungen); die Höhe bleibt, damit der Text nicht springt */}
+      <div className="min-h-[1.2em] truncate px-[4vw] pt-[3vh] text-center text-[2.2vw] font-semibold text-slate-400 [text-shadow:0_2px_8px_rgb(0_0_0/0.8)]" data-testid="lyrics-title">
+        {title}
+      </div>
       <div className="relative min-h-0 flex-1 overflow-hidden">
         <div className="absolute inset-x-0 top-1/2" style={{ height: `${slots * ROW_VH}vh`, marginTop: `-${(slots * ROW_VH) / 2}vh` }}>
           <ol className="transition-transform duration-700 ease-out motion-reduce:transition-none" style={{ transform: `translateY(${shift}vh)` }}>
