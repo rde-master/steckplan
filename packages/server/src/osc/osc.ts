@@ -98,10 +98,14 @@ const ADDRESSES: Record<string, RemoteAction> = {
   prev: 'prev',
   'scene/next': 'sceneNext',
   'scene/prev': 'scenePrev',
+  'tc/forward': 'tcForward',
+  'tc/back': 'tcBack',
 };
 
 /** Standard-Sprungweite für /forward und /back ohne Argument (Sekunden) */
 export const DEFAULT_NUDGE = 5;
+/** Standard-Verschiebung des Timecodes (/tc/forward, /tc/back) ohne Argument (Sekunden) */
+export const DEFAULT_TC_NUDGE = 0.1;
 
 /**
  * OSC-Nachricht → Befehl. Adressen unter /steckplan/… (z. B. /steckplan/play, /steckplan/item 3).
@@ -121,11 +125,12 @@ export function oscToCommand(message: OscMessage): RemoteCommand | null {
   const first = message.args[0];
   const value = typeof first === 'number' ? first : typeof first === 'string' ? Number(first) : undefined;
   const needsValue = action === 'seek' || action === 'item';
-  const takesValue = needsValue || action === 'forward' || action === 'back';
+  const relative = action === 'forward' || action === 'back' || action === 'tcForward' || action === 'tcBack';
+  const takesValue = needsValue || relative;
   if (!takesValue && (first === 0 || first === false)) return null; // Loslassen eines Tasters
-  if (action === 'forward' || action === 'back') {
+  if (relative) {
     if (value === 0) return null;
-    return parseRemoteCommand(action, value ?? DEFAULT_NUDGE);
+    return parseRemoteCommand(action, value ?? (action === 'tcForward' || action === 'tcBack' ? DEFAULT_TC_NUDGE : DEFAULT_NUDGE));
   }
   return parseRemoteCommand(action, takesValue ? value : undefined);
 }
