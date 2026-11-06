@@ -29,6 +29,8 @@ export interface StageDrawing {
   multicores: MulticoreRoute[];
   background?: Background;
   showCables: boolean;
+  /** false = ohne jede Beschriftung (Namen, Multicore-Enden, Texte, Maße) – Helfer-Seite */
+  labels?: boolean;
   /** Diese Geräte rot umranden (Helfer-Seite: die eigenen Geräte) */
   highlightIds?: string[];
   /** Gruppenrahmen (optional) */
@@ -113,6 +115,7 @@ export function stagePlanSvg(d: StageDrawing, view: Rect, widthPt: number, heigh
       }
     }
     out.push(`<g transform="translate(${n(i.x)} ${n(i.y)}) rotate(${n(i.rotation)})" opacity="${opacity}">${g.join('')}</g>`);
+    if (d.labels === false) return;
     const lines = [i.device.label, ...(i.person ? [i.person] : []), ...(i.height.heightMm > 0 ? [formatLength(i.height.heightMm)] : [])];
     const ty = i.kind === 'truss' ? i.y - h / 2 - fontMm * (lines.length + 0.2) : i.y + Math.max(w, h) / 2 + fontMm * 1.1;
     lines.forEach((line, k) => {
@@ -132,7 +135,8 @@ export function stagePlanSvg(d: StageDrawing, view: Rect, widthPt: number, heigh
     if (pts.length > 1) out.push(`<polyline points="${pts.map((p) => `${n(p.x)},${n(p.y)}`).join(' ')}" fill="none" stroke="${m.color}" stroke-width="${n(stroke * 4)}" stroke-dasharray="${n(fontMm)} ${n(fontMm / 2)}" opacity="${opacity}"/>`);
     const end = (p: { x: number; y: number }, label: string) =>
       out.push(
-        `<rect x="${n(p.x - fontMm / 2)}" y="${n(p.y - fontMm / 2)}" width="${n(fontMm)}" height="${n(fontMm)}" fill="${m.color}" opacity="${opacity}"/><text x="${n(p.x + fontMm * 0.8)}" y="${n(p.y + fontMm * 0.35)}" font-size="${n(fontMm)}" fill="#0f172a" opacity="${opacity}">${esc(label)}</text>`,
+        `<rect x="${n(p.x - fontMm / 2)}" y="${n(p.y - fontMm / 2)}" width="${n(fontMm)}" height="${n(fontMm)}" fill="${m.color}" opacity="${opacity}"/>` +
+          (d.labels === false ? '' : `<text x="${n(p.x + fontMm * 0.8)}" y="${n(p.y + fontMm * 0.35)}" font-size="${n(fontMm)}" fill="#0f172a" opacity="${opacity}">${esc(label)}</text>`),
       );
     end(m.a, `${m.device.label} · ${m.template.endALabel || 'A'}`);
     if (m.b) end(m.b, `${m.device.label} · ${m.template.endBLabel || 'B'}`);
@@ -146,7 +150,7 @@ export function stagePlanSvg(d: StageDrawing, view: Rect, widthPt: number, heigh
     }
   }
   // Text und Maßlinien
-  for (const s of d.shapes) {
+  for (const s of d.labels === false ? [] : d.shapes) {
     if (s.kind === 'text' && s.points[0]) {
       const p = s.points[0];
       const size = s.fontSizeMm ?? 400;

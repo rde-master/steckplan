@@ -61,6 +61,8 @@ test('Helfer: Auftritte in den Projektdaten, QR-Code führt auf die Seite der Pe
   await expect(mine.getByTestId('helper-connection')).toContainText('Pult · In 1');
   await expect(mine.getByTestId('helper-stage').locator('svg')).toBeVisible();
   await expect(mine.getByTestId('helper-stage').locator('circle[stroke="#dc2626"]')).toHaveCount(1);
+  // ohne Beschriftung
+  await expect(mine.getByTestId('helper-stage').locator('text')).toHaveCount(0);
   // ein Klick: anmelden; Anhänger; Bemerkung
   const gig = mine.getByTestId('helper-gig');
   await expect(gig).toContainText('Stadthalle');
