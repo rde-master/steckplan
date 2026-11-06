@@ -70,9 +70,15 @@ test('Regie Medien: Audio hochladen, abspielen, Zeiten mitschreiben, mitlesen; m
   await firstTime.fill('0:00.2');
   await firstTime.press('Enter');
   await expect(firstTime).toHaveValue('0:00.2');
+  await textDetail.getByRole('button', { name: 'Pause' }).click({ timeout: 2000 }).catch(() => undefined);
   await lyrics.getByRole('button', { name: 'Erste Zeile', exact: true }).click();
   await expect(lyrics.locator('li[data-current]')).toContainText('Erste Zeile');
   await expect(firstTime).toHaveValue('0:00.2');
+  // neu mitschreiben, obwohl alle Zeilen Zeiten haben: nach dem Springen setzt „Nächste Zeile“ die Zeile danach
+  await expect(next).toContainText('Zweite Zeile');
+  await next.click();
+  await expect(lyrics.locator('li[data-current]')).toContainText('Zweite Zeile');
+  await expect(next).toContainText('Dritte Zeile');
 
   // Mitlesen: Sprung auf eine Zeile setzt die Position, die Zeile ist die aktuelle
   await textDetail.getByRole('radio', { name: 'Mitlesen' }).click();

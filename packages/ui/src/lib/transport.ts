@@ -108,11 +108,13 @@ export class Transport extends EventTarget implements Playback {
 
   async play(): Promise<void> {
     if (this.playing) return;
-    if (this.base >= this.duration) this.base = 0; // am Ende: von vorn
+    const restart = this.base >= this.duration; // am Ende: von vorn
+    if (restart) this.base = 0;
     this.playing = true;
     this.anchor = performance.now();
     this.syncAudio();
     this.loop();
+    if (restart) this.emit('seeked');
     this.emit('play');
   }
 

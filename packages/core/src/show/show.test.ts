@@ -13,6 +13,7 @@ import {
   itemLines,
   itemTimedLines,
   textOffset,
+  nextLineToRecord,
   nextUntimedLine,
   readMedia,
   removeItemMedia,
@@ -255,6 +256,12 @@ describe('Regie: Audio und Zeitpunkte', () => {
     expect(currentLineId(lines, 1)).toBeUndefined();
     expect(currentLineId(lines, 10)).toBe(lines[0]!.line.id);
     expect(currentLineId(lines, 25)).toBe(lines[2]!.line.id);
+    // neu mitschreiben: ab Anfang die erste Zeile, sonst nach der aktuellen bzw. nach der zuletzt gesetzten
+    expect(nextLineToRecord(lines, 1)?.line.text).toBe('Eins');
+    expect(nextLineToRecord(lines, 10)?.line.text).toBe('Zwei');
+    expect(nextLineToRecord(lines, 25)).toBeUndefined();
+    expect(nextLineToRecord(lines, 25, lines[0]!.line.id)?.line.text).toBe('Zwei');
+    expect(nextLineToRecord(lines, 1, 'weg')?.line.text).toBe('Eins');
     // Text korrigieren behält die Zeit
     setSectionText(d, s1, 'Einz\nZwei', null);
     expect(itemLines(readShow(d).sections, song)[0]!.line.atSec).toBe(3.1);
