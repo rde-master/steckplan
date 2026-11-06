@@ -188,6 +188,13 @@ export async function createServer(options: ServerOptions): Promise<SteckplanSer
           return undefined;
         }
       },
+      person: async (projectId, personId) => {
+        try {
+          return (await rooms.get(projectId)).person(personId);
+        } catch {
+          return undefined;
+        }
+      },
     });
   }
   if (options.media) {

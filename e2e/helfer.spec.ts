@@ -85,7 +85,7 @@ test('Helfer: Auftritte in den Projektdaten, QR-Code führt auf die Seite der Pe
   await expect(matrix.getByRole('row', { name: /Anna Muster/ })).toContainText('✓');
   await expect(matrix.getByRole('row', { name: /Ben Beispiel/ })).not.toContainText('✓');
   // Seite einer Person aus der Übersicht öffnen
-  await matrix.getByRole('button', { name: 'Anna Muster' }).click();
+  await matrix.getByRole('button', { name: 'Anna Muster', exact: true }).click();
   await expect(page.getByTestId('helper-page').getByRole('button', { name: /Angemeldet/ })).toBeVisible();
 
   // wieder abmelden (Anhänger und Bemerkung bleiben)
@@ -151,6 +151,16 @@ test('Helfer: Auftritte in den Projektdaten, QR-Code führt auf die Seite der Pe
   // zurück zur eigenen Seite
   await phone.getByRole('button', { name: 'Zurück zu meiner Seite' }).click();
   await expect(phone.getByTestId('helper-page')).toBeVisible();
+
+  // Bearbeiten kopiert den Link zur persönlichen Seite von Ben – er öffnet ohne Passwort Bens Seite
+  await page.getByRole('button', { name: 'Übersicht' }).click();
+  await page.getByTestId('helpers-matrix').getByRole('button', { name: 'Link zur Seite von Ben Beispiel kopieren' }).click();
+  const link = await page.getByTestId('person-link').getByLabel('Link zur persönlichen Seite').inputValue();
+  expect(link).toMatch(new RegExp(`/s/${share.token}\\?p=ben$`));
+  const benPhone = await (await browser.newContext({ viewport: { width: 412, height: 860 } })).newPage();
+  await benPhone.goto(link);
+  await expect(benPhone.getByTestId('helper-page').getByRole('heading', { name: 'Hallo Ben!' })).toBeVisible();
+  await expect(benPhone.getByTestId('helper-gig').getByRole('button', { name: /Angemeldet/ })).toBeVisible();
 
   // QR-Sitzung darf sonst nichts ändern
   expect((await phone.request.post(`/api/projects/${id}/check`, { data: { kind: 'device', id: 'v', direction: 'out', status: 'ok' } })).status()).toBe(403);

@@ -8,6 +8,7 @@
 //   DELETE /api/projects/:id/share              sperren (Bearbeiten-Zugang)
 //   GET  /s/:token?g=<Gerät>                    öffnet ohne Passwort die Leseansicht dieses Projekts
 //                                               (Gerät einer Person: deren Helfer-Seite)
+//   GET  /s/:token?p=<Person>                   persönliche Helfer-Seite (Link zum Weitergeben)
 import { basename } from 'node:path';
 import type { FastifyInstance, FastifyReply } from 'fastify';
 import { LABEL_HINT_MAX, normalizeBaseUrl, type LabelQrStore, type ShareLink } from '../auth/label-qr';
@@ -38,6 +39,8 @@ export function registerLabelQrRoutes(
     resolve: (key: string) => Promise<string | undefined>;
     /** Person, der das Gerät zugeordnet ist (aktueller Stand des Projekts) */
     devicePerson: (projectId: string, deviceId: string) => Promise<{ id: string; name: string } | undefined>;
+    /** Person direkt (Link zur persönlichen Helfer-Seite) */
+    person: (projectId: string, personId: string) => Promise<{ id: string; name: string } | undefined>;
   },
 ): void {
   const { labelQr, store, sessions } = deps;
@@ -137,14 +140,16 @@ export function registerLabelQrRoutes(
     return { ok: true };
   });
 
-  app.get<{ Params: { token: string }; Querystring: { g?: string } }>('/s/:token', async (request, reply) => {
+  app.get<{ Params: { token: string }; Querystring: { g?: string; p?: string } }>('/s/:token', async (request, reply) => {
     const link = labelQr.settings.enabled ? labelQr.byToken(request.params.token) : undefined;
     if (!link) return gone(reply);
     const projectId = await deps.resolve(link.key);
     if (!projectId) return gone(reply);
     const deviceId = typeof request.query.g === 'string' && SAFE_ID.test(request.query.g) ? request.query.g : undefined;
     // Gerät einer Person → ihre Helfer-Seite (wo einstecken, Anmeldung zu den Auftritten); sonst das Gerät im Signalfluss
-    const person = deviceId ? await deps.devicePerson(projectId, deviceId) : undefined;
+    // ?p=<Person>: Link zur persönlichen Helfer-Seite (vom Bearbeiten kopiert)
+    const personId = typeof request.query.p === 'string' && SAFE_ID.test(request.query.p) ? request.query.p : undefined;
+    const person = personId ? await deps.person(projectId, personId) : deviceId ? await deps.devicePerson(projectId, deviceId) : undefined;
     const name = person ? `${person.name || 'Helfer'} (QR-Code)` : QR_SESSION_NAME;
     // Wer schon angemeldet ist (ohne Beschränkung oder mit diesem Schlüssel), bleibt es;
     // sonst neue Sitzung: nur lesen, nur dieses Projekt – nach dem Etikett einer Person als diese Person (nur eigene Einträge)

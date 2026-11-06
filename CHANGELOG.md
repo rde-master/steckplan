@@ -7,6 +7,14 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+### Hinzugefügt
+
+- Helfer: Bearbeiten kopiert den Link zur persönlichen Seite einer Person (Knopf „Link kopieren“ auf ihrer Seite, Link-Symbol in der Tabelle je Person) – öffnet wie der QR-Code ohne Passwort ihre Seite, eintragen nur für sich selbst
+
+### Geändert
+
+- Geräte-Etiketten: zeigen nur noch den ersten Steckplatz – wo eingesteckt wird groß und vollständig (umbrochen, Schrift notfalls kleiner, nie mit „…“), das Kabel klein darunter; der QR-Code steht unten rechts daneben, Logo und Projektname schmal darunter, der Hinweis nur, wenn Platz ist. Auch Gerätename und Person werden verkleinert statt gekürzt
+
 ## [0.29.0] - 2026-11-06
 
 ### Hinzugefügt

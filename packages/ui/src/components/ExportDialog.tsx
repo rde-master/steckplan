@@ -4,7 +4,7 @@ import { ICON } from './icons';
 import { useState } from 'react';
 import { ExportPreview } from './ExportPreview';
 import { can, formatAppTitle, isFilterActive, sortPages, VERSION, type GroupBy, type Issue, type Library, type ProjectMeta } from '@steckplan/core';
-import { getDesktop } from '../lib/desktop';
+import { resolveShare } from '../lib/shareLink';
 import { api, errorMessage } from '../lib/api';
 import { useEditor } from '../lib/editor';
 import { useSession } from '../lib/session';
@@ -77,25 +77,13 @@ export function ExportDialog({
 
   /** Etiketten: QR-Code zur Leseansicht – Einstellungen, Adresse und Lese-Schlüssel (legt ihn mit Bearbeiten-Zugang an) */
   async function labelQr(): Promise<{ base: string; token: string; hint: string } | undefined> {
-    const settings = await api.getLabelQr().catch(() => null);
-    if (!settings?.enabled) {
-      setQrNote(texts.labelQr.exportOff);
+    const share = await resolveShare(projectId, !!session && can(session.access, 'manageProjects'));
+    if (!share.ok) {
+      setQrNote(share.reason);
       return undefined;
     }
-    const desktop = getDesktop();
-    const base = (settings.baseUrl || (desktop ? ((await desktop.webAccess.status().catch(() => null))?.url ?? '') : window.location.origin)).replace(/\/+$/, '');
-    if (!base) {
-      setQrNote(texts.labelQr.exportNoAddress);
-      return undefined;
-    }
-    let share = await api.getShare(projectId).catch(() => null);
-    if (!share && session && can(session.access, 'manageProjects')) share = await api.ensureShare(projectId).catch(() => null);
-    if (!share) {
-      setQrNote(texts.labelQr.exportNoKey);
-      return undefined;
-    }
-    setQrNote(texts.labelQr.exportWithQr(base));
-    return { base, token: share.token, hint: settings.hint };
+    setQrNote(texts.labelQr.exportWithQr(share.base));
+    return { base: share.base, token: share.token, hint: share.hint };
   }
 
   /** PDF-Definition wie beim Herunterladen (auch für die Vorschau) */

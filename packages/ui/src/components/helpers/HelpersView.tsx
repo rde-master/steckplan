@@ -1,11 +1,12 @@
 // Tab „Helfer“: persönliche Seite je Person – wo sie ihre Geräte einsteckt (Verbindungen und Bühnenplan) und
 // Anmeldung zu den Auftritten (Aufbau helfen, Anhänger hin bzw. weiter, Bemerkung). Der QR-Code auf dem Etikett
 // eines Geräts führt direkt auf die Seite seiner Person. Wer bearbeiten darf, sieht zusätzlich die Übersicht.
-import { ArrowLeft, ArrowRight, Check, ChevronRight, MessageSquare, Truck } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, ChevronRight, Link2, MessageSquare, Truck } from 'lucide-react';
 import { useState } from 'react';
 import type * as Y from 'yjs';
 import { buildPeopleList, EMPTY_FILTER, formatGigDate, formatGigTimes, gigSummaries, personName, personSignup, type Gig, type HelperSignup, unreadHelperMessages, type Library, type Person, type PersonEntry } from '@steckplan/core';
 import { api, errorMessage } from '../../lib/api';
+import { personLink, resolveShare } from '../../lib/shareLink';
 import type { ProjectData } from '../../lib/useProjectData';
 import { SIGNAL_COLORS } from '../../pdf/documents';
 import { stageBounds, stagePlanSvg, type StageDrawing } from '../../pdf/svg';
@@ -99,6 +100,7 @@ function EditorHelpers({ projectId, doc, origin, userName, data, library, canSig
               ))}
             </select>
           </label>
+          {person && !showOverview && !showMessages && <CopyPersonLink projectId={projectId} person={person} />}
           <Button variant={showOverview ? 'primary' : 'secondary'} onClick={() => setChosen(OVERVIEW)}>
             {t.overview}
           </Button>
@@ -111,7 +113,7 @@ function EditorHelpers({ projectId, doc, origin, userName, data, library, canSig
         {showMessages ? (
           <MessagesInbox projectId={projectId} doc={doc} origin={origin} userName={userName} messages={data.helperMessages} people={data.people} onOpen={(id) => setChosen(id)} />
         ) : showOverview ? (
-          <Overview data={data} onOpen={(id) => setChosen(id)} />
+          <Overview projectId={projectId} data={data} onOpen={(id) => setChosen(id)} />
         ) : person ? (
           <PersonPage key={person.id} projectId={projectId} person={person} data={data} library={library} canSignup={canSignup} />
         ) : (
@@ -317,7 +319,7 @@ function GigCard({ projectId, gig, person, signup, count, canSignup }: { project
 
 // ---------- Übersicht (Bearbeiten) ----------
 
-function Overview({ data, onOpen }: { data: ProjectData; onOpen: (personId: string) => void }) {
+function Overview({ projectId, data, onOpen }: { projectId: string; data: ProjectData; onOpen: (personId: string) => void }) {
   const summaries = gigSummaries(data.gigs, data.helperSignups, data.people);
   const names = (people: Person[]) => (people.length ? people.map(personName).join(', ') : t.nobody);
   if (summaries.length === 0) return <p className="text-sm text-slate-500">{t.overviewEmpty}</p>;
@@ -387,9 +389,12 @@ function Overview({ data, onOpen }: { data: ProjectData; onOpen: (personId: stri
                 {data.people.map((p) => (
                   <tr key={p.id} className="border-t border-slate-100 dark:border-slate-800">
                     <th className="px-3 py-1.5 text-left font-normal">
-                      <button type="button" className="cursor-pointer text-sky-700 hover:underline dark:text-sky-400" title={t.openPerson(personName(p))} onClick={() => onOpen(p.id)}>
-                        {personName(p)}
-                      </button>
+                      <span className="flex items-center gap-1">
+                        <button type="button" className="cursor-pointer text-sky-700 hover:underline dark:text-sky-400" title={t.openPerson(personName(p))} onClick={() => onOpen(p.id)}>
+                          {personName(p)}
+                        </button>
+                        <CopyPersonLink projectId={projectId} person={p} compact />
+                      </span>
                     </th>
                     {summaries.map((s) => {
                       const su = personSignup(data.helperSignups, s.gig.id, p.id);
@@ -410,5 +415,59 @@ function Overview({ data, onOpen }: { data: ProjectData; onOpen: (personId: stri
         </section>
       )}
     </div>
+  );
+}
+
+// ---------- Link zur persönlichen Seite (Bearbeiten) ----------
+
+/** Kopiert den Link zur persönlichen Helfer-Seite (wie der QR-Code: ohne Passwort, nur für sich selbst eintragen) */
+function CopyPersonLink({ projectId, person, compact = false }: { projectId: string; person: Person; compact?: boolean }) {
+  const [state, setState] = useState<{ link?: string; copied?: boolean; error?: string } | null>(null);
+  const copy = async () => {
+    setState(null);
+    const share = await resolveShare(projectId, true);
+    if (!share.ok) {
+      setState({ error: share.reason });
+      return;
+    }
+    const link = personLink(share, person.id);
+    let copied = false;
+    try {
+      await navigator.clipboard.writeText(link);
+      copied = true;
+    } catch {
+      // ohne Zwischenablage (z. B. http): Link zum Markieren anzeigen
+    }
+    setState({ link, copied });
+  };
+  const label = t.copyLink(personName(person));
+  return (
+    <span className="relative inline-flex items-center">
+      {compact ? (
+        <button type="button" className="cursor-pointer rounded p-0.5 text-slate-400 hover:bg-slate-100 hover:text-sky-700 dark:hover:bg-slate-800" aria-label={label} title={label} onClick={() => void copy()}>
+          <Link2 size={14} aria-hidden />
+        </button>
+      ) : (
+        <Button variant="secondary" title={label} aria-label={label} onClick={() => void copy()}>
+          <Link2 {...ICON} /> {t.copyLinkShort}
+        </Button>
+      )}
+      {state && (
+        <span role="status" className="absolute top-full right-0 z-30 mt-1 w-80 max-w-[90vw] space-y-1 rounded-md border border-slate-200 bg-white p-2 text-left text-xs font-normal shadow-lg dark:border-slate-700 dark:bg-slate-900" data-testid="person-link">
+          {state.error ? (
+            <span className="text-red-700 dark:text-red-400">{state.error}</span>
+          ) : (
+            <>
+              <span className={state.copied ? 'font-semibold text-emerald-700 dark:text-emerald-400' : 'text-slate-600'}>{state.copied ? t.linkCopied : t.linkSelect}</span>
+              <input readOnly aria-label={t.linkLabel} className="w-full rounded border border-slate-300 bg-slate-50 px-1.5 py-1 font-mono text-[11px] dark:border-slate-600 dark:bg-slate-800" value={state.link} onFocus={(e) => e.currentTarget.select()} />
+              <span className="block text-slate-500">{t.linkHint}</span>
+            </>
+          )}
+          <button type="button" className="absolute top-1 right-1.5 cursor-pointer text-slate-400 hover:text-slate-700" aria-label={texts.common.close} onClick={() => setState(null)}>
+            ×
+          </button>
+        </span>
+      )}
+    </span>
   );
 }
