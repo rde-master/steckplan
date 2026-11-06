@@ -36,6 +36,7 @@ import { texts } from '../../texts';
 import { ICON } from '../icons';
 import { Button, Field, TextArea, TextInput } from '../ui';
 import { LightSetupView } from './LightSetupView';
+import { formatSceneTime, parseSceneTime } from './ScenesSection';
 import { ScenesView } from './ScenesView';
 import { SoundView } from './SoundView';
 import { openPerformance } from '../../pages/PerformancePage';
@@ -285,7 +286,7 @@ function ItemDetail({
   const set = (patch: Partial<Omit<ShowItem, 'id'>>) => updateShowItem(doc, item.id, patch, origin);
   // Player zum Anhören (Text und Mitschreiben im Bereich „Texte“)
   const [audio, setAudio] = useState<HTMLAudioElement | null>(null);
-  const { tc, music, sync } = usePointPlayback(item.id, item.durationSec, audio);
+  const { tc, music, sync } = usePointPlayback(item.id, item.durationSec, audio, item.audioOffsetSec);
   const time = usePlayerTime(music);
   const lines = itemLines(sections, item.id);
   return (
@@ -333,6 +334,24 @@ function ItemDetail({
         <DurationField value={item.durationSec} editable={editable} onChange={(durationSec) => set({ durationSec })} />
         <div className="sm:col-start-2">
           <NumberField number={number} taken={[...numbers].some(([id, n]) => id !== item.id && n === number)} editable={editable} onChange={(n) => set({ number: n })} />
+        </div>
+        {(item.media?.length ?? 0) > 0 && (
+          <div className="sm:col-start-2">
+            <OffsetField key={`${item.id}:${item.audioOffsetSec ?? 0}`} value={item.audioOffsetSec} editable={editable} onChange={(audioOffsetSec) => set({ audioOffsetSec })} />
+          </div>
+        )}
+        {/* Textfenster: Text dieses Punkts zeigen, am Ende ausblenden */}
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-sm sm:col-span-2" data-testid="lyrics-options">
+          <label className="flex items-center gap-2">
+            <input type="checkbox" checked={item.lyricsVisible !== false} disabled={!editable} onChange={(e) => set({ lyricsVisible: e.target.checked ? undefined : false })} />
+            {t.lyricsVisible}
+          </label>
+          {item.lyricsVisible !== false && (
+            <label className="flex items-center gap-2" title={t.lyricsHideAtEndHint}>
+              <input type="checkbox" checked={item.lyricsHideAtEnd !== false} disabled={!editable} onChange={(e) => set({ lyricsHideAtEnd: e.target.checked ? undefined : false })} />
+              {t.lyricsHideAtEnd}
+            </label>
+          )}
         </div>
         {item.kind === 'song' && (
           <div className="sm:col-span-2">
@@ -385,6 +404,28 @@ function ItemDetail({
         />
       )}
     </article>
+  );
+}
+
+/** Versatz des Audios (Sekunden oder m:ss): die Musik setzt bei dieser Zeit des Punkts ein */
+function OffsetField({ value, editable, onChange }: { value: number | undefined; editable: boolean; onChange: (sec: number | undefined) => void }) {
+  const [draft, setDraft] = useState(value ? formatSceneTime(value).replace('.', ',') : '0');
+  const parsed = parseSceneTime(draft.replace(',', '.'));
+  const invalid = draft.trim() !== '' && parsed === undefined;
+  return (
+    <Field label={t.fields.audioOffset} hint={t.fields.audioOffsetHint}>
+      <TextInput
+        value={draft}
+        inputMode="decimal"
+        disabled={!editable}
+        aria-invalid={invalid}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={() => !invalid && onChange(parsed ? Math.round(parsed * 10) / 10 : undefined)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+        }}
+      />
+    </Field>
   );
 }
 

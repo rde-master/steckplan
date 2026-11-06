@@ -21,7 +21,7 @@ import {
 import { api, errorMessage } from '../../lib/api';
 import { readAudioDuration, uploadMedia } from '../../lib/mediaUpload';
 import { useSession } from '../../lib/session';
-import { setTimecodeSync, type Playback } from '../../lib/transport';
+import { setTimecodeSync, Transport, type Playback } from '../../lib/transport';
 import { texts } from '../../texts';
 import { ICON } from '../icons';
 import { Button } from '../ui';
@@ -367,7 +367,14 @@ export function PlayerBar({
   const [selected, setSelected] = useState<string | undefined>(defaultItemMedia(item)?.mediaId);
   const current = list.find((m) => m.mediaId === selected) ?? defaultItemMedia(item);
   const { playing, duration: end } = usePlaybackState(playback);
-  const duration = Number.isFinite(end) ? end : 0;
+  const planned = Number.isFinite(end) ? end : 0;
+  // gekoppelt an den Transport: Zeitstrahl über den ganzen Punkt, Anzeige mit den Werten der Audiodatei
+  const tr = playback instanceof Transport ? playback : null;
+  const audioLength = tr?.audioLength ?? 0;
+  const audioOffset = tr?.audioOffset ?? 0;
+  const duration = tr && audioLength ? Math.max(planned, audioOffset + audioLength) : planned;
+  const audioTime = tr && audioLength ? tr.audioTime : time;
+  const audioEnd = tr && audioLength ? audioLength : duration;
   const [volume, setVolume] = useState(1);
   const container = useRef<HTMLDivElement>(null);
   usePlayPauseKey(playback, !recording);
@@ -431,12 +438,21 @@ export function PlayerBar({
                   style={{ left: `${(m.at / duration) * 100}%` }}
                 />
               ))}
+          {/* wo die Audiodatei im Punkt liegt (ab dem Versatz) */}
+          {tr && audioLength > 0 && duration > 0 && (
+            <span
+              className="pointer-events-none absolute -bottom-0.5 h-1 rounded-full bg-sky-400/70"
+              style={{ left: `${(audioOffset / duration) * 100}%`, width: `${(Math.min(audioLength, duration - audioOffset) / duration) * 100}%` }}
+              title={t.audioSegment(formatDuration(audioOffset), formatDuration(audioLength))}
+              data-testid="audio-segment"
+            />
+          )}
         </div>
         <span className="shrink-0 text-xs tabular-nums text-slate-600 dark:text-slate-300" data-testid="regie-time">
-          {formatDuration(time)}
-          {duration > 0 ? ` / ${formatDuration(duration)}` : ''}
+          {formatDuration(audioTime)}
+          {audioEnd > 0 ? ` / ${formatDuration(audioEnd)}` : ''}
         </span>
-        {duration > 0 && <RemainingTime remaining={Math.max(0, duration - time)} playing={playing} {...remainRange(settings)} />}
+        {audioEnd > 0 && <RemainingTime remaining={Math.max(0, audioEnd - audioTime)} playing={playing} {...remainRange(settings)} />}
         {current && (
           <label className="hidden items-center gap-1 sm:flex" title={t.volume}>
             <Volume2 size={16} className="text-slate-500" aria-hidden />

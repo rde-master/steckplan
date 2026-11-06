@@ -1,6 +1,6 @@
 // Vorstellung (Regie, M11e): Vollbild, dunkel. Aktueller Eintrag mit mitlaufendem Text, aktuelle und nächste Lichtszene,
 // Player, große Knöpfe und Pfeiltasten. „Führen“ sendet die Stelle an alle, „Folgen“ springt mit (nicht gespeichert).
-import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ListMusic, Monitor, Radio, UserRound, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Keyboard, ListMusic, Monitor, Radio, UserRound, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   currentLineId,
@@ -126,7 +126,7 @@ export function PerformanceView({
   // Transport des Ablaufpunkts (Timecode); das Audio des Lieds hängt daran
   const [audioEl, setAudioEl] = useState<HTMLAudioElement | null>(null);
   // tc = Timecode des Punkts; audio = Musik (mit „Mit Musik“ dasselbe), danach laufen Text und Szenen
-  const { tc, music: audio, sync: withMusic } = usePointPlayback(item?.id, item?.durationSec, audioEl);
+  const { tc, music: audio, sync: withMusic } = usePointPlayback(item?.id, item?.durationSec, audioEl, item?.audioOffsetSec);
   // Folgen: Zeit der führenden Vorstellung (Abspielposition + seit Empfang vergangene Zeit) – ohne eigenen Ton
   const leadCue: ReceivedCue | null = following && lead ? { ...lead, receivedAt: sync.leadReceivedAt ?? 0 } : null;
   const leadMusic = useCueClock(leadCue);
@@ -235,17 +235,13 @@ export function PerformanceView({
     pick(delta > 0 ? (nextScenes[0]?.id ?? null) : (nextScenes[nextScenes.length - 1]?.id ?? null), 0);
   };
 
-  // Spulen (um im Live den Text an den Gesang anzupassen)
-  const nudge = (sec: number) => {
-    if (audio) seekAudio(audio, audio.currentTime + sec);
-  };
 
   // Fernsteuerung (OSC/HTTP): ausführen, wenn diese Vorstellung führt – führt niemand, wenn sie nicht folgt.
   // Ohne „Mit Musik“ wirken Start/Pause/Stopp/Spulen auf Timecode und Musik gemeinsam.
   const [remoteNote, setRemoteNote] = useState('');
   const noteTimer = useRef<number | undefined>(undefined);
-  const runRemote = (command: RemoteCommand) => {
-    if (lead ? !iLead : mode === 'follow') return;
+  /** Befehl ausführen (Fernsteuerung und Tastenkürzel) */
+  const perform = (command: RemoteCommand) => {
     const both = (fn: (p: Playback) => void) => {
       fn(tc);
       if (audio !== tc) fn(audio);
@@ -294,6 +290,10 @@ export function PerformanceView({
         seekAudio(tc, tc.currentTime + (command.action === 'tcBack' ? -v : v));
         break;
     }
+  };
+  const runRemote = (command: RemoteCommand) => {
+    if (lead ? !iLead : mode === 'follow') return;
+    perform(command);
     setRemoteNote(t.remote(command.action, command.value));
     window.clearTimeout(noteTimer.current);
     noteTimer.current = window.setTimeout(() => setRemoteNote(''), 2000);
@@ -304,25 +304,63 @@ export function PerformanceView({
   });
   useEffect(() => onRemote((command) => remoteRef.current(command)), [onRemote]);
 
-  // Tasten: ←/→ Szene, Umschalt+←/→ eine Sekunde spulen, ↑/↓ bzw. Bild↑/Bild↓ Eintrag, Esc beendet
-  // Esc schließt nur die Liedliste – die Vorstellung ist ein eigener Tab (schließen mit ✕)
-  const closeOrList = () => setListOpen(false);
-  const keys = useRef({ goItem, goScene, nudge, onClose: closeOrList });
+  // Tastenkürzel (Übersicht: Knopf im Kopf bzw. „?“). Bedienen beim Folgen übernimmt bewusst (wie die Pfeiltasten).
+  // Esc schließt Liedliste bzw. Übersicht – die Vorstellung ist ein eigener Tab (schließen mit ✕)
+  const [keysOpen, setKeysOpen] = useState(false);
+  const keyAction = (e: KeyboardEvent): boolean => {
+    const k = e.key;
+    if (k === 'Escape') {
+      setListOpen(false);
+      setKeysOpen(false);
+      return true;
+    }
+    if (k === '?') {
+      setKeysOpen(!keysOpen);
+      return true;
+    }
+    if (e.ctrlKey || e.metaKey || e.altKey) return false; // Browser-Kürzel nicht stören
+    const lower = k.toLowerCase();
+    const command: RemoteCommand | null =
+      e.shiftKey && (k === 'ArrowRight' || k === 'ArrowLeft')
+        ? { action: k === 'ArrowRight' ? 'forward' : 'back', value: 1 }
+        : lower === 'j'
+          ? { action: 'back', value: 5 }
+          : lower === 'l'
+            ? { action: 'forward', value: 5 }
+            : k === ','
+              ? { action: 'back', value: 0.5 }
+              : k === '.'
+                ? { action: 'forward', value: 0.5 }
+                : k === '['
+                  ? { action: 'tcBack', value: 0.1 }
+                  : k === ']'
+                    ? { action: 'tcForward', value: 0.1 }
+                    : lower === 'k'
+                      ? { action: 'toggle' }
+                      : lower === 's' || k === 'Home'
+                        ? { action: 'stop' }
+                        : null;
+    if (command) {
+      takeOver();
+      perform(command);
+      return true;
+    }
+    if (k === 'ArrowRight') goScene(1);
+    else if (k === 'ArrowLeft') goScene(-1);
+    else if (k === 'ArrowDown' || k === 'PageDown') goItem(1);
+    else if (k === 'ArrowUp' || k === 'PageUp') goItem(-1);
+    else if (lower === 'z' && !following) setListOpen(true);
+    else return false;
+    return true;
+  };
+  const keys = useRef(keyAction);
   useEffect(() => {
-    keys.current = { goItem, goScene, nudge, onClose: closeOrList };
+    keys.current = keyAction;
   });
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement | null)?.closest('input, textarea, select')) return;
-      const k = keys.current;
-      if (e.shiftKey && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) k.nudge(e.key === 'ArrowRight' ? 1 : -1);
-      else if (e.key === 'ArrowRight') k.goScene(1);
-      else if (e.key === 'ArrowLeft') k.goScene(-1);
-      else if (e.key === 'ArrowDown' || e.key === 'PageDown') k.goItem(1);
-      else if (e.key === 'ArrowUp' || e.key === 'PageUp') k.goItem(-1);
-      else if (e.key === 'Escape') k.onClose();
-      else return;
-      e.preventDefault();
+      if (keys.current(e)) e.preventDefault();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -397,6 +435,37 @@ export function PerformanceView({
             <span className="min-w-0 truncate text-sm text-slate-400" data-testid="performance-next-item">
               {t.nextUp} <ItemNumber number={numbers.get(nextItem.id)} /> {nextItem.title || texts.regie.untitled}
             </span>
+          )}
+        </div>
+        <div className="relative">
+          <Button variant="ghost" className="px-2 text-sm" aria-expanded={keysOpen} aria-label={t.keys} title={`${t.keys} (?)`} onClick={() => setKeysOpen(!keysOpen)}>
+            <Keyboard size={18} aria-hidden />
+          </Button>
+          {keysOpen && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setKeysOpen(false)} aria-hidden />
+              <div className="absolute right-0 z-20 mt-1 w-[28rem] max-w-[90vw] rounded-lg border border-slate-700 bg-slate-900 p-3 text-sm shadow-xl" role="dialog" aria-label={t.keys} data-testid="performance-keys">
+                <div className="mb-2 font-semibold">{t.keys}</div>
+                <table className="w-full">
+                  <tbody>
+                    {t.keyList.map(([key, meaning]) => (
+                      <tr key={key}>
+                        <td className="py-1 pr-3 align-top whitespace-nowrap">
+                          {key.split(' · ').map((part, i) => (
+                            <span key={part}>
+                              {i > 0 && <span className="mx-1 text-slate-500">/</span>}
+                              <kbd className="rounded border border-slate-600 bg-slate-800 px-1.5 font-mono text-xs">{part}</kbd>
+                            </span>
+                          ))}
+                        </td>
+                        <td className="py-0.5 text-slate-300">{meaning}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <p className="mt-2 text-xs text-slate-500">{t.keysHint}</p>
+              </div>
+            </>
           )}
         </div>
         <div className={`relative ${following ? 'hidden' : ''}`}>
