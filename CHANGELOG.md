@@ -7,6 +7,10 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+### Behoben
+
+- Vorstellung „Folgen“: Timecode, mitlaufender Text, Countdowns, Balken und Szenen-Timer standen still – jetzt laufen sie mit der Zeit der führenden Vorstellung mit (ohne eigenen Ton); die Timecode-Knöpfe sind beim Folgen ausgeblendet
+
 ### Geändert
 
 - Vorstellung öffnet sich als eigener Tab (Desktop-App: eigenes Fenster) unter `/projekt/<id>/vorstellung` statt über der Seite; ist sie schon offen, holt der Knopf sie nach vorn. Esc schließt nur noch die Liedliste, ✕ schließt den Tab

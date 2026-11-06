@@ -23,7 +23,7 @@ import {
 import type { ProjectData } from '../../lib/useProjectData';
 import { texts } from '../../texts';
 import { Button } from '../ui';
-import { openLyricsWindow, useLocalCueSender } from './LyricsWindow';
+import { openLyricsWindow, useCueClock, useLocalCueSender, type ReceivedCue } from './LyricsWindow';
 import { ItemNumber, KIND_ICONS } from './RegieView';
 import { RichTextView } from './RichTextEditor';
 import { SceneProgress, type SceneMark } from './SceneProgress';
@@ -104,8 +104,13 @@ export function PerformanceView({
   const [audioEl, setAudioEl] = useState<HTMLAudioElement | null>(null);
   // tc = Timecode des Punkts; audio = Musik (mit „Mit Musik“ dasselbe), danach laufen Text und Szenen
   const { tc, music: audio, sync: withMusic } = usePointPlayback(item?.id, item?.durationSec, audioEl);
-  const time = usePlayerTime(audio);
-  const playing = !audio.paused;
+  // Folgen: Zeit der führenden Vorstellung (Abspielposition + seit Empfang vergangene Zeit) – ohne eigenen Ton
+  const leadCue: ReceivedCue | null = following && lead ? { ...lead, receivedAt: sync.leadReceivedAt ?? 0 } : null;
+  const leadMusic = useCueClock(leadCue);
+  const leadTc = useCueClock(leadCue?.tc ? { itemId: leadCue.itemId, at: leadCue.tc.at, playing: leadCue.tc.playing, receivedAt: leadCue.receivedAt } : leadCue);
+  const ownTime = usePlayerTime(audio);
+  const time = leadMusic ?? ownTime;
+  const playing = leadCue ? !!leadCue.playing : !audio.paused;
   const numbers = itemNumbers(items);
   const number = item ? (numbers.get(item.id) ?? itemIndex + 1) : undefined;
   const choiceHolds = !!sceneChoice && !playing && Math.abs(time - choice.at) < 0.05;
@@ -548,7 +553,7 @@ export function PerformanceView({
         {/* Timecode unten rechts: gelaufene Zeit des Punkts, läuft mit dem Transport */}
         {item && (
           <div className="flex shrink-0 flex-col items-end gap-1">
-            <TimecodePanel tc={tc} sync={withMusic} large />
+            <TimecodePanel tc={tc} sync={withMusic} large follow={leadCue && leadTc !== undefined ? { time: leadTc, playing: !!(leadCue.tc?.playing ?? leadCue.playing) } : undefined} />
             {data.showSettings.artnet?.enabled && (
               <span className={`text-xs ${iLead ? 'text-emerald-400' : 'text-amber-400'}`} data-testid="artnet-state">
                 {iLead ? t.artnetSending(data.showSettings.artnet.host) : t.artnetLeadHint}
