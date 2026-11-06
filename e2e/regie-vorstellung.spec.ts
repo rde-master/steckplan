@@ -70,7 +70,9 @@ test('Vorstellung: Regie führt, Lesen folgt; Tasten; eigenes Bedienen verlässt
   await expect(l.getByTestId('performance-position')).toHaveText('2 / 2');
 
   // Lesen bedient selbst → verlässt das Folgen an der aktuellen Stelle
-  await l.getByRole('button', { name: 'Szene zurück' }).click();
+  // beim Folgen keine Bedienknöpfe; Pfeiltaste übernimmt bewusst
+  await expect(l.getByRole('button', { name: 'Szene zurück' })).toHaveCount(0);
+  await readerShow.keyboard.press('ArrowLeft');
   await expect(l.getByRole('radio', { name: 'Frei' })).toHaveAttribute('aria-checked', 'true');
   await expect(l.getByTestId('performance-scene')).toHaveText('2. Strophe');
   await expect(r.getByTestId('performance-title')).toHaveText('Die Begegnung');

@@ -15,6 +15,7 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Geändert
 
+- Vorstellung „Folgen“: keine eigenen Bedienknöpfe mehr (Audio-Player, Szene/Eintrag zurück/weiter, Timecode-Knöpfe, Liedliste); Timecode und Restzeit bleiben sichtbar. Selbst bedienen: „Frei“ wählen (oder Pfeiltasten)
 - Vorstellung öffnet sich als eigener Tab (Desktop-App: eigenes Fenster) unter `/projekt/<id>/vorstellung` statt über der Seite; ist sie schon offen, holt der Knopf sie nach vorn. Esc schließt nur noch die Liedliste, ✕ schließt den Tab
 
 ### Behoben

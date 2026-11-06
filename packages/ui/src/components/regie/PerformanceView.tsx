@@ -394,7 +394,7 @@ export function PerformanceView({
             </span>
           )}
         </div>
-        <div className="relative">
+        <div className={`relative ${following ? 'hidden' : ''}`}>
           <Button variant="ghost" className="text-sm" aria-expanded={listOpen} aria-haspopup="true" title={t.listTitle} onClick={() => setListOpen(!listOpen)}>
             <ListMusic size={18} aria-hidden /> {t.list}
           </Button>
@@ -580,7 +580,8 @@ export function PerformanceView({
 
       <footer className="flex shrink-0 items-end gap-3 border-t border-slate-800 pt-2 pr-6 pl-3 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
         <div className="min-w-0 flex-1">
-        {item && (
+        {/* Folgen: keine eigenen Bedienknöpfe (Audio, Szenen, Timecode) – „Frei“ wählen, um selbst zu bedienen */}
+        {item && !following && (
           <div className="mx-auto max-w-4xl [&>[data-testid=regie-player]]:static [&>[data-testid=regie-player]]:mx-0 [&>[data-testid=regie-player]]:border-0">
             <PlayerBar
               settings={data.showSettings}
@@ -602,20 +603,22 @@ export function PerformanceView({
             />
           </div>
         )}
-        <div className="mx-auto grid max-w-4xl grid-cols-4 gap-2 py-1">
-          <NavButton label={t.prevItem} onClick={() => goItem(-1)} disabled={itemIndex <= 0}>
-            <ChevronsLeft size={26} aria-hidden />
-          </NavButton>
-          <NavButton label={t.prevScene} onClick={() => goScene(-1)} disabled={itemIndex <= 0 && sceneIndex <= 0}>
-            <ChevronLeft size={26} aria-hidden />
-          </NavButton>
-          <NavButton label={t.nextSceneButton} onClick={() => goScene(1)} disabled={itemIndex >= items.length - 1 && sceneIndex >= scenes.length - 1}>
-            <ChevronRight size={26} aria-hidden />
-          </NavButton>
-          <NavButton label={t.nextItemButton} onClick={() => goItem(1)} disabled={itemIndex >= items.length - 1}>
-            <ChevronsRight size={26} aria-hidden />
-          </NavButton>
-        </div>
+        {!following && (
+          <div className="mx-auto grid max-w-4xl grid-cols-4 gap-2 py-1">
+            <NavButton label={t.prevItem} onClick={() => goItem(-1)} disabled={itemIndex <= 0}>
+              <ChevronsLeft size={26} aria-hidden />
+            </NavButton>
+            <NavButton label={t.prevScene} onClick={() => goScene(-1)} disabled={itemIndex <= 0 && sceneIndex <= 0}>
+              <ChevronLeft size={26} aria-hidden />
+            </NavButton>
+            <NavButton label={t.nextSceneButton} onClick={() => goScene(1)} disabled={itemIndex >= items.length - 1 && sceneIndex >= scenes.length - 1}>
+              <ChevronRight size={26} aria-hidden />
+            </NavButton>
+            <NavButton label={t.nextItemButton} onClick={() => goItem(1)} disabled={itemIndex >= items.length - 1}>
+              <ChevronsRight size={26} aria-hidden />
+            </NavButton>
+          </div>
+        )}
         </div>
         {/* Timecode unten rechts: gelaufene Zeit des Punkts, läuft mit dem Transport */}
         {item && (

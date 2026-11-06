@@ -285,7 +285,7 @@ export function TimecodePanel({
   const icon = large ? 20 : 16;
   return (
     <div className="flex shrink-0 flex-col items-end gap-1" data-testid="timecode-panel">
-      <div className={`flex flex-wrap items-center justify-end gap-0.5 ${follow ? 'invisible' : ''}`}>
+      <div className={`flex flex-wrap items-center justify-end gap-0.5 ${follow ? 'hidden' : ''}`}>
         <label className={`mr-1 flex items-center gap-1 text-slate-600 dark:text-slate-300 ${large ? 'text-sm' : 'text-xs'}`} title={t.tcSyncHint}>
           <input type="checkbox" checked={sync} onChange={(e) => setTimecodeSync(e.target.checked)} />
           {t.tcSync}

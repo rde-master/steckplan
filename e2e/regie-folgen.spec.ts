@@ -59,6 +59,13 @@ test('Folgen: Timecode, Text, Countdown und Szenen laufen mit der führenden Vor
   const l = follow.getByTestId('performance');
   await expect(l.getByRole('radio', { name: 'Folgen' })).toHaveAttribute('aria-checked', 'true');
   const clock = l.getByTestId('timecode-panel').getByTestId('timecode');
+  // beim Folgen keine Bedienknöpfe für Audio, Szenen, Timecode und Liedliste
+  await expect(l.getByTestId('regie-player')).toHaveCount(0);
+  await expect(l.getByRole('button', { name: 'Szene weiter' })).toHaveCount(0);
+  await expect(l.getByRole('button', { name: 'Eintrag weiter' })).toHaveCount(0);
+  await expect(l.getByRole('button', { name: 'Timecode starten' })).toBeHidden();
+  await expect(l.getByRole('button', { name: 'Liedliste' })).toBeHidden();
+  await expect(l.getByTestId('timecode-remaining')).toBeVisible();
   await expect(clock).toHaveText('00:00:00:00');
 
   // Führende startet: beim Folgenden laufen Timecode, Text und Szenen mit
