@@ -498,6 +498,10 @@ export const TextSectionSchema = z.object({
   kind: z.enum(SECTION_KINDS),
   label: z.string().default(''),
   lines: z.array(TextLineSchema).default([]),
+  /** Hintergrundbild im Textfenster für diesen Abschnitt (Datei im Medienspeicher) */
+  backgroundMediaId: id.optional(),
+  /** false: ohne eigenes Bild nicht das Bild eines früheren Abschnitts übernehmen, sondern das Standardbild */
+  backgroundInherit: z.boolean().optional(),
 });
 export type TextSection = z.infer<typeof TextSectionSchema>;
 

@@ -16,17 +16,35 @@ import {
   updateSection,
   type SectionKind,
   type ShowItem,
+  type ShowSettings,
   type TextSection,
 } from '@steckplan/core';
 import { texts } from '../../texts';
 import { ICON } from '../icons';
 import { Button } from '../ui';
+import { SectionBackground } from './SectionBackground';
 
 const t = texts.regie;
 
 const inputClass = 'rounded-md border border-slate-300 bg-white px-2 py-1 text-sm disabled:bg-slate-100 dark:border-slate-600 dark:bg-slate-800 dark:disabled:bg-slate-900';
 
-export function SectionsEditor({ doc, origin, item, sections, editable }: { doc: Y.Doc; origin: object; item: ShowItem; sections: TextSection[]; editable: boolean }) {
+export function SectionsEditor({
+  projectId,
+  doc,
+  origin,
+  item,
+  sections,
+  settings,
+  editable,
+}: {
+  projectId: string;
+  doc: Y.Doc;
+  origin: object;
+  item: ShowItem;
+  sections: TextSection[];
+  settings: ShowSettings;
+  editable: boolean;
+}) {
   const play = item.kind === 'play';
   const defaultKind: SectionKind = play ? 'scene' : item.kind === 'song' ? 'verse' : 'other';
   return (
@@ -79,6 +97,7 @@ export function SectionsEditor({ doc, origin, item, sections, editable }: { doc:
             )}
           </div>
           <SectionText doc={doc} origin={origin} section={section} item={item} editable={editable} />
+          <SectionBackground projectId={projectId} doc={doc} origin={origin} section={section} sections={sections} settings={settings} editable={editable} />
         </div>
       ))}
       {editable && (

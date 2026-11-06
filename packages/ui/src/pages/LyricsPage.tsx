@@ -1,7 +1,7 @@
 // Textfenster als eigene Seite: zentrierter Text, fünf Zeilen, Vollbild per Antippen.
 // Folgt der Person, die in der Vorstellung führt; im selben Browser auch der eigenen Vorstellung.
 import { useEffect, useState } from 'react';
-import { currentLineId, itemLines, lyricsRange } from '@steckplan/core';
+import { currentLineId, itemLines, itemSections, lyricsRange, sectionBackground } from '@steckplan/core';
 import { LyricsDisplay, useCueClock, useLocalCue, type ReceivedCue } from '../components/regie/LyricsWindow';
 import { api } from '../lib/api';
 import { useProjectData } from '../lib/useProjectData';
@@ -51,16 +51,27 @@ export function LyricsPage({ id }: { id: string }) {
   const status = state?.status;
   const message = status === 'unauthorized' || status === 'notFound' ? t.noAccess : !item ? (lead || local ? t.waiting : t.nobodyLeads) : null;
 
-  const background = data.showSettings.lyricsBackground;
+  // Hintergrund nach dem Abschnitt der aktuellen (bzw. vor dem Start: der ersten) Zeile; sonst Standardbild
+  const standard = data.showSettings.lyricsBackground;
+  const dim = standard?.dim ?? 0.5;
+  const sections = item ? itemSections(data.show.sections, item.id) : [];
+  const sectionId = (lines.find((l) => l.line.id === current) ?? lines[0])?.sectionId;
+  const activeBackground = sectionBackground(sections, sectionId, standard?.mediaId);
+  // alle Bilder des Eintrags übereinander (vorgeladen), sichtbar nur das aktive – weich überblendet
+  const layers = [...new Set([standard?.mediaId, ...sections.map((s) => s.backgroundMediaId)].filter((x): x is string => !!x))];
 
   return (
     <div className="dark fixed inset-0 cursor-pointer overflow-hidden bg-slate-950 text-slate-100 select-none" onClick={toggleFullscreen} title={t.fullscreenHint} data-testid="lyrics-page">
-      {background && (
-        <>
-          <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url("${api.mediaUrl(id, background.mediaId)}")` }} data-testid="lyrics-background" />
-          <div className="absolute inset-0 bg-black" style={{ opacity: background.dim }} />
-        </>
-      )}
+      {layers.map((mediaId) => (
+        <div
+          key={mediaId}
+          className="absolute inset-0 bg-cover bg-center transition-opacity duration-700 ease-out"
+          style={{ backgroundImage: `url("${api.mediaUrl(id, mediaId)}")`, opacity: mediaId === activeBackground ? 1 : 0 }}
+          data-testid={mediaId === activeBackground ? 'lyrics-background' : undefined}
+          data-media={mediaId}
+        />
+      ))}
+      {activeBackground && <div className="absolute inset-0 bg-black" style={{ opacity: dim }} />}
       <div className="relative h-full">
       {message ? (
         <p className="flex h-full items-center justify-center p-8 text-center text-[3vw] text-slate-500">{message}</p>
