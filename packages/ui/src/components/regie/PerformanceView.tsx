@@ -37,6 +37,29 @@ const t = texts.regie.performance;
 
 type Mode = 'free' | 'lead' | 'follow';
 
+type LightView = 'current' | 'next';
+
+/** Einstellung je Gerät (localStorage), nur erlaubte Werte */
+function useLocalOption<T extends string>(key: string, fallback: T, allowed: T[]): [T, (next: T) => void] {
+  const [value, setValue] = useState<T>(() => {
+    try {
+      const saved = localStorage.getItem(key) as T | null;
+      return saved && allowed.includes(saved) ? saved : fallback;
+    } catch {
+      return fallback;
+    }
+  });
+  const set = (next: T) => {
+    setValue(next);
+    try {
+      localStorage.setItem(key, next);
+    } catch {
+      // ohne Speicher gilt die Wahl bis zum Neuladen
+    }
+  };
+  return [value, set];
+}
+
 /** rechte Seite der Vorstellung: Licht oder Ton (je Gerät gemerkt) */
 type Side = 'light' | 'sound';
 const SIDE_KEY = 'steckplan.performanceSide';
@@ -307,6 +330,14 @@ export function PerformanceView({
   }, [currentLine]);
 
   const states = scene ? sceneStates(data.sceneStates, scene.id) : new Map();
+  // Licht: Bild der aktuellen oder Vorschau der nächsten Szene; Ton: Vorschau ein/aus (je Gerät)
+  const [lightView, setLightView] = useLocalOption<LightView>('steckplan.lightView', 'current', ['current', 'next']);
+  const [soundPreviewSetting, setSoundPreviewSetting] = useLocalOption<'on' | 'off'>('steckplan.soundPreview', 'off', ['on', 'off']);
+  const soundPreview = soundPreviewSetting === 'on';
+  const setSoundPreview = (on: boolean) => setSoundPreviewSetting(on ? 'on' : 'off');
+  const nextLightScene = scenes[sceneIndex + 1];
+  const showNext = lightView === 'next' && !!nextLightScene;
+  const nextStates = nextLightScene ? sceneStates(data.sceneStates, nextLightScene.id) : new Map();
   // Szenen-Marken (Nummer, Name, Startpunkt) für Licht und Ton; Notizen bleiben stehen, bis eine neue kommt
   const lightMark = (i: number): SceneMark | undefined => (scenes[i] ? { number: i + 1, name: scenes[i]!.name, at: sceneTime(scenes[i]!, plainLines) } : undefined);
   const lightNote = sceneIndex >= 0 ? stickyNote(scenes, sceneIndex) : undefined;
@@ -495,12 +526,50 @@ export function PerformanceView({
                   </div>
                 )}
                 {soundScenes.length === 0 && !hasRichText(item.soundNotes) && <p className="text-slate-500">{texts.regie.sound.none}</p>}
+                {/* Vorschau auf die nächste Tonszene (je Gerät ein-/ausschaltbar) */}
+                {soundScenes.length > 0 && (
+                  <div className="space-y-2 border-t border-slate-800 pt-3" data-testid="sound-preview">
+                    <label className="flex items-center gap-2 text-sm text-slate-300">
+                      <input type="checkbox" checked={soundPreview} onChange={(e) => setSoundPreview(e.target.checked)} />
+                      {t.showPreview}
+                    </label>
+                    {soundPreview &&
+                      (soundScenes[soundIndex + 1] ? (
+                        <div className="space-y-1 rounded-lg border-2 border-dashed border-amber-500/70 p-3">
+                          <div className="text-xs font-semibold tracking-wide text-amber-400 uppercase">
+                            {t.previewOf(`${soundIndex + 2}. ${soundScenes[soundIndex + 1]!.name || '–'}`)}
+                          </div>
+                          {hasRichText(soundScenes[soundIndex + 1]!.notes) ? (
+                            <RichTextView html={soundScenes[soundIndex + 1]!.notes} className="rounded-lg bg-white/90 p-3 text-lg text-slate-900" />
+                          ) : (
+                            <p className="text-sm text-slate-400">{t.previewNoNote}</p>
+                          )}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-slate-500">{t.previewNone}</p>
+                      ))}
+                  </div>
+                )}
               </>
             ) : scenes.length > 0 ? (
               <>
                 <SceneProgress current={lightMark(sceneIndex)} next={lightMark(sceneIndex + 1)} time={time} nextItemTitle={nextItem ? nextItem.title || texts.regie.untitled : undefined} testPrefix="performance" />
                 {lightNote && <p className="text-lg text-slate-200" data-testid="performance-scene-note">{lightNote}</p>}
-                <SceneGrid grid={data.lightGrid} layout={layout} states={states} targets={data.lightTargets} templates={templates} selected={new Set()} onToggle={undefined} center />
+                {/* Bild: aktuelle Szene oder Vorschau auf die nächste (je Gerät gemerkt) */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex w-fit overflow-hidden rounded-md border border-slate-700 text-xs" role="radiogroup" aria-label={t.lightView}>
+                    {(['current', 'next'] as LightView[]).map((v) => (
+                      <button key={v} type="button" role="radio" aria-checked={lightView === v} onClick={() => setLightView(v)} className={`px-3 py-1 ${lightView === v ? 'bg-sky-600 text-white' : 'hover:bg-slate-800'}`}>
+                        {t.lightViews[v]}
+                      </button>
+                    ))}
+                  </div>
+                  {showNext && <span className="text-sm font-semibold text-amber-400" data-testid="light-preview-label">{t.previewOf(`${sceneIndex + 2}. ${scenes[sceneIndex + 1]!.name || '–'}`)}</span>}
+                  {lightView === 'next' && !scenes[sceneIndex + 1] && <span className="text-sm text-slate-500">{t.previewNone}</span>}
+                </div>
+                <div className={showNext ? 'rounded-lg border-2 border-dashed border-amber-500/70 p-2' : ''} data-testid={showNext ? 'light-preview' : 'light-current'}>
+                  <SceneGrid grid={data.lightGrid} layout={layout} states={showNext ? nextStates : states} targets={data.lightTargets} templates={templates} selected={new Set()} onToggle={undefined} center />
+                </div>
               </>
             ) : (
               <p className="text-slate-500">{nextItem ? t.nextItem(nextItem.title || texts.regie.untitled) : t.end}</p>

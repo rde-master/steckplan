@@ -173,6 +173,22 @@ test('Tonszenen wie beim Licht: vom Licht übernehmen, Vorstellung mit nächster
   await expect(perf.getByTestId('sound-next')).toContainText('Als Nächstes: 2. Refrain');
   await expect(perf.getByTestId('sound-countdown')).toHaveText('−0:01.0');
   await expect(perf.getByText('Noch keine Notiz zur Szene.')).toBeVisible();
+  // Ton: Vorschau auf die nächste Szene (mit deren Notiz)
+  const preview = perf.getByTestId('sound-preview');
+  await expect(preview.getByText('Vorschau: 2. Refrain')).toHaveCount(0);
+  await preview.getByLabel('Vorschau anzeigen').check();
+  await expect(preview).toContainText('Vorschau: 2. Refrain');
+  await expect(preview.locator('.rich-text')).toContainText('Funk 2 laut');
+  // Licht: Bild der nächsten Szene statt der aktuellen
+  await perf.getByRole('tab', { name: 'Licht' }).click();
+  await expect(perf.getByTestId('light-current')).toBeVisible();
+  await perf.getByRole('radio', { name: 'Nächste' }).click();
+  await expect(perf.getByTestId('light-preview')).toBeVisible();
+  await expect(perf.getByTestId('light-preview-label')).toHaveText('Vorschau: 2. Refrain');
+  await show.screenshot({ path: 'test-results/vorstellung-vorschau.png' });
+  await perf.getByRole('radio', { name: 'Aktuell' }).click();
+  await expect(perf.getByTestId('light-current')).toBeVisible();
+  await perf.getByRole('tab', { name: 'Ton' }).click();
   await show.screenshot({ path: 'test-results/vorstellung-tonszenen.png' });
   await perf.getByRole('tab', { name: 'Licht' }).click();
   await show.screenshot({ path: 'test-results/vorstellung-lichtszenen.png' });
