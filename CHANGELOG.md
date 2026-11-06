@@ -7,6 +7,8 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.26.0] - 2026-11-06
+
 ### Hinzugefügt
 
 - OSC-Fernsteuerung der Vorstellung (UDP, in den Einstellungen ein- und Port einstellbar, Standard 8000): `/steckplan/play`, `/pause`, `/toggle`, `/stop`, `/forward [s]`, `/back [s]`, `/seek s`, `/item n` (Punkt mit Nummer n), `/next`, `/prev`, `/scene/next`, `/scene/prev`; Werte als int, float oder string, Bundles werden aufgelöst, das Loslassen eines Tasters (0) löst nichts aus. Ausgeführt wird in der Vorstellung, die führt – führt niemand, in jeder geöffneten, die nicht folgt; die Vorstellung zeigt kurz, welcher Befehl ankam. Die Einstellungen zeigen, ob empfangen wird, und den zuletzt erkannten Befehl
@@ -573,7 +575,8 @@ Meilenstein M0 – Projektgerüst.
 - Docker-Image mit Datenvolume `/data` und Beispiel-`docker-compose.yml`
 - GitHub Actions: Tests und Smoke-Test bei jedem Push, Installer als Artefakte, Docker-Image `:develop`, Release-Workflow für Tags `vX.Y.Z`
 
-[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.25.0...develop
+[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.26.0...develop
+[0.26.0]: https://github.com/rde-master/steckplan/compare/v0.25.0...v0.26.0
 [0.25.0]: https://github.com/rde-master/steckplan/compare/v0.24.0...v0.25.0
 [0.24.0]: https://github.com/rde-master/steckplan/compare/v0.23.4...v0.24.0
 [0.23.4]: https://github.com/rde-master/steckplan/compare/v0.23.3...v0.23.4
