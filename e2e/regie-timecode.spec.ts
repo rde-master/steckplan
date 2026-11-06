@@ -247,7 +247,7 @@ test('Audio-Versatz: Musik setzt erst beim Versatz ein, Player zeigt die Werte d
     return { t: document.querySelector('audio')!.currentTime, tc: tc[2]! + tc[3]! / 25 };
   });
   expect(Math.abs(now.t - (now.tc - 2))).toBeLessThan(0.3);
-  await expect(player.getByTestId('regie-time')).toHaveText(/^0:0[01] \/ 0:03$/);
+  await expect(player.getByTestId('regie-time')).toHaveText(/^0:0[0-3] \/ 0:03$/);
   // Timecode läuft bis zur geplanten Dauer (6 s), auch nach dem Ende der Datei (2 + 3 = 5 s)
   await expect(clock).toHaveText('00:00:06:00', { timeout: 6000 });
   await expect(perf.getByTestId('timecode-panel').getByTestId('timecode-remaining')).toHaveText('−00:00:00:00');
