@@ -468,7 +468,9 @@ export const ShowItemSchema = z.object({
   roles: z.array(ShowRoleSchema).optional(),
   /** Lied: Audiodateien (eine davon Standard) */
   media: z.array(ItemMediaSchema).optional(),
-  /** Feste Nummer im Ablauf = Stunde im Timecode (bleibt beim Umsortieren) */
+  /** Tonszenen: Informationen für den Ton (formatierter Text als HTML, beim Anzeigen bereinigt) */
+  soundNotes: z.string().optional(),
+  /** Feste Nummer im Ablauf (bleibt beim Umsortieren) */
   number: z.number().int().min(1).max(999).optional(),
 });
 export type ShowItem = z.infer<typeof ShowItemSchema>;

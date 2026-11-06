@@ -1,6 +1,6 @@
 // Vorstellung (Regie, M11e): Vollbild, dunkel. Aktueller Eintrag mit mitlaufendem Text, aktuelle und nächste Lichtszene,
 // Player, große Knöpfe und Pfeiltasten. „Führen“ sendet die Stelle an alle, „Folgen“ springt mit (nicht gespeichert).
-import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Monitor, Radio, UserRound, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ListMusic, Monitor, Radio, UserRound, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   currentLineId,
@@ -22,6 +22,8 @@ import { texts } from '../../texts';
 import { Button } from '../ui';
 import { openLyricsWindow, useLocalCueSender } from './LyricsWindow';
 import { ItemNumber, KIND_ICONS } from './RegieView';
+import { RichTextView } from './RichTextEditor';
+import { hasRichText } from '../../lib/richText';
 import { SceneGrid } from './SceneGrid';
 import { formatSceneTime } from './ScenesSection';
 import { PlayerBar, seekAudio, TimecodeClock, usePlayerTime } from './SongMedia';
@@ -30,6 +32,17 @@ import { useTransport } from '../../lib/transport';
 const t = texts.regie.performance;
 
 type Mode = 'free' | 'lead' | 'follow';
+
+/** rechte Seite der Vorstellung: Licht oder Ton (je Gerät gemerkt) */
+type Side = 'light' | 'sound';
+const SIDE_KEY = 'steckplan.performanceSide';
+function readSide(): Side {
+  try {
+    return localStorage.getItem(SIDE_KEY) === 'sound' ? 'sound' : 'light';
+  } catch {
+    return 'light';
+  }
+}
 
 export function PerformanceView({
   projectId,
@@ -59,6 +72,16 @@ export function PerformanceView({
   const following = mode === 'follow' && !!lead && !iLead;
   const [index, setIndex] = useState(0);
   const [sceneChoice, setSceneChoice] = useState<string | null>(null);
+  const [listOpen, setListOpen] = useState(false);
+  const [side, setSide] = useState<Side>(readSide);
+  const chooseSide = (next: Side) => {
+    setSide(next);
+    try {
+      localStorage.setItem(SIDE_KEY, next);
+    } catch {
+      // ohne Speicher gilt die Wahl bis zum Neuladen
+    }
+  };
 
   const followIndex = following ? items.findIndex((i) => i.id === lead.itemId) : -1;
   const itemIndex = followIndex >= 0 ? followIndex : Math.min(index, Math.max(0, items.length - 1));
@@ -135,6 +158,13 @@ export function PerformanceView({
       setMode('free');
     }
   };
+  /** Direkt zu einem Eintrag (Liedliste) */
+  const goTo = (index: number) => {
+    takeOver();
+    setIndex(Math.max(0, Math.min(items.length - 1, index)));
+    setSceneChoice(null);
+    setListOpen(false);
+  };
   const goItem = (delta: number) => {
     takeOver();
     const next = Math.max(0, Math.min(items.length - 1, itemIndex + delta));
@@ -164,9 +194,10 @@ export function PerformanceView({
   };
 
   // Tasten: ←/→ Szene, Umschalt+←/→ eine Sekunde spulen, ↑/↓ bzw. Bild↑/Bild↓ Eintrag, Esc beendet
-  const keys = useRef({ goItem, goScene, nudge, onClose });
+  const closeOrList = () => (listOpen ? setListOpen(false) : onClose());
+  const keys = useRef({ goItem, goScene, nudge, onClose: closeOrList });
   useEffect(() => {
-    keys.current = { goItem, goScene, nudge, onClose };
+    keys.current = { goItem, goScene, nudge, onClose: closeOrList };
   });
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -227,7 +258,42 @@ export function PerformanceView({
         {Icon && <Icon size={20} className="text-slate-400" aria-hidden />}
         <h2 className="min-w-[10rem] flex-1 truncate text-lg font-semibold" data-testid="performance-title">
           {item?.title || (item ? texts.regie.untitled : t.empty)}
+          {nextItem && (
+            <span className="ml-3 text-sm font-normal text-slate-400" data-testid="performance-next-item">
+              {t.nextUp} <ItemNumber number={numbers.get(nextItem.id)} /> {nextItem.title || texts.regie.untitled}
+            </span>
+          )}
         </h2>
+        <div className="relative">
+          <Button variant="ghost" className="text-sm" aria-expanded={listOpen} aria-haspopup="true" title={t.listTitle} onClick={() => setListOpen(!listOpen)}>
+            <ListMusic size={18} aria-hidden /> {t.list}
+          </Button>
+          {listOpen && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setListOpen(false)} aria-hidden />
+              <ol className="absolute right-0 z-20 mt-1 max-h-[70vh] w-80 overflow-y-auto rounded-lg border border-slate-700 bg-slate-900 p-1 shadow-xl" aria-label={t.list} data-testid="performance-list">
+                {items.map((entry, i) => {
+                  const EntryIcon = KIND_ICONS[entry.kind];
+                  return (
+                    <li key={entry.id}>
+                      <button
+                        type="button"
+                        aria-current={i === itemIndex ? 'true' : undefined}
+                        onClick={() => goTo(i)}
+                        className={`flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm ${i === itemIndex ? 'bg-sky-900 text-white' : 'hover:bg-slate-800'}`}
+                      >
+                        <ItemNumber number={numbers.get(entry.id)} />
+                        <EntryIcon size={16} className="shrink-0 text-slate-400" aria-hidden />
+                        <span className="min-w-0 flex-1 truncate">{entry.title || texts.regie.untitled}</span>
+                        <span className="shrink-0 text-xs tabular-nums text-slate-500">{entry.durationSec !== undefined ? formatDuration(entry.durationSec) : ''}</span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ol>
+            </>
+          )}
+        </div>
         <div className="flex overflow-hidden rounded-md border border-slate-700 text-sm" role="radiogroup" aria-label={t.modeLabel}>
           {(['free', ...(canLead ? (['lead'] as const) : []), 'follow'] as Mode[]).map((m) => (
             <button
@@ -300,8 +366,21 @@ export function PerformanceView({
             )}
           </section>
 
-          <section className="min-h-0 space-y-3 lg:overflow-y-auto" aria-label={texts.light.scenes.title}>
-            {scenes.length > 0 ? (
+          <section className="min-h-0 space-y-3 lg:overflow-y-auto" aria-label={side === 'light' ? texts.light.scenes.title : texts.regie.sound.title}>
+            <div className="flex w-fit overflow-hidden rounded-md border border-slate-700 text-sm" role="tablist" aria-label={t.sideLabel}>
+              {(['light', 'sound'] as Side[]).map((s) => (
+                <button key={s} type="button" role="tab" aria-selected={side === s} onClick={() => chooseSide(s)} className={`px-4 py-1.5 ${side === s ? 'bg-sky-600 text-white' : 'hover:bg-slate-800'}`}>
+                  {t.sides[s]}
+                </button>
+              ))}
+            </div>
+            {side === 'sound' ? (
+              hasRichText(item.soundNotes) ? (
+                <RichTextView html={item.soundNotes} className="rounded-lg bg-white p-4 text-xl text-slate-900" />
+              ) : (
+                <p className="text-slate-500">{texts.regie.sound.none}</p>
+              )
+            ) : scenes.length > 0 ? (
               <>
                 <div className="flex flex-wrap items-baseline gap-2">
                   <span className="text-xs font-semibold tracking-wide text-slate-500 uppercase">{t.currentScene}</span>

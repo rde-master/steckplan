@@ -36,6 +36,7 @@ import { ICON } from '../icons';
 import { Button, Field, TextArea, TextInput } from '../ui';
 import { LightSetupView } from './LightSetupView';
 import { ScenesView } from './ScenesView';
+import { SoundView } from './SoundView';
 import { TextsView } from './TextsView';
 import { PerformanceView } from './PerformanceView';
 import { MediaSection, PlayerBar, usePlayerTime } from './SongMedia';
@@ -90,6 +91,8 @@ export function RegieView(
         <TextsView projectId={props.projectId} doc={props.doc} origin={props.origin} data={props.data} editable={props.editable} />
       ) : area === 'scenes' ? (
         <ScenesView projectId={props.projectId} doc={props.doc} origin={props.origin} data={props.data} library={props.library} editable={props.editable} />
+      ) : area === 'sound' ? (
+        <SoundView doc={props.doc} origin={props.origin} data={props.data} editable={props.editable} />
       ) : area === 'light' ? (
         <div className="min-h-0 flex-1 overflow-y-auto">
           <LightSetupView doc={props.doc} origin={props.origin} data={props.data} library={props.library} editable={props.editable} />
@@ -101,8 +104,8 @@ export function RegieView(
   );
 }
 
-type Area = 'show' | 'texts' | 'scenes' | 'light';
-const AREAS: Area[] = ['show', 'texts', 'scenes', 'light'];
+type Area = 'show' | 'texts' | 'scenes' | 'sound' | 'light';
+const AREAS: Area[] = ['show', 'texts', 'scenes', 'sound', 'light'];
 const AREA_KEY = 'steckplan.regieArea';
 function readArea(): Area {
   try {
