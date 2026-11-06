@@ -181,6 +181,11 @@ test('Timecode-Steuerung: Restzeit rot, „Mit Musik“ an/aus, eigene Knöpfe, 
   await panel.getByRole('button', { name: 'Timecode stoppen (zurück auf 0)' }).click();
   await panel.getByRole('button', { name: 'Timecode 1 s vor' }).click();
   await expect(clock).toHaveText('00:00:01:00');
+  // Feinschritt 0,1 s
+  await panel.getByRole('button', { name: 'Timecode 0,1 s vor' }).click();
+  await expect(clock).toHaveText('00:00:01:02');
+  await panel.getByRole('button', { name: 'Timecode 0,1 s zurück' }).click();
+  await expect(clock).toHaveText('00:00:01:00');
   await show.screenshot({ path: 'test-results/timecode-steuerung.png' });
   // die Wahl bleibt (je Gerät)
   await show.close();

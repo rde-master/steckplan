@@ -288,6 +288,11 @@ export function PerformanceView({
       case 'scenePrev':
         goScene(command.action === 'sceneNext' ? 1 : -1);
         break;
+      case 'tcForward':
+      case 'tcBack':
+        // nur der Timecode (mit „Mit Musik“ hängt die Musik daran)
+        seekAudio(tc, tc.currentTime + (command.action === 'tcBack' ? -v : v));
+        break;
     }
     setRemoteNote(t.remote(command.action, command.value));
     window.clearTimeout(noteTimer.current);

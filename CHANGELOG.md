@@ -7,6 +7,14 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.26.2] - 2026-11-06
+
+### Hinzugefügt
+
+- OSC: Lied bzw. Ablaufpunkt über die Nummer in der Adresse wählen – `/steckplan/lied/13` (auch `/steckplan/item/13`), für Pulte, die ohne Wert senden
+- Timecode: Feinschritt ±0,1 Sekunden (Knöpfe am Timecode-Feld) und per OSC `/steckplan/tc/forward [s]` bzw. `/steckplan/tc/back [s]` (ohne Wert 0,1 s) – verschiebt nur den Timecode (mit „Mit Musik“ auch die Musik)
+- Seite „OSC-Befehle“: Spalte mit dem passenden grandMA3-Befehl (z. B. `SendOSC 1 "/steckplan/play,,"`) und Anleitung zum Einrichten der OSC-Zeile im Pult
+
 ## [0.26.1] - 2026-11-06
 
 ### Hinzugefügt
@@ -582,7 +590,8 @@ Meilenstein M0 – Projektgerüst.
 - Docker-Image mit Datenvolume `/data` und Beispiel-`docker-compose.yml`
 - GitHub Actions: Tests und Smoke-Test bei jedem Push, Installer als Artefakte, Docker-Image `:develop`, Release-Workflow für Tags `vX.Y.Z`
 
-[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.26.1...develop
+[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.26.2...develop
+[0.26.2]: https://github.com/rde-master/steckplan/compare/v0.26.1...v0.26.2
 [0.26.1]: https://github.com/rde-master/steckplan/compare/v0.26.0...v0.26.1
 [0.26.0]: https://github.com/rde-master/steckplan/compare/v0.25.0...v0.26.0
 [0.25.0]: https://github.com/rde-master/steckplan/compare/v0.24.0...v0.25.0

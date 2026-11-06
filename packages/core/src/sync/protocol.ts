@@ -23,7 +23,7 @@ export interface Cue {
 }
 
 /** Fernsteuerung der Vorstellung (OSC bzw. HTTP) */
-export const REMOTE_ACTIONS = ['play', 'pause', 'stop', 'toggle', 'forward', 'back', 'seek', 'item', 'next', 'prev', 'sceneNext', 'scenePrev'] as const;
+export const REMOTE_ACTIONS = ['play', 'pause', 'stop', 'toggle', 'forward', 'back', 'seek', 'item', 'next', 'prev', 'sceneNext', 'scenePrev', 'tcForward', 'tcBack'] as const;
 export type RemoteAction = (typeof REMOTE_ACTIONS)[number];
 export interface RemoteCommand {
   action: RemoteAction;
@@ -40,7 +40,8 @@ export function parseRemoteCommand(action: unknown, value?: unknown): RemoteComm
   if ((a === 'seek' || a === 'item') && n === undefined) return null;
   if (a === 'item' && (!Number.isInteger(n) || n! < 1)) return null;
   if (a === 'seek' && n! < 0) return null;
-  return { action: a, ...(n !== undefined ? { value: a === 'forward' || a === 'back' ? Math.abs(n) : n } : {}) };
+  const relative = a === 'forward' || a === 'back' || a === 'tcForward' || a === 'tcBack';
+  return { action: a, ...(n !== undefined ? { value: relative ? Math.abs(n) : n } : {}) };
 }
 
 /** Wer führt und wo die Vorstellung gerade steht */
