@@ -29,6 +29,7 @@ import { Button, Modal, TextArea } from '../ui';
 import { ItemNumber, KIND_ICONS } from './RegieView';
 import { usePointPlayback } from '../../lib/transport';
 import { SectionsEditor } from './SectionsEditor';
+import { LyricsTimeline } from './LyricsTimeline';
 import { LyricsView, PlayerBar, seekAudio, TimecodePanel, usePlayerTime, useRecordKey } from './SongMedia';
 
 const t = texts.regie;
@@ -148,6 +149,7 @@ function TextDetail({ projectId, doc, origin, data, item, editable, onBack }: { 
           </div>
           {item.kind === 'song' && !hasAudio && <p className="text-xs text-slate-500">{tv.noAudio}</p>}
           {mode === 'record' && <p className="text-xs text-slate-500">{t.recordHint}</p>}
+          {mode === 'record' && <LyricsTimeline doc={doc} origin={origin} lines={lines} time={time} duration={music.duration} timeOffset={offset} editable={editable} onSeek={(sec) => seekAudio(music, sec)} />}
           {mode === 'edit' ? (
             <SectionsEditor projectId={projectId} doc={doc} origin={origin} item={item} sections={sections} settings={data.showSettings} editable={editable} />
           ) : (

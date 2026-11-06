@@ -611,6 +611,12 @@ export function LyricsView({
                   <Button variant="ghost" className="min-h-7 px-1.5 text-xs" aria-label={`${t.earlier}: ${line.text}`} onClick={() => setLineTime(doc, sectionId, line.id, Math.max(0, line.atSec! - timeOffset - 0.5), origin)}>
                     −0,5
                   </Button>
+                  <Button variant="ghost" className="min-h-7 px-1.5 text-xs" aria-label={`${t.earlierFine}: ${line.text}`} onClick={() => setLineTime(doc, sectionId, line.id, Math.max(0, line.atSec! - timeOffset - 0.1), origin)}>
+                    −0,1
+                  </Button>
+                  <Button variant="ghost" className="min-h-7 px-1.5 text-xs" aria-label={`${t.laterFine}: ${line.text}`} onClick={() => setLineTime(doc, sectionId, line.id, line.atSec! - timeOffset + 0.1, origin)}>
+                    +0,1
+                  </Button>
                   <Button variant="ghost" className="min-h-7 px-1.5 text-xs" aria-label={`${t.later}: ${line.text}`} onClick={() => setLineTime(doc, sectionId, line.id, line.atSec! - timeOffset + 0.5, origin)}>
                     +0,5
                   </Button>
