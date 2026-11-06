@@ -132,7 +132,7 @@ function TextDetail({ projectId, doc, origin, data, item, editable, onBack }: { 
         {item.kind === 'song' && !hasAudio && <p className="text-xs text-slate-500">{tv.noAudio}</p>}
         {mode === 'record' && <p className="text-xs text-slate-500">{t.recordHint}</p>}
         {mode === 'edit' ? (
-          <SectionsEditor doc={doc} origin={origin} item={item} sections={sections} editable={editable} />
+          <SectionsEditor projectId={projectId} doc={doc} origin={origin} item={item} sections={sections} settings={data.showSettings} editable={editable} />
         ) : (
           <LyricsView doc={doc} origin={origin} lines={lines} time={time} recording={mode === 'record'} editable={editable} onSeek={(sec) => seekAudio(music, sec)} />
         )}

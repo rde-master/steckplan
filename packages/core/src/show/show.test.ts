@@ -15,6 +15,9 @@ import {
   readMedia,
   removeItemMedia,
   setLineTime,
+  sectionBackground,
+  setSectionBackground,
+  mediaInUse,
   setLyricsBackground,
   setLyricsBackgroundDim,
   updateItemMedia,
@@ -33,6 +36,7 @@ import {
   parseDuration,
   parseSectionText,
   readShow,
+  removeSection,
   removeShowItem,
   sectionToText,
   setSectionText,
@@ -342,5 +346,49 @@ describe('Art-Net Timecode', () => {
     expect(isArtNetHost('192.168.1.40')).toBe(true);
     expect(isArtNetHost('256.1.1.1')).toBe(false);
     expect(isArtNetHost('konsole.local')).toBe(false);
+  });
+});
+
+describe('Regie: Hintergrundbilder der Abschnitte', () => {
+  const ref = (id: string) => ({ id, name: `${id}.jpg`, mime: 'image/jpeg', sizeBytes: 10, sha256: '', addedAt: '', addedBy: '' });
+
+  it('eigenes Bild, sonst das eines früheren Abschnitts (abschaltbar), sonst das Standardbild', () => {
+    const list = [
+      { id: 'a', backgroundMediaId: undefined },
+      { id: 'b', backgroundMediaId: 'bild-b' },
+      { id: 'c' },
+      { id: 'd', backgroundInherit: false },
+      { id: 'e', backgroundMediaId: 'bild-e' },
+      { id: 'f' },
+    ];
+    expect(list.map((s) => sectionBackground(list, s.id, 'standard'))).toEqual(['standard', 'bild-b', 'bild-b', 'standard', 'bild-e', 'bild-e']);
+    expect(sectionBackground(list, undefined, 'standard')).toBe('standard');
+    expect(sectionBackground(list, 'a', undefined)).toBeUndefined();
+  });
+
+  it('Verweis bleibt, solange verwendet; Kopieren übernimmt das Bild, Löschen räumt auf', () => {
+    const d = doc();
+    const song = addShowItem(d, 'song', null, { title: 'Lied' });
+    const s1 = addSection(d, song, 'verse', 'Strophe 1', null);
+    setSectionBackground(d, s1, ref('wald'), null);
+    expect(readMedia(d).map((m) => m.id)).toEqual(['wald']);
+    const s2 = duplicateSection(d, s1, null)!;
+    expect(readShow(d).sections.find((s) => s.id === s2)?.backgroundMediaId).toBe('wald');
+    // auf einem Abschnitt entfernt: noch am anderen in Gebrauch
+    setSectionBackground(d, s1, null, null);
+    expect(mediaInUse(d, 'wald')).toBe(true);
+    expect(readMedia(d)).toHaveLength(1);
+    // Kopie des Eintrags übernimmt das Bild
+    const copy = duplicateShowItem(d, song, null)!;
+    expect(itemSections(readShow(d).sections, copy).map((s) => s.backgroundMediaId)).toEqual([undefined, 'wald']);
+    // alle Abschnitte mit dem Bild weg → Verweis weg
+    removeShowItem(d, copy, null);
+    removeSection(d, s2, null);
+    expect(readMedia(d)).toEqual([]);
+    // Eintrag löschen räumt die Bilder seiner Abschnitte mit auf
+    const other = addShowItem(d, 'song', null, { title: 'Anderes' });
+    setSectionBackground(d, addSection(d, other, 'verse', 'S', null), ref('see'), null);
+    removeShowItem(d, other, null);
+    expect(readMedia(d)).toEqual([]);
   });
 });

@@ -7,6 +7,10 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+### Hinzugefügt
+
+- Textfenster: Hintergrundbild je Textabschnitt (Bereich „Texte“, am Abschnitt). Ohne eigenes Bild gilt das Bild des letzten früheren Abschnitts im selben Lied (je Abschnitt abschaltbar: „Bild vom vorigen Abschnitt übernehmen“), sonst das Standardbild aus den Regie-Einstellungen; beim Wechsel wird weich überblendet. Kopieren von Abschnitt oder Eintrag übernimmt die Bilder, nicht mehr verwendete Bilder verlieren ihren Verweis
+
 ## [0.26.0] - 2026-11-06
 
 ### Hinzugefügt
