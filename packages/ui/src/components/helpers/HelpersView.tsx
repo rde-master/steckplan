@@ -215,6 +215,7 @@ function StageExcerpt({ data, library, deviceIds }: { data: ProjectData; library
     multicores: buildMulticoreRoutes(data.devices, library, data.layers, EMPTY_FILTER).map((m) => ({ ...m, dimmed: !related.has(m.device.id) })),
     ...(data.background ? { background: data.background } : {}),
     showCables: true,
+    labels: false,
     highlightIds: [...own],
   };
   const bounds = stageBounds(drawing, false);
