@@ -3,11 +3,18 @@ import { existsSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import { app, dialog, type BrowserWindow } from 'electron';
 import { copyAsNewProject, createEmptyProject, FILE_EXTENSION, ProjectFormatError } from '@steckplan/core';
-import { LockedError, type LockInfo } from '@steckplan/server';
+import { extractProjectZip, LockedError, type LockInfo } from '@steckplan/server';
 import type { EmbeddedServer } from './embedded-server';
 import type { SettingsStore } from './settings';
 
 const FILTERS = [{ name: 'Steckplan-Projekt', extensions: ['steckplan'] }];
+/** Öffnen: auch Projekte mit Medien (.steckplan.zip aus „Mit Medien herunterladen“) */
+const OPEN_FILTERS = [{ name: 'Steckplan-Projekt (auch mit Medien als .zip)', extensions: ['steckplan', 'zip'] }];
+
+/** Projekt mit Medien? (.zip – „Mit Medien herunterladen“ liefert <Name>.steckplan.zip) */
+export function isProjectZip(path: string): boolean {
+  return path.toLowerCase().endsWith('.zip');
+}
 
 export interface ProjectActionsDeps {
   server: EmbeddedServer;
@@ -55,7 +62,7 @@ export class ProjectActions {
   async openDialog(parent?: BrowserWindow): Promise<void> {
     const options = {
       title: 'Projekt öffnen',
-      filters: FILTERS,
+      filters: OPEN_FILTERS,
       properties: ['openFile', 'multiSelections'] as ('openFile' | 'multiSelections')[],
     };
     const result = parent ? await dialog.showOpenDialog(parent, options) : await dialog.showOpenDialog(options);
@@ -65,6 +72,7 @@ export class ProjectActions {
 
   /** Öffnet eine Datei; fragt bei fremder Sperre nach. */
   async openPath(path: string, parent?: BrowserWindow): Promise<void> {
+    if (isProjectZip(path)) return this.openZip(path, parent);
     const existingId = this.deps.server.store.findByPath(path);
     if (existingId && this.deps.focusWindow(existingId)) return;
 
@@ -86,6 +94,42 @@ export class ProjectActions {
         dialog.showErrorBox('Projekt kann nicht geöffnet werden', `${basename(path)}:\n${(error as Error).message}`);
       }
     }
+  }
+
+  /**
+   * Projekt mit Medien (.steckplan.zip) öffnen: fragt, wohin das Projekt gespeichert wird, legt Projektdatei und
+   * den Ordner <Name>.medien dort ab und öffnet es.
+   */
+  async openZip(zipPath: string, parent?: BrowserWindow): Promise<void> {
+    if (!existsSync(zipPath)) {
+      dialog.showErrorBox('Datei nicht gefunden', `„${zipPath}“ gibt es nicht (mehr).`);
+      return;
+    }
+    const name = basename(zipPath).replace(/(\.steckplan)?\.zip$/i, '') || 'Projekt';
+    const options = {
+      title: 'Projekt mit Medien öffnen – wo soll es gespeichert werden?',
+      message: 'Die Projektdatei und der Ordner mit den Medien (Audio, Bilder) werden dort abgelegt.',
+      buttonLabel: 'Hier speichern und öffnen',
+      defaultPath: join(dirname(zipPath), `${name}${FILE_EXTENSION}`),
+      filters: FILTERS,
+      properties: ['createDirectory', 'showOverwriteConfirmation'] as ('createDirectory' | 'showOverwriteConfirmation')[],
+    };
+    const result = parent ? await dialog.showSaveDialog(parent, options) : await dialog.showSaveDialog(options);
+    if (result.canceled || !result.filePath) return;
+    const target = ensureExtension(result.filePath);
+    const openId = this.deps.server.store.findByPath(target);
+    if (openId) {
+      dialog.showErrorBox('Datei ist bereits geöffnet', `„${basename(target)}“ ist bereits in einem Fenster geöffnet – bitte einen anderen Namen wählen.`);
+      this.deps.focusWindow(openId);
+      return;
+    }
+    try {
+      await extractProjectZip(zipPath, target);
+    } catch (error) {
+      dialog.showErrorBox('Projekt mit Medien kann nicht geöffnet werden', `${basename(zipPath)}:\n${(error as Error).message}`);
+      return;
+    }
+    await this.openPath(target, parent);
   }
 
   private async handleLocked(path: string, info: LockInfo, stale: boolean, parent?: BrowserWindow): Promise<void> {
@@ -183,5 +227,5 @@ export class ProjectActions {
 
 /** Sucht .steckplan-Dateien in Kommandozeilenargumenten (Doppelklick unter Windows/Linux). */
 export function filesFromArgv(argv: string[]): string[] {
-  return argv.slice(1).filter((arg) => !arg.startsWith('-') && arg.toLowerCase().endsWith(FILE_EXTENSION) && existsSync(arg));
+  return argv.slice(1).filter((arg) => !arg.startsWith('-') && (arg.toLowerCase().endsWith(FILE_EXTENSION) || arg.toLowerCase().endsWith(`${FILE_EXTENSION}.zip`)) && existsSync(arg));
 }

@@ -9,6 +9,7 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Hinzugefügt
 
+- Desktop: Projekte mit Medien (.steckplan.zip aus „Mit Medien herunterladen“) direkt öffnen – über „Projekt öffnen …“, per Doppelklick bzw. Kommandozeile oder durch Ziehen aufs Programmsymbol (macOS). Die App fragt, wo das Projekt gespeichert wird, legt Projektdatei und Medien-Ordner (<Name>.medien) dort ab und öffnet es; entpackt wird stückweise, auch große Audiodateien
 - Textfenster: Hintergrundbild je Textabschnitt (Bereich „Texte“, am Abschnitt). Ohne eigenes Bild gilt das Bild des letzten früheren Abschnitts im selben Lied (je Abschnitt abschaltbar: „Bild vom vorigen Abschnitt übernehmen“), sonst das Standardbild aus den Regie-Einstellungen; beim Wechsel wird weich überblendet. Kopieren von Abschnitt oder Eintrag übernimmt die Bilder, nicht mehr verwendete Bilder verlieren ihren Verweis
 
 ## [0.26.0] - 2026-11-06

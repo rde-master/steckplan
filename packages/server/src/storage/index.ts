@@ -5,3 +5,4 @@ export * from './version-store';
 export * from './lock-file';
 export { writeFileAtomic } from './fs-utils';
 export * from './media-store';
+export * from './project-zip';
