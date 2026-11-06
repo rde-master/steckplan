@@ -32,7 +32,7 @@ function run(command: string, value?: string): void {
   document.execCommand(command, false, value);
 }
 
-export function RichTextEditor({ value, editable, label, onChange }: { value: string | undefined; editable: boolean; label: string; onChange: (html: string) => void }) {
+export function RichTextEditor({ value, editable, label, onChange, minHeight = 'min-h-[50vh]' }: { value: string | undefined; editable: boolean; label: string; onChange: (html: string) => void; minHeight?: string }) {
   const ref = useRef<HTMLDivElement>(null);
   const focused = useRef(false);
   const clean = sanitizeRichText(value);
@@ -92,7 +92,7 @@ export function RichTextEditor({ value, editable, label, onChange }: { value: st
         aria-label={label}
         contentEditable={editable}
         suppressContentEditableWarning
-        className="rich-text min-h-[50vh] px-4 py-3 text-base leading-relaxed focus:outline-none"
+        className={`rich-text ${minHeight} px-4 py-3 text-base leading-relaxed focus:outline-none`}
         onFocus={() => {
           focused.current = true;
         }}

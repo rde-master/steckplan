@@ -39,8 +39,8 @@ import { ScenesView } from './ScenesView';
 import { SoundView } from './SoundView';
 import { TextsView } from './TextsView';
 import { PerformanceView } from './PerformanceView';
-import { MediaSection, PlayerBar, usePlayerTime } from './SongMedia';
-import { useTransport } from '../../lib/transport';
+import { MediaSection, PlayerBar, TimecodePanel, usePlayerTime } from './SongMedia';
+import { usePointPlayback } from '../../lib/transport';
 import { lyricsUrl, openLyricsWindow } from './LyricsWindow';
 import { LyricsSettings } from './LyricsSettings';
 
@@ -92,7 +92,7 @@ export function RegieView(
       ) : area === 'scenes' ? (
         <ScenesView projectId={props.projectId} doc={props.doc} origin={props.origin} data={props.data} library={props.library} editable={props.editable} />
       ) : area === 'sound' ? (
-        <SoundView doc={props.doc} origin={props.origin} data={props.data} editable={props.editable} />
+        <SoundView projectId={props.projectId} doc={props.doc} origin={props.origin} data={props.data} editable={props.editable} />
       ) : area === 'light' ? (
         <div className="min-h-0 flex-1 overflow-y-auto">
           <LightSetupView doc={props.doc} origin={props.origin} data={props.data} library={props.library} editable={props.editable} />
@@ -287,8 +287,8 @@ function ItemDetail({
   const set = (patch: Partial<Omit<ShowItem, 'id'>>) => updateShowItem(doc, item.id, patch, origin);
   // Player zum Anhören (Text und Mitschreiben im Bereich „Texte“)
   const [audio, setAudio] = useState<HTMLAudioElement | null>(null);
-  const transport = useTransport(item.id, item.durationSec, audio);
-  const time = usePlayerTime(transport);
+  const { tc, music, sync } = usePointPlayback(item.id, item.durationSec, audio);
+  const time = usePlayerTime(music);
   const lines = itemLines(sections, item.id);
   return (
     <article className="mx-auto max-w-3xl space-y-4 p-4" aria-label={item.title || t.untitled} data-testid="regie-detail">
@@ -369,7 +369,7 @@ function ItemDetail({
       {(
         <PlayerBar
           settings={data.showSettings}
-          clock
+          aside={<TimecodePanel tc={tc} sync={sync} />}
           markers={itemScenes(data.lightScenes, item.id).flatMap((s, i) => {
             const at = sceneTime(s, lines.map((l) => l.line));
             return at === undefined ? [] : [{ id: s.id, at, label: `${i + 1} ${s.name}` }];
@@ -377,7 +377,7 @@ function ItemDetail({
           projectId={projectId}
           item={item}
           media={media}
-          playback={transport}
+          playback={music}
           setAudio={setAudio}
           time={time}
           recording={false}

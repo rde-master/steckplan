@@ -1,9 +1,10 @@
 // Transport je Ablaufpunkt: Start, Pause, Position und Ende gehören zum Punkt, nicht zum Lied.
-// Das Lied hängt daran: Solange das Audio läuft, gibt es den Takt vor (genau); ist es zu Ende oder gibt es keins,
-// läuft die Zeit mit eigener Uhr weiter. Am Ende der Dauer (Dauer des Punkts bzw. des Audios, die längere) hält er an.
+// „Mit Musik“ (Standard): Das Lied hängt daran – solange das Audio läuft, gibt es den Takt vor (genau); ist es zu Ende
+// oder gibt es keins, läuft die Zeit mit eigener Uhr weiter. Ohne „Mit Musik“ läuft der Timecode nur mit eigener Uhr,
+// die Musik unabhängig davon. Die Länge kommt allein aus der Dauer des Punkts im Projekt (ohne Dauer: bis Stopp).
 // Nach außen wie ein Audio-Element (currentTime, paused, duration, play/pause, Ereignisse) – Leertaste, Spulen,
 // Szenen, Textfenster und Führen funktionieren damit unverändert.
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useSyncExternalStore } from 'react';
 
 /** Was Player, Tasten und Anzeigen von der Wiedergabe brauchen (Transport und Audio-Element erfüllen es) */
 export interface Playback extends EventTarget {
@@ -29,11 +30,9 @@ export class Transport extends EventTarget implements Playback {
     this.itemDuration = itemDuration;
   }
 
-  /** Ende: die längere von Dauer des Punkts und Länge des Audios; ohne beides läuft er, bis man anhält */
+  /** Ende: Dauer des Punkts im Projekt; ohne Dauer läuft er, bis man anhält */
   get duration(): number {
-    const audio = this.audio && Number.isFinite(this.audio.duration) ? this.audio.duration : 0;
-    const limit = Math.max(this.itemDuration ?? 0, audio);
-    return limit > 0 ? limit : Number.POSITIVE_INFINITY;
+    return this.itemDuration && this.itemDuration > 0 ? this.itemDuration : Number.POSITIVE_INFINITY;
   }
 
   get paused(): boolean {
@@ -57,14 +56,17 @@ export class Transport extends EventTarget implements Playback {
     this.emit('durationchange');
   }
 
-  /** Audio-Element des Punkts (wechselt z. B. zwischen Playback und Klick) – übernimmt die laufende Position */
-  attach(audio: HTMLAudioElement | null): void {
+  /**
+   * Audio-Element des Punkts koppeln (wechselt z. B. zwischen Playback und Klick) – übernimmt die laufende Position.
+   * null entkoppelt; pauseOld = false lässt die Musik dabei weiterlaufen („Mit Musik“ aus).
+   */
+  attach(audio: HTMLAudioElement | null, pauseOld = true): void {
     if (audio === this.audio) return;
     const at = this.currentTime;
     if (this.audio) {
       this.audio.removeEventListener('ended', this.onAudioEnded);
       this.audio.removeEventListener('loadedmetadata', this.onAudioMeta);
-      this.audio.pause();
+      if (pauseOld) this.audio.pause();
     }
     this.audio = audio;
     this.rebase(at);
@@ -93,6 +95,12 @@ export class Transport extends EventTarget implements Playback {
     this.audio?.pause();
     cancelAnimationFrame(this.frame);
     this.emit('pause');
+  }
+
+  /** Stopp: anhalten und zurück auf 0 */
+  stop(): void {
+    this.pause();
+    this.seek(0);
   }
 
   seek(sec: number): void {
@@ -166,12 +174,56 @@ export class Transport extends EventTarget implements Playback {
   }
 }
 
-/** Transport für einen Ablaufpunkt (neu je Punkt), mit dessen Audio-Element und Dauer */
-export function useTransport(itemId: string | undefined, itemDuration: number | undefined, audio: HTMLAudioElement | null): Transport {
+/** Transport (Timecode) für einen Ablaufpunkt (neu je Punkt), mit dessen Dauer; „Mit Musik“ koppelt das Audio */
+export function useTransport(itemId: string | undefined, itemDuration: number | undefined, audio: HTMLAudioElement | null, sync = true): Transport {
   // eslint-disable-next-line react-hooks/exhaustive-deps -- je Punkt ein eigener Transport
   const transport = useMemo(() => new Transport(), [itemId]);
   useEffect(() => () => transport.dispose(), [transport]);
   useEffect(() => transport.setItemDuration(itemDuration), [transport, itemDuration]);
-  useEffect(() => transport.attach(audio), [transport, audio]);
+  // entkoppeln lässt die Musik weiterlaufen
+  useEffect(() => transport.attach(sync ? audio : null, false), [transport, audio, sync]);
   return transport;
+}
+
+// ---------- „Timecode mit Musik“ (je Gerät gemerkt) ----------
+
+const SYNC_KEY = 'steckplan.timecodeSync';
+const syncListeners = new Set<() => void>();
+function readSync(): boolean {
+  try {
+    return localStorage.getItem(SYNC_KEY) !== 'off';
+  } catch {
+    return true;
+  }
+}
+let syncValue = typeof window === 'undefined' ? true : readSync();
+
+export function setTimecodeSync(on: boolean): void {
+  syncValue = on;
+  try {
+    localStorage.setItem(SYNC_KEY, on ? 'on' : 'off');
+  } catch {
+    // ohne Speicher gilt die Wahl bis zum Neuladen
+  }
+  for (const l of syncListeners) l();
+}
+
+export function useTimecodeSync(): boolean {
+  return useSyncExternalStore(
+    (l) => {
+      syncListeners.add(l);
+      return () => syncListeners.delete(l);
+    },
+    () => syncValue,
+  );
+}
+
+/**
+ * Timecode und Musik eines Punkts: tc = Timecode (Transport), music = was der Player steuert und wonach Text und
+ * Szenen laufen – mit Musik gekoppelt der Transport selbst, sonst das Audio-Element (ohne Audio: der Timecode).
+ */
+export function usePointPlayback(itemId: string | undefined, itemDuration: number | undefined, audio: HTMLAudioElement | null): { tc: Transport; music: Playback; sync: boolean } {
+  const sync = useTimecodeSync();
+  const tc = useTransport(itemId, itemDuration, audio, sync);
+  return { tc, music: sync || !audio ? tc : audio, sync };
 }

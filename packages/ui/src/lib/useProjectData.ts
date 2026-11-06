@@ -18,6 +18,7 @@ import {
   readLightTargets,
   readMedia,
   readScenes,
+  readSoundScenes,
   readSceneStates,
   readShow,
   readSubnets,
@@ -41,6 +42,7 @@ import {
   type MediaRef,
   type ShowData,
   type ShowSettings,
+  type SoundScene,
 } from '@steckplan/core';
 
 export interface ProjectData {
@@ -68,6 +70,8 @@ export interface ProjectData {
   /** Lichtszenen und Werte je Gerät */
   lightScenes: LightScene[];
   sceneStates: FixtureState[];
+  /** Tonszenen */
+  soundScenes: SoundScene[];
 }
 
 const EMPTY: ProjectData = {
@@ -91,6 +95,7 @@ const EMPTY: ProjectData = {
   lightTargets: [],
   lightScenes: [],
   sceneStates: [],
+  soundScenes: [],
 };
 
 function read(doc: Y.Doc): ProjectData {
@@ -114,6 +119,7 @@ function read(doc: Y.Doc): ProjectData {
     lightPlacements: readLightPlacements(doc),
     lightTargets: readLightTargets(doc),
     lightScenes: readScenes(doc),
+    soundScenes: readSoundScenes(doc),
     sceneStates: readSceneStates(doc),
   };
 }

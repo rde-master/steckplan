@@ -18,6 +18,8 @@ export interface Cue {
   at?: number;
   /** läuft die Wiedergabe? Dann zählen Folgende ab dem Empfang selbst weiter */
   playing?: boolean;
+  /** Timecode, wenn er nicht an der Musik hängt (sonst wie at/playing) – Quelle für Art-Net */
+  tc?: { at: number; playing: boolean };
 }
 
 /** Wer führt und wo die Vorstellung gerade steht */
@@ -81,8 +83,15 @@ export function decodeCue(decoder: decoding.Decoder): Cue | null {
   const v = raw as Partial<Cue>;
   const ok = (s: unknown) => typeof s === 'string' && s.length > 0 && s.length <= 128;
   if (!ok(v.itemId) || (v.sceneId !== undefined && !ok(v.sceneId))) throw new Error('Ungültige Stelle');
-  const at = typeof v.at === 'number' && Number.isFinite(v.at) && v.at >= 0 && v.at < 86_400 ? v.at : undefined;
-  return { itemId: v.itemId!, ...(v.sceneId ? { sceneId: v.sceneId } : {}), ...(at !== undefined ? { at, playing: v.playing === true } : {}) };
+  const time = (x: unknown) => (typeof x === 'number' && Number.isFinite(x) && x >= 0 && x < 86_400 ? x : undefined);
+  const at = time(v.at);
+  const tcAt = v.tc && typeof v.tc === 'object' ? time((v.tc as { at?: unknown }).at) : undefined;
+  return {
+    itemId: v.itemId!,
+    ...(v.sceneId ? { sceneId: v.sceneId } : {}),
+    ...(at !== undefined ? { at, playing: v.playing === true } : {}),
+    ...(tcAt !== undefined ? { tc: { at: tcAt, playing: (v.tc as { playing?: unknown }).playing === true } } : {}),
+  };
 }
 
 export function decodeInfo(decoder: decoding.Decoder): ServerInfo {

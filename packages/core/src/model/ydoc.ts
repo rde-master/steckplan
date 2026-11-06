@@ -30,10 +30,11 @@ export const Y_COLLECTIONS = {
   lightTargets: ['lightTargets'],
   lightScenes: ['lightScenes'],
   sceneStates: ['sceneStates'],
+  soundScenes: ['soundScenes'],
 } as const satisfies Record<string, CollectionPath>;
 
 /** Bereiche des Dokuments, die der Zugang „Regie“ ändern darf */
-export const DIRECTION_ROOTS: ReadonlySet<string> = new Set(['showItems', 'showSections', 'showSettings', 'media', 'lightGrid', 'lightPlacements', 'lightTargets', 'lightScenes', 'sceneStates']);
+export const DIRECTION_ROOTS: ReadonlySet<string> = new Set(['showItems', 'showSections', 'showSettings', 'media', 'lightGrid', 'lightPlacements', 'lightTargets', 'lightScenes', 'sceneStates', 'soundScenes']);
 export type YCollectionName = keyof typeof Y_COLLECTIONS;
 
 type Json = Record<string, unknown>;
@@ -105,7 +106,7 @@ export function readRawProjectFromYDoc(doc: Y.Doc): Json {
     const items = Object.values(doc.getMap(name).toJSON() as Record<string, Json>);
     // Stabile Reihenfolge in der Datei: Ebenen nach `order`, alles andere nach id
     items.sort((a, b) =>
-      name === 'layers' || name === 'flowPages' || name === 'showItems' || name === 'showSections' || name === 'lightTargets' || name === 'lightScenes'
+      name === 'layers' || name === 'flowPages' || name === 'showItems' || name === 'showSections' || name === 'lightTargets' || name === 'lightScenes' || name === 'soundScenes'
         ? Number(a.order ?? 0) - Number(b.order ?? 0)
         : String(a.id).localeCompare(String(b.id)),
     );
