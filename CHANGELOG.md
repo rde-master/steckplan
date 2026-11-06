@@ -7,6 +7,8 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.25.0] - 2026-11-06
+
 ### Hinzugefügt
 
 - Tonszenen: Szenen wie beim Licht (Name, Auslöser per Zeitpunkt/„Jetzt“/Textzeile, sortieren, löschen) mit formatierter Notiz je Szene; „Szenen vom Licht übernehmen“ legt die Lichtszenen als Tonszenen an bzw. gleicht Name und Auslöser an (Notizen bleiben); Player mit Timecode und Szenen-Marken; der bisherige Text je Punkt bleibt als „Allgemein“
@@ -554,7 +556,8 @@ Meilenstein M0 – Projektgerüst.
 - Docker-Image mit Datenvolume `/data` und Beispiel-`docker-compose.yml`
 - GitHub Actions: Tests und Smoke-Test bei jedem Push, Installer als Artefakte, Docker-Image `:develop`, Release-Workflow für Tags `vX.Y.Z`
 
-[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.24.0...develop
+[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.25.0...develop
+[0.25.0]: https://github.com/rde-master/steckplan/compare/v0.24.0...v0.25.0
 [0.24.0]: https://github.com/rde-master/steckplan/compare/v0.23.4...v0.24.0
 [0.23.4]: https://github.com/rde-master/steckplan/compare/v0.23.3...v0.23.4
 [0.23.3]: https://github.com/rde-master/steckplan/compare/v0.23.2...v0.23.3
