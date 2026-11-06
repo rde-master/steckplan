@@ -46,3 +46,28 @@ describe('Auftritte und Helfer', () => {
     expect(formatGigTimes({ setupTime: '16:00', startTime: '19:30' })).toBe('Aufbau 16:00 · Beginn 19:30');
   });
 });
+
+import { addHelperMessage, markHelperMessagesRead, readHelperMessages, removeHelperMessage, unreadHelperMessages, updateHelperMessage } from '../index';
+
+describe('Nachrichten an die Technik', () => {
+  it('schreiben, lesen, ändern (wieder ungelesen), löschen; Person gelöscht → Nachrichten weg', () => {
+    const doc = new Y.Doc();
+    const anna = addPerson(doc, { lastName: 'Muster', firstName: 'Anna', kind: '' }, null);
+    expect(addHelperMessage(doc, anna.id, '   ', 'Anna', null)).toBeUndefined();
+    expect(addHelperMessage(doc, 'niemand', 'Hallo', 'Anna', null)).toBeUndefined();
+    const id = addHelperMessage(doc, anna.id, ' Akku vom Mikro ist leer ', 'Anna', null)!;
+    expect(readHelperMessages(doc)).toEqual([expect.objectContaining({ id, personId: anna.id, text: 'Akku vom Mikro ist leer', by: 'Anna' })]);
+    expect(unreadHelperMessages(readHelperMessages(doc))).toBe(1);
+    markHelperMessagesRead(doc, [id], 'Ralf', null);
+    expect(readHelperMessages(doc)[0]).toMatchObject({ readBy: 'Ralf' });
+    expect(unreadHelperMessages(readHelperMessages(doc))).toBe(0);
+    expect(updateHelperMessage(doc, id, 'Akku leer, bitte tauschen', 'Anna', null)).toBe(true);
+    expect(readHelperMessages(doc)[0]!.readAt).toBeUndefined();
+    expect(readHelperMessages(doc)[0]!.updatedAt).toBeDefined();
+    expect(removeHelperMessage(doc, id, null)).toBe(true);
+    expect(readHelperMessages(doc)).toEqual([]);
+    addHelperMessage(doc, anna.id, 'Noch eine', 'Anna', null);
+    removePerson(doc, anna.id, null);
+    expect(readHelperMessages(doc)).toEqual([]);
+  });
+});

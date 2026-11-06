@@ -117,7 +117,40 @@ describe('QR-Code auf Etiketten', () => {
     expect((await server.app.inject({ method: 'GET', url: '/api/auth/session', headers: { cookie: qr } })).json()).toMatchObject({ personId: 'anna' });
   });
 
+  it('Nachrichten an die Technik: Helfer schreiben, ändern, löschen nur eigene; Bearbeiten alle', async () => {
+    server = await startTestServer();
+    if (!isManagedStore(server.store)) throw new Error();
+    const base = createEmptyProject({ name: 'Nachrichten' });
+    const device = DeviceInstanceSchema.parse({ id: 'v', templateId: 't', layerId: base.layers[0]!.id, label: 'Vox', personId: 'anna' });
+    const a = await server.store.create({ ...base, people: [{ id: 'anna', lastName: 'Muster', firstName: 'Anna', kind: '' }, { id: 'ben', lastName: 'Beispiel', firstName: 'Ben', kind: '' }], devices: [device] });
+    const edit = await login(server, 'edit');
+    const { token } = (await server.app.inject({ method: 'POST', url: `/api/projects/${a}/share`, headers: { cookie: edit }, payload: {} })).json() as { token: string };
+    const qr = cookieOf(await server.app.inject({ method: 'GET', url: `/s/${token}?g=v` }));
+    const call = (cookie: string, method: 'POST' | 'PUT' | 'DELETE', url: string, payload?: object) => server!.app.inject({ method, url: `/api/projects/${a}/messages${url}`, headers: { cookie }, ...(payload ? { payload } : {}) });
+    const { id } = (await call(qr, 'POST', '', { personId: 'anna', text: 'Akku leer' })).json() as { id: string };
+    expect(id).toBeTruthy();
+    expect((await call(qr, 'POST', '', { personId: 'ben', text: 'als Ben' })).statusCode).toBe(403);
+    expect((await call(qr, 'POST', '', { personId: 'anna', text: '  ' })).statusCode).toBe(400);
+    const ben = (await call(edit, 'POST', '', { personId: 'ben', text: 'von Ben' })).json().id as string;
+    expect((await call(qr, 'PUT', `/${ben}`, { text: 'fremd' })).statusCode).toBe(403);
+    expect((await call(qr, 'DELETE', `/${ben}`)).statusCode).toBe(403);
+    expect((await call(qr, 'PUT', `/${id}`, { text: 'Akku leer, bitte tauschen' })).json()).toEqual({ ok: true });
+    expect((await call(edit, 'PUT', `/${id}`, { text: 'Akku getauscht?' })).statusCode).toBe(200);
+    const project = (await server.app.inject({ method: 'GET', url: `/api/projects/${a}/download`, headers: { cookie: edit } })).json() as { helperMessages: { id: string; text: string }[] };
+    expect(project.helperMessages.find((m) => m.id === id)?.text).toBe('Akku getauscht?');
+    expect((await call(qr, 'DELETE', `/${id}`)).json()).toEqual({ ok: true });
+    expect((await call(edit, 'DELETE', `/${ben}`)).json()).toEqual({ ok: true });
+    expect((await call(edit, 'DELETE', `/${ben}`)).statusCode).toBe(404);
+    // Lesen ohne Person: nichts schreiben
+    expect((await call(await login(server, 'read'), 'POST', '', { personId: 'anna', text: 'x' })).statusCode).toBe(403);
+  });
+
   it('Bereich einer QR-Sitzung', () => {
+    expect(scopeAllows('POST', '/api/projects/p1/messages', 'p1')).toBe(true);
+    expect(scopeAllows('PUT', '/api/projects/p1/messages/m1', 'p1')).toBe(true);
+    expect(scopeAllows('DELETE', '/api/projects/p1/messages/m1', 'p1')).toBe(true);
+    expect(scopeAllows('DELETE', '/api/projects/p1/messages/m1/x', 'p1')).toBe(false);
+    expect(scopeAllows('DELETE', '/api/projects/p2/messages/m1', 'p1')).toBe(false);
     expect(scopeAllows('POST', '/api/projects/p1/helper', 'p1')).toBe(true);
     expect(scopeAllows('POST', '/api/projects/p2/helper', 'p1')).toBe(false);
     expect(scopeAllows('GET', '/projekt/p1', 'p1')).toBe(true);

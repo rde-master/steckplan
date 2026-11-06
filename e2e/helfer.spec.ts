@@ -100,6 +100,40 @@ test('Helfer: Auftritte in den Projektdaten, QR-Code führt auf die Seite der Pe
   const gigId = (await (await page.request.get(`/api/projects/${id}/download`)).json()).gigs[0].id as string;
   expect((await phone.request.post(`/api/projects/${id}/helper`, { data: { gigId, personId: 'ben', helps: false } })).status()).toBe(403);
 
+  // Nachricht an die Technik: Zähler am Tab „Helfer“, solange ungelesen
+  await page.getByRole('tab', { name: 'Projektdaten' }).click();
+  const box = phone.getByTestId('helper-messages');
+  await box.getByLabel('Nachricht an die Technik').fill('Der Akku vom Funkmikro ist leer.');
+  await box.getByRole('button', { name: 'Senden' }).click();
+  await expect(box.getByTestId('helper-message')).toContainText('Der Akku vom Funkmikro ist leer.');
+  await expect(box.getByTestId('helper-message')).toContainText('noch nicht gelesen');
+  const helperTab = page.getByRole('tab', { name: /Helfer/ });
+  await expect(helperTab.getByTestId('unread-badge')).toHaveText('1');
+  // Lesen: Übersicht zeigt sie als neu, der Zähler verschwindet; der Helfer sieht „gelesen“
+  await helperTab.click();
+  await page.getByRole('button', { name: /Übersicht/ }).click();
+  const inbox = page.getByTestId('messages-inbox');
+  await expect(inbox.getByTestId('helper-message')).toContainText('Anna Muster');
+  await expect(inbox.getByTestId('helper-message')).toContainText('neu');
+  await expect(helperTab.getByTestId('unread-badge')).toHaveCount(0);
+  await expect(box.getByTestId('helper-message')).toContainText('gelesen');
+  // Helfer ändert die eigene Nachricht; keine Antwortmöglichkeit
+  await box.getByRole('button', { name: 'Bearbeiten' }).click();
+  await box.getByLabel('Nachricht', { exact: true }).fill('Akku leer – bitte tauschen.');
+  await box.getByRole('button', { name: 'Speichern' }).click();
+  await expect(inbox.getByTestId('helper-message')).toContainText('Akku leer – bitte tauschen.');
+  await expect(inbox.getByTestId('helper-message')).toContainText('geändert');
+  await expect(inbox.getByRole('button', { name: /Antwort/ })).toHaveCount(0);
+  // Bearbeiten ändert und löscht
+  await inbox.getByRole('button', { name: 'Bearbeiten' }).click();
+  await inbox.getByLabel('Nachricht', { exact: true }).fill('Akku getauscht.');
+  await inbox.getByRole('button', { name: 'Speichern' }).click();
+  await expect(box.getByTestId('helper-message')).toContainText('Akku getauscht.');
+  page.once('dialog', (d) => void d.accept());
+  await inbox.getByRole('button', { name: 'Löschen' }).click();
+  await expect(box.getByTestId('helper-message')).toHaveCount(0);
+  await expect(inbox).toContainText('Noch keine Nachrichten.');
+
   // QR-Sitzung darf sonst nichts ändern
   expect((await phone.request.post(`/api/projects/${id}/check`, { data: { kind: 'device', id: 'v', direction: 'out', status: 'ok' } })).status()).toBe(403);
 });

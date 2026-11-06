@@ -10,8 +10,10 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 ### Hinzugefügt
 
 - Helfer: neuer Tab „Helfer“ mit einer persönlichen Seite je Person – wo sie ihre Geräte einsteckt (Anschluss → Gegenstelle mit Kabel, farbig nach Signalart, dazu der Bühnenplan mit den eigenen Geräten rot umrandet) und die Anmeldung zu den Auftritten: mit einem Klick zum Aufbau an- oder abmelden, „Anhänger zur Location“, „Anhänger zur nächsten Location“, Bemerkung
-- QR-Code auf dem Etikett eines Geräts, das einer Person gehört: öffnet direkt deren Helfer-Seite (Geräte ohne Person wie bisher im Signalfluss); an- und abmelden geht auch mit dieser QR-Sitzung bzw. mit Lese- und Regie-Zugang
+- QR-Code auf dem Etikett eines Geräts, das einer Person gehört: öffnet direkt deren Helfer-Seite (Geräte ohne Person wie bisher im Signalfluss); an- und abmelden geht mit dieser QR-Sitzung (nur für sich selbst)
 - Projektdaten → Auftritte: Titel, Ort, Datum, Aufbau ab, Beginn, Notiz
+- Helfer: „Nachricht an die Technik“ auf der eigenen Seite (ohne Antwort); eigene Nachrichten lesen, ändern, löschen, mit „gelesen“/„noch nicht gelesen“. Bearbeiten sieht alle Nachrichten in der Übersicht des Helfer-Bereichs, kann sie ändern und löschen; ungelesene zeigt ein roter Zähler am Tab „Helfer“, beim Lesen verschwindet er (geänderte Nachrichten gelten wieder als ungelesen)
+- Helfer tragen nur sich selbst ein: der QR-Code bindet die Sitzung an die Person des Geräts (Name „Vorname Name (QR-Code)“); nur Bearbeiten wählt andere Personen und ändert deren Einträge
 - Helfer → Übersicht (Bearbeiten): je Auftritt Helfer beim Aufbau, Anhänger hin und weiter, Bemerkungen; dazu eine Tabelle je Person
 
 ### Geändert

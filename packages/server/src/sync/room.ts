@@ -28,6 +28,11 @@ import {
   MESSAGE_SYNC,
   readProjectFromYDoc,
   setHelperSignup,
+  addHelperMessage,
+  readHelperMessage,
+  removeHelperMessage,
+  updateHelperMessage,
+  type HelperMessage,
   type SignupPatch,
   writeProjectToYDoc,
   type Conflict,
@@ -282,6 +287,31 @@ export class Room {
     const reason = this.deps.store.readOnlyReason(this.id) ?? (this.pending ? RECONCILE_PENDING_REASON : undefined);
     if (reason) throw new Error(reason);
     return setHelperSignup(this.doc, gigId, personId, patch, by, new ServerOrigin(by));
+  }
+
+  /** Nachrichten an die Technik (Rechte prüft die Route) */
+  helperMessage(id: string): HelperMessage | undefined {
+    return readHelperMessage(this.doc, id);
+  }
+
+  private assertWritable(): void {
+    const reason = this.deps.store.readOnlyReason(this.id) ?? (this.pending ? RECONCILE_PENDING_REASON : undefined);
+    if (reason) throw new Error(reason);
+  }
+
+  addHelperMessage(personId: string, text: string, by: string): string | undefined {
+    this.assertWritable();
+    return addHelperMessage(this.doc, personId, text, by, new ServerOrigin(by));
+  }
+
+  updateHelperMessage(id: string, text: string, by: string): boolean {
+    this.assertWritable();
+    return updateHelperMessage(this.doc, id, text, by, new ServerOrigin(by));
+  }
+
+  removeHelperMessage(id: string, by: string): boolean {
+    this.assertWritable();
+    return removeHelperMessage(this.doc, id, new ServerOrigin(by));
   }
 
   /** Geschützter Bereich: WLAN-Passwörter (nur für Bearbeiten-Zugang, nie im Yjs-Dokument). */

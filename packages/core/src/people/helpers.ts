@@ -3,7 +3,7 @@
 // Lesezugang, z. B. nach dem QR-Code auf dem Etikett), wie die Häkchen der Packliste.
 import * as Y from 'yjs';
 import { newId } from '../model/project';
-import type { Gig, HelperSignup, Person } from '../model/schema';
+import type { Gig, HelperMessage, HelperSignup, Person } from '../model/schema';
 import { comparePeople } from './people';
 
 function gigMap(doc: Y.Doc): Y.Map<Y.Map<unknown>> {
@@ -133,4 +133,68 @@ export function formatGigDate(date: string | undefined): string {
 /** „Aufbau 16:00 · Beginn 19:30“ */
 export function formatGigTimes(gig: Pick<Gig, 'setupTime' | 'startTime'>): string {
   return [gig.setupTime ? `Aufbau ${gig.setupTime}` : '', gig.startTime ? `Beginn ${gig.startTime}` : ''].filter(Boolean).join(' · ');
+}
+
+// ---------- Nachrichten an die Technik ----------
+
+export const HELPER_MESSAGE_MAX = 4000;
+
+function messageMap(doc: Y.Doc): Y.Map<Y.Map<unknown>> {
+  return doc.getMap<Y.Map<unknown>>('helperMessages');
+}
+
+/** Nachrichten, neueste zuerst */
+export function readHelperMessages(doc: Y.Doc): HelperMessage[] {
+  return Object.values(messageMap(doc).toJSON() as Record<string, HelperMessage>).sort((a, b) => b.createdAt.localeCompare(a.createdAt) || a.id.localeCompare(b.id));
+}
+
+export function readHelperMessage(doc: Y.Doc, id: string): HelperMessage | undefined {
+  return messageMap(doc).get(id)?.toJSON() as HelperMessage | undefined;
+}
+
+/** Neue Nachricht einer Person (undefined, wenn es die Person nicht gibt oder der Text leer ist) */
+export function addHelperMessage(doc: Y.Doc, personId: string, text: string, by: string, origin: unknown): string | undefined {
+  const clean = text.trim().slice(0, HELPER_MESSAGE_MAX);
+  if (!clean || !doc.getMap('people').has(personId)) return undefined;
+  const id = newId();
+  doc.transact(() => {
+    const map = new Y.Map<unknown>();
+    messageMap(doc).set(id, map);
+    setFields(map, { id, personId, text: clean, createdAt: new Date().toISOString(), by });
+  }, origin);
+  return id;
+}
+
+/** Text ändern – danach gilt sie wieder als ungelesen */
+export function updateHelperMessage(doc: Y.Doc, id: string, text: string, by: string, origin: unknown): boolean {
+  const map = messageMap(doc).get(id);
+  const clean = text.trim().slice(0, HELPER_MESSAGE_MAX);
+  if (!map || !clean) return false;
+  if (map.get('text') === clean) return true;
+  doc.transact(() => {
+    setFields(map, { text: clean, updatedAt: new Date().toISOString(), by });
+    map.delete('readAt');
+    map.delete('readBy');
+  }, origin);
+  return true;
+}
+
+export function removeHelperMessage(doc: Y.Doc, id: string, origin: unknown): boolean {
+  if (!messageMap(doc).has(id)) return false;
+  doc.transact(() => messageMap(doc).delete(id), origin);
+  return true;
+}
+
+/** Als gelesen markieren (Bearbeiten) */
+export function markHelperMessagesRead(doc: Y.Doc, ids: string[], by: string, origin: unknown): void {
+  const maps = ids.map((id) => messageMap(doc).get(id)).filter((m): m is Y.Map<unknown> => !!m && !m.get('readAt'));
+  if (maps.length === 0) return;
+  const at = new Date().toISOString();
+  doc.transact(() => {
+    for (const m of maps) setFields(m, { readAt: at, readBy: by });
+  }, origin);
+}
+
+export function unreadHelperMessages(messages: HelperMessage[]): number {
+  return messages.filter((m) => !m.readAt).length;
 }

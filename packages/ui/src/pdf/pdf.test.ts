@@ -122,6 +122,7 @@ function setup(): { data: ProjectData; library: Library } {
     soundScenes: [],
     gigs: [],
     helperSignups: [],
+    helperMessages: [],
   };
   return { data, library };
 }
