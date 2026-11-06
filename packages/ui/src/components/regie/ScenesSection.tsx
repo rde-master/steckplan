@@ -38,9 +38,15 @@ const t = texts.light.scenes;
 
 /** „1:12.5“ */
 export function formatSceneTime(sec: number): string {
-  const m = Math.floor(sec / 60);
-  const s = sec - m * 60;
-  return `${m}:${s.toFixed(1).padStart(4, '0').replace(/\.0$/, '')}`;
+  return formatSceneClock(sec).replace(/\.0$/, '');
+}
+
+/** „1:12.0“ – immer mit Zehntelsekunde (laufende Anzeigen springen sonst in der Breite) */
+export function formatSceneClock(sec: number): string {
+  const tenths = Math.max(0, Math.round(sec * 10));
+  const m = Math.floor(tenths / 600);
+  const s = (tenths - m * 600) / 10;
+  return `${m}:${s.toFixed(1).padStart(4, '0')}`;
 }
 
 /** „1:12“, „1:12.5“ oder Sekunden „75“ → Sekunden */

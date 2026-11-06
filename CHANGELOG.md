@@ -7,6 +7,10 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+### Behoben
+
+- Vorstellung: Lichtplan mittig (Kacheln werden bei breiten Rastern schmaler statt nach rechts überzulaufen); rechts Abstand zum Bildschirmrand; Szenen-Zeiten (Start, „läuft“, Countdown) immer mit Zehntelsekunde, damit die Anzeige nicht springt
+
 ## [0.25.0] - 2026-11-06
 
 ### Hinzugefügt
