@@ -11,7 +11,6 @@ import {
   remainRange,
   removeItemMedia,
   setLineTime,
-  timecodeHour,
   updateItemMedia,
   updateShowItem,
   type MediaRef,
@@ -260,15 +259,15 @@ function usePlaybackState(playback: Playback | null): { playing: boolean; durati
   return state;
 }
 
-/** Große Timecode-Uhr (HH:MM:SS:FF, grün): Stunde = Nummer des Ablaufpunkts, dahinter die gelaufene Zeit */
-export function TimecodeClock({ number, time, className = '' }: { number: number; time: number; className?: string }) {
+/** Große Timecode-Uhr (HH:MM:SS:FF, grün): gelaufene Zeit des Ablaufpunkts, jeder beginnt bei 00:00:00:00 */
+export function TimecodeClock({ time, className = '' }: { time: number; className?: string }) {
   return (
     <span
       className={`inline-block shrink-0 rounded-md bg-black px-2.5 py-1 font-mono text-2xl leading-none font-bold tracking-wider text-emerald-400 tabular-nums [text-shadow:0_0_8px_rgb(52_211_153/0.6)] ${className}`}
-      title={t.timecode(number)}
+      title={t.timecode}
       data-testid="timecode"
     >
-      {formatTimecode(timecodeHour(number), time)}
+      {formatTimecode(time)}
     </span>
   );
 }
@@ -286,7 +285,7 @@ export function PlayerBar({
   onClearTimes,
   markers = [],
   settings = {},
-  number,
+  clock = false,
 }: {
   markers?: { id: string; at: number; label: string }[];
   /** Regie-Einstellungen (Schwellen der Restzeit) */
@@ -303,8 +302,8 @@ export function PlayerBar({
   onNextLine: () => void;
   nextLineText: string | undefined;
   onClearTimes: () => void;
-  /** Nummer des Punkts: zeigt rechts die Timecode-Uhr (weglassen, wenn sie woanders steht) */
-  number?: number;
+  /** rechts die Timecode-Uhr zeigen (aus, wenn sie woanders steht) */
+  clock?: boolean;
 }) {
   const list = item.media ?? [];
   const [selected, setSelected] = useState<string | undefined>(defaultItemMedia(item)?.mediaId);
@@ -392,7 +391,7 @@ export function PlayerBar({
             />
           </label>
         )}
-        {number !== undefined && <TimecodeClock number={number} time={time} className="ml-auto" />}
+        {clock && <TimecodeClock time={time} className="ml-auto" />}
       </div>
       {(list.length > 1 || recording) && (
         <div className="flex flex-wrap items-center gap-2">

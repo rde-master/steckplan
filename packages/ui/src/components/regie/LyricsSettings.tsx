@@ -2,7 +2,7 @@
 import { ImageUp, Trash2 } from 'lucide-react';
 import { useRef, useState } from 'react';
 import type * as Y from 'yjs';
-import { LYRICS_MAX_AFTER, LYRICS_MAX_BEFORE, lyricsRange, REMAIN_MAX_BLINK, REMAIN_MAX_WARN, remainRange, setLyricsBackground, setLyricsBackgroundDim, updateShowSettings, type MediaRef, type ShowSettings } from '@steckplan/core';
+import { isArtNetHost, LYRICS_MAX_AFTER, LYRICS_MAX_BEFORE, lyricsRange, REMAIN_MAX_BLINK, REMAIN_MAX_WARN, remainRange, setLyricsBackground, setLyricsBackgroundDim, updateShowSettings, type MediaRef, type ShowSettings } from '@steckplan/core';
 import { api, errorMessage } from '../../lib/api';
 import { uploadMedia } from '../../lib/mediaUpload';
 import { useSession } from '../../lib/session';
@@ -54,6 +54,7 @@ export function LyricsSettings({ projectId, doc, origin, settings, onClose }: { 
           </label>
         </div>
         <p className="text-xs text-slate-500">{t.remainHint}</p>
+        <ArtNetSettings doc={doc} origin={origin} settings={settings} inputClass={selectClass} />
         <h3 className="border-t border-slate-200 pt-3 text-sm font-semibold dark:border-slate-700">{t.lyricsSection}</h3>
         <h4 className="text-xs font-semibold text-slate-500 uppercase">{t.lines}</h4>
         <div className="flex flex-wrap items-center gap-4 text-sm">
@@ -122,5 +123,41 @@ export function LyricsSettings({ projectId, doc, origin, settings, onClose }: { 
         )}
       </div>
     </Modal>
+  );
+}
+
+/** Timecode per Art-Net: ein/aus und Zieladresse (der Server sendet, solange in der Vorstellung jemand führt) */
+function ArtNetSettings({ doc, origin, settings, inputClass }: { doc: Y.Doc; origin: object; settings: ShowSettings; inputClass: string }) {
+  const artnet = settings.artnet ?? { enabled: false, host: '255.255.255.255' };
+  const [draft, setDraft] = useState<string | null>(null);
+  const host = draft ?? artnet.host;
+  const valid = isArtNetHost(host);
+  return (
+    <div className="space-y-2 border-t border-slate-200 pt-3 dark:border-slate-700">
+      <h3 className="text-sm font-semibold">{t.artnet}</h3>
+      <label className="flex items-center gap-2 text-sm">
+        <input type="checkbox" checked={artnet.enabled} onChange={(e) => updateShowSettings(doc, { artnet: { ...artnet, enabled: e.target.checked } }, origin)} />
+        {t.artnetEnabled}
+      </label>
+      <label className="flex flex-wrap items-center gap-2 text-sm">
+        {t.artnetHost}
+        <input
+          className={`${inputClass} w-40 font-mono ${valid ? '' : 'border-red-500'}`}
+          value={host}
+          aria-invalid={!valid}
+          onFocus={() => setDraft(artnet.host)}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={() => {
+            if (valid && host.trim() !== artnet.host) updateShowSettings(doc, { artnet: { ...artnet, host: host.trim() } }, origin);
+            setDraft(null);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+          }}
+        />
+        <span className="text-xs text-slate-500">{t.artnetPort}</span>
+      </label>
+      <p className="text-xs text-slate-500">{t.artnetHint}</p>
+    </div>
   );
 }

@@ -77,7 +77,7 @@ export function ScenesView({ projectId, doc, origin, data, library, editable }: 
           media={data.media}
           playback={transport}
           setAudio={setAudio}
-          number={numbers.get(item.id)}
+          clock
           time={time}
           recording={false}
           onNextLine={() => undefined}

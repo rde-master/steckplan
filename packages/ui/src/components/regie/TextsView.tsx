@@ -141,7 +141,7 @@ function TextDetail({ projectId, doc, origin, data, item, editable, onBack }: { 
       {(
         <PlayerBar
           settings={data.showSettings}
-          number={itemNumbers(data.show.items).get(item.id)}
+          clock
           projectId={projectId}
           item={item}
           media={data.media}

@@ -363,8 +363,17 @@ export function PerformanceView({
           </NavButton>
         </div>
         </div>
-        {/* Timecode unten rechts: Stunde = Nummer des Punkts, läuft mit dem Transport */}
-        {number !== undefined && <TimecodeClock number={number} time={time} className="mb-1 px-4 py-2 text-3xl sm:text-5xl" />}
+        {/* Timecode unten rechts: gelaufene Zeit des Punkts, läuft mit dem Transport */}
+        {item && (
+          <div className="flex shrink-0 flex-col items-end gap-1">
+            <TimecodeClock time={time} className="mb-1 px-4 py-2 text-3xl sm:text-5xl" />
+            {data.showSettings.artnet?.enabled && (
+              <span className={`text-xs ${iLead ? 'text-emerald-400' : 'text-amber-400'}`} data-testid="artnet-state">
+                {iLead ? t.artnetSending(data.showSettings.artnet.host) : t.artnetLeadHint}
+              </span>
+            )}
+          </div>
+        )}
       </footer>
     </div>
   );

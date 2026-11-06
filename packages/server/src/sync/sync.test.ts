@@ -144,6 +144,39 @@ describe('Live-Sync', () => {
     await waitFor(() => reader.state.lead === null);
   });
 
+  it('Art-Net: Timecode aus der führenden Stelle, 25 Pakete/s beim Abspielen, einmal beim Anhalten, aus ohne Einstellung', async () => {
+    const sent: { host: string; frames: number; sec: number; min: number; hour: number }[] = [];
+    server = await startTestServer({ artnet: { send: (p, host) => void sent.push({ host, frames: p[14]!, sec: p[15]!, min: p[16]!, hour: p[17]! }), close: () => undefined } });
+    if (!isManagedStore(server.store)) throw new Error();
+    const id = await server.store.create(createEmptyProject({ name: 'Live' }));
+    const regie = track(connect(server, id, await login(server, 'direction', 'Regina')));
+    await regie.whenSynced();
+    // ohne Einstellung: nichts
+    regie.sendCue({ itemId: 'song', at: 1, playing: true });
+    await new Promise((r) => setTimeout(r, 200));
+    expect(sent).toHaveLength(0);
+    // einschalten: sendet sofort weiter
+    regie.doc.getMap('showSettings').set('artnet', { enabled: true, host: '192.168.1.255' });
+    await waitFor(() => sent.length >= 10);
+    expect(sent[0]!.host).toBe('192.168.1.255');
+    expect(sent.at(-1)!.sec).toBeGreaterThanOrEqual(1);
+    // Anhalten bei 61,52 s → genau ein Paket 00:01:01:13
+    regie.sendCue({ itemId: 'song', at: 61.52, playing: false });
+    await waitFor(() => sent.at(-1)!.min === 1);
+    const count = sent.length;
+    await new Promise((r) => setTimeout(r, 200));
+    expect(sent.length).toBe(count);
+    expect(sent.at(-1)).toMatchObject({ hour: 0, min: 1, sec: 1, frames: 13 });
+    // Führen beenden → kein Senden mehr
+    regie.sendCue({ itemId: 'song', at: 0, playing: true });
+    await waitFor(() => sent.length > count + 2);
+    regie.sendCue(null);
+    await new Promise((r) => setTimeout(r, 100));
+    const after = sent.length;
+    await new Promise((r) => setTimeout(r, 200));
+    expect(sent.length).toBe(after);
+  });
+
   it('lehnt Verbindungen ohne Anmeldung ab', async () => {
     const { server, id } = await setup();
     const client = track(connect(server, id, null));

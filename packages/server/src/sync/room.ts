@@ -40,6 +40,7 @@ import type { UsageTracker } from '../library/usage-tracker';
 import type { ProjectStore } from '../storage/types';
 import { ActivityTracker, STAMP_ORIGIN, type Actor } from './activity';
 import { VERSION_INTERVAL_MS, type VersionInfo, type VersionStore } from '../storage/version-store';
+import { ArtNetTimecode, type ArtNetConfig, type TimecodeSender } from './artnet';
 
 export interface Connection {
   id: string;
@@ -66,6 +67,8 @@ export interface RoomDeps {
   stampDelayMs?: number;
   /** Änderungsprotokoll: Zeitfenster je Person */
   changeLogWindowMs?: number;
+  /** Timecode per Art-Net (ohne: kein Senden) */
+  artnet?: TimecodeSender;
 }
 
 /** Herkunft für Änderungen, die der Server selbst schreibt (z. B. Wiederherstellen). */
@@ -133,7 +136,19 @@ export class Room {
       onEntry: (entry) => this.appendLog(entry),
     });
     this.doc.on('afterTransaction', this.handleTransaction);
+    this.timecode = new ArtNetTimecode(deps.artnet);
+    this.doc.getMap('showSettings').observe(this.handleShowSettings);
   }
+
+  private readonly timecode: ArtNetTimecode;
+
+  private artnetConfig(): ArtNetConfig | undefined {
+    return this.doc.getMap('showSettings').get('artnet') as ArtNetConfig | undefined;
+  }
+
+  private handleShowSettings = (event: Y.YMapEvent<unknown>): void => {
+    if (event.keysChanged.has('artnet')) this.timecode.update(this.lead, this.leadAt, this.artnetConfig());
+  };
 
   private readonly activity: ActivityTracker;
 
@@ -368,6 +383,7 @@ export class Room {
     this.lead = lead;
     this.leadAt = Date.now();
     this.broadcast(encodeInfo({ type: 'lead', lead }));
+    this.timecode.update(lead, this.leadAt, this.artnetConfig());
   }
 
   /** Für Nachzügler: läuft die Wiedergabe, die Abspielposition bis jetzt weiterrechnen */
@@ -571,6 +587,8 @@ export class Room {
 
   async close(code: number, reason: string): Promise<void> {
     this.activity.stop();
+    this.timecode.stop();
+    this.doc.getMap('showSettings').unobserve(this.handleShowSettings);
     await this.flush();
     this.closed = true;
     for (const connection of this.connections) connection.socket.close(code, reason);

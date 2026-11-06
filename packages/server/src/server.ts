@@ -24,10 +24,13 @@ import { registerLabelQrRoutes } from './routes/label-qr';
 import type { LabelQrStore } from './auth/label-qr';
 import type { VersionStore } from './storage/version-store';
 import { RoomManager } from './sync/rooms';
+import { udpSender, type TimecodeSender } from './sync/artnet';
 
 export interface ServerOptions {
   /** Betriebsart: eingebettet in der Desktop-App oder eigenständig (Docker). */
   mode: ServerMode;
+  /** Timecode per Art-Net (Tests: eigener Sender; Standard: UDP) */
+  artnet?: TimecodeSender;
   store: ProjectStore;
   versions: VersionStore;
   sessions: SessionStore;
@@ -99,6 +102,7 @@ export async function createServer(options: ServerOptions): Promise<SteckplanSer
     versionIntervalMs: options.versionIntervalMs,
     stampDelayMs: options.stampDelayMs,
     changeLogWindowMs: options.changeLogWindowMs,
+    artnet: options.artnet ?? udpSender((message) => app.log.warn(`Art-Net: ${message}`)),
     // nach dem Schließen: nicht mehr verwendete Medien in den Papierkorb, alte Papierkorb-Einträge löschen
     ...(options.media
       ? {

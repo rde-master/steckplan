@@ -586,6 +586,8 @@ export const ShowSettingsSchema = z.object({
   /** Restzeit im Player: ab so vielen Sekunden vor Schluss allmählich rot (Standard 30), ab so vielen blinkend (Standard 5) */
   remainWarnSec: z.number().int().min(0).max(REMAIN_MAX_WARN).optional(),
   remainBlinkSec: z.number().int().min(0).max(REMAIN_MAX_BLINK).optional(),
+  /** Timecode per Art-Net senden (vom Server, solange in der Vorstellung jemand führt) */
+  artnet: z.object({ enabled: z.boolean().default(false), host: z.string().default('255.255.255.255') }).optional(),
 });
 
 /** Restzeit im Player: Schwellen aus den Einstellungen, sonst Standard */

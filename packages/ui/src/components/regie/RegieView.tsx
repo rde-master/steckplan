@@ -366,7 +366,7 @@ function ItemDetail({
       {(
         <PlayerBar
           settings={data.showSettings}
-          number={number}
+          clock
           markers={itemScenes(data.lightScenes, item.id).flatMap((s, i) => {
             const at = sceneTime(s, lines.map((l) => l.line));
             return at === undefined ? [] : [{ id: s.id, at, label: `${i + 1} ${s.name}` }];
@@ -401,7 +401,7 @@ function NumberField({ number, taken, editable, onChange }: { number: number; ta
   const value = Number(draft);
   const invalid = draft !== null && !(Number.isInteger(value) && value >= 1 && value <= 999);
   return (
-    <Field label={t.fields.number} hint={taken ? t.numberTaken : number > 23 ? t.numberOver23 : t.fields.numberHint}>
+    <Field label={t.fields.number} hint={taken ? t.numberTaken : t.fields.numberHint}>
       <TextInput
         value={draft ?? String(number)}
         inputMode="numeric"
