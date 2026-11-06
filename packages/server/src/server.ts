@@ -4,7 +4,7 @@ import Fastify, { type FastifyInstance } from 'fastify';
 import fastifyStatic from '@fastify/static';
 import fastifyWebsocket from '@fastify/websocket';
 import { keepAlive } from './keepalive';
-import { createHealthInfo, type ServerMode } from '@steckplan/core';
+import { createHealthInfo, type RemoteCommand, type ServerMode } from '@steckplan/core';
 import { registerAuth } from './auth/plugin';
 import type { PasswordChecker } from './auth/passwords';
 import type { LoginRateLimiter } from './auth/rate-limit';
@@ -25,12 +25,16 @@ import type { LabelQrStore } from './auth/label-qr';
 import type { VersionStore } from './storage/version-store';
 import { RoomManager } from './sync/rooms';
 import { udpSender, type TimecodeSender } from './sync/artnet';
+import { OscListener, OscSettingsStore } from './osc/listener';
+import { registerRemoteRoutes } from './routes/remote';
 
 export interface ServerOptions {
   /** Betriebsart: eingebettet in der Desktop-App oder eigenständig (Docker). */
   mode: ServerMode;
   /** Timecode per Art-Net (Tests: eigener Sender; Standard: UDP) */
   artnet?: TimecodeSender;
+  /** OSC-Fernsteuerung der Vorstellung (Einstellungen; ohne: keine OSC-Einstellung, HTTP-Fernsteuerung bleibt) */
+  osc?: OscSettingsStore;
   store: ProjectStore;
   versions: VersionStore;
   sessions: SessionStore;
@@ -122,7 +126,17 @@ export async function createServer(options: ServerOptions): Promise<SteckplanSer
   const events = new EventHub();
   options.library.onChange((change) => events.broadcast({ type: 'library', ...change }));
 
+  // Fernsteuerung der Vorstellung: OSC (UDP) und HTTP geben Befehle an die Projekte
+  const remote = (command: RemoteCommand, projectId?: string) => rooms.remote(command, projectId);
+  const oscSettings = options.osc ?? new OscSettingsStore();
+  const osc = new OscListener((command) => remote(command), {
+    info: (msg) => app.log.info(msg),
+    warn: (msg) => app.log.warn(msg),
+  });
+  await osc.apply(oscSettings.settings);
+
   app.addHook('onClose', async () => {
+    await osc.close();
     events.closeAll();
     await rooms.closeAll('Server wird beendet');
     await options.sessions.flush();
@@ -156,6 +170,7 @@ export async function createServer(options: ServerOptions): Promise<SteckplanSer
   });
 
   registerProjectRoutes(app, rooms, options.usage, options.media);
+  registerRemoteRoutes(app, { settings: oscSettings, listener: osc, remote });
   if (options.labelQr) {
     registerLabelQrRoutes(app, {
       store: options.store,

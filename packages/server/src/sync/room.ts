@@ -32,6 +32,7 @@ import {
   type Project,
   type Resolution,
   type Secrets,
+  type RemoteCommand,
   type ServerInfo,
 } from '@steckplan/core';
 import type { Session } from '../auth/sessions';
@@ -378,6 +379,15 @@ export class Room {
 
   private lead: LeadInfo | null = null;
   private leadAt = 0;
+
+  get hasLead(): boolean {
+    return this.lead !== null;
+  }
+
+  /** Fernsteuerung (OSC/HTTP) an alle Verbindungen; ausführen soll die führende bzw. jede nicht folgende Vorstellung */
+  remote(command: RemoteCommand): void {
+    this.broadcast(encodeInfo({ type: 'remote', command }));
+  }
 
   private setLead(lead: LeadInfo | null): void {
     this.lead = lead;

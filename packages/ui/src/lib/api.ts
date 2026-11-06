@@ -28,6 +28,17 @@ async function request<T>(method: string, url: string, body?: unknown, raw = fal
   return data as T;
 }
 
+export interface OscSettings {
+  enabled: boolean;
+  port: number;
+}
+export interface OscStatus {
+  listening: boolean;
+  port?: number;
+  error?: string;
+  last?: { address: string; at: string };
+}
+
 export interface LabelQrSettings {
   enabled: boolean;
   baseUrl: string;
@@ -115,6 +126,8 @@ export const api = {
   uploadProject: (fileText: string) => request<{ id: string }>('POST', '/api/projects/upload', fileText, true),
   deleteProject: (id: string) => request<{ ok: true }>('DELETE', `/api/projects/${encodeURIComponent(id)}`),
   getLabelQr: () => request<LabelQrSettings>('GET', '/api/settings/label-qr'),
+  getOsc: () => request<{ settings: OscSettings; status: OscStatus }>('GET', '/api/settings/osc'),
+  setOsc: (patch: Partial<OscSettings>) => request<{ settings: OscSettings; status: OscStatus }>('PUT', '/api/settings/osc', patch),
   setLabelQr: (patch: Partial<LabelQrSettings>) => request<LabelQrSettings>('PUT', '/api/settings/label-qr', patch),
   listShareLinks: () => request<{ links: ShareLinkInfo[] }>('GET', '/api/settings/label-qr/links'),
   changeShareLink: (key: string, action: 'renew' | 'revoke') => request<{ ok: true }>('PUT', '/api/settings/label-qr/links', { key, action }),

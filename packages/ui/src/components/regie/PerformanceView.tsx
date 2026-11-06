@@ -17,6 +17,7 @@ import {
   sceneTime,
   type Cue,
   type Library,
+  type RemoteCommand,
   type SyncClientState,
 } from '@steckplan/core';
 import type { ProjectData } from '../../lib/useProjectData';
@@ -30,7 +31,7 @@ import { hasRichText } from '../../lib/richText';
 import { SceneGrid } from './SceneGrid';
 import { formatSceneTime } from './ScenesSection';
 import { PlayerBar, seekAudio, TimecodePanel, usePlayerTime } from './SongMedia';
-import { usePointPlayback } from '../../lib/transport';
+import { usePointPlayback, type Playback } from '../../lib/transport';
 
 const t = texts.regie.performance;
 
@@ -53,6 +54,7 @@ export function PerformanceView({
   library,
   sync,
   sendCue,
+  onRemote,
   canLead,
   onClose,
 }: {
@@ -61,6 +63,8 @@ export function PerformanceView({
   library: Library | null;
   sync: SyncClientState;
   sendCue: (cue: Cue | null) => void;
+  /** Fernsteuerung (OSC/HTTP) abonnieren */
+  onRemote: (listener: (command: RemoteCommand) => void) => () => void;
   canLead: boolean;
   onClose: () => void;
 }) {
@@ -208,6 +212,65 @@ export function PerformanceView({
     if (audio) seekAudio(audio, audio.currentTime + sec);
   };
 
+  // Fernsteuerung (OSC/HTTP): ausführen, wenn diese Vorstellung führt – führt niemand, wenn sie nicht folgt.
+  // Ohne „Mit Musik“ wirken Start/Pause/Stopp/Spulen auf Timecode und Musik gemeinsam.
+  const [remoteNote, setRemoteNote] = useState('');
+  const noteTimer = useRef<number | undefined>(undefined);
+  const runRemote = (command: RemoteCommand) => {
+    if (lead ? !iLead : mode === 'follow') return;
+    const both = (fn: (p: Playback) => void) => {
+      fn(tc);
+      if (audio !== tc) fn(audio);
+    };
+    const v = command.value ?? 0;
+    switch (command.action) {
+      case 'play':
+        both((p) => void p.play());
+        break;
+      case 'pause':
+        both((p) => p.pause());
+        break;
+      case 'toggle':
+        if (tc.paused) both((p) => void p.play());
+        else both((p) => p.pause());
+        break;
+      case 'stop':
+        both((p) => {
+          p.pause();
+          seekAudio(p, 0);
+        });
+        break;
+      case 'forward':
+      case 'back':
+        both((p) => seekAudio(p, p.currentTime + (command.action === 'back' ? -v : v)));
+        break;
+      case 'seek':
+        both((p) => seekAudio(p, v));
+        break;
+      case 'item': {
+        const index = items.findIndex((i) => numbers.get(i.id) === v);
+        if (index >= 0) goTo(index);
+        break;
+      }
+      case 'next':
+      case 'prev':
+        goItem(command.action === 'next' ? 1 : -1);
+        break;
+      case 'sceneNext':
+      case 'scenePrev':
+        goScene(command.action === 'sceneNext' ? 1 : -1);
+        break;
+    }
+    setRemoteNote(t.remote(command.action, command.value));
+    window.clearTimeout(noteTimer.current);
+    noteTimer.current = window.setTimeout(() => setRemoteNote(''), 2000);
+  };
+  const remoteRef = useRef(runRemote);
+  useEffect(() => {
+    remoteRef.current = runRemote;
+  });
+  useEffect(() => onRemote((command) => remoteRef.current(command)), [onRemote]);
+
   // Tasten: ←/→ Szene, Umschalt+←/→ eine Sekunde spulen, ↑/↓ bzw. Bild↑/Bild↓ Eintrag, Esc beendet
   const closeOrList = () => (listOpen ? setListOpen(false) : onClose());
   const keys = useRef({ goItem, goScene, nudge, onClose: closeOrList });
@@ -342,6 +405,11 @@ export function PerformanceView({
         <Button variant="ghost" className="text-sm" title={t.lyricsWindowHint} onClick={() => openLyricsWindow(projectId)}>
           <Monitor size={18} aria-hidden /> {t.lyricsWindow}
         </Button>
+        {remoteNote && (
+          <span className="rounded bg-sky-900 px-2 py-0.5 text-xs text-sky-100" role="status" data-testid="performance-remote">
+            {remoteNote}
+          </span>
+        )}
         <span className="flex items-center gap-1 text-xs text-slate-400" data-testid="performance-lead">
           {lead ? (
             <>

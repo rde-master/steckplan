@@ -4,7 +4,7 @@ import * as Y from 'yjs';
 import * as encoding from 'lib0/encoding';
 import * as decoding from 'lib0/decoding';
 import * as syncProtocol from 'y-protocols/sync';
-import { CloseCode, decodeInfo, encodeCue, MESSAGE_INFO, MESSAGE_SYNC, type Cue, type LeadInfo, type PresenceUser, type ServerInfo } from './protocol';
+import { CloseCode, decodeInfo, encodeCue, MESSAGE_INFO, MESSAGE_SYNC, type Cue, type LeadInfo, type PresenceUser, type RemoteCommand, type ServerInfo } from './protocol';
 import type { Access } from '../model/access';
 
 export interface SocketLike {
@@ -49,6 +49,8 @@ export interface SyncClientOptions {
   doc: Y.Doc;
   createSocket?: (url: string) => SocketLike;
   onChange?: (state: SyncClientState) => void;
+  /** Fernsteuerung der Vorstellung (OSC/HTTP über den Server) */
+  onRemote?: (command: RemoteCommand) => void;
   /** Wartezeit vor Neuverbindung in ms (wächst bis maxReconnectDelay) */
   reconnectDelay?: number;
   maxReconnectDelay?: number;
@@ -61,6 +63,7 @@ export class SyncClient {
   private readonly url: string;
   private readonly createSocket: (url: string) => SocketLike;
   private readonly onChange?: (state: SyncClientState) => void;
+  private readonly onRemote?: (command: RemoteCommand) => void;
   private socket: SocketLike | null = null;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private attempts = 0;
@@ -81,6 +84,7 @@ export class SyncClient {
     this.doc = options.doc;
     this.url = options.url;
     this.createSocket = options.createSocket ?? ((url) => new WebSocket(url) as unknown as SocketLike);
+    this.onRemote = options.onRemote;
     this.onChange = options.onChange;
     this.baseDelay = options.reconnectDelay ?? 500;
     this.maxDelay = options.maxReconnectDelay ?? 10_000;
@@ -207,6 +211,9 @@ export class SyncClient {
         break;
       case 'lead':
         this.setState({ lead: info.lead, leadReceivedAt: performance.now() });
+        break;
+      case 'remote':
+        this.onRemote?.(info.command);
         break;
     }
   }
