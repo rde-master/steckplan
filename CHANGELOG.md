@@ -7,6 +7,10 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+### Hinzugefügt
+
+- Vorstellung: Tastenkürzel, vor allem zum Spulen – `,`/`.` 0,5 s, Umschalt+←/→ 1 s, `J`/`L` 5 s, `[`/`]` nur Timecode 0,1 s, `K` Start/Pause, `S`/Pos1 Stopp, `Z` Liedliste; Übersicht über das Tastatur-Symbol im Kopf oder `?`. Beim Folgen übernimmt das Bedienen per Taste
+
 ## [0.26.2] - 2026-11-06
 
 ### Hinzugefügt
