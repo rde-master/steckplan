@@ -5,7 +5,7 @@ import { useState, type DragEvent, type ReactNode } from 'react';
 import type * as Y from 'yjs';
 import {
   addShowItem,
-  itemLines,
+  itemTimedLines,
   itemNumbers,
   itemScenes,
   sceneTime,
@@ -288,7 +288,7 @@ function ItemDetail({
   const [audio, setAudio] = useState<HTMLAudioElement | null>(null);
   const { tc, music, sync } = usePointPlayback(item.id, item.durationSec, audio, item.audioOffsetSec);
   const time = usePlayerTime(music);
-  const lines = itemLines(sections, item.id);
+  const lines = itemTimedLines(sections, item);
   return (
     <article className="mx-auto max-w-3xl space-y-4 p-4" aria-label={item.title || t.untitled} data-testid="regie-detail">
       <header className="flex flex-wrap items-center gap-2">
@@ -338,6 +338,10 @@ function ItemDetail({
         {(item.media?.length ?? 0) > 0 && (
           <div className="sm:col-start-2">
             <OffsetField key={`${item.id}:${item.audioOffsetSec ?? 0}`} value={item.audioOffsetSec} editable={editable} onChange={(audioOffsetSec) => set({ audioOffsetSec })} />
+            <label className="mt-1 flex items-center gap-2 text-xs" title={t.fields.audioOffsetTextHint}>
+              <input type="checkbox" checked={item.audioOffsetText === true} disabled={!editable} onChange={(e) => set({ audioOffsetText: e.target.checked || undefined })} />
+              {t.fields.audioOffsetText}
+            </label>
           </div>
         )}
         {/* Textfenster: Text dieses Punkts zeigen, am Ende ausblenden */}

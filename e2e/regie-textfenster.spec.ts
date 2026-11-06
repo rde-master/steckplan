@@ -191,6 +191,13 @@ test('Textfenster je Punkt: anzeigen an/aus, Text am Ende der Dauer ausblenden (
   await perf.getByLabel('Position').fill('2');
   await expect(lyrics.getByTestId('lyrics-active')).toBeVisible();
   await expect(lyrics.locator('[data-current]')).toHaveText('Zwei');
+  // Titel des Lieds: Standard an, in den Regie-Einstellungen abschaltbar
+  await expect(lyrics.getByTestId('lyrics-title')).toHaveText('Kurzlied');
+  await page.getByRole('button', { name: 'Regie-Einstellungen' }).click();
+  await page.getByTestId('lyrics-settings').getByLabel('Titel des Lieds anzeigen').uncheck();
+  await page.getByRole('button', { name: 'Fertig' }).click();
+  await expect(lyrics.getByTestId('lyrics-title')).toHaveText('');
+  await expect(lyrics.locator('[data-current]')).toHaveText('Zwei');
   // Ende der Dauer (3 s): Text blendet aus
   await perf.getByLabel('Position').fill('3');
   await expect(lyrics.getByTestId('lyrics-ended')).toHaveCount(1);

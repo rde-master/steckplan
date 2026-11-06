@@ -679,6 +679,22 @@ export function itemLines(sections: TextSection[], itemId: string): TimedLine[] 
   return itemSections(sections, itemId).flatMap((s) => s.lines.map((line) => ({ sectionId: s.id, sectionLabel: s.label, line })));
 }
 
+/** Versatz, um den die Textzeiten verschoben werden (nur wenn „Versatz gilt auch für den Text“) */
+export function textOffset(item: Pick<ShowItem, 'audioOffsetSec' | 'audioOffsetText'>): number {
+  return item.audioOffsetText ? (item.audioOffsetSec ?? 0) : 0;
+}
+
+/**
+ * Zeilen eines Eintrags mit Zeitpunkten auf der Zeitachse des Punkts (Timecode): gilt der Audio-Versatz auch für den
+ * Text, zählen die gespeicherten Zeiten ab Musikbeginn und werden um den Versatz verschoben.
+ */
+export function itemTimedLines(sections: TextSection[], item: Pick<ShowItem, 'id' | 'audioOffsetSec' | 'audioOffsetText'>): TimedLine[] {
+  const lines = itemLines(sections, item.id);
+  const offset = textOffset(item);
+  if (!offset) return lines;
+  return lines.map((l) => (l.line.atSec === undefined ? l : { ...l, line: { ...l.line, atSec: l.line.atSec + offset } }));
+}
+
 /** Aktuelle Zeile zur Abspielzeit: die letzte Zeile mit Zeitpunkt ≤ t (Reihenfolge des Textes). */
 export function currentLineId(lines: TimedLine[], t: number): string | undefined {
   let current: string | undefined;

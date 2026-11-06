@@ -3,7 +3,7 @@
 import { ChevronLeft } from 'lucide-react';
 import { useState } from 'react';
 import type * as Y from 'yjs';
-import { itemLines, itemNumbers, itemScenes, sceneTime, type Library } from '@steckplan/core';
+import { itemTimedLines, itemNumbers, itemScenes, sceneTime, type Library } from '@steckplan/core';
 import { usePointPlayback } from '../../lib/transport';
 import { useIsNarrow } from '../../lib/useProjectDoc';
 import type { ProjectData } from '../../lib/useProjectData';
@@ -53,7 +53,7 @@ export function ScenesView({ projectId, doc, origin, data, library, editable }: 
     </ul>
   );
 
-  const lines = item ? itemLines(data.show.sections, item.id) : [];
+  const lines = item ? itemTimedLines(data.show.sections, item) : [];
   const hasAudio = !!item && (item.media?.length ?? 0) > 0;
   const detail = item ? (
     <article className="mx-auto max-w-[112rem] space-y-4 p-4" aria-label={item.title || texts.regie.untitled} data-testid="scenes-detail">
