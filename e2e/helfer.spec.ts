@@ -102,6 +102,10 @@ test('Helfer: Auftritte in den Projektdaten, QR-Code führt auf die Seite der Pe
 
   // Nachricht an die Technik: Zähler am Tab „Helfer“, solange ungelesen
   await page.getByRole('tab', { name: 'Projektdaten' }).click();
+  // Nachrichten nur über den Knopf unten – die Seite zeigt zuerst Anschluss und Anmeldung
+  await expect(phone.getByTestId('helper-messages')).toHaveCount(0);
+  await phone.getByRole('button', { name: 'Nachricht an die Technik' }).click();
+  await expect(phone.getByTestId('helper-page')).toHaveCount(0);
   const box = phone.getByTestId('helper-messages');
   await box.getByLabel('Nachricht an die Technik').fill('Der Akku vom Funkmikro ist leer.');
   await box.getByRole('button', { name: 'Senden' }).click();
@@ -111,7 +115,13 @@ test('Helfer: Auftritte in den Projektdaten, QR-Code führt auf die Seite der Pe
   await expect(helperTab.getByTestId('unread-badge')).toHaveText('1');
   // Lesen: Übersicht zeigt sie als neu, der Zähler verschwindet; der Helfer sieht „gelesen“
   await helperTab.click();
-  await page.getByRole('button', { name: /Übersicht/ }).click();
+  const messagesButton = page.getByRole('button', { name: /Nachrichten/ });
+  await expect(messagesButton.getByTestId('unread-badge')).toHaveText('1');
+  // die Übersicht liest sie nicht – erst die eigene Seite „Nachrichten“
+  await page.getByRole('button', { name: 'Übersicht' }).click();
+  await expect(page.getByTestId('messages-inbox')).toHaveCount(0);
+  await expect(helperTab.getByTestId('unread-badge')).toHaveText('1');
+  await messagesButton.click();
   const inbox = page.getByTestId('messages-inbox');
   await expect(inbox.getByTestId('helper-message')).toContainText('Anna Muster');
   await expect(inbox.getByTestId('helper-message')).toContainText('neu');
@@ -133,6 +143,9 @@ test('Helfer: Auftritte in den Projektdaten, QR-Code führt auf die Seite der Pe
   await inbox.getByRole('button', { name: 'Löschen' }).click();
   await expect(box.getByTestId('helper-message')).toHaveCount(0);
   await expect(inbox).toContainText('Noch keine Nachrichten.');
+  // zurück zur eigenen Seite
+  await phone.getByRole('button', { name: 'Zurück zu meiner Seite' }).click();
+  await expect(phone.getByTestId('helper-page')).toBeVisible();
 
   // QR-Sitzung darf sonst nichts ändern
   expect((await phone.request.post(`/api/projects/${id}/check`, { data: { kind: 'device', id: 'v', direction: 'out', status: 'ok' } })).status()).toBe(403);

@@ -1,7 +1,7 @@
 // Tab „Helfer“: persönliche Seite je Person – wo sie ihre Geräte einsteckt (Verbindungen und Bühnenplan) und
 // Anmeldung zu den Auftritten (Aufbau helfen, Anhänger hin bzw. weiter, Bemerkung). Der QR-Code auf dem Etikett
 // eines Geräts führt direkt auf die Seite seiner Person. Wer bearbeiten darf, sieht zusätzlich die Übersicht.
-import { ArrowRight, Check, Truck } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, MessageSquare, Truck } from 'lucide-react';
 import { useState } from 'react';
 import type * as Y from 'yjs';
 import { buildPeopleList, EMPTY_FILTER, formatGigDate, formatGigTimes, gigSummaries, personName, personSignup, type Gig, type HelperSignup, unreadHelperMessages, type Library, type Person, type PersonEntry } from '@steckplan/core';
@@ -11,11 +11,13 @@ import { SIGNAL_COLORS } from '../../pdf/documents';
 import { stageBounds, stagePlanSvg, type StageDrawing } from '../../pdf/svg';
 import { texts } from '../../texts';
 import { buildMulticoreRoutes, buildStageCables, buildStageItems } from '../stageplan/model';
+import { ICON } from '../icons';
 import { Banner, Button } from '../ui';
 import { CountBadge, MessagesInbox, PersonMessages } from './HelperMessages';
 
 const t = texts.helpers;
 const OVERVIEW = '__uebersicht';
+const MESSAGES = '__nachrichten';
 
 function readParam(): string | null {
   return new URLSearchParams(window.location.search).get('person');
@@ -30,15 +32,40 @@ function writeParam(value: string | null): void {
 
 export function HelpersView({ projectId, doc, origin, userName, data, library, canSignup, isEditor, ownPersonId }: { projectId: string; doc: Y.Doc; origin: object; userName: string; data: ProjectData; library: Library | null; canSignup: boolean; isEditor: boolean; ownPersonId: string | undefined }) {
   // Helfer sehen und ändern nur ihre eigene Seite (Person aus dem QR-Code ihres Etiketts); Bearbeiten sieht alle
-  if (!isEditor) {
-    const own = data.people.find((p) => p.id === ownPersonId);
-    return (
-      <main className="min-h-0 flex-1 overflow-y-auto" data-testid="helpers-view">
-        <div className="mx-auto w-full max-w-4xl space-y-4 p-4">{own ? <PersonPage key={own.id} projectId={projectId} person={own} data={data} library={library} canSignup={canSignup} own /> : <p className="text-sm text-slate-500">{t.scanHint}</p>}</div>
-      </main>
-    );
-  }
+  if (!isEditor) return <OwnHelpers projectId={projectId} data={data} library={library} canSignup={canSignup} ownPersonId={ownPersonId} />;
   return <EditorHelpers projectId={projectId} doc={doc} origin={origin} userName={userName} data={data} library={library} canSignup={canSignup} />;
+}
+
+/** Helfer: die eigene Seite; die Nachricht an die Technik auf einer eigenen Seite (Knopf unten) */
+function OwnHelpers({ projectId, data, library, canSignup, ownPersonId }: { projectId: string; data: ProjectData; library: Library | null; canSignup: boolean; ownPersonId: string | undefined }) {
+  const own = data.people.find((p) => p.id === ownPersonId);
+  const [messages, setMessages] = useState(false);
+  return (
+    <main className="min-h-0 flex-1 overflow-y-auto" data-testid="helpers-view">
+      <div className="mx-auto w-full max-w-4xl space-y-4 p-4">
+        {!own ? (
+          <p className="text-sm text-slate-500">{t.scanHint}</p>
+        ) : messages ? (
+          <>
+            <Button variant="ghost" onClick={() => setMessages(false)}>
+              <ArrowLeft {...ICON} /> {t.backToPage}
+            </Button>
+            <PersonMessages projectId={projectId} person={own} messages={data.helperMessages} canWrite={canSignup} canEdit={canSignup} />
+          </>
+        ) : (
+          <>
+            <PersonPage key={own.id} projectId={projectId} person={own} data={data} library={library} canSignup={canSignup} />
+            <div className="flex justify-center pt-2">
+              <Button variant="ghost" className="text-sm text-slate-500" onClick={() => setMessages(true)}>
+                <MessageSquare {...ICON} /> {t.messagesTitle}
+                {data.helperMessages.some((m) => m.personId === own.id) && <span className="text-xs">({data.helperMessages.filter((m) => m.personId === own.id).length})</span>}
+              </Button>
+            </div>
+          </>
+        )}
+      </div>
+    </main>
+  );
 }
 
 function EditorHelpers({ projectId, doc, origin, userName, data, library, canSignup }: { projectId: string; doc: Y.Doc; origin: object; userName: string; data: ProjectData; library: Library | null; canSignup: boolean }) {
@@ -46,10 +73,11 @@ function EditorHelpers({ projectId, doc, origin, userName, data, library, canSig
   const [chosen, setChosenState] = useState<string | null>(() => readParam() ?? OVERVIEW);
   const setChosen = (value: string | null) => {
     setChosenState(value);
-    writeParam(value === OVERVIEW ? null : value);
+    writeParam(value === OVERVIEW || value === MESSAGES ? null : value);
   };
   const person = data.people.find((p) => p.id === chosen);
-  const showOverview = chosen === OVERVIEW || !person;
+  const showMessages = chosen === MESSAGES;
+  const showOverview = !showMessages && (chosen === OVERVIEW || !person);
 
   return (
     <main className="min-h-0 flex-1 overflow-y-auto" data-testid="helpers-view">
@@ -73,17 +101,19 @@ function EditorHelpers({ projectId, doc, origin, userName, data, library, canSig
           </label>
           <Button variant={showOverview ? 'primary' : 'secondary'} onClick={() => setChosen(OVERVIEW)}>
             {t.overview}
+          </Button>
+          <Button variant={showMessages ? 'primary' : 'secondary'} onClick={() => setChosen(MESSAGES)}>
+            <MessageSquare {...ICON} /> {t.messagesButton}
             <CountBadge count={unread} label={t.unread(unread)} />
           </Button>
         </div>
 
-        {showOverview ? (
-          <>
-            <MessagesInbox projectId={projectId} doc={doc} origin={origin} userName={userName} messages={data.helperMessages} people={data.people} onOpen={(id) => setChosen(id)} />
-            <Overview data={data} onOpen={(id) => setChosen(id)} />
-          </>
+        {showMessages ? (
+          <MessagesInbox projectId={projectId} doc={doc} origin={origin} userName={userName} messages={data.helperMessages} people={data.people} onOpen={(id) => setChosen(id)} />
+        ) : showOverview ? (
+          <Overview data={data} onOpen={(id) => setChosen(id)} />
         ) : person ? (
-          <PersonPage key={person.id} projectId={projectId} person={person} data={data} library={library} canSignup={canSignup} own={false} />
+          <PersonPage key={person.id} projectId={projectId} person={person} data={data} library={library} canSignup={canSignup} />
         ) : (
           <p className="text-sm text-slate-500">{data.people.length ? t.pickHint : t.noPeople}</p>
         )}
@@ -94,8 +124,8 @@ function EditorHelpers({ projectId, doc, origin, userName, data, library, canSig
 
 // ---------- persönliche Seite ----------
 
-/** own: die eigene Seite eines Helfers (schreibt der Technik); sonst Bearbeiten sieht die Seite einer Person */
-function PersonPage({ projectId, person, data, library, canSignup, own }: { projectId: string; person: Person; data: ProjectData; library: Library | null; canSignup: boolean; own: boolean }) {
+/** Seite einer Person: wo einstecken und Anmeldung zu den Auftritten */
+function PersonPage({ projectId, person, data, library, canSignup }: { projectId: string; person: Person; data: ProjectData; library: Library | null; canSignup: boolean }) {
   const settings = { gridMm: 500, snap: true, defaultReservePercent: 10, defaultReservePerEndMm: 500, ...data.settings };
   const entry: PersonEntry = buildPeopleList({ devices: data.devices, cables: data.cables, settings, people: data.people }, { templates: library?.templates ?? [] }).find((e) => e.person?.id === person.id) ?? { person, devices: [] };
   return (
@@ -147,8 +177,6 @@ function PersonPage({ projectId, person, data, library, canSignup, own }: { proj
         )}
         <StageExcerpt data={data} library={library} deviceIds={entry.devices.map((d) => d.device.id)} />
       </section>
-
-      <PersonMessages projectId={projectId} person={person} messages={data.helperMessages} canWrite={own && canSignup} canEdit={canSignup} />
 
       <section className="space-y-3" aria-label={t.gigsTitle}>
         <h3 className="text-sm font-semibold tracking-wide text-slate-500 uppercase">{t.gigsTitle}</h3>

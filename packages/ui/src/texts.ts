@@ -1285,6 +1285,8 @@ export const texts = {
     legend: '✓ hilft beim Aufbau · H Anhänger hin · W Anhänger weiter · ✎ Bemerkung',
     openPerson: (name: string) => `Seite von ${name} öffnen`,
     messagesTitle: 'Nachricht an die Technik',
+    messagesButton: 'Nachrichten',
+    backToPage: 'Zurück zu meiner Seite',
     messagesHint: 'Etwas kaputt, fehlt oder unklar? Schreib es der Technik.',
     messagePlaceholder: 'z. B. Der Akku vom Funkmikro ist leer.',
     send: 'Senden',
