@@ -3,7 +3,7 @@
 import { ChevronLeft } from 'lucide-react';
 import { useState } from 'react';
 import type * as Y from 'yjs';
-import { itemLines, itemNumbers, itemSoundScenes, sceneTime, updateShowItem } from '@steckplan/core';
+import { itemTimedLines, itemNumbers, itemSoundScenes, sceneTime, updateShowItem } from '@steckplan/core';
 import { usePointPlayback } from '../../lib/transport';
 import { hasRichText } from '../../lib/richText';
 import { useIsNarrow } from '../../lib/useProjectDoc';
@@ -55,7 +55,7 @@ export function SoundView({ projectId, doc, origin, data, editable }: { projectI
     </ul>
   );
 
-  const lines = item ? itemLines(data.show.sections, item.id) : [];
+  const lines = item ? itemTimedLines(data.show.sections, item) : [];
   const detail = item ? (
     <article className="mx-auto max-w-5xl space-y-3 p-4" aria-label={item.title || texts.regie.untitled} data-testid="sound-detail">
       <header className="flex items-center gap-2">

@@ -1,7 +1,7 @@
 // Textfenster als eigene Seite: zentrierter Text, fünf Zeilen, Vollbild per Antippen.
 // Folgt der Person, die in der Vorstellung führt; im selben Browser auch der eigenen Vorstellung.
 import { useEffect, useState } from 'react';
-import { currentLineId, itemLines, itemSections, lyricsRange, sectionBackground } from '@steckplan/core';
+import { currentLineId, itemTimedLines, itemSections, lyricsRange, sectionBackground } from '@steckplan/core';
 import { LyricsDisplay, useCueClock, useLocalCue, type ReceivedCue } from '../components/regie/LyricsWindow';
 import { api } from '../lib/api';
 import { useProjectData } from '../lib/useProjectData';
@@ -38,10 +38,11 @@ export function LyricsPage({ id }: { id: string }) {
   const fullscreen = useFullscreen();
 
   const item = cue ? data.show.items.find((i) => i.id === cue.itemId) : undefined;
-  const lines = item ? itemLines(data.show.sections, item.id) : [];
+  const lines = item ? itemTimedLines(data.show.sections, item) : [];
   const scene = cue?.sceneId ? data.lightScenes.find((s) => s.id === cue.sceneId) : undefined;
   const current = time !== undefined ? currentLineId(lines, time) : scene?.lineId;
   const title = item?.title || (item ? texts.regie.untitled : '');
+  const showTitle = data.showSettings.lyricsShowTitle !== false;
   const roleNames = new Map((item?.roles ?? []).map((r) => [r.id, r.name]));
 
   useEffect(() => {
@@ -92,13 +93,13 @@ export function LyricsPage({ id }: { id: string }) {
           )}
         </div>
       ) : lines.length === 0 ? (
-        <p className="flex h-full items-center justify-center p-8 text-center text-[6vw] font-semibold">{title}</p>
+        <p className="flex h-full items-center justify-center p-8 text-center text-[6vw] font-semibold">{showTitle ? title : ''}</p>
       ) : item?.lyricsVisible === false ? (
         <div data-testid="lyrics-hidden" />
       ) : (
         // am Ende der Dauer weich ausblenden (abschaltbar je Punkt)
         <div className={`h-full transition-opacity duration-1000 ${ended ? 'opacity-0' : 'opacity-100'}`} data-testid={ended ? 'lyrics-ended' : 'lyrics-active'}>
-          <LyricsDisplay title={title} lines={lines} currentLineId={current} roleNames={roleNames} {...lyricsRange(data.showSettings)} />
+          <LyricsDisplay title={showTitle ? title : ''} lines={lines} currentLineId={current} roleNames={roleNames} {...lyricsRange(data.showSettings)} />
         </div>
       )}
       </div>

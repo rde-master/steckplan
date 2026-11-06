@@ -207,7 +207,10 @@ test('Audio-Versatz: Musik setzt erst beim Versatz ein, Player zeigt die Werte d
         layers: [{ id: 'l1', name: 'Bühne', order: 0 }],
         devices: [],
         cables: [],
-        show: { items: [{ id: 'lied', order: 0, kind: 'song', title: 'Mit Vorlauf', number: 1, durationSec: 6 }], sections: [] },
+        show: {
+          items: [{ id: 'lied', order: 0, kind: 'song', title: 'Mit Vorlauf', number: 1, durationSec: 6 }],
+          sections: [{ id: 's1', itemId: 'lied', order: 0, kind: 'verse', label: 'Strophe', lines: [{ id: 'z1', text: 'Erste Zeile', atSec: 1 }, { id: 'z2', text: 'Zweite Zeile', atSec: 2.5 }] }],
+        },
       },
     })
   ).json();
@@ -238,11 +241,26 @@ test('Audio-Versatz: Musik setzt erst beim Versatz ein, Player zeigt die Werte d
   // nach dem Versatz: Musik spielt, um 2 s versetzt
   await expect.poll(async () => (await audio()).paused, { timeout: 4000 }).toBe(false);
   await expect.poll(() => clock.textContent()).toMatch(/^00:00:03:/);
-  const now = await audio();
-  expect(now.t).toBeGreaterThan(0.6);
-  expect(now.t).toBeLessThan(1.6);
-  await expect(player.getByTestId('regie-time')).toHaveText(/^0:0[01] \/ 0:03$/);
+  // im selben Moment gelesen: Position im Audio = Timecode − 2 s
+  const now = await show.evaluate(() => {
+    const tc = document.querySelector('[data-testid=timecode-panel] [data-testid=timecode]')!.textContent!.split(':').map(Number);
+    return { t: document.querySelector('audio')!.currentTime, tc: tc[2]! + tc[3]! / 25 };
+  });
+  expect(Math.abs(now.t - (now.tc - 2))).toBeLessThan(0.3);
+  await expect(player.getByTestId('regie-time')).toHaveText(/^0:0[0-3] \/ 0:03$/);
   // Timecode läuft bis zur geplanten Dauer (6 s), auch nach dem Ende der Datei (2 + 3 = 5 s)
   await expect(clock).toHaveText('00:00:06:00', { timeout: 6000 });
   await expect(perf.getByTestId('timecode-panel').getByTestId('timecode-remaining')).toHaveText('−00:00:00:00');
+
+  // Textzeiten: ohne Option ab Timecode 0, mit Option ab Musikbeginn (+2 s)
+  const current = perf.locator('li[data-current]');
+  await perf.getByLabel('Position').fill('1.5');
+  await expect(current).toHaveText(/Erste Zeile/);
+  await detail.getByLabel('Versatz gilt auch für den Text').check();
+  await expect(current).toHaveCount(0); // 1,5 s liegt jetzt vor der ersten Zeile (1 + 2 = 3 s)
+  await perf.getByLabel('Position').fill('3.2');
+  await expect(current).toHaveText(/Erste Zeile/);
+  await perf.getByLabel('Position').fill('4.6');
+  await expect(current).toHaveText(/Zweite Zeile/);
+  expect((await (await page.request.get(`/api/projects/${id}/download`)).json()).show.items[0].audioOffsetText).toBe(true);
 });

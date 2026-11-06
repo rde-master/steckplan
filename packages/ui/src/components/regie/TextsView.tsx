@@ -9,6 +9,8 @@ import {
   appendPastedText,
   clearLineTimes,
   itemLines,
+  textOffset,
+  itemTimedLines,
   itemScenes,
   itemSections,
   nextUntimedLine,
@@ -86,11 +88,13 @@ function TextDetail({ projectId, doc, origin, data, item, editable, onBack }: { 
   const hasAudio = item.kind === 'song' && (item.media?.length ?? 0) > 0;
   const [textMode, setTextMode] = useState<'edit' | 'read' | 'record'>('edit');
   const mode = hasAudio ? textMode : 'edit';
-  const lines = itemLines(data.show.sections, item.id);
+  // Zeiten auf der Zeitachse des Punkts; gespeichert wird ab Musikbeginn, wenn der Versatz auch für den Text gilt
+  const lines = itemTimedLines(data.show.sections, item);
+  const offset = textOffset(item);
   const next = nextUntimedLine(lines);
   const recordNext = useCallback(() => {
-    if (next && editable) setLineTime(doc, next.sectionId, next.line.id, music.currentTime, origin);
-  }, [next, editable, doc, origin, music]);
+    if (next && editable) setLineTime(doc, next.sectionId, next.line.id, Math.max(0, music.currentTime - offset), origin);
+  }, [next, editable, doc, origin, music, offset]);
   useRecordKey(mode === 'record' && editable, recordNext);
   const Icon = KIND_ICONS[item.kind];
 
@@ -134,7 +138,7 @@ function TextDetail({ projectId, doc, origin, data, item, editable, onBack }: { 
         {mode === 'edit' ? (
           <SectionsEditor projectId={projectId} doc={doc} origin={origin} item={item} sections={sections} settings={data.showSettings} editable={editable} />
         ) : (
-          <LyricsView doc={doc} origin={origin} lines={lines} time={time} recording={mode === 'record'} editable={editable} onSeek={(sec) => seekAudio(music, sec)} />
+          <LyricsView doc={doc} origin={origin} lines={lines} time={time} timeOffset={offset} recording={mode === 'record'} editable={editable} onSeek={(sec) => seekAudio(music, sec)} />
         )}
       </section>
 

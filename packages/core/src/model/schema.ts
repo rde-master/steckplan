@@ -476,6 +476,8 @@ export const ShowItemSchema = z.object({
   lyricsHideAtEnd: z.boolean().optional(),
   /** Versatz des Audios: die Musik setzt bei dieser Zeit des Punkts (Timecode) ein (Sekunden) */
   audioOffsetSec: z.number().min(0).max(3600).optional(),
+  /** true: der Versatz gilt auch für die Zeitpunkte der Textzeilen (sie zählen ab Musikbeginn) */
+  audioOffsetText: z.boolean().optional(),
   /** Feste Nummer im Ablauf (bleibt beim Umsortieren) */
   number: z.number().int().min(1).max(999).optional(),
 });
@@ -609,6 +611,8 @@ export const ShowSettingsSchema = z.object({
   /** Textfenster: Zeilen vor bzw. nach der aktuellen (Standard 1 und 3) */
   lyricsBefore: z.number().int().min(0).max(LYRICS_MAX_BEFORE).optional(),
   lyricsAfter: z.number().int().min(0).max(LYRICS_MAX_AFTER).optional(),
+  /** Textfenster: false = Titel des Lieds nicht anzeigen (Standard: anzeigen) */
+  lyricsShowTitle: z.boolean().optional(),
   /** Restzeit im Player: ab so vielen Sekunden vor Schluss allmählich rot (Standard 30), ab so vielen blinkend (Standard 5) */
   remainWarnSec: z.number().int().min(0).max(REMAIN_MAX_WARN).optional(),
   remainBlinkSec: z.number().int().min(0).max(REMAIN_MAX_BLINK).optional(),

@@ -68,6 +68,10 @@ export function LyricsSettings({ projectId, doc, origin, settings, onClose }: { 
           </a>
         </p>
         <h3 className="border-t border-slate-200 pt-3 text-sm font-semibold dark:border-slate-700">{t.lyricsSection}</h3>
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={settings.lyricsShowTitle !== false} onChange={(e) => updateShowSettings(doc, { lyricsShowTitle: e.target.checked ? undefined : false }, origin)} />
+          {t.showTitle}
+        </label>
         <h4 className="text-xs font-semibold text-slate-500 uppercase">{t.lines}</h4>
         <div className="flex flex-wrap items-center gap-4 text-sm">
           <label className="flex items-center gap-2">
