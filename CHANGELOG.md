@@ -7,6 +7,8 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.24.0] - 2026-11-06
+
 ### Hinzugefügt
 
 - Regie: neuer Bereich „Tonszenen“ – je Ablaufpunkt ein großes Textfeld mit Formatierung (fett, kursiv, unterstrichen, durchgestrichen, Überschrift, Listen) und Textfarbe; gespeichert als HTML, angezeigt nur mit erlaubten Elementen (keine Skripte, Links oder Bilder)
@@ -531,7 +533,8 @@ Meilenstein M0 – Projektgerüst.
 - Docker-Image mit Datenvolume `/data` und Beispiel-`docker-compose.yml`
 - GitHub Actions: Tests und Smoke-Test bei jedem Push, Installer als Artefakte, Docker-Image `:develop`, Release-Workflow für Tags `vX.Y.Z`
 
-[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.23.4...develop
+[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.24.0...develop
+[0.24.0]: https://github.com/rde-master/steckplan/compare/v0.23.4...v0.24.0
 [0.23.4]: https://github.com/rde-master/steckplan/compare/v0.23.3...v0.23.4
 [0.23.3]: https://github.com/rde-master/steckplan/compare/v0.23.2...v0.23.3
 [0.23.2]: https://github.com/rde-master/steckplan/compare/v0.23.1...v0.23.2
