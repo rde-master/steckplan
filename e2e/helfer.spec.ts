@@ -59,6 +59,9 @@ test('Helfer: Auftritte in den Projektdaten, QR-Code führt auf die Seite der Pe
   // wo einstecken: Anschluss → Gegenstelle, Bühnenplan mit dem eigenen Gerät
   await expect(mine.getByTestId('helper-connection')).toContainText('Out');
   await expect(mine.getByTestId('helper-connection')).toContainText('Pult · In 1');
+  // Bühnenplan zugeklappt, auf Klick sichtbar
+  await expect(mine.getByTestId('helper-stage')).toBeHidden();
+  await mine.getByText('Auf der Bühne').click();
   await expect(mine.getByTestId('helper-stage').locator('svg')).toBeVisible();
   await expect(mine.getByTestId('helper-stage').locator('circle[stroke="#dc2626"]')).toHaveCount(1);
   // ohne Beschriftung

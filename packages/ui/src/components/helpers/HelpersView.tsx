@@ -1,7 +1,7 @@
 // Tab „Helfer“: persönliche Seite je Person – wo sie ihre Geräte einsteckt (Verbindungen und Bühnenplan) und
 // Anmeldung zu den Auftritten (Aufbau helfen, Anhänger hin bzw. weiter, Bemerkung). Der QR-Code auf dem Etikett
 // eines Geräts führt direkt auf die Seite seiner Person. Wer bearbeiten darf, sieht zusätzlich die Übersicht.
-import { ArrowLeft, ArrowRight, Check, MessageSquare, Truck } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, ChevronRight, MessageSquare, Truck } from 'lucide-react';
 import { useState } from 'react';
 import type * as Y from 'yjs';
 import { buildPeopleList, EMPTY_FILTER, formatGigDate, formatGigTimes, gigSummaries, personName, personSignup, type Gig, type HelperSignup, unreadHelperMessages, type Library, type Person, type PersonEntry } from '@steckplan/core';
@@ -223,13 +223,16 @@ function StageExcerpt({ data, library, deviceIds }: { data: ProjectData; library
   const fontMm = Math.max(bounds.width, bounds.height) / 30;
   const svg = stagePlanSvg(drawing, bounds, 800, (800 * bounds.height) / bounds.width, fontMm, true);
   return (
-    <figure className="space-y-1">
-      <figcaption className="text-xs text-slate-500">
-        <span className="font-semibold tracking-wide uppercase">{t.stageTitle}</span> – {t.stageHint}
-      </figcaption>
+    // aufklappbar, Standard zugeklappt – Anschluss und Anmeldung sind wichtiger
+    <details className="group space-y-1" data-testid="helper-stage-toggle">
+      <summary className="flex cursor-pointer list-none items-center gap-1.5 py-1 text-xs text-slate-500 select-none [&::-webkit-details-marker]:hidden">
+        <ChevronRight size={16} className="shrink-0 transition-transform group-open:rotate-90" aria-hidden />
+        <span className="font-semibold tracking-wide uppercase">{t.stageTitle}</span>
+        <span className="hidden sm:inline">– {t.stageHint}</span>
+      </summary>
       {/* SVG aus den Projektdaten (Texte maskiert) */}
       <div className="overflow-hidden rounded-md border border-slate-200 bg-white p-1 dark:border-slate-700 [&>svg]:h-auto [&>svg]:w-full" data-testid="helper-stage" dangerouslySetInnerHTML={{ __html: svg }} />
-    </figure>
+    </details>
   );
 }
 
