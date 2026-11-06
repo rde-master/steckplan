@@ -151,11 +151,11 @@ test('Tonszenen wie beim Licht: vom Licht übernehmen, Vorstellung mit nächster
   await expect(perf.getByTestId('performance-scene')).toHaveText('1. Intro');
   await expect(perf.getByTestId('performance-next')).toContainText('Als Nächstes: 2. Refrain');
   await expect(perf.getByTestId('performance-next')).toContainText('ab 0:02');
-  await expect(perf.getByTestId('performance-countdown')).toHaveText('−0:02');
+  await expect(perf.getByTestId('performance-countdown')).toHaveText('−0:02.0');
   await expect(perf.getByTestId('performance-progress')).toHaveAttribute('data-progress', '0.00');
   await perf.getByLabel('Position').fill('3');
   await expect(perf.getByTestId('performance-scene')).toHaveText('2. Refrain');
-  await expect(perf.getByTestId('performance-elapsed')).toHaveText('läuft 0:01');
+  await expect(perf.getByTestId('performance-elapsed')).toHaveText('läuft 0:01.0');
   await expect(perf.getByTestId('performance-progress')).toHaveAttribute('data-progress', '0.50');
   await expect(perf.getByTestId('performance-scene-note')).toHaveText('Nebel an');
   // Bridge ohne Notiz: die letzte bleibt stehen
@@ -170,7 +170,7 @@ test('Tonszenen wie beim Licht: vom Licht übernehmen, Vorstellung mit nächster
   await perf.getByLabel('Position').fill('1');
   await expect(perf.getByTestId('sound-scene')).toHaveText('1. Intro');
   await expect(perf.getByTestId('sound-next')).toContainText('Als Nächstes: 2. Refrain');
-  await expect(perf.getByTestId('sound-countdown')).toHaveText('−0:01');
+  await expect(perf.getByTestId('sound-countdown')).toHaveText('−0:01.0');
   await expect(perf.getByText('Noch keine Notiz zur Szene.')).toBeVisible();
   await page.screenshot({ path: 'test-results/vorstellung-tonszenen.png' });
   await perf.getByRole('tab', { name: 'Licht' }).click();
