@@ -269,6 +269,7 @@ describe('PDF-Export', () => {
     data.people[0]!.firstName = 'Anna-Maria Konstanze';
     data.people[0]!.kind = 'Sängerin und Gitarristin im Hintergrundchor';
     data.devices.find((d) => d.id === 'm1')!.label = 'Funkmikrofon Hauptgesang links Bühnenrand';
+    data.devices.find((d) => d.id === 'd5')!.label = 'Stagebox Bühne links hinten neben dem Schlagzeugpodest';
     data.cables.push(...Array.from({ length: 12 }, (_, i) => ({ id: `extra${i}`, templateId: 'xlr', from: { deviceId: 'm1', portId: 'o' }, to: { deviceId: `d${10 + i}`, portId: 'i' }, waypoints: [], manualLengthMm: 20000, label: `Sehr lange Kabelbezeichnung ${i}` })));
     for (const formatId of ['70x37', '63x38', '105x48', '105x74']) {
       const format = LABEL_FORMATS.find((f) => f.id === formatId)!;
@@ -306,7 +307,11 @@ describe('PDF-Export', () => {
         const bottom = (format.marginTopMm + row * (format.heightMm + format.gapYMm) + format.heightMm - 3) * mm;
         expect(item.top, `${formatId}: ${item.text}`).toBeLessThanOrEqual(bottom + 1);
       }
-      expect(items.map((i) => i.text).join(' ')).toMatch(/und \d+ weitere/);
+      // nur der erste Steckplatz, vollständig (umbrochen) – nirgends „…“
+      expect(all, formatId).not.toMatch(/weitere/);
+      expect(all, formatId).not.toContain('…');
+      for (const word of ['Stagebox', 'Bühne', 'links', 'hinten', 'neben', 'Schlagzeugpodest', 'In']) expect(all, `${formatId}: ${word}`).toContain(word);
+      expect(all, formatId).not.toContain('Sehr lange Kabelbezeichnung');
     }
   });
 

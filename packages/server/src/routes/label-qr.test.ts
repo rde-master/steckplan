@@ -97,6 +97,11 @@ describe('QR-Code auf Etiketten', () => {
     const { token } = (await server.app.inject({ method: 'POST', url: `/api/projects/${a}/share`, headers: { cookie: edit }, payload: {} })).json() as { token: string };
     const scan = await server.app.inject({ method: 'GET', url: `/s/${token}?g=v` });
     expect(scan.headers.location).toBe(`/projekt/${a}?ansicht=helfer&person=anna`);
+    // Link zur persönlichen Seite: ?p=<Person> → als diese Person
+    const byLink = await server.app.inject({ method: 'GET', url: `/s/${token}?p=ben` });
+    expect(byLink.headers.location).toBe(`/projekt/${a}?ansicht=helfer&person=ben`);
+    expect((await server.app.inject({ method: 'GET', url: '/api/auth/session', headers: { cookie: cookieOf(byLink) } })).json()).toMatchObject({ name: 'Ben Beispiel (QR-Code)', personId: 'ben' });
+    expect((await server.app.inject({ method: 'GET', url: `/s/${token}?p=niemand` })).headers.location).toBe(`/projekt/${a}?ansicht=signalfluss`);
     // Gerät ohne Person: wie bisher
     expect((await server.app.inject({ method: 'GET', url: `/s/${token}?g=x` })).headers.location).toBe(`/projekt/${a}?ansicht=signalfluss&geraet=x`);
     const qr = cookieOf(scan);
