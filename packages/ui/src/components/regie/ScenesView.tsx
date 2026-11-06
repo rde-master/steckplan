@@ -4,7 +4,7 @@ import { ChevronLeft } from 'lucide-react';
 import { useState } from 'react';
 import type * as Y from 'yjs';
 import { itemLines, itemNumbers, itemScenes, sceneTime, type Library } from '@steckplan/core';
-import { useTransport } from '../../lib/transport';
+import { usePointPlayback } from '../../lib/transport';
 import { useIsNarrow } from '../../lib/useProjectDoc';
 import type { ProjectData } from '../../lib/useProjectData';
 import { texts } from '../../texts';
@@ -12,7 +12,7 @@ import { ICON } from '../icons';
 import { Button } from '../ui';
 import { ItemNumber, KIND_ICONS } from './RegieView';
 import { ScenesSection } from './ScenesSection';
-import { PlayerBar, usePlayerTime } from './SongMedia';
+import { PlayerBar, TimecodePanel, usePlayerTime } from './SongMedia';
 
 const t = texts.light.scenesView;
 
@@ -22,8 +22,8 @@ export function ScenesView({ projectId, doc, origin, data, library, editable }: 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const item = items.find((i) => i.id === selectedId) ?? (narrow ? undefined : items[0]);
   const [audio, setAudio] = useState<HTMLAudioElement | null>(null);
-  const transport = useTransport(item?.id, item?.durationSec, audio);
-  const time = usePlayerTime(transport);
+  const { tc, music, sync } = usePointPlayback(item?.id, item?.durationSec, audio);
+  const time = usePlayerTime(music);
   const numbers = itemNumbers(data.show.items);
 
   if (items.length === 0) return <p className="mx-auto max-w-2xl p-6 text-sm text-slate-500" data-testid="scenes-view">{t.empty}</p>;
@@ -67,7 +67,7 @@ export function ScenesView({ projectId, doc, origin, data, library, editable }: 
         {!hasAudio && item.kind === 'song' && <span className="text-xs text-slate-500">{t.noAudio}</span>}
       </header>
       {/* eigene Schlüssel je Kind: gleiche Schlüssel bei Geschwistern ließen beim Wechsel des Stücks die alten Szenen stehen */}
-      <ScenesSection key={`scenes-${item.id}`} doc={doc} origin={origin} item={item} data={data} library={library} lines={lines} time={time} audio={transport} editable={editable} />
+      <ScenesSection key={`scenes-${item.id}`} doc={doc} origin={origin} item={item} data={data} library={library} lines={lines} time={time} audio={music} editable={editable} />
       {(
         <PlayerBar
           settings={data.showSettings}
@@ -75,9 +75,9 @@ export function ScenesView({ projectId, doc, origin, data, library, editable }: 
           projectId={projectId}
           item={item}
           media={data.media}
-          playback={transport}
+          playback={music}
           setAudio={setAudio}
-          clock
+          aside={<TimecodePanel tc={tc} sync={sync} />}
           time={time}
           recording={false}
           onNextLine={() => undefined}

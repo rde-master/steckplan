@@ -26,8 +26,8 @@ import { RichTextView } from './RichTextEditor';
 import { hasRichText } from '../../lib/richText';
 import { SceneGrid } from './SceneGrid';
 import { formatSceneTime } from './ScenesSection';
-import { PlayerBar, seekAudio, TimecodeClock, usePlayerTime } from './SongMedia';
-import { useTransport } from '../../lib/transport';
+import { PlayerBar, seekAudio, TimecodePanel, usePlayerTime } from './SongMedia';
+import { usePointPlayback } from '../../lib/transport';
 
 const t = texts.regie.performance;
 
@@ -92,7 +92,8 @@ export function PerformanceView({
 
   // Transport des Ablaufpunkts (Timecode); das Audio des Lieds hängt daran
   const [audioEl, setAudioEl] = useState<HTMLAudioElement | null>(null);
-  const audio = useTransport(item?.id, item?.durationSec, audioEl);
+  // tc = Timecode des Punkts; audio = Musik (mit „Mit Musik“ dasselbe), danach laufen Text und Szenen
+  const { tc, music: audio, sync: withMusic } = usePointPlayback(item?.id, item?.durationSec, audioEl);
   const time = usePlayerTime(audio);
   const playing = !audio.paused;
   const numbers = itemNumbers(items);
@@ -110,29 +111,37 @@ export function PerformanceView({
   // Bei Eintrag/Szene, Start, Pause, Spulen und alle zwei Sekunden während der Wiedergabe.
   const itemId = item?.id;
   const localCue = useLocalCueSender(projectId);
-  const cueState = useRef({ mode, itemId, sceneId, audio, sendCue, localCue });
+  const cueState = useRef({ mode, itemId, sceneId, audio, tc, sendCue, localCue });
   useEffect(() => {
-    cueState.current = { mode, itemId, sceneId, audio, sendCue, localCue };
+    cueState.current = { mode, itemId, sceneId, audio, tc, sendCue, localCue };
   });
   useEffect(() => {
     const send = () => {
       const c = cueState.current;
       if (!c.itemId) return;
-      const cue: Cue = { itemId: c.itemId, ...(c.sceneId ? { sceneId: c.sceneId } : {}), ...(c.audio ? { at: c.audio.currentTime, playing: !c.audio.paused } : {}) };
+      // at/playing: Musik (Text, Szenen); tc: Timecode (Art-Net) – getrennt, wenn „Mit Musik“ aus ist
+      const cue: Cue = {
+        itemId: c.itemId,
+        ...(c.sceneId ? { sceneId: c.sceneId } : {}),
+        at: c.audio.currentTime,
+        playing: !c.audio.paused,
+        tc: { at: c.tc.currentTime, playing: !c.tc.paused },
+      };
       c.localCue(cue);
       if (c.mode === 'lead') c.sendCue(cue);
     };
     send();
     const events = ['play', 'pause', 'seeked', 'ratechange'];
-    for (const e of events) audio?.addEventListener(e, send);
+    const sources = audio === tc ? [tc] : [audio, tc];
+    for (const source of sources) for (const e of events) source.addEventListener(e, send);
     const timer = window.setInterval(() => {
-      if (audio && !audio.paused) send();
+      if (!audio.paused || !tc.paused) send();
     }, 2000);
     return () => {
-      for (const e of events) audio?.removeEventListener(e, send);
+      for (const source of sources) for (const e of events) source.removeEventListener(e, send);
       window.clearInterval(timer);
     };
-  }, [mode, itemId, sceneId, audio]);
+  }, [mode, itemId, sceneId, audio, tc]);
   // beim Verlassen nicht weiter führen
   const leading = useRef(false);
   useEffect(() => {
@@ -447,7 +456,7 @@ export function PerformanceView({
         {/* Timecode unten rechts: gelaufene Zeit des Punkts, läuft mit dem Transport */}
         {item && (
           <div className="flex shrink-0 flex-col items-end gap-1">
-            <TimecodeClock time={time} className="mb-1 px-4 py-2 text-3xl sm:text-5xl" />
+            <TimecodePanel tc={tc} sync={withMusic} large />
             {data.showSettings.artnet?.enabled && (
               <span className={`text-xs ${iLead ? 'text-emerald-400' : 'text-amber-400'}`} data-testid="artnet-state">
                 {iLead ? t.artnetSending(data.showSettings.artnet.host) : t.artnetLeadHint}

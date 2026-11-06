@@ -388,8 +388,12 @@ export class Room {
 
   /** Für Nachzügler: läuft die Wiedergabe, die Abspielposition bis jetzt weiterrechnen */
   private currentLead(lead: LeadInfo): LeadInfo {
-    if (!lead.playing || lead.at === undefined) return lead;
-    return { ...lead, at: lead.at + (Date.now() - this.leadAt) / 1000 };
+    const passed = (Date.now() - this.leadAt) / 1000;
+    return {
+      ...lead,
+      ...(lead.playing && lead.at !== undefined ? { at: lead.at + passed } : {}),
+      ...(lead.tc?.playing ? { tc: { at: lead.tc.at + passed, playing: true } } : {}),
+    };
   }
 
   private handleCue(connection: Connection, decoder: decoding.Decoder): void {
