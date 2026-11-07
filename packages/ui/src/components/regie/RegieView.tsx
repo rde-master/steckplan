@@ -36,6 +36,7 @@ import { texts } from '../../texts';
 import { ICON } from '../icons';
 import { Button, Field, TextArea, TextInput } from '../ui';
 import { LightSetupView } from './LightSetupView';
+import { useRegieSelection } from './regieSelection';
 import { formatSceneTime, parseSceneTime } from './ScenesSection';
 import { ScenesView } from './ScenesView';
 import { SoundView } from './SoundView';
@@ -120,7 +121,7 @@ function readArea(): Area {
 function ShowView({ projectId, doc, origin, data, editable }: { projectId: string; doc: Y.Doc; origin: object; data: ProjectData; library: Library | null; editable: boolean }) {
   const narrow = useIsNarrow(900);
   const { items, sections } = data.show;
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useRegieSelection(projectId);
   const selected = items.find((i) => i.id === selectedId) ?? (narrow ? undefined : items[0]);
   const schedule = showSchedule(items, data.showSettings);
   const numbers = itemNumbers(items);

@@ -7,6 +7,10 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+### Geändert
+
+- Regie: das gewählte Lied bzw. der gewählte Ablaufpunkt bleibt beim Wechsel zwischen Ablauf, Texte, Lichtszenen und Tonszenen gleich (auch nach Neuladen im selben Tab)
+
 ## [0.32.0] - 2026-11-07
 
 ### Hinzugefügt
