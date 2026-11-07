@@ -480,6 +480,11 @@ export const ShowItemSchema = z.object({
   audioOffsetText: z.boolean().optional(),
   /** Feste Nummer im Ablauf (bleibt beim Umsortieren) */
   number: z.number().int().min(1).max(999).optional(),
+  /** Tempo (Schläge je Minute) und Taktart „4/4“ (seit 0.32) */
+  bpm: z.number().min(20).max(400).optional(),
+  timeSignature: z.string().regex(/^\d{1,2}\/\d{1,2}$/).optional(),
+  /** Zeit des Punkts, an der eine „1“ liegt (vom Tappen beim Abspielen) */
+  beatOffsetSec: z.number().min(0).optional(),
 });
 export type ShowItem = z.infer<typeof ShowItemSchema>;
 

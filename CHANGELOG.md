@@ -7,6 +7,12 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+### Hinzugefügt
+
+- BPM und Taktart je Lied (Ablauf; Taktarten 2/4 bis 12/8), auch per Tap (zwei volle Takte tippen)
+- Vorstellung: links neben dem Player Tempo, Taktart und ein Takt-Kreis – je Zählzeit ein Punkt, der aktuelle hervorgehoben (die „1“ bernsteinfarben), ein umlaufender Bogen im Takt, in der Mitte die Zählzeit 1, 2, 3 …; läuft mit der Musik (auch beim Folgen)
+- Tap-Tempo live in der Vorstellung: Knopf „Tap“, Taste T oder OSC `/steckplan/tap` (auch HTTP) – nach zwei vollen getappten Takten übernimmt das Lied das Tempo, beim Abspielen auch die Lage der „1“ (der erste Tap); mit jedem weiteren vollen Takt erneut; gespeichert im Lied
+
 ### Geändert
 
 - Regie: das gewählte Lied bzw. der gewählte Ablaufpunkt bleibt beim Wechsel zwischen Ablauf, Texte, Lichtszenen und Tonszenen gleich (auch nach Neuladen im selben Tab)

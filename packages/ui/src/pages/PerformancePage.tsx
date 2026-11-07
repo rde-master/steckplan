@@ -53,5 +53,5 @@ export function PerformancePage({ id }: { id: string }) {
   }
   // erst nach dem ersten Abgleich zeigen: dann ist auch bekannt, ob jemand führt (Folgen beim Öffnen)
   if (!project || !state || !state.everSynced) return <Spinner />;
-  return <PerformanceView projectId={id} data={data} library={library} sync={state} sendCue={project.sendCue} onRemote={project.onRemote} canLead={canLead} onClose={() => closeTab(id)} />;
+  return <PerformanceView projectId={id} doc={project.doc} data={data} library={library} sync={state} sendCue={project.sendCue} onRemote={project.onRemote} canLead={canLead} onClose={() => closeTab(id)} />;
 }

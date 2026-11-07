@@ -1,9 +1,19 @@
 // Regie (M11a): Ablauf links, gewählter Eintrag rechts (Angaben, Rollen, Texte).
 // Auf dem Handy erst der Ablauf, Antippen öffnet den Eintrag.
 import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Clapperboard, Coffee, Copy, Drama, GripVertical, Link2, ListOrdered, Megaphone, Monitor, Music, Settings2, Trash2, type LucideIcon } from 'lucide-react';
-import { useState, type DragEvent, type ReactNode } from 'react';
+import { useEffect, useState, type DragEvent, type ReactNode } from 'react';
 import type * as Y from 'yjs';
 import {
+  addTap,
+  BPM_MAX,
+  BPM_MIN,
+  DEFAULT_TIME_SIGNATURE,
+  parseTimeSignature,
+  TAP_RESET_SEC,
+  tapProgress,
+  tapTempo,
+  TIME_SIGNATURES,
+  type Tap,
   addShowItem,
   itemTimedLines,
   itemNumbers,
@@ -338,6 +348,11 @@ function ItemDetail({
         <div className="sm:col-start-2">
           <NumberField number={number} taken={[...numbers].some(([id, n]) => id !== item.id && n === number)} editable={editable} onChange={(n) => set({ number: n })} />
         </div>
+        {item.kind === 'song' && (
+          <div className="sm:col-start-2">
+            <TempoField key={`${item.id}:${item.bpm ?? ''}`} bpm={item.bpm} signature={item.timeSignature} editable={editable} onChange={(patch) => set(patch)} />
+          </div>
+        )}
         {(item.media?.length ?? 0) > 0 && (
           <div className="sm:col-start-2">
             <OffsetField key={`${item.id}:${item.audioOffsetSec ?? 0}`} value={item.audioOffsetSec} editable={editable} onChange={(audioOffsetSec) => set({ audioOffsetSec })} />
@@ -468,6 +483,79 @@ function NumberField({ number, taken, editable, onChange }: { number: number; ta
       />
     </Field>
   );
+}
+
+/** Tempo (BPM, auch per Tap) und Taktart eines Lieds */
+function TempoField({ bpm, signature, editable, onChange }: { bpm: number | undefined; signature: string | undefined; editable: boolean; onChange: (patch: { bpm?: number; timeSignature?: string; beatOffsetSec?: number }) => void }) {
+  const [draft, setDraft] = useState(bpm !== undefined ? String(bpm).replace('.', ',') : '');
+  const value = draft.trim() === '' ? undefined : Number(draft.replace(',', '.'));
+  const invalid = value !== undefined && (!Number.isFinite(value) || value < BPM_MIN || value > BPM_MAX);
+  const [taps, setTaps] = useState<Tap[]>([]);
+  const beats = parseTimeSignature(signature).beats;
+  useEffect(() => {
+    if (!taps.length) return;
+    const timer = window.setTimeout(() => setTaps([]), TAP_RESET_SEC * 1000);
+    return () => window.clearTimeout(timer);
+  }, [taps]);
+  const progress = taps.length ? tapProgress(taps, beats) : null;
+  return (
+    <div className="space-y-1.5" data-testid="tempo-field">
+      <div className="flex items-end gap-2">
+        <Field label={t.fields.bpm}>
+          <TextInput
+            value={draft}
+            inputMode="decimal"
+            placeholder="120"
+            aria-invalid={invalid}
+            disabled={!editable}
+            onChange={(e) => setDraft(e.target.value)}
+            onBlur={() => {
+              // neues Tempo von Hand: Lage der „1“ gilt nicht mehr
+              if (!invalid && value !== bpm) onChange({ bpm: value === undefined ? undefined : Math.round(value * 10) / 10, beatOffsetSec: undefined, ...(value !== undefined && !signature ? { timeSignature: DEFAULT_TIME_SIGNATURE } : {}) });
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+            }}
+          />
+        </Field>
+        <Field label={t.fields.timeSignature}>
+          <select
+            aria-label={t.fields.timeSignature}
+            className="rounded-md border border-slate-300 bg-white px-2 py-2 text-sm dark:border-slate-600 dark:bg-slate-800"
+            value={signature ?? DEFAULT_TIME_SIGNATURE}
+            disabled={!editable}
+            onChange={(e) => onChange({ timeSignature: e.target.value })}
+          >
+            {TIME_SIGNATURES.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
+        </Field>
+      </div>
+      {editable && (
+        <Button
+          variant="secondary"
+          className="w-full text-xs"
+          title={t.fields.tapHint}
+          onClick={() => {
+            const next = addTap(taps, { wall: tapClock() });
+            setTaps(next);
+            const result = tapTempo(next, beats);
+            if (result) onChange({ bpm: result.bpm, beatOffsetSec: undefined, ...(signature ? {} : { timeSignature: DEFAULT_TIME_SIGNATURE }) });
+          }}
+        >
+          {progress ? t.fields.tapProgress(progress.count, progress.remaining) : t.fields.tap}
+        </Button>
+      )}
+    </div>
+  );
+}
+
+/** Zeitpunkt eines Taps (Sekunden, monoton) */
+function tapClock(): number {
+  return performance.now() / 1000;
 }
 
 function DurationField({ value, editable, onChange }: { value: number | undefined; editable: boolean; onChange: (sec: number | undefined) => void }) {

@@ -100,6 +100,7 @@ const ADDRESSES: Record<string, RemoteAction> = {
   'scene/prev': 'scenePrev',
   'tc/forward': 'tcForward',
   'tc/back': 'tcBack',
+  tap: 'tap',
 };
 
 /** Standard-Sprungweite für /forward und /back ohne Argument (Sekunden) */
