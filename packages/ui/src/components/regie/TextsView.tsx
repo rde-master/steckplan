@@ -19,6 +19,7 @@ import {
   setLineTime,
   updateShowItem,
   type Person,
+  newId,
   type ShowItem,
 } from '@steckplan/core';
 import { useIsNarrow } from '../../lib/useProjectDoc';
@@ -248,7 +249,7 @@ function RolesEditor({ item, sections, people, editable, onChange }: { item: Sho
         </ul>
       )}
       {editable && (
-        <Button variant="ghost" className="text-xs" onClick={() => onChange([...roles, { id: globalThis.crypto.randomUUID(), name: `${t.roleName} ${roles.length + 1}` }])}>
+        <Button variant="ghost" className="text-xs" onClick={() => onChange([...roles, { id: newId(), name: `${t.roleName} ${roles.length + 1}` }])}>
           {t.addRole}
         </Button>
       )}

@@ -7,6 +7,16 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.32.0] - 2026-11-07
+
+### Hinzugefügt
+
+- Regie: eigener Export und Import nur der Regie (Knöpfe oben rechts in der Regie). „Regie exportieren“ lädt Ablauf, Texte, Einstellungen, Licht- und Tonszenen und den Lichtaufbau als `.regie.json` herunter (ohne Audio und Bilder). „Regie importieren“ zeigt vorher, was übernommen wird und welche Geräte, Personen oder Dateien im Projekt fehlen, und fragt: vorhandene Regie ersetzen oder anhängen. Geräte und Personen werden über die Kennung oder den gleichen Namen zugeordnet – so lässt sich die Regie sichern oder in ein anderes Projekt übertragen. Geht auch mit dem Regie-Zugang
+
+### Behoben
+
+- Weboberfläche des Desktops (http über die Netzwerkadresse): Licht- und Tonszenen, Ablauf-Einträge, Rollen und alles andere Neue ließ sich nicht anlegen, weil der Browser ohne HTTPS keine Kennungen per `crypto.randomUUID` erzeugt. Kennungen entstehen jetzt notfalls aus `crypto.getRandomValues`
+
 ## [0.31.0] - 2026-11-06
 
 ### Hinzugefügt
@@ -671,7 +681,8 @@ Meilenstein M0 – Projektgerüst.
 - Docker-Image mit Datenvolume `/data` und Beispiel-`docker-compose.yml`
 - GitHub Actions: Tests und Smoke-Test bei jedem Push, Installer als Artefakte, Docker-Image `:develop`, Release-Workflow für Tags `vX.Y.Z`
 
-[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.31.0...develop
+[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.32.0...develop
+[0.32.0]: https://github.com/rde-master/steckplan/compare/v0.31.0...v0.32.0
 [0.31.0]: https://github.com/rde-master/steckplan/compare/v0.30.0...v0.31.0
 [0.30.0]: https://github.com/rde-master/steckplan/compare/v0.29.0...v0.30.0
 [0.29.0]: https://github.com/rde-master/steckplan/compare/v0.28.1...v0.29.0
