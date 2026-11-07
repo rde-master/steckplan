@@ -12,6 +12,7 @@ import { texts } from '../../texts';
 import { ICON } from '../icons';
 import { Button } from '../ui';
 import { ItemNumber, KIND_ICONS } from './RegieView';
+import { useRegieSelection } from './regieSelection';
 import { RichTextEditor } from './RichTextEditor';
 import { PlayerBar, TimecodePanel, usePlayerTime } from './SongMedia';
 import { SoundScenesSection } from './SoundScenesSection';
@@ -21,7 +22,7 @@ const t = texts.regie.sound;
 export function SoundView({ projectId, doc, origin, data, editable }: { projectId: string; doc: Y.Doc; origin: object; data: ProjectData; editable: boolean }) {
   const narrow = useIsNarrow(900);
   const items = data.show.items;
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useRegieSelection(projectId);
   const item = items.find((i) => i.id === selectedId) ?? (narrow ? undefined : items[0]);
   const numbers = itemNumbers(items);
   const [audio, setAudio] = useState<HTMLAudioElement | null>(null);

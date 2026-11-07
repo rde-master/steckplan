@@ -28,6 +28,7 @@ import { texts } from '../../texts';
 import { ICON } from '../icons';
 import { Button, Modal, TextArea } from '../ui';
 import { ItemNumber, KIND_ICONS } from './RegieView';
+import { useRegieSelection } from './regieSelection';
 import { usePointPlayback } from '../../lib/transport';
 import { SectionsEditor } from './SectionsEditor';
 import { LyricsTimeline } from './LyricsTimeline';
@@ -39,7 +40,7 @@ const tv = texts.regie.textsView;
 export function TextsView({ projectId, doc, origin, data, editable }: { projectId: string; doc: Y.Doc; origin: object; data: ProjectData; editable: boolean }) {
   const narrow = useIsNarrow(900);
   const items = data.show.items.filter((i) => i.kind === 'song' || i.kind === 'play' || i.kind === 'announcement');
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useRegieSelection(projectId);
   const item = items.find((i) => i.id === selectedId) ?? (narrow ? undefined : items[0]);
 
   if (items.length === 0) return <p className="mx-auto max-w-2xl p-6 text-sm text-slate-500" data-testid="texts-view">{tv.empty}</p>;

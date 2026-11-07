@@ -11,6 +11,7 @@ import { texts } from '../../texts';
 import { ICON } from '../icons';
 import { Button } from '../ui';
 import { ItemNumber, KIND_ICONS } from './RegieView';
+import { useRegieSelection } from './regieSelection';
 import { ScenesSection } from './ScenesSection';
 import { PlayerBar, TimecodePanel, usePlayerTime } from './SongMedia';
 
@@ -19,7 +20,7 @@ const t = texts.light.scenesView;
 export function ScenesView({ projectId, doc, origin, data, library, editable }: { projectId: string; doc: Y.Doc; origin: object; data: ProjectData; library: Library | null; editable: boolean }) {
   const narrow = useIsNarrow(900);
   const items = data.show.items.filter((i) => i.kind === 'song' || i.kind === 'play');
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useRegieSelection(projectId);
   const item = items.find((i) => i.id === selectedId) ?? (narrow ? undefined : items[0]);
   const [audio, setAudio] = useState<HTMLAudioElement | null>(null);
   const { tc, music, sync } = usePointPlayback(item?.id, item?.durationSec, audio, item?.audioOffsetSec);
