@@ -7,6 +7,10 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+### Behoben
+
+- Weboberfläche des Desktops (http über die Netzwerkadresse): Licht- und Tonszenen, Ablauf-Einträge, Rollen und alles andere Neue ließ sich nicht anlegen, weil der Browser ohne HTTPS keine Kennungen per `crypto.randomUUID` erzeugt. Kennungen entstehen jetzt notfalls aus `crypto.getRandomValues`
+
 ## [0.31.0] - 2026-11-06
 
 ### Hinzugefügt
