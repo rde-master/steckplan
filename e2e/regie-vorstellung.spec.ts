@@ -84,7 +84,7 @@ test('Vorstellung: Regie führt, Lesen folgt; Tasten; eigenes Bedienen verlässt
 
   // Regie-PDFs im Export
   await page.goto(`/projekt/${id}?ansicht=regie`);
-  await page.getByRole('button', { name: 'Exportieren' }).click();
+  await page.getByRole('button', { name: 'Exportieren', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Exportieren' });
   for (const [label, file] of [
     ['Ablaufplan', 'Premiere - Ablaufplan.pdf'],
@@ -95,6 +95,6 @@ test('Vorstellung: Regie führt, Lesen folgt; Tasten; eigenes Bedienen verlässt
     const download = page.waitForEvent('download');
     await dialog.getByRole('button', { name: 'PDF', exact: true }).click();
     expect((await download).suggestedFilename()).toBe(file);
-    await page.getByRole('button', { name: 'Exportieren' }).click();
+    await page.getByRole('button', { name: 'Exportieren', exact: true }).click();
   }
 });
