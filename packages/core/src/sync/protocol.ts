@@ -23,7 +23,7 @@ export interface Cue {
 }
 
 /** Fernsteuerung der Vorstellung (OSC bzw. HTTP) */
-export const REMOTE_ACTIONS = ['play', 'pause', 'stop', 'toggle', 'forward', 'back', 'seek', 'item', 'next', 'prev', 'sceneNext', 'scenePrev', 'tcForward', 'tcBack'] as const;
+export const REMOTE_ACTIONS = ['play', 'pause', 'stop', 'toggle', 'forward', 'back', 'seek', 'item', 'next', 'prev', 'sceneNext', 'scenePrev', 'tcForward', 'tcBack', 'tap'] as const;
 export type RemoteAction = (typeof REMOTE_ACTIONS)[number];
 export interface RemoteCommand {
   action: RemoteAction;

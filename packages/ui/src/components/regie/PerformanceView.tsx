@@ -3,6 +3,14 @@
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Keyboard, ListMusic, Monitor, Radio, UserRound, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
+  addTap,
+  DEFAULT_TIME_SIGNATURE,
+  parseTimeSignature,
+  TAP_RESET_SEC,
+  tapProgress,
+  tapTempo,
+  updateShowItem,
+  type Tap,
   currentLineId,
   currentSceneId,
   formatDuration,
@@ -25,6 +33,8 @@ import { texts } from '../../texts';
 import { Button } from '../ui';
 import { openLyricsWindow, useCueClock, useLocalCueSender, type ReceivedCue } from './LyricsWindow';
 import { ItemNumber, KIND_ICONS } from './RegieView';
+import { BeatPanel } from './BeatPanel';
+import type * as Y from 'yjs';
 import { RichTextView } from './RichTextEditor';
 import { SceneProgress, type SceneMark } from './SceneProgress';
 import { hasRichText } from '../../lib/richText';
@@ -71,8 +81,17 @@ function readSide(): Side {
   }
 }
 
+/** Herkunft der Änderungen aus der Vorstellung (Tap-Tempo) */
+const PERFORMANCE_ORIGIN = { source: 'performance' };
+
+/** Zeitpunkt eines Taps (Sekunden, monoton) */
+function tapClock(): number {
+  return performance.now() / 1000;
+}
+
 export function PerformanceView({
   projectId,
+  doc,
   data,
   library,
   sync,
@@ -82,6 +101,8 @@ export function PerformanceView({
   onClose,
 }: {
   projectId: string;
+  /** zum Speichern des getappten Tempos (nur wer die Regie bearbeiten darf) */
+  doc?: Y.Doc;
   data: ProjectData;
   library: Library | null;
   sync: SyncClientState;
@@ -236,6 +257,26 @@ export function PerformanceView({
   };
 
 
+  // Tap-Tempo: zwei volle Takte tippen (Knopf, Taste T, OSC /steckplan/tap) – dann übernimmt das Lied das Tempo,
+  // beim Abspielen auch die Lage der „1“ (der erste Tap); mit jedem weiteren vollen Takt erneut. Gespeichert im Lied.
+  const [tapState, setTapState] = useState<{ itemId: string; taps: Tap[] } | null>(null);
+  const taps = tapState && tapState.itemId === item?.id ? tapState.taps : [];
+  const beats = parseTimeSignature(item?.timeSignature).beats;
+  useEffect(() => {
+    if (!tapState) return;
+    const timer = window.setTimeout(() => setTapState(null), TAP_RESET_SEC * 1000);
+    return () => window.clearTimeout(timer);
+  }, [tapState]);
+  const doTap = () => {
+    if (!item) return;
+    const next = addTap(taps, { wall: tapClock(), ...(audio.paused ? {} : { at: audio.currentTime }) });
+    setTapState({ itemId: item.id, taps: next });
+    const result = tapTempo(next, beats);
+    if (result && doc && canLead) {
+      updateShowItem(doc, item.id, { bpm: result.bpm, ...(result.offset !== undefined ? { beatOffsetSec: result.offset } : {}), ...(item.timeSignature ? {} : { timeSignature: DEFAULT_TIME_SIGNATURE }) }, PERFORMANCE_ORIGIN);
+    }
+  };
+
   // Fernsteuerung (OSC/HTTP): ausführen, wenn diese Vorstellung führt – führt niemand, wenn sie nicht folgt.
   // Ohne „Mit Musik“ wirken Start/Pause/Stopp/Spulen auf Timecode und Musik gemeinsam.
   const [remoteNote, setRemoteNote] = useState('');
@@ -289,6 +330,9 @@ export function PerformanceView({
         // nur der Timecode (mit „Mit Musik“ hängt die Musik daran)
         seekAudio(tc, tc.currentTime + (command.action === 'tcBack' ? -v : v));
         break;
+      case 'tap':
+        doTap();
+        break;
     }
   };
   const runRemote = (command: RemoteCommand) => {
@@ -339,7 +383,9 @@ export function PerformanceView({
                       ? { action: 'toggle' }
                       : lower === 's' || k === 'Home'
                         ? { action: 'stop' }
-                        : null;
+                        : lower === 't'
+                          ? { action: 'tap' }
+                          : null;
     if (command) {
       takeOver();
       perform(command);
@@ -653,6 +699,18 @@ export function PerformanceView({
       )}
 
       <footer className="flex shrink-0 items-end gap-3 border-t border-slate-800 pt-2 pr-6 pl-3 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+        {/* Tempo und Takt links neben dem Player */}
+        {item && (item.kind === 'song' || item.bpm !== undefined) && (
+          <BeatPanel
+            bpm={item.bpm}
+            signature={item.timeSignature}
+            offset={item.beatOffsetSec}
+            getTime={following ? () => time : () => audio.currentTime}
+            playing={playing}
+            {...(!following ? { onTap: () => (takeOver(), doTap()) } : {})}
+            tap={taps.length ? tapProgress(taps, beats) : null}
+          />
+        )}
         <div className="min-w-0 flex-1">
         {/* Folgen: keine eigenen Bedienknöpfe (Audio, Szenen, Timecode) – „Frei“ wählen, um selbst zu bedienen */}
         {item && !following && (

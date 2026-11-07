@@ -53,6 +53,9 @@ describe('OSC', () => {
     expect(cmd('/steckplan/tc/forward')).toEqual({ action: 'tcForward', value: 0.1 });
     expect(cmd('/steckplan/tc/back')).toEqual({ action: 'tcBack', value: 0.1 });
     expect(cmd('/steckplan/tc/back', [0.04])).toEqual({ action: 'tcBack', value: 0.04 });
+    expect(cmd('/steckplan/tap')).toEqual({ action: 'tap' });
+    expect(cmd('/steckplan/tap', [1])).toEqual({ action: 'tap' });
+    expect(cmd('/steckplan/tap', [0])).toBeNull(); // Loslassen eines Tasters
     expect(cmd('/steckplan/tc/forward', [0])).toBeNull();
     expect(cmd('/steckplan/scene/next')).toEqual({ action: 'sceneNext' });
     expect(cmd('/steckplan/unbekannt')).toBeNull();

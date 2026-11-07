@@ -53,6 +53,7 @@ const COMMANDS: CommandInfo[] = [
   { key: 'scenePrev', action: 'scenePrev', address: '/steckplan/scene/prev', meaning: t.meanings.scenePrev },
   { key: 'tcForward', action: 'tcForward', address: '/steckplan/tc/forward', value: { label: t.seconds, example: 0.1, optional: true }, meaning: t.meanings.tcForward },
   { key: 'tcBack', action: 'tcBack', address: '/steckplan/tc/back', value: { label: t.seconds, example: 0.1, optional: true }, meaning: t.meanings.tcBack },
+  { key: 'tap', action: 'tap', address: '/steckplan/tap', meaning: t.meanings.tap },
 ];
 
 export function OscPage() {
