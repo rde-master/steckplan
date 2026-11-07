@@ -1,7 +1,7 @@
 // Übersicht aller OSC-Befehle der Vorstellung: Adresse, Wert, Wirkung, Beispiel, HTTP-Gegenstück –
 // dazu der Zustand des Empfangs und je Befehl „Ausprobieren“ (schickt ihn über HTTP an die offene Vorstellung).
 import { Play } from 'lucide-react';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { can, type RemoteAction } from '@steckplan/core';
 import { AppHeader, MainNav } from '../components/AppHeader';
 import { Banner, Button, Spinner } from '../components/ui';
@@ -53,6 +53,7 @@ const COMMANDS: CommandInfo[] = [
   { key: 'scenePrev', action: 'scenePrev', address: '/steckplan/scene/prev', meaning: t.meanings.scenePrev },
   { key: 'tcForward', action: 'tcForward', address: '/steckplan/tc/forward', value: { label: t.seconds, example: 0.1, optional: true }, meaning: t.meanings.tcForward },
   { key: 'tcBack', action: 'tcBack', address: '/steckplan/tc/back', value: { label: t.seconds, example: 0.1, optional: true }, meaning: t.meanings.tcBack },
+  { key: 'tap', action: 'tap', address: '/steckplan/tap', meaning: t.meanings.tap },
 ];
 
 export function OscPage() {
@@ -138,6 +139,7 @@ export function OscPage() {
             </tbody>
           </table>
         </div>
+        <DeskCueSection canTry={canTry} />
         <section className="space-y-1 rounded-lg border border-slate-200 bg-white p-4 text-sm dark:border-slate-700 dark:bg-slate-900" data-testid="osc-grandma3-help">
           <h2 className="font-semibold">{t.grandma3.title}</h2>
           <ol className="list-decimal space-y-1 pl-5">
@@ -150,5 +152,65 @@ export function OscPage() {
         <p className="text-xs text-slate-500">{t.httpHint}</p>
       </main>
     </div>
+  );
+}
+
+/** Lichtpult-Cue als Text: Adresse, Beispiel, Ausprobieren und die letzten zehn */
+function DeskCueSection({ canTry }: { canTry: boolean }) {
+  const d = t.desk;
+  const load = useCallback(() => api.getDeskCues(), []);
+  const { data, reload } = useLoader(load);
+  const [text, setText] = useState('Cue 1');
+  const [error, setError] = useState<string | null>(null);
+  const cues = data?.cues ?? [];
+  // neue Cues vom Pult ohne Neuladen zeigen
+  useEffect(() => {
+    const timer = window.setInterval(reload, 3000);
+    return () => window.clearInterval(timer);
+  }, [reload]);
+  return (
+    <section className="space-y-2 rounded-lg border border-slate-200 bg-white p-4 text-sm dark:border-slate-700 dark:bg-slate-900" data-testid="osc-desk-cue">
+      <h2 className="font-semibold">{d.title}</h2>
+      <p>{d.intro}</p>
+      <p>
+        <span className="font-mono">{d.address}</span> · {d.value} · <span className="font-mono text-xs">{d.example}</span>
+      </p>
+      <p className="text-xs text-slate-500">{d.macro}</p>
+      {canTry && (
+        <div className="flex flex-wrap items-center gap-2">
+          <input aria-label={d.text} className="w-48 rounded border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-800" value={text} onChange={(e) => setText(e.target.value)} />
+          <Button
+            variant="secondary"
+            className="min-h-8 px-2 py-0.5 text-xs"
+            aria-label={`${t.columns.try}: ${d.address}`}
+            onClick={() => {
+              setError(null);
+              void api
+                .sendDeskCue(text)
+                .then(() => reload())
+                .catch((e: unknown) => setError(errorMessage(e)));
+            }}
+          >
+            <Play size={12} aria-hidden /> {t.send}
+          </Button>
+        </div>
+      )}
+      {error && <Banner tone="error">{error}</Banner>}
+      <div>
+        <div className="text-xs font-semibold text-slate-500">{d.history}</div>
+        {cues.length === 0 ? (
+          <p className="text-slate-500">{d.empty}</p>
+        ) : (
+          <ol className="text-sm" data-testid="osc-desk-history">
+            {cues.map((c, i) => (
+              <li key={`${c.at}-${i}`} className={i === 0 ? 'font-semibold' : 'text-slate-500'}>
+                <span className="mr-2 text-xs tabular-nums">{formatDateTime(c.at)}</span>
+                {c.text}
+              </li>
+            ))}
+          </ol>
+        )}
+      </div>
+    </section>
   );
 }

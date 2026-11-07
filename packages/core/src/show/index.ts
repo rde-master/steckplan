@@ -3,3 +3,4 @@ export * from './light';
 export * from './scenes';
 export * from './sound';
 export * from './transfer';
+export * from './beat';

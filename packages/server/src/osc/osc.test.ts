@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { oscToCommand, parseOsc } from './osc';
+import { oscToCommand, oscToDeskCue, parseOsc } from './osc';
 
 function pad(s: string): Buffer {
   const b = Buffer.from(`${s}\0`, 'utf8');
@@ -53,6 +53,15 @@ describe('OSC', () => {
     expect(cmd('/steckplan/tc/forward')).toEqual({ action: 'tcForward', value: 0.1 });
     expect(cmd('/steckplan/tc/back')).toEqual({ action: 'tcBack', value: 0.1 });
     expect(cmd('/steckplan/tc/back', [0.04])).toEqual({ action: 'tcBack', value: 0.04 });
+    expect(cmd('/steckplan/tap')).toEqual({ action: 'tap' });
+    // Lichtpult-Cue als Text (kein Befehl)
+    expect(cmd('/steckplan/cue', ['Cue 1'])).toBeNull();
+    expect(oscToDeskCue({ address: '/steckplan/cue', args: ['Cue 12', 'Intro'] })).toBe('Cue 12 Intro');
+    expect(oscToDeskCue({ address: '/steckplan/cue', args: [12.5] })).toBe('12.5');
+    expect(oscToDeskCue({ address: '/steckplan/cue', args: [] })).toBeNull();
+    expect(oscToDeskCue({ address: '/steckplan/play', args: ['x'] })).toBeNull();
+    expect(cmd('/steckplan/tap', [1])).toEqual({ action: 'tap' });
+    expect(cmd('/steckplan/tap', [0])).toBeNull(); // Loslassen eines Tasters
     expect(cmd('/steckplan/tc/forward', [0])).toBeNull();
     expect(cmd('/steckplan/scene/next')).toEqual({ action: 'sceneNext' });
     expect(cmd('/steckplan/unbekannt')).toBeNull();

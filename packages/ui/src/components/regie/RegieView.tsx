@@ -1,9 +1,19 @@
 // Regie (M11a): Ablauf links, gewählter Eintrag rechts (Angaben, Rollen, Texte).
 // Auf dem Handy erst der Ablauf, Antippen öffnet den Eintrag.
-import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Clapperboard, Coffee, Copy, Drama, GripVertical, Link2, ListOrdered, Megaphone, Monitor, Music, Settings2, Trash2, type LucideIcon } from 'lucide-react';
-import { useState, type DragEvent, type ReactNode } from 'react';
+import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Clapperboard, Coffee, Copy, Drama, GripVertical, Link2, ListOrdered, Megaphone, Monitor, Music, Settings2, Trash2, X, type LucideIcon } from 'lucide-react';
+import { useEffect, useState, type DragEvent, type ReactNode } from 'react';
 import type * as Y from 'yjs';
 import {
+  addTap,
+  BPM_MAX,
+  BPM_MIN,
+  DEFAULT_TIME_SIGNATURE,
+  parseTimeSignature,
+  TAP_RESET_SEC,
+  tapProgress,
+  tapTempo,
+  TIME_SIGNATURES,
+  type Tap,
   addShowItem,
   itemTimedLines,
   itemNumbers,
@@ -36,6 +46,7 @@ import { texts } from '../../texts';
 import { ICON } from '../icons';
 import { Button, Field, TextArea, TextInput } from '../ui';
 import { LightSetupView } from './LightSetupView';
+import { useRegieSelection } from './regieSelection';
 import { formatSceneTime, parseSceneTime } from './ScenesSection';
 import { ScenesView } from './ScenesView';
 import { SoundView } from './SoundView';
@@ -120,7 +131,7 @@ function readArea(): Area {
 function ShowView({ projectId, doc, origin, data, editable }: { projectId: string; doc: Y.Doc; origin: object; data: ProjectData; library: Library | null; editable: boolean }) {
   const narrow = useIsNarrow(900);
   const { items, sections } = data.show;
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useRegieSelection(projectId);
   const selected = items.find((i) => i.id === selectedId) ?? (narrow ? undefined : items[0]);
   const schedule = showSchedule(items, data.showSettings);
   const numbers = itemNumbers(items);
@@ -209,6 +220,7 @@ function ShowView({ projectId, doc, origin, data, editable }: { projectId: strin
                   <span className="w-11 shrink-0 tabular-nums text-xs text-slate-500">{entry?.clock ?? `+${formatDuration(entry?.offsetSec ?? 0)}`}</span>
                   <Icon size={16} className="shrink-0 text-slate-500" aria-label={t.kinds[item.kind]} />
                   <span className={`min-w-0 flex-1 truncate ${item.kind === 'break' ? 'italic text-slate-600 dark:text-slate-300' : 'font-medium'}`}>{item.title || t.untitled}</span>
+                  <ItemColors item={item} />
                   <span className="shrink-0 tabular-nums text-xs text-slate-500">{item.durationSec !== undefined ? formatDuration(item.durationSec) : '–'}</span>
                 </button>
               </li>
@@ -337,6 +349,16 @@ function ItemDetail({
         <div className="sm:col-start-2">
           <NumberField number={number} taken={[...numbers].some(([id, n]) => id !== item.id && n === number)} editable={editable} onChange={(n) => set({ number: n })} />
         </div>
+        {item.kind === 'song' && (
+          <div className="sm:col-span-2">
+            <ColorFields primary={item.primaryColor} secondary={item.secondaryColor} editable={editable} onChange={(patch) => set(patch)} />
+          </div>
+        )}
+        {item.kind === 'song' && (
+          <div className="sm:col-start-2">
+            <TempoField key={`${item.id}:${item.bpm ?? ''}`} bpm={item.bpm} signature={item.timeSignature} editable={editable} onChange={(patch) => set(patch)} />
+          </div>
+        )}
         {(item.media?.length ?? 0) > 0 && (
           <div className="sm:col-start-2">
             <OffsetField key={`${item.id}:${item.audioOffsetSec ?? 0}`} value={item.audioOffsetSec} editable={editable} onChange={(audioOffsetSec) => set({ audioOffsetSec })} />
@@ -436,6 +458,50 @@ function OffsetField({ value, editable, onChange }: { value: number | undefined;
 }
 
 /** Nummer des Ablaufpunkts (Stunde im Timecode) */
+/** Farbpunkte eines Lieds (Grund- und Sekundärfarbe), z. B. in Listen */
+export function ItemColors({ item, size = 'sm' }: { item: Pick<ShowItem, 'primaryColor' | 'secondaryColor'>; size?: 'sm' | 'lg' }) {
+  if (!item.primaryColor && !item.secondaryColor) return null;
+  const dot = size === 'lg' ? 'h-4 w-4' : 'h-3 w-3';
+  return (
+    <span className="flex shrink-0 items-center gap-0.5" title={t.fields.colors} data-testid="item-colors">
+      {[item.primaryColor, item.secondaryColor].map((c, i) =>
+        c ? <span key={i} className={`${dot} rounded-full border border-black/20 dark:border-white/30`} style={{ background: c }} data-testid={i === 0 ? 'item-primary-color' : 'item-secondary-color'} /> : null,
+      )}
+    </span>
+  );
+}
+
+/** Grundfarbe und Sekundärfarbe eines Lieds (je mit „entfernen“) */
+function ColorFields({ primary, secondary, editable, onChange }: { primary: string | undefined; secondary: string | undefined; editable: boolean; onChange: (patch: { primaryColor?: string; secondaryColor?: string }) => void }) {
+  const field = (key: 'primaryColor' | 'secondaryColor', label: string, value: string | undefined, fallback: string) => (
+    <div className="flex items-center gap-2">
+      <label className="flex items-center gap-2 text-sm">
+        <input
+          type="color"
+          aria-label={label}
+          className={`h-9 w-12 cursor-pointer rounded border border-slate-300 bg-transparent p-0.5 dark:border-slate-600 ${value ? '' : 'opacity-40'}`}
+          value={value ?? fallback}
+          disabled={!editable}
+          onChange={(e) => onChange({ [key]: e.target.value })}
+        />
+        {label}
+      </label>
+      {value && editable && (
+        <Button variant="ghost" className="min-h-7 px-1.5 text-xs" aria-label={`${label} ${t.fields.colorRemove}`} title={t.fields.colorRemove} onClick={() => onChange({ [key]: undefined })}>
+          <X size={14} aria-hidden />
+        </Button>
+      )}
+      {!value && <span className="text-xs text-slate-500">{t.fields.colorNone}</span>}
+    </div>
+  );
+  return (
+    <div className="flex flex-wrap items-center gap-x-6 gap-y-2" data-testid="color-fields">
+      {field('primaryColor', t.fields.primaryColor, primary, '#0ea5e9')}
+      {field('secondaryColor', t.fields.secondaryColor, secondary, '#f59e0b')}
+    </div>
+  );
+}
+
 export function ItemNumber({ number }: { number: number | undefined }) {
   return (
     <span className="w-7 shrink-0 rounded bg-slate-800 px-1 text-center font-mono text-xs font-semibold text-emerald-400 tabular-nums dark:bg-black" title={number !== undefined ? t.numberTitle(number) : undefined} data-testid="item-number">
@@ -467,6 +533,79 @@ function NumberField({ number, taken, editable, onChange }: { number: number; ta
       />
     </Field>
   );
+}
+
+/** Tempo (BPM, auch per Tap) und Taktart eines Lieds */
+function TempoField({ bpm, signature, editable, onChange }: { bpm: number | undefined; signature: string | undefined; editable: boolean; onChange: (patch: { bpm?: number; timeSignature?: string; beatOffsetSec?: number }) => void }) {
+  const [draft, setDraft] = useState(bpm !== undefined ? String(bpm).replace('.', ',') : '');
+  const value = draft.trim() === '' ? undefined : Number(draft.replace(',', '.'));
+  const invalid = value !== undefined && (!Number.isFinite(value) || value < BPM_MIN || value > BPM_MAX);
+  const [taps, setTaps] = useState<Tap[]>([]);
+  const beats = parseTimeSignature(signature).beats;
+  useEffect(() => {
+    if (!taps.length) return;
+    const timer = window.setTimeout(() => setTaps([]), TAP_RESET_SEC * 1000);
+    return () => window.clearTimeout(timer);
+  }, [taps]);
+  const progress = taps.length ? tapProgress(taps, beats) : null;
+  return (
+    <div className="space-y-1.5" data-testid="tempo-field">
+      <div className="flex items-end gap-2">
+        <Field label={t.fields.bpm}>
+          <TextInput
+            value={draft}
+            inputMode="decimal"
+            placeholder="120"
+            aria-invalid={invalid}
+            disabled={!editable}
+            onChange={(e) => setDraft(e.target.value)}
+            onBlur={() => {
+              // neues Tempo von Hand: Lage der „1“ gilt nicht mehr
+              if (!invalid && value !== bpm) onChange({ bpm: value === undefined ? undefined : Math.round(value * 10) / 10, beatOffsetSec: undefined, ...(value !== undefined && !signature ? { timeSignature: DEFAULT_TIME_SIGNATURE } : {}) });
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+            }}
+          />
+        </Field>
+        <Field label={t.fields.timeSignature}>
+          <select
+            aria-label={t.fields.timeSignature}
+            className="rounded-md border border-slate-300 bg-white px-2 py-2 text-sm dark:border-slate-600 dark:bg-slate-800"
+            value={signature ?? DEFAULT_TIME_SIGNATURE}
+            disabled={!editable}
+            onChange={(e) => onChange({ timeSignature: e.target.value })}
+          >
+            {TIME_SIGNATURES.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
+        </Field>
+      </div>
+      {editable && (
+        <Button
+          variant="secondary"
+          className="w-full text-xs"
+          title={t.fields.tapHint}
+          onClick={() => {
+            const next = addTap(taps, { wall: tapClock() });
+            setTaps(next);
+            const result = tapTempo(next, beats);
+            if (result) onChange({ bpm: result.bpm, beatOffsetSec: undefined, ...(signature ? {} : { timeSignature: DEFAULT_TIME_SIGNATURE }) });
+          }}
+        >
+          {progress ? t.fields.tapProgress(progress.count, progress.remaining) : t.fields.tap}
+        </Button>
+      )}
+    </div>
+  );
+}
+
+/** Zeitpunkt eines Taps (Sekunden, monoton) */
+function tapClock(): number {
+  return performance.now() / 1000;
 }
 
 function DurationField({ value, editable, onChange }: { value: number | undefined; editable: boolean; onChange: (sec: number | undefined) => void }) {

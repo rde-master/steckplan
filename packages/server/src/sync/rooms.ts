@@ -1,7 +1,7 @@
 // Verwaltung aller geöffneten Projekte (Räume) und Annahme von WebSocket-Verbindungen.
 import type { FastifyRequest } from 'fastify';
 import type { WebSocket } from 'ws';
-import { CloseCode, type RemoteCommand } from '@steckplan/core';
+import { CloseCode, type DeskCue, type RemoteCommand } from '@steckplan/core';
 import type { Session, SessionStore } from '../auth/sessions';
 import { ProjectNotFoundError, type ProjectStore } from '../storage/types';
 import type { VersionStore } from '../storage/version-store';
@@ -114,6 +114,11 @@ export class RoomManager {
     }
     for (const room of targets) room.remote(command);
     return targets.length;
+  }
+
+  /** Lichtpult-Cues an alle geöffneten Projekte */
+  deskCues(cues: DeskCue[]): void {
+    for (const room of this.rooms.values()) room.deskCues(cues);
   }
 
   disconnectSession(sessionId: string, reason = 'Abgemeldet'): void {

@@ -26,6 +26,7 @@ import type { VersionStore } from './storage/version-store';
 import { RoomManager } from './sync/rooms';
 import { udpSender, type TimecodeSender } from './sync/artnet';
 import { OscListener, OscSettingsStore } from './osc/listener';
+import { DeskCueStore } from './osc/desk-cues';
 import { registerRemoteRoutes } from './routes/remote';
 
 export interface ServerOptions {
@@ -94,7 +95,10 @@ export async function createServer(options: ServerOptions): Promise<SteckplanSer
     trustProxy: options.trustProxy ?? false,
   });
 
+  // Lichtpult: zuletzt gelaufene Cues (OSC /steckplan/cue bzw. HTTP), an alle geöffneten Projekte
+  const deskCues = new DeskCueStore();
   const rooms = new RoomManager({
+    deskCues: () => deskCues.list,
     store: options.store,
     versions: options.versions,
     sessions: options.sessions,
@@ -129,10 +133,15 @@ export async function createServer(options: ServerOptions): Promise<SteckplanSer
   // Fernsteuerung der Vorstellung: OSC (UDP) und HTTP geben Befehle an die Projekte
   const remote = (command: RemoteCommand, projectId?: string) => rooms.remote(command, projectId);
   const oscSettings = options.osc ?? new OscSettingsStore();
-  const osc = new OscListener((command) => remote(command), {
-    info: (msg) => app.log.info(msg),
-    warn: (msg) => app.log.warn(msg),
-  });
+  deskCues.onChange((cues) => rooms.deskCues(cues));
+  const osc = new OscListener(
+    (command) => remote(command),
+    {
+      info: (msg) => app.log.info(msg),
+      warn: (msg) => app.log.warn(msg),
+    },
+    (text) => void deskCues.push(text),
+  );
   await osc.apply(oscSettings.settings);
 
   app.addHook('onClose', async () => {
@@ -170,7 +179,7 @@ export async function createServer(options: ServerOptions): Promise<SteckplanSer
   });
 
   registerProjectRoutes(app, rooms, options.usage, options.media);
-  registerRemoteRoutes(app, { settings: oscSettings, listener: osc, remote });
+  registerRemoteRoutes(app, { settings: oscSettings, listener: osc, remote, deskCues });
   if (options.labelQr) {
     registerLabelQrRoutes(app, {
       store: options.store,

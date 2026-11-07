@@ -23,7 +23,7 @@ export interface Cue {
 }
 
 /** Fernsteuerung der Vorstellung (OSC bzw. HTTP) */
-export const REMOTE_ACTIONS = ['play', 'pause', 'stop', 'toggle', 'forward', 'back', 'seek', 'item', 'next', 'prev', 'sceneNext', 'scenePrev', 'tcForward', 'tcBack'] as const;
+export const REMOTE_ACTIONS = ['play', 'pause', 'stop', 'toggle', 'forward', 'back', 'seek', 'item', 'next', 'prev', 'sceneNext', 'scenePrev', 'tcForward', 'tcBack', 'tap'] as const;
 export type RemoteAction = (typeof REMOTE_ACTIONS)[number];
 export interface RemoteCommand {
   action: RemoteAction;
@@ -43,6 +43,15 @@ export function parseRemoteCommand(action: unknown, value?: unknown): RemoteComm
   const relative = a === 'forward' || a === 'back' || a === 'tcForward' || a === 'tcBack';
   return { action: a, ...(n !== undefined ? { value: relative ? Math.abs(n) : n } : {}) };
 }
+
+/** Zuletzt gelaufener Cue des Lichtpults (per OSC als Text) mit Empfangszeit */
+export interface DeskCue {
+  text: string;
+  at: string;
+}
+/** so viele Cues merkt sich der Server (neueste zuerst) */
+export const DESK_CUE_HISTORY = 10;
+export const DESK_CUE_MAX_LENGTH = 200;
 
 /** Wer führt und wo die Vorstellung gerade steht */
 export interface LeadInfo extends Cue {
@@ -85,7 +94,9 @@ export type ServerInfo =
   | { type: 'notice'; message: string }
   | { type: 'lead'; lead: LeadInfo | null }
   /** Fernsteuerung: ausführen soll die führende Vorstellung, führt niemand, jede nicht folgende */
-  | { type: 'remote'; command: RemoteCommand };
+  | { type: 'remote'; command: RemoteCommand }
+  /** Lichtpult: zuletzt gelaufene Cues (neueste zuerst) */
+  | { type: 'deskCues'; cues: DeskCue[] };
 
 export function encodeInfo(info: ServerInfo): Uint8Array {
   const encoder = encoding.createEncoder();

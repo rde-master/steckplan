@@ -1,6 +1,6 @@
 {
   "name": "@steckplan/desktop",
-  "version": "0.32.0",
+  "version": "0.33.0",
   "productName": "Steckplan",
   "private": true,
   "description": "Steckplan – Planung von Licht-, Ton- und Netzwerktechnik für Veranstaltungen",

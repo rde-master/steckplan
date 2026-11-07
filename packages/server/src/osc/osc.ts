@@ -100,6 +100,7 @@ const ADDRESSES: Record<string, RemoteAction> = {
   'scene/prev': 'scenePrev',
   'tc/forward': 'tcForward',
   'tc/back': 'tcBack',
+  tap: 'tap',
 };
 
 /** Standard-Sprungweite für /forward und /back ohne Argument (Sekunden) */
@@ -133,4 +134,14 @@ export function oscToCommand(message: OscMessage): RemoteCommand | null {
     return parseRemoteCommand(action, value ?? (action === 'tcForward' || action === 'tcBack' ? DEFAULT_TC_NUDGE : DEFAULT_NUDGE));
   }
   return parseRemoteCommand(action, takesValue ? value : undefined);
+}
+
+/** Lichtpult-Cue als Text: /steckplan/cue mit Text (oder Zahl, z. B. 12.5); mehrere Werte werden verbunden */
+export const DESK_CUE_ADDRESS = '/steckplan/cue';
+
+export function oscToDeskCue(message: OscMessage): string | null {
+  if (message.address !== DESK_CUE_ADDRESS) return null;
+  const parts = message.args.filter((a): a is string | number => typeof a === 'string' || typeof a === 'number').map((a) => String(a).trim());
+  const text = parts.filter(Boolean).join(' ');
+  return text ? text : null;
 }
