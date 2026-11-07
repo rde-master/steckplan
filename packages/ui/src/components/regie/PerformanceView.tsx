@@ -626,6 +626,13 @@ export function PerformanceView({
             getTime={() => audio.currentTime}
             playing={playing}
             onSeek={(sec) => perform({ action: 'seek', value: sec })}
+            lightScenes={scenes.map((s, i) => ({ id: s.id, number: i + 1, name: s.name, at: sceneTime(s, plainLines), current: i === sceneIndex }))}
+            soundScenes={soundScenes.map((s, i) => ({ id: s.id, number: i + 1, name: s.name, at: sceneTime(s, plainLines), current: i === soundIndex }))}
+            onScene={(kind, s) => {
+              // dorthin springen; Lichtszene ohne Startpunkt: nur wählen
+              if (s.at !== undefined) perform({ action: 'seek', value: s.at });
+              if (kind === 'light') pick(s.id, s.at ?? audio.currentTime);
+            }}
           />
           <div className="flex flex-wrap items-center justify-center gap-x-12 gap-y-4">
             {(item.kind === 'song' || item.bpm !== undefined) && (
