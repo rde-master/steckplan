@@ -7,29 +7,19 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
-### Hinzugefügt
-
-- Lichtpult-Cue als Text per OSC (`/steckplan/cue` mit Text oder Zahl, auch HTTP `POST /api/desk-cues`): der zuletzt gelaufene Cue groß, darunter die letzten zehn mit Uhrzeit – in der Führen-Ansicht und in der Vorstellung im Bereich Licht (auch beim Folgen); die OSC-Seite zeigt Befehl, grandMA3-Beispiel, Ausprobieren und die Historie
-
-### Hinzugefügt
-
-- Grundfarbe und Sekundärfarbe je Lied (Ablauf, je entfernbar) – als Farbpunkte in der Ablaufliste, im Kopf der Vorstellung und in der Liedliste
-
-### Hinzugefügt
-
-- Führen-Ansicht, Zeitstrahl: Szenen als Balken darüber (Licht, darunter Ton; die aktuelle hervorgehoben) und rechts die Szenenliste – Klick springt dorthin
-- Zeitstrahl zoomen (Lupen, Strg + Mausrad) und mit dem Mausrad verschieben, ohne die Abspielposition zu ändern; beim Abspielen läuft der Ausschnitt mit, wenn man eine Weile nicht scrollt
-- Scrubben (Schalter, je Gerät gemerkt): mit gedrückter Maus die Abspielposition im Zeitstrahl verschieben
-
-### Hinzugefügt
-
-- Vorstellung „Führen“: eigene Oberfläche – ohne Licht- und Tonszenen (nur klein, welche Szene dran ist und welche kommt); Text klein mit voriger, aktueller und nächster Zeile samt grünem und rotem Balken; in der Mitte ein Zeitstrahl über die ganze Dauer mit Taktstrichen aus BPM und Taktart (nummeriert, Zählzeiten fein), den Textzeilen und dem Abspielstand (Klick springt); Takt-Kreis mit großem Tap und der Timecode mit sehr großen Knöpfen zentral; Szene/Eintrag vor und zurück; die Audio-Steuerung klein unten. „Frei“ und „Folgen“ bleiben wie bisher
+## [0.33.0] - 2026-11-07
 
 ### Hinzugefügt
 
 - BPM und Taktart je Lied (Ablauf; Taktarten 2/4 bis 12/8), auch per Tap (zwei volle Takte tippen)
 - Vorstellung: links neben dem Player Tempo, Taktart und ein Takt-Kreis – je Zählzeit ein Punkt, der aktuelle hervorgehoben (die „1“ bernsteinfarben), ein umlaufender Bogen im Takt, in der Mitte die Zählzeit 1, 2, 3 …; läuft mit der Musik (auch beim Folgen)
 - Tap-Tempo live in der Vorstellung: Knopf „Tap“, Taste T oder OSC `/steckplan/tap` (auch HTTP) – nach zwei vollen getappten Takten übernimmt das Lied das Tempo, beim Abspielen auch die Lage der „1“ (der erste Tap); mit jedem weiteren vollen Takt erneut; gespeichert im Lied
+- Vorstellung „Führen“: eigene Oberfläche – ohne Licht- und Tonszenen (nur klein, welche Szene dran ist und welche kommt); Text klein mit voriger, aktueller und nächster Zeile samt grünem und rotem Balken; in der Mitte ein Zeitstrahl über die ganze Dauer mit Taktstrichen aus BPM und Taktart (nummeriert, Zählzeiten fein), den Textzeilen und dem Abspielstand (Klick springt); Takt-Kreis mit großem Tap und der Timecode mit sehr großen Knöpfen zentral; Szene/Eintrag vor und zurück; die Audio-Steuerung klein unten. „Frei“ und „Folgen“ bleiben wie bisher
+- Führen-Ansicht, Zeitstrahl: Szenen als Balken darüber (Licht, darunter Ton; die aktuelle hervorgehoben) und rechts die Szenenliste – Klick springt dorthin
+- Zeitstrahl zoomen (Lupen, Strg + Mausrad) und mit dem Mausrad verschieben, ohne die Abspielposition zu ändern; beim Abspielen läuft der Ausschnitt mit, wenn man eine Weile nicht scrollt
+- Scrubben (Schalter, je Gerät gemerkt): mit gedrückter Maus die Abspielposition im Zeitstrahl verschieben
+- Grundfarbe und Sekundärfarbe je Lied (Ablauf, je entfernbar) – als Farbpunkte in der Ablaufliste, im Kopf der Vorstellung und in der Liedliste
+- Lichtpult-Cue als Text per OSC (`/steckplan/cue` mit Text oder Zahl, auch HTTP `POST /api/desk-cues`): der zuletzt gelaufene Cue groß, darunter die letzten zehn mit Uhrzeit – in der Führen-Ansicht und in der Vorstellung im Bereich Licht (auch beim Folgen); die OSC-Seite zeigt Befehl, grandMA3-Beispiel, Ausprobieren und die Historie
 
 ### Geändert
 
@@ -709,7 +699,8 @@ Meilenstein M0 – Projektgerüst.
 - Docker-Image mit Datenvolume `/data` und Beispiel-`docker-compose.yml`
 - GitHub Actions: Tests und Smoke-Test bei jedem Push, Installer als Artefakte, Docker-Image `:develop`, Release-Workflow für Tags `vX.Y.Z`
 
-[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.32.0...develop
+[Unreleased]: https://github.com/rde-master/steckplan/compare/v0.33.0...develop
+[0.33.0]: https://github.com/rde-master/steckplan/compare/v0.32.0...v0.33.0
 [0.32.0]: https://github.com/rde-master/steckplan/compare/v0.31.0...v0.32.0
 [0.31.0]: https://github.com/rde-master/steckplan/compare/v0.30.0...v0.31.0
 [0.30.0]: https://github.com/rde-master/steckplan/compare/v0.29.0...v0.30.0
