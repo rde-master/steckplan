@@ -43,6 +43,7 @@ import {
   type Resolution,
   type Secrets,
   type RemoteCommand,
+  type DeskCue,
   type ServerInfo,
 } from '@steckplan/core';
 import type { Session } from '../auth/sessions';
@@ -80,6 +81,8 @@ export interface RoomDeps {
   changeLogWindowMs?: number;
   /** Timecode per Art-Net (ohne: kein Senden) */
   artnet?: TimecodeSender;
+  /** Lichtpult: zuletzt gelaufene Cues (beim Verbinden mitgeschickt) */
+  deskCues?: () => DeskCue[];
 }
 
 /** Herkunft für Änderungen, die der Server selbst schreibt (z. B. Wiederherstellen). */
@@ -429,6 +432,13 @@ export class Room {
       }),
     );
     if (this.lead) this.send(connection, encodeInfo({ type: 'lead', lead: this.currentLead(this.lead) }));
+    const cues = this.deps.deskCues?.() ?? [];
+    if (cues.length) this.send(connection, encodeInfo({ type: 'deskCues', cues }));
+  }
+
+  /** Lichtpult-Cues an alle Verbindungen */
+  deskCues(cues: DeskCue[]): void {
+    this.broadcast(encodeInfo({ type: 'deskCues', cues }));
   }
 
   removeConnection(connection: Connection): void {

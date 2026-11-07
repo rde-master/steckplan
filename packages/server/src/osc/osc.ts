@@ -135,3 +135,13 @@ export function oscToCommand(message: OscMessage): RemoteCommand | null {
   }
   return parseRemoteCommand(action, takesValue ? value : undefined);
 }
+
+/** Lichtpult-Cue als Text: /steckplan/cue mit Text (oder Zahl, z. B. 12.5); mehrere Werte werden verbunden */
+export const DESK_CUE_ADDRESS = '/steckplan/cue';
+
+export function oscToDeskCue(message: OscMessage): string | null {
+  if (message.address !== DESK_CUE_ADDRESS) return null;
+  const parts = message.args.filter((a): a is string | number => typeof a === 'string' || typeof a === 'number').map((a) => String(a).trim());
+  const text = parts.filter(Boolean).join(' ');
+  return text ? text : null;
+}

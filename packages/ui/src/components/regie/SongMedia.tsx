@@ -268,11 +268,14 @@ export function TimecodePanel({
   tc,
   sync,
   large = false,
+  huge = false,
   follow,
 }: {
   tc: Playback & { stop(): void };
   sync: boolean;
   large?: boolean;
+  /** Führen-Ansicht: sehr große Knöpfe und Uhr, mittig */
+  huge?: boolean;
   /** beim Folgen: Timecode der führenden Vorstellung anzeigen (eigene Knöpfe aus) */
   follow?: { time: number; playing: boolean };
 }) {
@@ -282,12 +285,14 @@ export function TimecodePanel({
   const playing = follow ? follow.playing : own.playing;
   const duration = own.duration;
   const remaining = Number.isFinite(duration) ? Math.max(0, duration - time) : undefined;
-  const button = `rounded tabular-nums text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 ${large ? 'min-h-9 min-w-9 px-2 py-1.5 text-sm' : 'px-1.5 py-1 text-xs'}`;
-  const icon = large ? 20 : 16;
+  const button = huge
+    ? 'flex min-h-16 min-w-16 items-center justify-center rounded-xl border border-slate-700 bg-slate-900 px-3 text-xl font-semibold tabular-nums text-slate-100 hover:bg-slate-800 active:scale-95'
+    : `rounded tabular-nums text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 ${large ? 'min-h-9 min-w-9 px-2 py-1.5 text-sm' : 'px-1.5 py-1 text-xs'}`;
+  const icon = huge ? 34 : large ? 20 : 16;
   return (
-    <div className="flex shrink-0 flex-col items-end gap-1" data-testid="timecode-panel">
-      <div className={`flex flex-wrap items-center justify-end gap-0.5 ${follow ? 'hidden' : ''}`}>
-        <label className={`mr-1 flex items-center gap-1 text-slate-600 dark:text-slate-300 ${large ? 'text-sm' : 'text-xs'}`} title={t.tcSyncHint}>
+    <div className={`flex shrink-0 flex-col gap-1 ${huge ? 'items-center gap-3' : 'items-end'}`} data-testid="timecode-panel">
+      <div className={`flex flex-wrap items-center gap-0.5 ${huge ? 'justify-center gap-2' : 'justify-end'} ${follow ? 'hidden' : ''}`}>
+        <label className={`mr-1 flex items-center gap-1 text-slate-600 dark:text-slate-300 ${huge ? 'text-base' : large ? 'text-sm' : 'text-xs'}`} title={t.tcSyncHint}>
           <input type="checkbox" checked={sync} onChange={(e) => setTimecodeSync(e.target.checked)} />
           {t.tcSync}
         </label>
@@ -299,7 +304,7 @@ export function TimecodePanel({
             {String(d).replace('.', ',')}
           </button>
         ))}
-        <button type="button" className={`${button} text-emerald-600 dark:text-emerald-400`} aria-label={playing ? t.tcPause : t.tcStart} title={playing ? t.tcPause : t.tcStart} onClick={() => (playing ? tc.pause() : void tc.play())}>
+        <button type="button" className={`${button} text-emerald-600 dark:text-emerald-400 ${huge ? 'min-w-24 border-emerald-700' : ''}`} aria-label={playing ? t.tcPause : t.tcStart} title={playing ? t.tcPause : t.tcStart} onClick={() => (playing ? tc.pause() : void tc.play())}>
           {playing ? <Pause size={icon} aria-hidden /> : <Play size={icon} aria-hidden />}
         </button>
         {[0.1, 1, 5].map((d) => (
@@ -308,9 +313,9 @@ export function TimecodePanel({
           </button>
         ))}
       </div>
-      <TimecodeClock time={time} className={large ? 'px-4 py-2 text-3xl sm:text-5xl' : ''} />
+      <TimecodeClock time={time} className={huge ? 'px-6 py-3 text-5xl sm:text-7xl' : large ? 'px-4 py-2 text-3xl sm:text-5xl' : ''} />
       {remaining !== undefined && (
-        <span className={`font-mono font-bold tabular-nums text-red-500 ${large ? 'text-xl sm:text-3xl' : 'text-base'}`} title={t.tcRemaining} data-testid="timecode-remaining">
+        <span className={`font-mono font-bold tabular-nums text-red-500 ${huge ? 'text-2xl sm:text-4xl' : large ? 'text-xl sm:text-3xl' : 'text-base'}`} title={t.tcRemaining} data-testid="timecode-remaining">
           −{formatTimecode(remaining)}
         </span>
       )}

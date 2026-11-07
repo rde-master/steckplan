@@ -13,6 +13,14 @@ afterEach(async () => {
   server = undefined;
 });
 
+function oscString(address: string, text: string): Buffer {
+  const pad = (s: string) => {
+    const b = Buffer.from(`${s}\0`);
+    return Buffer.concat([b, Buffer.alloc((4 - (b.length % 4)) % 4)]);
+  };
+  return Buffer.concat([pad(address), pad(',s'), pad(text)]);
+}
+
 function oscMessage(address: string, int?: number): Buffer {
   const pad = (s: string) => {
     const b = Buffer.from(`${s}\0`);
@@ -71,5 +79,34 @@ describe('Fernsteuerung der Vorstellung', () => {
     expect((await server.app.inject({ method: 'PUT', url: '/api/settings/osc', headers: { cookie: await login(server, 'direction') }, payload: { enabled: false } })).statusCode).toBe(403);
     const off = (await server.app.inject({ method: 'PUT', url: '/api/settings/osc', headers: { cookie: await login(server, 'edit') }, payload: { enabled: false } })).json();
     expect(off.status.listening).toBe(false);
+  });
+
+  it('Lichtpult-Cue als Text per OSC und HTTP: alle geöffneten Projekte bekommen die letzten zehn, auch beim Verbinden', async () => {
+    const port = 40000 + Math.floor(Math.random() * 20000);
+    const osc = new OscSettingsStore();
+    await osc.update({ enabled: true, port });
+    server = await startTestServer({ osc });
+    if (!isManagedStore(server.store)) throw new Error();
+    const a = await server.store.create(createEmptyProject({ name: 'A' }));
+    const edit = await login(server, 'edit', 'Ralf');
+    const ca = connect(server, a, edit);
+    clients.push(ca);
+    await ca.whenSynced();
+    const socket = dgram.createSocket('udp4');
+    await new Promise<void>((r) => socket.send(oscString('/steckplan/cue', 'Cue 12 Intro'), port, '127.0.0.1', () => r()));
+    socket.close();
+    await waitFor(() => ca.state.deskCues[0]?.text === 'Cue 12 Intro');
+    // HTTP: Lesen darf lesen, nicht senden
+    const read = await login(server, 'read');
+    expect((await server.app.inject({ method: 'POST', url: '/api/desk-cues', headers: { cookie: read }, payload: { text: 'x' } })).statusCode).toBe(403);
+    expect((await server.app.inject({ method: 'POST', url: '/api/desk-cues', headers: { cookie: edit }, payload: { text: '  ' } })).statusCode).toBe(400);
+    for (let i = 1; i <= 11; i++) await server.app.inject({ method: 'POST', url: '/api/desk-cues', headers: { cookie: edit }, payload: { text: `Cue ${i}` } });
+    const list = (await server.app.inject({ method: 'GET', url: '/api/desk-cues', headers: { cookie: read } })).json() as { cues: { text: string }[] };
+    expect(list.cues.map((c) => c.text)).toEqual(['Cue 11', 'Cue 10', 'Cue 9', 'Cue 8', 'Cue 7', 'Cue 6', 'Cue 5', 'Cue 4', 'Cue 3', 'Cue 2']);
+    await waitFor(() => ca.state.deskCues[0]?.text === 'Cue 11');
+    // neue Verbindung bekommt den Stand sofort
+    const cb = connect(server, a, read);
+    clients.push(cb);
+    await waitFor(() => cb.state.deskCues.length === 10);
   });
 });

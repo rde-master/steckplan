@@ -3,7 +3,7 @@ import dgram from 'node:dgram';
 import { readFile } from 'node:fs/promises';
 import type { RemoteCommand } from '@steckplan/core';
 import { writeFileAtomic } from '../storage/fs-utils';
-import { oscToCommand, parseOsc } from './osc';
+import { oscToCommand, oscToDeskCue, parseOsc } from './osc';
 
 export interface OscSettings {
   enabled: boolean;
@@ -57,6 +57,8 @@ export class OscListener {
   constructor(
     private readonly onCommand: (command: RemoteCommand, address: string) => void,
     private readonly log: { info: (msg: string) => void; warn: (msg: string) => void },
+    /** Lichtpult-Cue als Text (/steckplan/cue) */
+    private readonly onDeskCue?: (text: string) => void,
   ) {}
 
   get status(): OscStatus {
@@ -103,6 +105,12 @@ export class OscListener {
       return; // kein gültiges OSC
     }
     for (const message of messages) {
+      const cue = oscToDeskCue(message);
+      if (cue !== null) {
+        this.state = { ...this.state, last: { address: message.address, at: new Date().toISOString() } };
+        this.onDeskCue?.(cue);
+        continue;
+      }
       const command = oscToCommand(message);
       if (!command) continue;
       this.state = { ...this.state, last: { address: message.address, at: new Date().toISOString() } };
