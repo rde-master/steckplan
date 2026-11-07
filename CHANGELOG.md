@@ -9,6 +9,10 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Hinzugefügt
 
+- Grundfarbe und Sekundärfarbe je Lied (Ablauf, je entfernbar) – als Farbpunkte in der Ablaufliste, im Kopf der Vorstellung und in der Liedliste
+
+### Hinzugefügt
+
 - Führen-Ansicht, Zeitstrahl: Szenen als Balken darüber (Licht, darunter Ton; die aktuelle hervorgehoben) und rechts die Szenenliste – Klick springt dorthin
 - Zeitstrahl zoomen (Lupen, Strg + Mausrad) und mit dem Mausrad verschieben, ohne die Abspielposition zu ändern; beim Abspielen läuft der Ausschnitt mit, wenn man eine Weile nicht scrollt
 - Scrubben (Schalter, je Gerät gemerkt): mit gedrückter Maus die Abspielposition im Zeitstrahl verschieben

@@ -32,7 +32,7 @@ import type { ProjectData } from '../../lib/useProjectData';
 import { texts } from '../../texts';
 import { Button } from '../ui';
 import { openLyricsWindow, useCueClock, useLocalCueSender, type ReceivedCue } from './LyricsWindow';
-import { ItemNumber, KIND_ICONS } from './RegieView';
+import { ItemColors, ItemNumber, KIND_ICONS } from './RegieView';
 import { BeatPanel } from './BeatPanel';
 import { LeadTimeline } from './LeadTimeline';
 import type * as Y from 'yjs';
@@ -477,6 +477,7 @@ export function PerformanceView({
           <h2 className="min-w-0 truncate text-lg font-semibold" data-testid="performance-title">
             {item?.title || (item ? texts.regie.untitled : t.empty)}
           </h2>
+          {item && <ItemColors item={item} size="lg" />}
           {item?.durationSec !== undefined && (
             <span className="shrink-0 text-lg tabular-nums text-slate-400" data-testid="performance-duration">
               ({formatDuration(item.durationSec)})
@@ -540,6 +541,7 @@ export function PerformanceView({
                         <ItemNumber number={numbers.get(entry.id)} />
                         <EntryIcon size={16} className="shrink-0 text-slate-400" aria-hidden />
                         <span className="min-w-0 flex-1 truncate">{entry.title || texts.regie.untitled}</span>
+                        <ItemColors item={entry} />
                         <span className="shrink-0 text-xs tabular-nums text-slate-500">{entry.durationSec !== undefined ? formatDuration(entry.durationSec) : ''}</span>
                       </button>
                     </li>
