@@ -35,6 +35,7 @@ import { openLyricsWindow, useCueClock, useLocalCueSender, type ReceivedCue } fr
 import { ItemColors, ItemNumber, KIND_ICONS } from './RegieView';
 import { BeatPanel } from './BeatPanel';
 import { LeadTimeline } from './LeadTimeline';
+import { DeskCuePanel } from './DeskCuePanel';
 import type * as Y from 'yjs';
 import { RichTextView } from './RichTextEditor';
 import { SceneProgress, type SceneMark } from './SceneProgress';
@@ -648,6 +649,7 @@ export function PerformanceView({
                 </span>
               )}
             </div>
+            <DeskCuePanel cues={sync.deskCues} className="w-72" />
           </div>
           {/* nur zur Orientierung beim Weiterschalten: welche Szene dran ist und welche als Nächstes kommt */}
           {scene && (
@@ -767,6 +769,7 @@ export function PerformanceView({
               </>
             ) : scenes.length > 0 ? (
               <>
+                <DeskCuePanel cues={sync.deskCues} />
                 <SceneProgress current={lightMark(sceneIndex)} next={lightMark(sceneIndex + 1)} time={time} nextItemTitle={nextItem ? nextItem.title || texts.regie.untitled : undefined} testPrefix="performance" />
                 {lightNote && <p className="text-lg text-slate-200" data-testid="performance-scene-note">{lightNote}</p>}
                 {/* Bild: aktuelle Szene oder Vorschau auf die nächste (je Gerät gemerkt) */}
@@ -786,7 +789,10 @@ export function PerformanceView({
                 </div>
               </>
             ) : (
-              <p className="text-slate-500">{nextItem ? t.nextItem(nextItem.title || texts.regie.untitled) : t.end}</p>
+              <>
+                <DeskCuePanel cues={sync.deskCues} />
+                <p className="text-slate-500">{nextItem ? t.nextItem(nextItem.title || texts.regie.untitled) : t.end}</p>
+              </>
             )}
           </section>
         </main>

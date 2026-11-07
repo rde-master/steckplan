@@ -1,5 +1,5 @@
 // Zugriff auf die REST-Schnittstelle des Servers.
-import type { Access, ChangeLogEntry, HealthInfo, Conflict, Library, MasterEntry, MasterKind, Project, Resolution, Template } from '@steckplan/core';
+import type { Access, ChangeLogEntry, DeskCue, HealthInfo, Conflict, Library, MasterEntry, MasterKind, Project, Resolution, Template } from '@steckplan/core';
 
 export class ApiError extends Error {
   constructor(
@@ -130,6 +130,8 @@ export const api = {
   getLabelQr: () => request<LabelQrSettings>('GET', '/api/settings/label-qr'),
   getOsc: () => request<{ settings: OscSettings; status: OscStatus }>('GET', '/api/settings/osc'),
   disconnectConnection: (projectId: string, connectionId: string) => request<void>('POST', `/api/projects/${encodeURIComponent(projectId)}/connections/${encodeURIComponent(connectionId)}/disconnect`),
+  getDeskCues: () => request<{ cues: DeskCue[] }>('GET', '/api/desk-cues'),
+  sendDeskCue: (text: string) => request<{ cues: DeskCue[] }>('POST', '/api/desk-cues', { text }),
   remote: (action: string, value?: number) => request<{ rooms: number }>('POST', '/api/remote', value !== undefined ? { action, value } : { action }),
   setOsc: (patch: Partial<OscSettings>) => request<{ settings: OscSettings; status: OscStatus }>('PUT', '/api/settings/osc', patch),
   setLabelQr: (patch: Partial<LabelQrSettings>) => request<LabelQrSettings>('PUT', '/api/settings/label-qr', patch),

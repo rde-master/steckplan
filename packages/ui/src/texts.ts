@@ -283,6 +283,17 @@ export const texts = {
     number: 'Nummer',
     columns: { address: 'OSC-Adresse', value: 'Wert', meaning: 'Wirkung', example: 'Beispiel', http: 'HTTP (POST /api/remote)', grandma3: 'grandMA3', try: 'Ausprobieren' },
     inAddress: 'Nummer in der Adresse',
+    desk: {
+      title: 'Lichtpult: letzter Cue (Text)',
+      intro: 'Das Lichtpult meldet den gerade gelaufenen Cue als Text – er erscheint in der Vorstellung (Führen und im Bereich Licht) mit den letzten zehn.',
+      address: '/steckplan/cue',
+      value: 'Text (oder Zahl)',
+      example: 'SendOSC 1 "/steckplan/cue,s,Cue 12 Intro"',
+      macro: 'grandMA3: im Cue unter „Command“ eintragen, z. B. SendOSC 1 "/steckplan/cue,s,12 Intro" – so meldet jeder Cue sich selbst.',
+      text: 'Cue-Text',
+      history: 'Letzte Cues',
+      empty: 'Noch kein Cue empfangen.',
+    },
     grandma3: {
       title: 'grandMA3',
       steps: [
@@ -497,6 +508,9 @@ export const texts = {
       nextUp: 'Als Nächstes:',
       tap: 'Tap',
       timeline: 'Zeitstrahl',
+      deskTitle: 'Lichtpult – letzter Cue',
+      deskEmpty: 'Noch kein Cue empfangen (OSC /steckplan/cue mit Text).',
+      deskHistory: 'Letzte Cues',
       timelineHint: 'Mausrad verschiebt, Strg + Mausrad zoomt – die Abspielposition bleibt',
       scrub: 'Scrubben',
       scrubHint: 'Ein: mit gedrückter Maus die Abspielposition verschieben. Aus: Klick springt dorthin',

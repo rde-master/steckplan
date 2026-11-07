@@ -9,6 +9,10 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Hinzugefügt
 
+- Lichtpult-Cue als Text per OSC (`/steckplan/cue` mit Text oder Zahl, auch HTTP `POST /api/desk-cues`): der zuletzt gelaufene Cue groß, darunter die letzten zehn mit Uhrzeit – in der Führen-Ansicht und in der Vorstellung im Bereich Licht (auch beim Folgen); die OSC-Seite zeigt Befehl, grandMA3-Beispiel, Ausprobieren und die Historie
+
+### Hinzugefügt
+
 - Grundfarbe und Sekundärfarbe je Lied (Ablauf, je entfernbar) – als Farbpunkte in der Ablaufliste, im Kopf der Vorstellung und in der Liedliste
 
 ### Hinzugefügt

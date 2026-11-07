@@ -4,7 +4,7 @@ import * as Y from 'yjs';
 import * as encoding from 'lib0/encoding';
 import * as decoding from 'lib0/decoding';
 import * as syncProtocol from 'y-protocols/sync';
-import { CloseCode, decodeInfo, encodeCue, MESSAGE_INFO, MESSAGE_SYNC, type Cue, type LeadInfo, type PresenceUser, type RemoteCommand, type ServerInfo } from './protocol';
+import { CloseCode, decodeInfo, encodeCue, MESSAGE_INFO, MESSAGE_SYNC, type Cue, type DeskCue, type LeadInfo, type PresenceUser, type RemoteCommand, type ServerInfo } from './protocol';
 import type { Access } from '../model/access';
 
 export interface SocketLike {
@@ -43,6 +43,8 @@ export interface SyncClientState {
   lead: LeadInfo | null;
   /** Empfangszeitpunkt der Stelle (performance.now) – Folgende rechnen die Abspielposition damit weiter */
   leadReceivedAt?: number;
+  /** Lichtpult: zuletzt gelaufene Cues (per OSC, neueste zuerst) */
+  deskCues: DeskCue[];
 }
 
 export interface SyncClientOptions {
@@ -79,6 +81,7 @@ export class SyncClient {
     connectionId: null,
     users: [],
     lead: null,
+    deskCues: [],
   };
 
   constructor(options: SyncClientOptions) {
@@ -218,6 +221,9 @@ export class SyncClient {
         break;
       case 'remote':
         this.onRemote?.(info.command);
+        break;
+      case 'deskCues':
+        this.setState({ deskCues: info.cues });
         break;
     }
   }
