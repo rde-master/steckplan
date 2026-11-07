@@ -34,6 +34,7 @@ import { Button } from '../ui';
 import { openLyricsWindow, useCueClock, useLocalCueSender, type ReceivedCue } from './LyricsWindow';
 import { ItemNumber, KIND_ICONS } from './RegieView';
 import { BeatPanel } from './BeatPanel';
+import { LeadTimeline } from './LeadTimeline';
 import type * as Y from 'yjs';
 import { RichTextView } from './RichTextEditor';
 import { SceneProgress, type SceneMark } from './SceneProgress';
@@ -444,6 +445,10 @@ export function PerformanceView({
   const nextAt = nextIndex >= 0 ? lines[nextIndex]!.line.atSec! : undefined;
   const startAt = currentIndex >= 0 ? (lines[currentIndex]!.line.atSec ?? 0) : 0;
   const progress = audio && nextAt !== undefined && nextAt > startAt ? Math.min(1, Math.max(0, (time - startAt) / (nextAt - startAt))) : undefined;
+  // Führen: eigene Oberfläche (ohne Licht/Ton, Zeitstrahl, Tap und Timecode groß)
+  const leadLayout = mode === 'lead';
+  const lastLineAt = lines.reduce((m, l) => Math.max(m, l.line.atSec ?? 0), 0);
+  const timelineLength = Number.isFinite(tc.duration) && tc.duration > 0 ? tc.duration : (item?.durationSec ?? Math.max(60, lastLineAt + 10));
   const progressBar = (i: number): { color: string; width: number; testId: string } | null => {
     if (progress === undefined) return null;
     if (i === currentIndex) return { color: 'bg-emerald-500', width: progress, testId: 'line-progress-current' };
@@ -581,6 +586,86 @@ export function PerformanceView({
 
       {!item ? (
         <p className="m-auto text-slate-400">{t.empty}</p>
+      ) : leadLayout ? (
+        // Führen: ohne Licht/Ton – Text klein (vorige, aktuelle, nächste), Zeitstrahl, Tap und Timecode groß
+        <main className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 py-4" data-testid="lead-view">
+          <section className="space-y-1" aria-label={texts.regie.text} data-testid="lead-text">
+            {lines.length === 0 ? (
+              <p className="text-slate-500">{texts.regie.noText}</p>
+            ) : (
+              (currentIndex < 0 ? [0] : [currentIndex - 1, currentIndex, currentIndex + 1])
+                .filter((i) => i >= 0 && i < lines.length)
+                .map((i) => {
+                  const { line } = lines[i]!;
+                  const isCurrent = i === currentIndex;
+                  const bar = progressBar(i);
+                  const at = timeLabel(i, line.atSec);
+                  return (
+                    <div key={line.id} data-current={isCurrent || undefined} data-testid="lead-line">
+                      <div className="mb-0.5 ml-[4.5rem] h-1 overflow-hidden rounded-full">
+                        {bar && <div className={`h-full rounded-full ${bar.color}`} style={{ width: `${bar.width * 100}%` }} data-testid={bar.testId} />}
+                      </div>
+                      <div className="flex items-baseline gap-2">
+                        <span className={`w-16 shrink-0 text-right text-xs tabular-nums ${at?.countdown ? 'font-semibold text-amber-400' : 'text-slate-500'}`}>{at?.text ?? ''}</span>
+                        <p className={`min-w-0 flex-1 truncate rounded px-2 py-0.5 ${isCurrent ? 'bg-sky-900 text-lg font-semibold text-white' : 'text-base text-slate-400'} ${line.direction ? 'italic' : ''}`}>
+                          {line.direction ? `(${line.text})` : line.text || ' '}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })
+            )}
+          </section>
+          <LeadTimeline
+            duration={timelineLength}
+            lines={lines}
+            currentLineId={currentLine}
+            bpm={item.bpm}
+            signature={item.timeSignature}
+            offset={item.beatOffsetSec}
+            getTime={() => audio.currentTime}
+            playing={playing}
+            onSeek={(sec) => perform({ action: 'seek', value: sec })}
+          />
+          <div className="flex flex-wrap items-center justify-center gap-x-12 gap-y-4">
+            {(item.kind === 'song' || item.bpm !== undefined) && (
+              <BeatPanel big bpm={item.bpm} signature={item.timeSignature} offset={item.beatOffsetSec} getTime={() => audio.currentTime} playing={playing} onTap={doTap} tap={taps.length ? tapProgress(taps, beats) : null} />
+            )}
+            <div className="flex flex-col items-center gap-1">
+              <TimecodePanel tc={tc} sync={withMusic} huge />
+              {data.showSettings.artnet?.enabled && (
+                <span className="text-sm text-emerald-400" data-testid="artnet-state">
+                  {t.artnetSending(data.showSettings.artnet.host)}
+                </span>
+              )}
+            </div>
+          </div>
+          {/* nur zur Orientierung beim Weiterschalten: welche Szene dran ist und welche als Nächstes kommt */}
+          {scene && (
+            <p className="text-center text-sm text-slate-400" data-testid="lead-scene">
+              {texts.light.scenes.title}: <span className="font-semibold text-slate-200" data-testid="performance-scene">{sceneIndex + 1}. {scene.name || '–'}</span>
+              {scenes[sceneIndex + 1] && (
+                <span className="ml-3">
+                  → {sceneIndex + 2}. {scenes[sceneIndex + 1]!.name || '–'}
+                </span>
+              )}
+            </p>
+          )}
+          <div className="mx-auto grid w-full max-w-4xl grid-cols-4 gap-3">
+            <NavButton label={t.prevItem} onClick={() => goItem(-1)} disabled={itemIndex <= 0}>
+              <ChevronsLeft size={30} aria-hidden />
+            </NavButton>
+            <NavButton label={t.prevScene} onClick={() => goScene(-1)} disabled={itemIndex <= 0 && sceneIndex <= 0}>
+              <ChevronLeft size={30} aria-hidden />
+            </NavButton>
+            <NavButton label={t.nextSceneButton} onClick={() => goScene(1)} disabled={itemIndex >= items.length - 1 && sceneIndex >= scenes.length - 1}>
+              <ChevronRight size={30} aria-hidden />
+            </NavButton>
+            <NavButton label={t.nextItemButton} onClick={() => goItem(1)} disabled={itemIndex >= items.length - 1}>
+              <ChevronsRight size={30} aria-hidden />
+            </NavButton>
+          </div>
+        </main>
       ) : (
         <main className="grid min-h-0 flex-1 gap-4 overflow-y-auto py-4 pr-6 pl-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:overflow-hidden">
           <section className="min-h-0 space-y-3 lg:overflow-y-auto" aria-label={texts.regie.text}>
@@ -699,8 +784,8 @@ export function PerformanceView({
       )}
 
       <footer className="flex shrink-0 items-end gap-3 border-t border-slate-800 pt-2 pr-6 pl-3 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
-        {/* Tempo und Takt links neben dem Player */}
-        {item && (item.kind === 'song' || item.bpm !== undefined) && (
+        {/* Tempo und Takt links neben dem Player (Führen: groß in der Mitte) */}
+        {item && !leadLayout && (item.kind === 'song' || item.bpm !== undefined) && (
           <BeatPanel
             bpm={item.bpm}
             signature={item.timeSignature}
@@ -735,7 +820,7 @@ export function PerformanceView({
             />
           </div>
         )}
-        {!following && (
+        {!following && !leadLayout && (
           <div className="mx-auto grid max-w-4xl grid-cols-4 gap-2 py-1">
             <NavButton label={t.prevItem} onClick={() => goItem(-1)} disabled={itemIndex <= 0}>
               <ChevronsLeft size={26} aria-hidden />
@@ -752,8 +837,8 @@ export function PerformanceView({
           </div>
         )}
         </div>
-        {/* Timecode unten rechts: gelaufene Zeit des Punkts, läuft mit dem Transport */}
-        {item && (
+        {/* Timecode unten rechts: gelaufene Zeit des Punkts, läuft mit dem Transport (Führen: groß in der Mitte) */}
+        {item && !leadLayout && (
           <div className="flex shrink-0 flex-col items-end gap-1">
             <TimecodePanel tc={tc} sync={withMusic} large follow={leadCue && leadTc !== undefined ? { time: leadTc, playing: !!(leadCue.tc?.playing ?? leadCue.playing) } : undefined} />
             {data.showSettings.artnet?.enabled && (

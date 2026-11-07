@@ -491,6 +491,7 @@ export const texts = {
         `Fernsteuerung: ${({ play: 'Start', pause: 'Pause', toggle: 'Start/Pause', stop: 'Stopp', forward: 'vor', back: 'zurück', seek: 'springen', item: 'Punkt', next: 'nächster Punkt', prev: 'voriger Punkt', sceneNext: 'nächste Szene', scenePrev: 'vorige Szene', tcForward: 'Timecode vor', tcBack: 'Timecode zurück', tap: 'Tap' } as Record<string, string>)[action] ?? action}${value !== undefined ? ` ${String(value).replace('.', ',')}` : ''}`,
       nextUp: 'Als Nächstes:',
       tap: 'Tap',
+      timeline: 'Zeitstrahl',
       tapTitle: 'Im Takt tippen (auch Taste T): nach zwei vollen Takten übernimmt das Lied das Tempo – der erste Tap ist die „1“',
       tapProgress: (remaining: number) => (remaining > 0 ? `Tap · noch ${remaining}` : 'Tap ✓'),
       keys: 'Tastenkürzel',
