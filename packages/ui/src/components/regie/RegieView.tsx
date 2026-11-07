@@ -45,6 +45,7 @@ import { MediaSection, PlayerBar, TimecodePanel, usePlayerTime } from './SongMed
 import { usePointPlayback } from '../../lib/transport';
 import { lyricsUrl, openLyricsWindow } from './LyricsWindow';
 import { LyricsSettings } from './LyricsSettings';
+import { RegieTransferButtons } from './RegieTransfer';
 
 const t = texts.regie;
 
@@ -81,6 +82,7 @@ export function RegieView(
           ))}
         </div>
         <div className="flex-1" />
+        <RegieTransferButtons doc={props.doc} origin={props.origin} editable={props.editable} />
         <LyricsButtons projectId={props.projectId} doc={props.doc} origin={props.origin} settings={props.data.showSettings} editable={props.editable} />
         <Button variant="secondary" className="shrink-0 text-sm" title={t.performance.openTitle} aria-label={t.performance.open} onClick={() => openPerformance(props.projectId)} disabled={props.data.show.items.length === 0}>
           <Clapperboard {...ICON} /> <span className="hidden sm:inline">{t.performance.open}</span>

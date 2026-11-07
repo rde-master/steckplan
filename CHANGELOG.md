@@ -7,6 +7,10 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+### Hinzugefügt
+
+- Regie: eigener Export und Import nur der Regie (Knöpfe oben rechts in der Regie). „Regie exportieren“ lädt Ablauf, Texte, Einstellungen, Licht- und Tonszenen und den Lichtaufbau als `.regie.json` herunter (ohne Audio und Bilder). „Regie importieren“ zeigt vorher, was übernommen wird und welche Geräte, Personen oder Dateien im Projekt fehlen, und fragt: vorhandene Regie ersetzen oder anhängen. Geräte und Personen werden über die Kennung oder den gleichen Namen zugeordnet – so lässt sich die Regie sichern oder in ein anderes Projekt übertragen. Geht auch mit dem Regie-Zugang
+
 ## [0.31.0] - 2026-11-06
 
 ### Hinzugefügt
