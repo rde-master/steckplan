@@ -164,6 +164,7 @@ export function parseSectionText(text: string, previous: TextLine[], roles: Show
       ...(p.roleId ? { roleId: p.roleId } : {}),
       ...(p.direction ? { direction: true } : {}),
       ...(old?.atSec !== undefined ? { atSec: old.atSec } : {}),
+      ...(old?.translation ? { translation: old.translation } : {}),
     };
   });
   // nur Rollen behalten, die schon da waren oder jetzt gebraucht werden
@@ -594,6 +595,29 @@ export function setSectionText(doc: Y.Doc, sectionId: string, text: string, orig
     sectionsMap(doc).get(sectionId)?.set('lines', result.lines);
     if (play && result.roles.length !== (item.roles ?? []).length) itemsMap(doc).get(item.id)?.set('roles', result.roles);
   }, origin);
+}
+
+/** Übersetzung eines Abschnitts als Text: je Textzeile eine Zeile */
+export function sectionTranslationText(lines: TextLine[]): string {
+  const out = lines.map((l) => l.translation ?? '');
+  while (out.length && !out[out.length - 1]) out.pop();
+  return out.join('\n');
+}
+
+/** Übersetzung setzen: Zeile n des Texts gehört zur n-ten Textzeile (leer = keine); überzählige Zeilen fallen weg */
+export function applySectionTranslation(lines: TextLine[], text: string): TextLine[] {
+  const parts = text.replace(/\r\n?/g, '\n').split('\n');
+  return lines.map((line, i) => {
+    const { translation: _old, ...rest } = line;
+    const value = parts[i]?.trim();
+    return value ? { ...rest, translation: value } : rest;
+  });
+}
+
+export function setSectionTranslation(doc: Y.Doc, sectionId: string, text: string, origin: unknown): void {
+  const section = readShow(doc).sections.find((s) => s.id === sectionId);
+  if (!section) return;
+  doc.transact(() => sectionsMap(doc).get(sectionId)?.set('lines', applySectionTranslation(section.lines, text)), origin);
 }
 
 /** Ganzen Text einfügen: hängt die erkannten Abschnitte an den Eintrag an. */

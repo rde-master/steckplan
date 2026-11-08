@@ -4,6 +4,8 @@ import { can } from '../model/access';
 import { createEmptyProject } from '../model/project';
 import { createYDocFromProject, DIRECTION_ROOTS, readProjectFromYDoc, updateTouchesOnly } from '../model/ydoc';
 import {
+  applySectionTranslation,
+  sectionTranslationText,
   addItemMedia,
   addSection,
   addShowItem,
@@ -411,5 +413,25 @@ describe('Regie: Audio-Versatz und Text', () => {
     expect(at({ id: 'i', audioOffsetText: true })).toEqual([1, undefined]);
     expect(textOffset({ audioOffsetSec: 2.5, audioOffsetText: true })).toBe(2.5);
     expect(textOffset({ audioOffsetSec: 2.5 })).toBe(0);
+  });
+});
+
+describe('Übersetzung je Zeile', () => {
+  it('Zeile n gehört zur n-ten Textzeile; bleibt beim Ändern des Texts an der Zeile', () => {
+    const lines = [
+      { id: 'a', text: 'Hallo Welt' },
+      { id: 'b', text: 'Wie geht es' },
+      { id: 'c', text: 'Gut' },
+    ];
+    const translated = applySectionTranslation(lines, 'Hello world\n\nFine\nzu viel');
+    expect(translated).toEqual([
+      { id: 'a', text: 'Hallo Welt', translation: 'Hello world' },
+      { id: 'b', text: 'Wie geht es' },
+      { id: 'c', text: 'Gut', translation: 'Fine' },
+    ]);
+    expect(sectionTranslationText(translated)).toBe('Hello world\n\nFine');
+    // Text geändert (Zeile eingefügt): Übersetzungen bleiben an ihren Zeilen
+    const { lines: edited } = parseSectionText('Hallo Welt\nNeu\nWie geht es\nGut', translated, [], false);
+    expect(edited.map((l) => l.translation)).toEqual(['Hello world', undefined, undefined, 'Fine']);
   });
 });

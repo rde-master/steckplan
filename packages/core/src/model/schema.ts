@@ -506,6 +506,8 @@ export const TextLineSchema = z.object({
   direction: z.boolean().optional(),
   /** Zeitpunkt im Lied (Sekunden) für mitlaufenden Text (ab M11b) */
   atSec: z.number().nonnegative().optional(),
+  /** Übersetzung der Zeile (fürs Textfenster) */
+  translation: z.string().optional(),
 });
 export type TextLine = z.infer<typeof TextLineSchema>;
 
@@ -690,6 +692,12 @@ export const ShowSettingsSchema = z.object({
   lyricsActiveBg: z.union([z.string().regex(/^#[0-9a-fA-F]{6}$/), z.literal('none')]).optional(),
   /** Textfenster: false = Titel des Lieds nicht anzeigen (Standard: anzeigen) */
   lyricsShowTitle: z.boolean().optional(),
+  /** Textfenster: 'block' = den ganzen Textabschnitt der aktuellen Zeile zeigen (Standard: einzelne Zeilen) */
+  lyricsMode: z.enum(['lines', 'block']).optional(),
+  /** Textfenster: false = die aktuelle Zeile nicht hervorheben (Standard: hervorheben) */
+  lyricsHighlight: z.boolean().optional(),
+  /** Textfenster: Übersetzung unter jeder Zeile zeigen */
+  lyricsTranslation: z.boolean().optional(),
   /** Restzeit im Player: ab so vielen Sekunden vor Schluss allmählich rot (Standard 30), ab so vielen blinkend (Standard 5) */
   remainWarnSec: z.number().int().min(0).max(REMAIN_MAX_WARN).optional(),
   remainBlinkSec: z.number().int().min(0).max(REMAIN_MAX_BLINK).optional(),

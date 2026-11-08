@@ -74,6 +74,26 @@ export function LyricsSettings({ projectId, doc, origin, settings, onClose }: { 
           <input type="checkbox" checked={settings.lyricsShowTitle !== false} onChange={(e) => updateShowSettings(doc, { lyricsShowTitle: e.target.checked ? undefined : false }, origin)} />
           {t.showTitle}
         </label>
+        <div className="flex flex-wrap items-center gap-4 text-sm" role="radiogroup" aria-label={t.mode} data-testid="lyrics-mode">
+          <span className="font-medium">{t.mode}</span>
+          {(['lines', 'block'] as const).map((m) => (
+            <label key={m} className="flex items-center gap-2">
+              <input type="radio" name="lyrics-mode" checked={(settings.lyricsMode ?? 'lines') === m} onChange={() => updateShowSettings(doc, { lyricsMode: m === 'lines' ? undefined : m }, origin)} />
+              {t.modes[m]}
+            </label>
+          ))}
+        </div>
+        <div className="flex flex-wrap items-center gap-4 text-sm">
+          <label className="flex items-center gap-2">
+            <input type="checkbox" checked={settings.lyricsHighlight !== false} onChange={(e) => updateShowSettings(doc, { lyricsHighlight: e.target.checked ? undefined : false }, origin)} />
+            {t.highlight}
+          </label>
+          <label className="flex items-center gap-2" title={t.translationHint}>
+            <input type="checkbox" checked={settings.lyricsTranslation === true} onChange={(e) => updateShowSettings(doc, { lyricsTranslation: e.target.checked || undefined }, origin)} />
+            {t.translation}
+          </label>
+        </div>
+        {settings.lyricsHighlight !== false && (
         <div className="flex flex-wrap items-center gap-4 text-sm" data-testid="lyrics-colors">
           <span className="font-medium">{t.activeLine}</span>
           <label className="flex items-center gap-2">
@@ -112,6 +132,9 @@ export function LyricsSettings({ projectId, doc, origin, settings, onClose }: { 
             </Button>
           )}
         </div>
+        )}
+        {(settings.lyricsMode ?? 'lines') === 'lines' && (
+          <>
         <h4 className="text-xs font-semibold text-slate-500 uppercase">{t.lines}</h4>
         <div className="flex flex-wrap items-center gap-4 text-sm">
           <label className="flex items-center gap-2">
@@ -136,6 +159,8 @@ export function LyricsSettings({ projectId, doc, origin, settings, onClose }: { 
           </label>
         </div>
         <p className="text-xs text-slate-500">{t.linesHint}</p>
+          </>
+        )}
         <h4 className="pt-2 text-xs font-semibold text-slate-500 uppercase">{t.background}</h4>
         <p className="text-xs text-slate-500">{t.backgroundHint}</p>
         {error && <Banner tone="error">{error}</Banner>}

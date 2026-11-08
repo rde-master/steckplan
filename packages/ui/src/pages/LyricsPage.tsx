@@ -102,6 +102,9 @@ export function LyricsPage({ id }: { id: string }) {
           <LyricsDisplay
             activeColor={data.showSettings.lyricsActiveColor}
             activeBg={data.showSettings.lyricsActiveBg}
+            mode={data.showSettings.lyricsMode ?? 'lines'}
+            highlight={data.showSettings.lyricsHighlight !== false}
+            translation={data.showSettings.lyricsTranslation === true}
             title={showTitle ? title : ''}
             lines={lines} currentLineId={current} roleNames={roleNames} {...lyricsRange(data.showSettings)} />
         </div>
