@@ -8,5 +8,5 @@ import { fileURLToPath } from 'node:url';
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const require = createRequire(join(root, 'apps', 'desktop', 'package.json'));
 const installer = join(dirname(require.resolve('electron/package.json')), 'install.js');
-const result = spawnSync(process.execPath, [join(root, 'scripts', 'ci', 'retry.mjs'), '5', process.execPath, installer], { stdio: 'inherit' });
+const result = spawnSync(process.execPath, [join(root, 'scripts', 'ci', 'retry.mjs'), '8', process.execPath, installer], { stdio: 'inherit' });
 process.exit(result.status ?? 1);
