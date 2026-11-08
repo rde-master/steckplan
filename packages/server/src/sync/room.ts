@@ -45,6 +45,7 @@ import {
   type RemoteCommand,
   type DeskCue,
   type ServerInfo,
+  itemTempo,
 } from '@steckplan/core';
 import type { Session } from '../auth/sessions';
 import type { LibraryChange, LibraryStore } from '../library/library-store';
@@ -53,6 +54,7 @@ import type { ProjectStore } from '../storage/types';
 import { ActivityTracker, STAMP_ORIGIN, type Actor } from './activity';
 import { VERSION_INTERVAL_MS, type VersionInfo, type VersionStore } from '../storage/version-store';
 import { ArtNetTimecode, type ArtNetConfig, type TimecodeSender } from './artnet';
+import { BpmSender, oscBpmConfig, type OscOut } from '../osc/bpm-out';
 
 export interface Connection {
   id: string;
@@ -81,6 +83,8 @@ export interface RoomDeps {
   changeLogWindowMs?: number;
   /** Timecode per Art-Net (ohne: kein Senden) */
   artnet?: TimecodeSender;
+  /** Tempo per OSC (ohne: kein Senden) */
+  oscOut?: OscOut;
   /** Lichtpult: zuletzt gelaufene Cues (beim Verbinden mitgeschickt) */
   deskCues?: () => DeskCue[];
 }
@@ -151,10 +155,20 @@ export class Room {
     });
     this.doc.on('afterTransaction', this.handleTransaction);
     this.timecode = new ArtNetTimecode(deps.artnet);
+    this.bpmSender = new BpmSender(deps.oscOut);
     this.doc.getMap('showSettings').observe(this.handleShowSettings);
   }
 
   private readonly timecode: ArtNetTimecode;
+  private readonly bpmSender: BpmSender;
+
+  /** Tempo des geführten Punkts per OSC (nur bei Änderung, force: jetzt erneut); gesendeter Text oder null */
+  sendBpm(force = false): string | null {
+    const itemId = this.lead?.itemId;
+    const raw = itemId ? this.doc.getMap<Y.Map<unknown>>('showItems').get(itemId) : undefined;
+    const item = raw instanceof Y.Map ? (raw.toJSON() as Parameters<typeof itemTempo>[0]) : undefined;
+    return this.bpmSender.update(item ? itemTempo(item).bpm : undefined, oscBpmConfig(this.doc.getMap('showSettings').get('oscBpm')), force);
+  }
 
   private artnetConfig(): ArtNetConfig | undefined {
     return this.doc.getMap('showSettings').get('artnet') as ArtNetConfig | undefined;
@@ -162,6 +176,7 @@ export class Room {
 
   private handleShowSettings = (event: Y.YMapEvent<unknown>): void => {
     if (event.keysChanged.has('artnet')) this.timecode.update(this.lead, this.leadAt, this.artnetConfig());
+    if (event.keysChanged.has('oscBpm')) this.sendBpm();
   };
 
   private readonly activity: ActivityTracker;
@@ -476,6 +491,7 @@ export class Room {
     this.leadAt = Date.now();
     this.broadcast(encodeInfo({ type: 'lead', lead }));
     this.timecode.update(lead, this.leadAt, this.artnetConfig());
+    this.sendBpm();
   }
 
   /** Für Nachzügler: läuft die Wiedergabe, die Abspielposition bis jetzt weiterrechnen */
@@ -584,6 +600,8 @@ export class Room {
     encoding.writeVarUint(encoder, MESSAGE_SYNC);
     syncProtocol.writeUpdate(encoder, update);
     this.broadcast(encoding.toUint8Array(encoder), origin);
+    // neues Tempo (z. B. getappt) beim geführten Punkt
+    if (this.lead) this.sendBpm();
 
     if (origin === STAMP_ORIGIN) {
       // nur „zuletzt geändert“ – zählt nicht als Bearbeitung

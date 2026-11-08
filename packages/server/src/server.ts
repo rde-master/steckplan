@@ -25,6 +25,7 @@ import type { LabelQrStore } from './auth/label-qr';
 import type { VersionStore } from './storage/version-store';
 import { RoomManager } from './sync/rooms';
 import { udpSender, type TimecodeSender } from './sync/artnet';
+import { udpOscOut, type OscOut } from './osc/bpm-out';
 import { OscListener, OscSettingsStore } from './osc/listener';
 import { DeskCueStore } from './osc/desk-cues';
 import { registerRemoteRoutes } from './routes/remote';
@@ -34,6 +35,8 @@ export interface ServerOptions {
   mode: ServerMode;
   /** Timecode per Art-Net (Tests: eigener Sender; Standard: UDP) */
   artnet?: TimecodeSender;
+  /** Tempo per OSC (Tests: eigener Sender) */
+  oscOut?: OscOut;
   /** OSC-Fernsteuerung der Vorstellung (Einstellungen; ohne: keine OSC-Einstellung, HTTP-Fernsteuerung bleibt) */
   osc?: OscSettingsStore;
   store: ProjectStore;
@@ -111,6 +114,7 @@ export async function createServer(options: ServerOptions): Promise<SteckplanSer
     stampDelayMs: options.stampDelayMs,
     changeLogWindowMs: options.changeLogWindowMs,
     artnet: options.artnet ?? udpSender((message) => app.log.warn(`Art-Net: ${message}`)),
+    oscOut: options.oscOut ?? udpOscOut((message) => app.log.warn(`OSC (Tempo): ${message}`)),
     // nach dem Schließen: nicht mehr verwendete Medien in den Papierkorb, alte Papierkorb-Einträge löschen
     ...(options.media
       ? {

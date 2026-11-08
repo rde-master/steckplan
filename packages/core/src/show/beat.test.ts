@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addTap, beatAt, parseTimeSignature, tapProgress, tapTempo, TAP_RESET_SEC, type Tap } from './beat';
+import { addTap, bpmCommand, itemTempo, beatAt, parseTimeSignature, tapProgress, tapTempo, TAP_RESET_SEC, type Tap } from './beat';
 
 describe('Tempo und Takt', () => {
   it('Taktart lesen', () => {
@@ -40,5 +40,20 @@ describe('Tempo und Takt', () => {
     let still: Tap[] = [];
     for (let i = 0; i < 6; i++) still = addTap(still, { wall: i * 0.6 });
     expect(tapTempo(still, 3)).toEqual({ bpm: 100 });
+  });
+});
+
+describe('gültiges Tempo und OSC-Befehl', () => {
+  it('manuelles Tempo hat Vorrang, sonst das gespeicherte', () => {
+    expect(itemTempo({ bpm: 120, beatOffsetSec: 0.5 })).toEqual({ bpm: 120, offset: 0.5, manual: false });
+    expect(itemTempo({ bpm: 120, beatOffsetSec: 0.5, manualBpm: 98.4, manualBeatOffsetSec: 1.2 })).toEqual({ bpm: 98.4, offset: 1.2, manual: true });
+    expect(itemTempo({ bpm: 120, beatOffsetSec: 0.5, manualBpm: 98.4 })).toEqual({ bpm: 98.4, offset: 0.5, manual: true });
+    expect(itemTempo({})).toEqual({ bpm: undefined, offset: undefined, manual: false });
+  });
+  it('Befehl aus der Vorlage', () => {
+    expect(bpmCommand('Master 3.1 At BPM {bpm}', 120)).toBe('Master 3.1 At BPM 120');
+    expect(bpmCommand('Master 3.1 At BPM {bpm}', 121.46)).toBe('Master 3.1 At BPM 121.5');
+    expect(bpmCommand('Master 3.2 At BPM', 90)).toBe('Master 3.2 At BPM 90');
+    expect(bpmCommand('  ', 90)).toBe('Master 3.1 At BPM 90');
   });
 });
