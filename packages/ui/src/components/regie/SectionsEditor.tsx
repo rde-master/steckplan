@@ -61,6 +61,7 @@ export function SectionsEditor({
           {t.translationEdit}
         </label>
       )}
+      {sections.length > 0 && <p className="text-xs text-slate-500">{t.breakHint}</p>}
       {sections.length === 0 && <p className="text-sm text-slate-500">{t.noText}</p>}
       {sections.map((section, index) => (
         <div key={section.id} className="rounded-lg border border-slate-200 bg-white p-2 dark:border-slate-700 dark:bg-slate-900" data-testid="regie-section">

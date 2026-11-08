@@ -3,7 +3,7 @@
 // Die Stelle kommt von der Person, die in der Vorstellung führt (über den Server, mit Abspielposition),
 // im selben Browser auch ohne Führen direkt von der eigenen Vorstellung.
 import { useEffect, useState } from 'react';
-import type { Cue, TimedLine } from '@steckplan/core';
+import { isBreakLine, type Cue, type TimedLine } from '@steckplan/core';
 
 export function lyricsPath(projectId: string): string {
   return `/projekt/${encodeURIComponent(projectId)}/text`;
@@ -78,7 +78,7 @@ export function useCueClock(cue: ReceivedCue | null): number | undefined {
     return () => cancelAnimationFrame(frame);
   }, [running]);
   if (!cue || cue.at === undefined) return undefined;
-  return running ? cue.at + Math.max(0, now - cue.receivedAt) / 1000 : cue.at;
+  return running ? cue.at + (Math.max(0, now - cue.receivedAt) / 1000) * (cue.rate ?? 1) : cue.at;
 }
 
 // ---------- Anzeige ----------
@@ -89,11 +89,15 @@ export const LYRICS_ACTIVE_BG = '#0c4a6e';
 
 
 /** Darstellung einer Zeile: Sprecher, Text (Regieanweisung in Klammern) und darunter auf Wunsch die Übersetzung */
-function LineContent({ line, speaker, translation, size, translationSize }: { line: TimedLine['line']; speaker: string | undefined; translation: boolean; size: string; translationSize: string }) {
+function LineContent({ line, speaker, speakerColor, translation, size, translationSize }: { line: TimedLine['line']; speaker: string | undefined; speakerColor: string | undefined; translation: boolean; size: string; translationSize: string }) {
   return (
     <>
       <span className="block truncate" style={{ fontSize: size }}>
-        {speaker && <span className="mr-[1vw] text-sky-300">{speaker}:</span>}
+        {speaker && (
+          <span className={`mr-[1vw] ${speakerColor ? '' : 'text-sky-300'}`} style={speakerColor ? { color: speakerColor } : undefined} data-testid="lyrics-speaker">
+            {speaker}:
+          </span>
+        )}
         {(line.direction ? `(${line.text})` : line.text) || '\u00a0'}
       </span>
       {translation && line.translation && (
@@ -115,6 +119,7 @@ export function LyricsDisplay({
   lines,
   currentLineId,
   roleNames,
+  roleColors = new Map(),
   before = 1,
   after = 3,
   activeColor = LYRICS_ACTIVE_COLOR,
@@ -127,6 +132,8 @@ export function LyricsDisplay({
   lines: TimedLine[];
   currentLineId: string | undefined;
   roleNames: Map<string, string>;
+  /** Farben der Rollen */
+  roleColors?: Map<string, string>;
   before?: number;
   after?: number;
   /** Farbe der aktiven Zeile */
@@ -150,7 +157,7 @@ export function LyricsDisplay({
         {title}
       </div>
       <div className="relative min-h-0 flex-1 overflow-hidden">
-        {mode === 'block' ? <BlockView lines={lines} current={current} roleNames={roleNames} highlight={highlight} translation={withTranslation} activeStyle={activeStyle} /> : <LinesView lines={lines} current={current} roleNames={roleNames} before={before} after={after} highlight={highlight} translation={withTranslation} activeStyle={activeStyle} />}
+        {mode === 'block' ? <BlockView lines={lines} current={current} roleNames={roleNames} roleColors={roleColors} highlight={highlight} translation={withTranslation} activeStyle={activeStyle} /> : <LinesView lines={lines} current={current} roleNames={roleNames} roleColors={roleColors} before={before} after={after} highlight={highlight} translation={withTranslation} activeStyle={activeStyle} />}
       </div>
     </div>
   );
@@ -158,7 +165,7 @@ export function LyricsDisplay({
 
 type ActiveStyle = (isCurrent: boolean) => { color?: string; backgroundColor?: string };
 
-function LinesView({ lines, current, roleNames, before, after, highlight, translation, activeStyle }: { lines: TimedLine[]; current: number; roleNames: Map<string, string>; before: number; after: number; highlight: boolean; translation: boolean; activeStyle: ActiveStyle }) {
+function LinesView({ lines, current, roleNames, roleColors, before, after, highlight, translation, activeStyle }: { lines: TimedLine[]; current: number; roleNames: Map<string, string>; roleColors: Map<string, string>; before: number; after: number; highlight: boolean; translation: boolean; activeStyle: ActiveStyle }) {
   const slots = before + 1 + after;
   // Höhe einer Zeile in vh: bis 15, zusammen höchstens 80
   const ROW_VH = Math.min(15, 80 / slots);
@@ -173,8 +180,10 @@ function LinesView({ lines, current, roleNames, before, after, highlight, transl
           const d = i - current;
           const visible = d >= -before && d <= after;
           const isCurrent = d === 0;
+          // Leerzeile (Zwischenspiel): nichts hervorheben
+          const lit = isCurrent && !isBreakLine(l.line);
           const speaker = l.line.roleId ? roleNames.get(l.line.roleId) : undefined;
-          const look = !visible ? 'opacity-0' : highlight ? (isCurrent ? 'scale-[1.2] font-semibold' : d < 0 ? 'scale-90 text-slate-400 opacity-70' : 'text-slate-100') : 'text-slate-100';
+          const look = !visible ? 'opacity-0' : highlight ? (lit ? 'scale-[1.2] font-semibold' : isCurrent ? 'text-slate-100' : d < 0 ? 'scale-90 text-slate-400 opacity-70' : 'text-slate-100') : 'text-slate-100';
           return (
             <li
               key={l.line.id}
@@ -185,12 +194,12 @@ function LinesView({ lines, current, roleNames, before, after, highlight, transl
               aria-hidden={!visible || undefined}
             >
               <span
-                style={activeStyle(isCurrent)}
+                style={activeStyle(lit)}
                 data-testid={isCurrent ? 'lyrics-active-line' : undefined}
-                data-highlight={(isCurrent && highlight) || undefined}
+                data-highlight={(lit && highlight) || undefined}
                 className={`inline-block max-w-full rounded-xl px-[2vw] py-[0.3em] leading-tight transition-all duration-700 ease-out motion-reduce:transition-none [text-shadow:0_2px_10px_rgb(0_0_0/0.85)] ${look} ${l.line.direction ? 'italic' : ''}`}
               >
-                <LineContent line={l.line} speaker={speaker} translation={translation} size={size} translationSize={translationSize} />
+                <LineContent line={l.line} speaker={speaker} speakerColor={l.line.roleId ? roleColors.get(l.line.roleId) : undefined} translation={translation} size={size} translationSize={translationSize} />
               </span>
             </li>
           );
@@ -200,7 +209,7 @@ function LinesView({ lines, current, roleNames, before, after, highlight, transl
   );
 }
 
-function BlockView({ lines, current, roleNames, highlight, translation, activeStyle }: { lines: TimedLine[]; current: number; roleNames: Map<string, string>; highlight: boolean; translation: boolean; activeStyle: ActiveStyle }) {
+function BlockView({ lines, current, roleNames, roleColors, highlight, translation, activeStyle }: { lines: TimedLine[]; current: number; roleNames: Map<string, string>; roleColors: Map<string, string>; highlight: boolean; translation: boolean; activeStyle: ActiveStyle }) {
   // Abschnitte in Reihenfolge; sichtbar der der aktuellen Zeile (vor der ersten: der erste)
   const blocks: { sectionId: string; lines: { line: TimedLine; index: number }[] }[] = [];
   lines.forEach((l, index) => {
@@ -228,16 +237,17 @@ function BlockView({ lines, current, roleNames, highlight, translation, activeSt
           >
             {block.lines.map(({ line: l, index }) => {
               const isCurrent = index === current;
+              const lit = isCurrent && !isBreakLine(l.line);
               const speaker = l.line.roleId ? roleNames.get(l.line.roleId) : undefined;
               return (
                 <li key={l.line.id} className="max-w-full" data-testid={active ? 'lyrics-row' : undefined} data-current={isCurrent || undefined}>
                   <span
-                    style={activeStyle(isCurrent)}
+                    style={activeStyle(lit)}
                     data-testid={isCurrent && active ? 'lyrics-active-line' : undefined}
-                    data-highlight={(isCurrent && highlight) || undefined}
-                    className={`inline-block max-w-full rounded-xl px-[1.5vw] py-[0.15em] leading-tight transition-all duration-500 ease-out motion-reduce:transition-none [text-shadow:0_2px_10px_rgb(0_0_0/0.85)] ${isCurrent && highlight ? 'font-semibold' : 'text-slate-100'} ${l.line.direction ? 'italic' : ''}`}
+                    data-highlight={(lit && highlight) || undefined}
+                    className={`inline-block max-w-full rounded-xl px-[1.5vw] py-[0.15em] leading-tight transition-all duration-500 ease-out motion-reduce:transition-none [text-shadow:0_2px_10px_rgb(0_0_0/0.85)] ${lit && highlight ? 'font-semibold' : 'text-slate-100'} ${l.line.direction ? 'italic' : ''}`}
                   >
-                    <LineContent line={l.line} speaker={speaker} translation={translation} size={size} translationSize={translationSize} />
+                    <LineContent line={l.line} speaker={speaker} speakerColor={l.line.roleId ? roleColors.get(l.line.roleId) : undefined} translation={translation} size={size} translationSize={translationSize} />
                   </span>
                 </li>
               );

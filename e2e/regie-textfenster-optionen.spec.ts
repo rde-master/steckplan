@@ -79,4 +79,16 @@ test('Textfenster: ganzer Textabschnitt, Hervorhebung abschaltbar, Übersetzung 
   await expect(popup.getByTestId('lyrics-window')).toHaveAttribute('data-mode', 'lines');
   await expect(popup.locator('[data-testid=lyrics-row][data-current]')).toContainText('Everyone joins');
   await expect(perf).toBeVisible();
+
+  // je Lied: eigene Darstellung hat Vorrang vor der allgemeinen
+  await page.getByRole('radio', { name: 'Ablauf' }).click();
+  const itemMode = page.getByTestId('item-lyrics-mode');
+  await expect(itemMode.locator('option').first()).toHaveText('Wie eingestellt (Einzelne Zeilen)');
+  await itemMode.selectOption('block');
+  await expect(popup.getByTestId('lyrics-window')).toHaveAttribute('data-mode', 'block');
+  await expect(popup.getByTestId('lyrics-block')).toHaveAttribute('data-section', 's2');
+  await expect.poll(async () => ((await (await page.request.get(`/api/projects/${id}/download`)).json()) as { show: { items: { lyricsMode?: string }[] } }).show.items[0]!.lyricsMode).toBe('block');
+  // zurück auf „wie eingestellt“
+  await itemMode.selectOption('');
+  await expect(popup.getByTestId('lyrics-window')).toHaveAttribute('data-mode', 'lines');
 });

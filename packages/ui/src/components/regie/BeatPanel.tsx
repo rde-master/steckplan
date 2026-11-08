@@ -1,5 +1,6 @@
 // Takt-Anzeige der Vorstellung: Kreis mit einem Punkt je Zählzeit, der aktuelle leuchtet (die „1“ betont), ein Bogen
 // läuft im Takt um, in der Mitte die Zählzeit. Daneben Tempo und Taktart, darunter „Tap“ (zwei volle Takte tippen).
+import { ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { beatAt, parseTimeSignature } from '@steckplan/core';
 import { texts } from '../../texts';
@@ -44,8 +45,11 @@ export function BeatPanel({
   tap,
   big = false,
   manual = false,
+  displayBpm,
+  rate = 1,
   standardBpm,
   onReset,
+  onBeatStep,
 }: {
   bpm: number | undefined;
   signature: string | undefined;
@@ -61,10 +65,16 @@ export function BeatPanel({
   big?: boolean;
   /** Tempo vom Tappen (manuell) statt des gespeicherten */
   manual?: boolean;
+  /** angezeigtes Tempo (sonst bpm = Tempo des Rasters) */
+  displayBpm?: number | undefined;
+  /** Abspielgeschwindigkeit (1 = Original) */
+  rate?: number;
   /** gespeichertes Tempo des Lieds */
   standardBpm?: number | undefined;
   /** manuelles Tempo verwerfen */
   onReset?: (() => void) | undefined;
+  /** einen Schlag vor (1) bzw. zurück (-1) springen */
+  onBeatStep?: ((dir: 1 | -1) => void) | undefined;
 }) {
   const SIZE = big ? 210 : 132;
   const C = SIZE / 2;
@@ -122,7 +132,7 @@ export function BeatPanel({
       </div>
       <div className="flex min-w-24 flex-col gap-1.5">
         <div className="leading-none" data-testid="beat-bpm">
-          <span className={`${big ? 'text-6xl' : 'text-4xl'} font-bold tabular-nums`}>{bpm ? String(Math.round(bpm * 10) / 10).replace('.', ',') : '–'}</span>
+          <span className={`${big ? 'text-6xl' : 'text-4xl'} font-bold tabular-nums`}>{(displayBpm ?? bpm) ? String(Math.round((displayBpm ?? bpm)! * 10) / 10).replace('.', ',') : '–'}</span>
           <span className="ml-1 text-sm text-slate-400">BPM</span>
         </div>
         {manual && (
@@ -130,6 +140,11 @@ export function BeatPanel({
             <span className="rounded bg-amber-500/20 px-1.5 py-0.5 font-semibold text-amber-300" title={t.manualHint}>
               {t.manual}
             </span>
+            {rate !== 1 && (
+              <span className="rounded bg-sky-500/20 px-1.5 py-0.5 font-semibold text-sky-300 tabular-nums" title={t.rateHint} data-testid="beat-rate">
+                {t.rate(rate)}
+              </span>
+            )}
             {onReset && (
               <button type="button" className="rounded border border-slate-600 px-1.5 py-0.5 text-slate-300 hover:bg-slate-800" title={t.resetTempoHint} onClick={onReset} data-testid="beat-reset">
                 {t.resetTempo(standardBpm !== undefined ? String(Math.round(standardBpm * 10) / 10).replace('.', ',') : undefined)}
@@ -150,6 +165,24 @@ export function BeatPanel({
           >
             {tapping ? t.tapProgress(tap.remaining) : t.tap}
           </button>
+        )}
+        {onBeatStep && !!bpm && (
+          <div className="flex gap-2" data-testid="beat-step">
+            {([-1, 1] as const).map((dir) => (
+              <button
+                key={dir}
+                type="button"
+                onClick={() => onBeatStep(dir)}
+                title={dir < 0 ? t.beatBackHint : t.beatForwardHint}
+                aria-label={dir < 0 ? t.beatBack : t.beatForward}
+                className={`flex flex-1 items-center justify-center gap-1 rounded-md border border-slate-600 font-semibold hover:bg-slate-800 active:scale-95 ${big ? 'min-h-14 px-3 text-lg' : 'px-2 py-1 text-xs'}`}
+              >
+                {dir < 0 ? <ChevronsLeft size={big ? 22 : 14} aria-hidden /> : null}
+                {t.beatShort}
+                {dir > 0 ? <ChevronsRight size={big ? 22 : 14} aria-hidden /> : null}
+              </button>
+            ))}
+          </div>
         )}
       </div>
     </div>

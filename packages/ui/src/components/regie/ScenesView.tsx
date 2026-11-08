@@ -3,7 +3,7 @@
 import { ChevronLeft } from 'lucide-react';
 import { useState } from 'react';
 import type * as Y from 'yjs';
-import { itemTimedLines, itemNumbers, itemScenes, sceneTime, updateShowItem, type Library } from '@steckplan/core';
+import { itemTempo, itemTimedLines, itemNumbers, itemScenes, sceneTime, updateShowItem, type Library } from '@steckplan/core';
 import { usePointPlayback } from '../../lib/transport';
 import { useIsNarrow } from '../../lib/useProjectDoc';
 import type { ProjectData } from '../../lib/useProjectData';
@@ -24,7 +24,7 @@ export function ScenesView({ projectId, doc, origin, data, library, editable }: 
   const [selectedId, setSelectedId] = useRegieSelection(projectId);
   const item = items.find((i) => i.id === selectedId) ?? (narrow ? undefined : items[0]);
   const [audio, setAudio] = useState<HTMLAudioElement | null>(null);
-  const { tc, music, sync } = usePointPlayback(item?.id, item?.durationSec, audio, item?.audioOffsetSec);
+  const { tc, music, sync } = usePointPlayback(item?.id, item?.durationSec, audio, item?.audioOffsetSec, itemTempo(item ?? {}).rate);
   const time = usePlayerTime(music);
   const numbers = itemNumbers(data.show.items);
 

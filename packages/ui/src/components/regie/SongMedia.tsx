@@ -17,6 +17,7 @@ import {
   type ShowItem,
   type ShowSettings,
   type TimedLine,
+  isBreakLine,
 } from '@steckplan/core';
 import { api, errorMessage } from '../../lib/api';
 import { readAudioDuration, uploadMedia } from '../../lib/mediaUpload';
@@ -602,7 +603,7 @@ export function LyricsView({
                   if (line.atSec !== undefined) onSeek(line.atSec);
                 }}
               >
-                {line.direction ? `(${line.text})` : line.text || ' '}
+                {line.direction ? `(${line.text})` : isBreakLine(line) ? <BreakMark /> : line.text}
               </button>
               {recording && editable && (
                 <span className="flex shrink-0">
@@ -699,3 +700,12 @@ export function useRecordKey(active: boolean, onNext: () => void): void {
   }, [active, onNext]);
 }
 
+
+/** Leerzeile im Text (Zwischenspiel): in den Bedienansichten sichtbar, im Textfenster leer */
+export function BreakMark() {
+  return (
+    <span className="text-slate-400 italic" data-testid="break-line">
+      {texts.regie.breakLine}
+    </span>
+  );
+}

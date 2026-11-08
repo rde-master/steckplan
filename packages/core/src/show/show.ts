@@ -670,6 +670,11 @@ export function setSectionText(doc: Y.Doc, sectionId: string, text: string, orig
   }, origin);
 }
 
+/** Leerzeile im Text (z. B. Zwischenspiel der Band): bekommt eine Zeit, im Textfenster wird dann nichts hervorgehoben */
+export function isBreakLine(line: Pick<TextLine, 'text' | 'direction'>): boolean {
+  return !line.direction && line.text.trim() === '';
+}
+
 /** Übersetzung eines Abschnitts als Text: je Textzeile eine Zeile */
 export function sectionTranslationText(lines: TextLine[]): string {
   const out = lines.map((l) => l.translation ?? '');
@@ -691,6 +696,54 @@ export function setSectionTranslation(doc: Y.Doc, sectionId: string, text: strin
   const section = readShow(doc).sections.find((s) => s.id === sectionId);
   if (!section) return;
   doc.transact(() => sectionsMap(doc).get(sectionId)?.set('lines', applySectionTranslation(section.lines, text)), origin);
+}
+
+// ---------- Rollenfarben ----------
+
+const roleKey = (name: string) => name.trim().toLocaleLowerCase('de');
+
+/**
+ * Farben der Rollen eines Schauspiels auf alle anderen Schauspielstücke übertragen: Rollen mit gleichem Namen
+ * (ohne Groß-/Kleinschreibung) bekommen dieselbe Farbe. Gibt die Zahl der geänderten Rollen zurück.
+ */
+export function applyRoleColors(doc: Y.Doc, fromItemId: string, origin: unknown): number {
+  const { items } = readShow(doc);
+  const source = items.find((i) => i.id === fromItemId);
+  const colors = new Map<string, string>();
+  for (const r of source?.roles ?? []) if (r.color && r.name.trim()) colors.set(roleKey(r.name), r.color);
+  if (colors.size === 0) return 0;
+  let changed = 0;
+  doc.transact(() => {
+    for (const item of items) {
+      if (item.id === fromItemId || item.kind !== 'play' || !item.roles?.length) continue;
+      let touched = false;
+      const roles = item.roles.map((r) => {
+        const color = colors.get(roleKey(r.name));
+        if (!color || r.color === color) return r;
+        touched = true;
+        changed++;
+        return { ...r, color };
+      });
+      if (touched) itemsMap(doc).get(item.id)?.set('roles', roles);
+    }
+  }, origin);
+  return changed;
+}
+
+/** Wie viele Rollen anderer Schauspielstücke heißen wie eine farbige Rolle dieses Stücks (und hätten eine andere Farbe)? */
+export function roleColorTargets(items: ShowItem[], fromItemId: string): number {
+  const source = items.find((i) => i.id === fromItemId);
+  const colors = new Map<string, string>();
+  for (const r of source?.roles ?? []) if (r.color && r.name.trim()) colors.set(roleKey(r.name), r.color);
+  let n = 0;
+  for (const item of items) {
+    if (item.id === fromItemId || item.kind !== 'play') continue;
+    for (const r of item.roles ?? []) {
+      const color = colors.get(roleKey(r.name));
+      if (color && r.color !== color) n++;
+    }
+  }
+  return n;
 }
 
 /** Ganzen Text einfügen: hängt die erkannten Abschnitte an den Eintrag an. */

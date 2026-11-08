@@ -10,6 +10,7 @@ import {
   tapProgress,
   tapTempo,
   itemTempo,
+  beatStep,
   updateShowItem,
   type Tap,
   currentLineId,
@@ -28,6 +29,7 @@ import {
   type Library,
   type RemoteCommand,
   type SyncClientState,
+  isBreakLine,
 } from '@steckplan/core';
 import type { ProjectData } from '../../lib/useProjectData';
 import { texts } from '../../texts';
@@ -44,7 +46,7 @@ import { SceneProgress, type SceneMark } from './SceneProgress';
 import { hasRichText } from '../../lib/richText';
 import { SceneGrid } from './SceneGrid';
 import { formatSceneTime } from './ScenesSection';
-import { PlayerBar, seekAudio, TimecodePanel, usePlayerTime } from './SongMedia';
+import { BreakMark, PlayerBar, seekAudio, TimecodePanel, usePlayerTime } from './SongMedia';
 import { usePointPlayback, type Playback } from '../../lib/transport';
 
 const t = texts.regie.performance;
@@ -151,7 +153,9 @@ export function PerformanceView({
   // Transport des Ablaufpunkts (Timecode); das Audio des Lieds hängt daran
   const [audioEl, setAudioEl] = useState<HTMLAudioElement | null>(null);
   // tc = Timecode des Punkts; audio = Musik (mit „Mit Musik“ dasselbe), danach laufen Text und Szenen
-  const { tc, music: audio, sync: withMusic } = usePointPlayback(item?.id, item?.durationSec, audioEl, item?.audioOffsetSec);
+  // Tempo: manuell vor gespeichert; gibt es beide, läuft das Lied um manuell ÷ gespeichert schneller bzw. langsamer
+  const tempo = itemTempo(item ?? {});
+  const { tc, music: audio, sync: withMusic } = usePointPlayback(item?.id, item?.durationSec, audioEl, item?.audioOffsetSec, tempo.rate);
   // Folgen: Zeit der führenden Vorstellung (Abspielposition + seit Empfang vergangene Zeit) – ohne eigenen Ton
   const leadCue: ReceivedCue | null = following && lead ? { ...lead, receivedAt: sync.leadReceivedAt ?? 0 } : null;
   const leadMusic = useCueClock(leadCue);
@@ -189,6 +193,7 @@ export function PerformanceView({
         at: c.audio.currentTime,
         playing: !c.audio.paused,
         tc: { at: c.tc.currentTime, playing: !c.tc.paused },
+        ...(c.tc.playbackRate !== 1 ? { rate: c.tc.playbackRate } : {}),
       };
       c.localCue(cue);
       if (c.mode === 'lead') c.sendCue(cue);
@@ -266,8 +271,12 @@ export function PerformanceView({
   const [tapState, setTapState] = useState<{ itemId: string; taps: Tap[] } | null>(null);
   const taps = tapState && tapState.itemId === item?.id ? tapState.taps : [];
   const beats = parseTimeSignature(item?.timeSignature).beats;
-  const tempo = itemTempo(item ?? {});
   /** manuelles Tempo verwerfen: wieder das gespeicherte */
+  /** einen Schlag vor bzw. zurück (im Raster aus Tempo und „1“) */
+  const stepBeat = (dir: 1 | -1) => {
+    if (!tempo.gridBpm) return;
+    perform({ action: 'seek', value: beatStep(audio.currentTime, tempo.gridBpm, tempo.offset ?? 0, dir) });
+  };
   const resetTempo = doc && canLead && item?.manualBpm !== undefined ? () => updateShowItem(doc, item.id, { manualBpm: undefined, manualBeatOffsetSec: undefined }, PERFORMANCE_ORIGIN) : undefined;
   useEffect(() => {
     if (!tapState) return;
@@ -278,7 +287,8 @@ export function PerformanceView({
     if (!item) return;
     const next = addTap(taps, { wall: tapClock(), ...(audio.paused ? {} : { at: audio.currentTime }) });
     setTapState({ itemId: item.id, taps: next });
-    const result = tapTempo(next, beats);
+    // Lage der „1“ im Raster der Aufnahme (gespeichertes Tempo), das getappte wird das manuelle
+    const result = tapTempo(next, beats, item.bpm);
     if (result && doc && canLead) {
       // das gespeicherte Tempo bleibt: getappt wird das manuelle (hat Vorrang)
       updateShowItem(doc, item.id, { manualBpm: result.bpm, ...(result.offset !== undefined ? { manualBeatOffsetSec: result.offset } : {}), ...(item.timeSignature ? {} : { timeSignature: DEFAULT_TIME_SIGNATURE }) }, PERFORMANCE_ORIGIN);
@@ -445,6 +455,7 @@ export function PerformanceView({
   const soundNote = soundIndex >= 0 ? stickyNote(soundScenes, soundIndex, hasRichText) : undefined;
   const Icon = item ? KIND_ICONS[item.kind] : null;
   const roleNames = new Map((item?.roles ?? []).map((r) => [r.id, r.name]));
+  const roleColors = new Map((item?.roles ?? []).flatMap((r) => (r.color ? [[r.id, r.color] as const] : [])));
   // Countdown bis zu den nächsten fünf Zeilen (mit Audio), sonst die feste Zeit
   const currentIndex = lines.findIndex((l) => l.line.id === currentLine);
   // Fortschritt bis zur nächsten Zeile (mit Audio): grüner Balken über der aktuellen, roter über der nächsten
@@ -617,7 +628,7 @@ export function PerformanceView({
                       <div className="flex items-baseline gap-2">
                         <span className={`w-16 shrink-0 text-right text-xs tabular-nums ${at?.countdown ? 'font-semibold text-amber-400' : 'text-slate-500'}`}>{at?.text ?? ''}</span>
                         <p className={`min-w-0 flex-1 truncate rounded px-2 py-0.5 ${isCurrent ? 'bg-sky-900 text-lg font-semibold text-white' : 'text-base text-slate-400'} ${line.direction ? 'italic' : ''}`}>
-                          {line.direction ? `(${line.text})` : line.text || ' '}
+                          {line.direction ? `(${line.text})` : isBreakLine(line) ? <BreakMark /> : line.text}
                         </p>
                       </div>
                     </div>
@@ -629,7 +640,7 @@ export function PerformanceView({
             duration={timelineLength}
             lines={lines}
             currentLineId={currentLine}
-            bpm={tempo.bpm}
+            bpm={tempo.gridBpm}
             signature={item.timeSignature}
             offset={tempo.offset}
             getTime={() => audio.currentTime}
@@ -647,7 +658,7 @@ export function PerformanceView({
           />
           <div className="flex flex-wrap items-center justify-center gap-x-12 gap-y-4">
             {(item.kind === 'song' || tempo.bpm !== undefined) && (
-              <BeatPanel big bpm={tempo.bpm} manual={tempo.manual} standardBpm={item.bpm} onReset={resetTempo} signature={item.timeSignature} offset={tempo.offset} getTime={() => audio.currentTime} playing={playing} onTap={doTap} tap={taps.length ? tapProgress(taps, beats) : null} />
+              <BeatPanel big bpm={tempo.gridBpm} displayBpm={tempo.bpm} rate={tempo.rate} manual={tempo.manual} standardBpm={item.bpm} onReset={resetTempo} onBeatStep={stepBeat} signature={item.timeSignature} offset={tempo.offset} getTime={() => audio.currentTime} playing={playing} onTap={doTap} tap={taps.length ? tapProgress(taps, beats) : null} />
             )}
             <div className="flex flex-col items-center gap-1">
               <TimecodePanel tc={tc} sync={withMusic} huge />
@@ -719,8 +730,12 @@ export function PerformanceView({
                           {at?.text ?? ''}
                         </span>
                         <p className={`min-w-0 flex-1 rounded-md px-2 py-1 leading-snug transition-colors ${isCurrent ? 'bg-sky-900 text-2xl font-semibold text-white' : 'text-xl text-slate-200'} ${line.direction ? 'italic text-slate-400' : ''}`}>
-                          {speaker && <span className="mr-2 font-semibold text-sky-300">{speaker}:</span>}
-                          {line.direction ? `(${line.text})` : line.text || ' '}
+                          {speaker && (
+                            <span className={`mr-2 font-semibold ${roleColors.get(line.roleId!) ? '' : 'text-sky-300'}`} style={roleColors.get(line.roleId!) ? { color: roleColors.get(line.roleId!) } : undefined} data-testid="performance-speaker">
+                              {speaker}:
+                            </span>
+                          )}
+                          {line.direction ? `(${line.text})` : isBreakLine(line) ? <BreakMark /> : line.text}
                         </p>
                       </div>
                     </li>
@@ -815,7 +830,9 @@ export function PerformanceView({
         {/* Tempo und Takt links neben dem Player (Führen: groß in der Mitte) */}
         {item && !leadLayout && (item.kind === 'song' || tempo.bpm !== undefined) && (
           <BeatPanel
-            bpm={tempo.bpm}
+            bpm={tempo.gridBpm}
+            displayBpm={tempo.bpm}
+            rate={tempo.rate}
             manual={tempo.manual}
             standardBpm={item.bpm}
             {...(!following && resetTempo ? { onReset: () => (takeOver(), resetTempo()) } : {})}
