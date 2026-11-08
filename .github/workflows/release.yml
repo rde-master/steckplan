@@ -52,8 +52,23 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       # Keine Tests hier: der Stand wurde auf develop bereits vollständig geprüft
+      - name: Cache Electron-Downloads
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/electron
+            ~/.cache/electron-builder
+            ~/Library/Caches/electron
+            ~/Library/Caches/electron-builder
+            ~/AppData/Local/electron/Cache
+            ~/AppData/Local/electron-builder/Cache
+          key: electron-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: electron-${{ runner.os }}-
       - run: pnpm build
-      - run: pnpm --filter @steckplan/desktop exec electron-builder ${{ matrix.builder }}
+      - name: Electron laden (mit Wiederholung)
+        run: node scripts/ci/install-electron.mjs
+      - name: Installer bauen (mit Wiederholung)
+        run: node scripts/ci/retry.mjs 3 pnpm --filter @steckplan/desktop exec electron-builder ${{ matrix.builder }}
       - uses: actions/upload-artifact@v7
         with:
           name: installer-${{ matrix.name }}
