@@ -445,6 +445,7 @@ function ItemDetail({
 
       {(
         <PlayerBar
+          record={editable ? { doc, origin } : undefined}
           settings={data.showSettings}
           aside={<TimecodePanel tc={tc} sync={sync} />}
           markers={itemScenes(data.lightScenes, item.id).flatMap((s, i) => {

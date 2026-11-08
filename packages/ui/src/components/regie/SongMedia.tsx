@@ -1,5 +1,5 @@
 // Lied: Audiodateien (hochladen, Standard, Bezeichnung), Player-Leiste und Text zum Mitlesen/Mitschreiben.
-import { Drum, Pause, Play, Rewind, Square, Star, Timer, Trash2, Upload, Volume2, X } from 'lucide-react';
+import { Circle, Drum, Pause, Play, Rewind, Square, Star, Timer, Trash2, Upload, Volume2, X } from 'lucide-react';
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import type * as Y from 'yjs';
 import {
@@ -23,6 +23,7 @@ import {
 import { api, errorMessage } from '../../lib/api';
 import { readAudioDuration, uploadMedia } from '../../lib/mediaUpload';
 import { setClickSettings, useClickSettings, useClickTrack } from '../../lib/click';
+import { canRecord, useRecorder } from '../../lib/recorder';
 import { useSession } from '../../lib/session';
 import { setTimecodeSync, Transport, type Playback } from '../../lib/transport';
 import { texts } from '../../texts';
@@ -66,7 +67,7 @@ function useUploads(itemId: string): RunningUpload[] {
   return all.filter((u) => u.itemId === itemId);
 }
 
-function startUpload(projectId: string, doc: Y.Doc, origin: object, item: ShowItem, file: File, by: string): void {
+function startUpload(projectId: string, doc: Y.Doc, origin: object, item: ShowItem, file: File, by: string, label?: string): void {
   const key = `${item.id}:${file.name}:${file.size}:${file.lastModified}`;
   if (uploads.some((u) => u.key === key && !u.error)) return;
   const run = () => {
@@ -86,7 +87,7 @@ function startUpload(projectId: string, doc: Y.Doc, origin: object, item: ShowIt
           addedAt: new Date().toISOString(),
           addedBy: by,
         };
-        addItemMedia(doc, item.id, ref, file.name.replace(/\.[^.]+$/, ''), origin);
+        addItemMedia(doc, item.id, ref, label ?? file.name.replace(/\.[^.]+$/, ''), origin);
         // Dauer des Lieds aus der ersten Datei übernehmen, wenn noch keine eingetragen ist
         const current = (doc.getMap('showItems').get(item.id) as Y.Map<unknown> | undefined)?.get('durationSec');
         if (current === undefined && duration !== undefined) updateShowItem(doc, item.id, { durationSec: Math.round(duration) }, origin);
@@ -353,7 +354,10 @@ export function PlayerBar({
   markers = [],
   settings = {},
   aside,
+  record,
 }: {
+  /** Aufnahme mit dem Mikrofon anbieten (nur mit Bearbeiten-Recht): gespeichert als Audiodatei beim Punkt */
+  record?: { doc: Y.Doc; origin: object };
   markers?: { id: string; at: number; label: string }[];
   /** Regie-Einstellungen (Schwellen der Restzeit) */
   settings?: Pick<ShowSettings, 'remainWarnSec' | 'remainBlinkSec'>;
@@ -483,6 +487,7 @@ export function PlayerBar({
           </label>
         )}
         <ClickControls item={item} />
+        {record && <RecordControl projectId={projectId} doc={record.doc} origin={record.origin} item={item} playback={playback} />}
         {aside && <div className="ml-auto">{aside}</div>}
       </div>
       {(list.length > 1 || recording) && (
@@ -732,6 +737,38 @@ function ClickControls({ item }: { item: ShowItem }) {
       </label>
       {(click || preroll) && (
         <input type="range" min={0} max={1} step={0.05} value={volume} onChange={(e) => setClickSettings({ volume: Number(e.target.value) })} className="w-16 accent-sky-600" aria-label={t.clickVolume} title={t.clickVolume} />
+      )}
+    </span>
+  );
+}
+
+/**
+ * Aufnahme: einschalten (Mikrofon wird geöffnet), dann läuft mit jeder Wiedergabe eine Aufnahme mit; beim Anhalten wird
+ * sie als Audiodatei beim Punkt gespeichert („Aufnahme 08.11. 14:32 ab 0:12“). Ohne sicheren Kontext nicht möglich.
+ */
+function RecordControl({ projectId, doc, origin, item, playback }: { projectId: string; doc: Y.Doc; origin: object; item: ShowItem; playback: Playback | null }) {
+  const [armed, setArmed] = useState(false);
+  const by = useSession((s) => s.session?.name ?? '');
+  const available = canRecord();
+  const { status, error, elapsed } = useRecorder(playback, armed && available, ({ file, startAt, startedAt }) => {
+    const when = startedAt.toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).replace(',', '');
+    startUpload(projectId, doc, origin, item, file, by, t.recordingLabel(when, formatDuration(startAt)));
+  });
+  const recording = status === 'recording';
+  return (
+    <span className="flex shrink-0 items-center gap-1" data-testid="record-control" data-status={status}>
+      <label
+        className={`flex items-center gap-1 rounded-md border px-2 py-1 text-xs ${available ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'} ${armed ? 'border-red-500 bg-red-500/15 text-red-700 dark:text-red-300' : 'border-slate-300 text-slate-600 dark:border-slate-600 dark:text-slate-300'}`}
+        title={available ? t.recordHint : t.recordUnavailable}
+      >
+        <input type="checkbox" className="sr-only" checked={armed} disabled={!available} onChange={(e) => setArmed(e.target.checked)} aria-label={t.record} data-testid="record-toggle" />
+        <Circle size={12} aria-hidden className={recording ? 'animate-pulse fill-red-500 text-red-500' : armed ? 'text-red-500' : ''} /> {recording ? t.recordingNow(formatDuration(elapsed)) : t.record}
+      </label>
+      {armed && status === 'ready' && <span className="text-xs text-slate-500">{t.recordReady}</span>}
+      {status === 'error' && (
+        <span className="text-xs text-red-600 dark:text-red-400" role="alert">
+          {t.recordError(error ?? '')}
+        </span>
       )}
     </span>
   );

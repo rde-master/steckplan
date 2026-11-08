@@ -849,6 +849,7 @@ export function PerformanceView({
         {item && !following && (
           <div className="mx-auto max-w-4xl [&>[data-testid=regie-player]]:static [&>[data-testid=regie-player]]:mx-0 [&>[data-testid=regie-player]]:border-0">
             <PlayerBar
+              record={doc && canLead ? { doc, origin: PERFORMANCE_ORIGIN } : undefined}
               settings={data.showSettings}
               key={item.id}
               projectId={projectId}

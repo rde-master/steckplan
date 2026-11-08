@@ -76,6 +76,7 @@ export function SoundView({ projectId, doc, origin, data, editable }: { projectI
         <RichTextEditor key={item.id} value={item.soundNotes} editable={editable} minHeight="min-h-32" label={t.notes(item.title || texts.regie.untitled)} onChange={(html) => updateShowItem(doc, item.id, { soundNotes: html || undefined }, origin)} />
       </section>
       <PlayerBar
+          record={editable ? { doc, origin } : undefined}
         key={`player-${item.id}`}
         settings={data.showSettings}
         projectId={projectId}

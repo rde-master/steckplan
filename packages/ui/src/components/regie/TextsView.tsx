@@ -166,6 +166,7 @@ function TextDetail({ projectId, doc, origin, data, item, editable, onBack }: { 
       </article>
       {/* Player über die ganze Breite – der Timecode steht rechts am Rand */}
       <PlayerBar
+          record={editable ? { doc, origin } : undefined}
         settings={data.showSettings}
         aside={<TimecodePanel tc={tc} sync={sync} />}
         projectId={projectId}
