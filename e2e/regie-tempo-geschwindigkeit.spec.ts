@@ -43,17 +43,21 @@ test('Manuelles Tempo ändert die Geschwindigkeit: Lied und Timecode laufen um m
   await expect.poll(() => show.evaluate(() => document.querySelector('audio')?.playbackRate)).toBeCloseTo(1.1, 3);
 
   // Timecode läuft 10 % schneller als die Uhr
-  const tc = async () => {
-    const [h, m, s, f] = (await lead.getByTestId('timecode').textContent())!.split(':').map(Number);
-    return h! * 3600 + m! * 60 + s! + f! / 25;
-  };
   await lead.getByRole('button', { name: 'Timecode starten' }).click();
-  const t0 = await tc();
-  const w0 = Date.now();
-  await show.waitForTimeout(3000);
-  const ratio = ((await tc()) - t0) / ((Date.now() - w0) / 1000);
-  expect(ratio).toBeGreaterThan(1.04);
-  expect(ratio).toBeLessThan(1.16);
+  // nach dem Einschwingen im Fenster selbst messen (Timecode gegen die Uhr des Browsers)
+  await show.waitForTimeout(1000);
+  const ratio = await show.evaluate(async () => {
+    const read = () => {
+      const [h, m, s, f] = document.querySelector('[data-testid=lead-view] [data-testid=timecode]')!.textContent!.split(':').map(Number);
+      return h! * 3600 + m! * 60 + s! + f! / 25;
+    };
+    const t0 = read();
+    const w0 = performance.now();
+    await new Promise((r) => setTimeout(r, 4000));
+    return (read() - t0) / ((performance.now() - w0) / 1000);
+  });
+  expect(ratio).toBeGreaterThan(1.05);
+  expect(ratio).toBeLessThan(1.15);
   await lead.getByRole('button', { name: 'Timecode anhalten' }).click();
 
   // Standard: wieder Originalgeschwindigkeit

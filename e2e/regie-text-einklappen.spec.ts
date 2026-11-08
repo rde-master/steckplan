@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { loginAs, openPerformance } from './helpers';
 
-test('Vorstellung (Frei/Folgen): Text nach links einklappen – wird nicht mehr gezeichnet, Licht/Ton bleibt; je Gerät gemerkt', async ({ page }) => {
+test('Vorstellung (Frei/Folgen): Text nach links und Licht/Ton nach rechts einklappen – wird nicht mehr gezeichnet, Licht/Ton bleibt; je Gerät gemerkt', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await loginAs(page, 'edit', 'Ralf');
   const { id } = await (
@@ -38,4 +38,17 @@ test('Vorstellung (Frei/Folgen): Text nach links einklappen – wird nicht mehr 
   // wieder einblenden
   await perf.getByTestId('performance-text-show').click();
   await expect(perf.getByTestId('performance-text')).toContainText('Eine Zeile');
+
+  // Licht/Ton nach rechts einklappen: nur noch der Text
+  await perf.getByTestId('performance-side-hide').click();
+  await expect(perf.getByTestId('performance-side')).toHaveCount(0);
+  await expect(perf.getByRole('tab', { name: 'Ton' })).toHaveCount(0);
+  await expect(perf.getByTestId('performance-text')).toContainText('Eine Zeile');
+  // gemerkt
+  await show.close();
+  show = await openPerformance(page);
+  perf = show.getByTestId('performance');
+  await expect(perf.getByTestId('performance-side-show')).toBeVisible();
+  await perf.getByTestId('performance-side-show').click();
+  await expect(perf.getByRole('tab', { name: 'Ton' })).toBeVisible();
 });
