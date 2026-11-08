@@ -113,6 +113,8 @@ test('Regie Lichtszenen: Werte je Gerät, „wie vorige“, Auslöser, Marken im
 
   // Marken im Player, mitgehen beim Abspielen
   await expect(sceneDetail.getByTestId('scene-marker')).toHaveCount(2);
+  // auch oben in der Zeitleiste (Textzeile als Auslöser zählt)
+  await expect(scenes.getByTestId('scene-timeline').getByTestId('scene-block')).toHaveCount(2);
   await expect(page.getByTestId('scenes-items')).toContainText('2 Szenen');
   await scenes.getByTestId('scene-tab').first().click();
   await expect(scenes.getByTestId('scene-tab').first()).toHaveAttribute('aria-selected', 'true');

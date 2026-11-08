@@ -13,6 +13,7 @@ import { ICON } from '../icons';
 import { Button } from '../ui';
 import { ItemNumber, KIND_ICONS } from './RegieView';
 import { useRegieSelection } from './regieSelection';
+import { itemAudioSrc } from './Waveform';
 import { RichTextEditor } from './RichTextEditor';
 import { PlayerBar, TimecodePanel, usePlayerTime } from './SongMedia';
 import { SoundScenesSection } from './SoundScenesSection';
@@ -57,6 +58,7 @@ export function SoundView({ projectId, doc, origin, data, editable }: { projectI
   );
 
   const lines = item ? itemTimedLines(data.show.sections, item) : [];
+  const waveSrc = itemAudioSrc(projectId, item);
   const detail = item ? (
     <article className="mx-auto max-w-5xl space-y-3 p-4" aria-label={item.title || texts.regie.untitled} data-testid="sound-detail">
       <header className="flex items-center gap-2">
@@ -68,7 +70,7 @@ export function SoundView({ projectId, doc, origin, data, editable }: { projectI
         <ItemNumber number={numbers.get(item.id)} />
         <h2 className="min-w-0 flex-1 truncate text-lg font-semibold">{item.title || texts.regie.untitled}</h2>
       </header>
-      <SoundScenesSection key={`sound-${item.id}`} doc={doc} origin={origin} item={item} data={data} lines={lines} music={music} editable={editable} />
+      <SoundScenesSection waveSrc={waveSrc} key={`sound-${item.id}`} doc={doc} origin={origin} item={item} data={data} lines={lines} music={music} editable={editable} />
       <section className="space-y-2" aria-label={t.general}>
         <h3 className="text-sm font-semibold tracking-wide text-slate-500 uppercase">{t.general}</h3>
         <RichTextEditor key={item.id} value={item.soundNotes} editable={editable} minHeight="min-h-32" label={t.notes(item.title || texts.regie.untitled)} onChange={(html) => updateShowItem(doc, item.id, { soundNotes: html || undefined }, origin)} />
