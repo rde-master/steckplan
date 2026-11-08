@@ -11,6 +11,7 @@ import { texts } from '../../texts';
 import { ICON } from '../icons';
 import { useFrame } from './BeatPanel';
 import { formatSceneTime } from './ScenesSection';
+import { TimelineScrollbar } from './TimelineScrollbar';
 import { Waveform, WaveformControls, useWaveformSettings } from './Waveform';
 
 const t = texts.regie.performance;
@@ -301,6 +302,17 @@ export function LeadTimeline({
             <div className="pointer-events-none absolute top-0 bottom-0 z-10 w-1 -translate-x-1/2 rounded bg-red-500 shadow-[0_0_12px_rgb(239_68_68/0.8)]" style={{ left: pct(time) }} data-testid="lead-playhead" />
           )}
         </div>
+        <TimelineScrollbar
+          dark
+          start={start}
+          span={span}
+          total={total}
+          label={t.timelineScroll}
+          onChange={(next) => {
+            lastScroll.current = performance.now();
+            setView({ span, start: next });
+          }}
+        />
         <div className="relative h-4 text-[11px] text-slate-500 tabular-nums">
           {labels.map((s) => (
             <span key={s} className="absolute -translate-x-1/2" style={{ left: pct(s) }}>

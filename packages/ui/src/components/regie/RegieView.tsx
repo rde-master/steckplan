@@ -341,52 +341,50 @@ function ItemDetail({
         )}
       </header>
 
-      <div className="grid gap-3 sm:grid-cols-[1fr_8rem]">
+      {/* Grunddaten: Titel, Nummer, Dauer – darunter Interpret */}
+      <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_6rem_7rem]">
         <Field label={t.fields.title}>
           <TextInput value={item.title} disabled={!editable} onChange={(e) => set({ title: e.target.value })} />
         </Field>
+        <NumberField number={number} taken={[...numbers].some(([id, n]) => id !== item.id && n === number)} editable={editable} onChange={(n) => set({ number: n })} />
         <DurationField value={item.durationSec} editable={editable} onChange={(durationSec) => set({ durationSec })} />
-        <div className="sm:col-start-2">
-          <NumberField number={number} taken={[...numbers].some(([id, n]) => id !== item.id && n === number)} editable={editable} onChange={(n) => set({ number: n })} />
-        </div>
         {item.kind === 'song' && (
-          <div className="sm:col-span-2">
-            <ColorFields primary={item.primaryColor} secondary={item.secondaryColor} editable={editable} onChange={(patch) => set(patch)} />
-          </div>
-        )}
-        {item.kind === 'song' && (
-          <div className="sm:col-start-2">
-            <TempoField key={`${item.id}:${item.bpm ?? ''}`} bpm={item.bpm} manualBpm={item.manualBpm} signature={item.timeSignature} editable={editable} onChange={(patch) => set(patch)} />
-          </div>
-        )}
-        {(item.media?.length ?? 0) > 0 && (
-          <div className="sm:col-start-2">
-            <OffsetField key={`${item.id}:${item.audioOffsetSec ?? 0}`} value={item.audioOffsetSec} editable={editable} onChange={(audioOffsetSec) => set({ audioOffsetSec })} />
-            <label className="mt-1 flex items-center gap-2 text-xs" title={t.fields.audioOffsetTextHint}>
-              <input type="checkbox" checked={item.audioOffsetText === true} disabled={!editable} onChange={(e) => set({ audioOffsetText: e.target.checked || undefined })} />
-              {t.fields.audioOffsetText}
-            </label>
-          </div>
-        )}
-        {/* Textfenster: Text dieses Punkts zeigen, am Ende ausblenden */}
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-sm sm:col-span-2" data-testid="lyrics-options">
-          <label className="flex items-center gap-2">
-            <input type="checkbox" checked={item.lyricsVisible !== false} disabled={!editable} onChange={(e) => set({ lyricsVisible: e.target.checked ? undefined : false })} />
-            {t.lyricsVisible}
-          </label>
-          {item.lyricsVisible !== false && (
-            <label className="flex items-center gap-2" title={t.lyricsHideAtEndHint}>
-              <input type="checkbox" checked={item.lyricsHideAtEnd !== false} disabled={!editable} onChange={(e) => set({ lyricsHideAtEnd: e.target.checked ? undefined : false })} />
-              {t.lyricsHideAtEnd}
-            </label>
-          )}
-        </div>
-        {item.kind === 'song' && (
-          <div className="sm:col-span-2">
+          <div className="sm:col-span-3">
             <Field label={t.fields.artist}>
               <TextInput value={item.artist ?? ''} disabled={!editable} onChange={(e) => set({ artist: e.target.value || undefined })} />
             </Field>
           </div>
+        )}
+      </div>
+
+      {/* Musik: Tempo und Audio-Versatz nebeneinander */}
+      {(item.kind === 'song' || (item.media?.length ?? 0) > 0) && (
+        <fieldset className="grid gap-4 rounded-lg border border-slate-200 p-3 sm:grid-cols-2 dark:border-slate-700" data-testid="regie-music">
+          <legend className="px-1 text-xs font-semibold tracking-wide text-slate-500 uppercase">{t.fields.music}</legend>
+          {item.kind === 'song' && <TempoField key={`${item.id}:${item.bpm ?? ''}`} bpm={item.bpm} manualBpm={item.manualBpm} signature={item.timeSignature} editable={editable} onChange={(patch) => set(patch)} />}
+          {(item.media?.length ?? 0) > 0 && (
+            <div>
+              <OffsetField key={`${item.id}:${item.audioOffsetSec ?? 0}`} value={item.audioOffsetSec} editable={editable} onChange={(audioOffsetSec) => set({ audioOffsetSec })} />
+              <label className="mt-1 flex items-center gap-2 text-xs" title={t.fields.audioOffsetTextHint}>
+                <input type="checkbox" checked={item.audioOffsetText === true} disabled={!editable} onChange={(e) => set({ audioOffsetText: e.target.checked || undefined })} />
+                {t.fields.audioOffsetText}
+              </label>
+            </div>
+          )}
+        </fieldset>
+      )}
+
+      {/* Textfenster: Text dieses Punkts zeigen, am Ende ausblenden */}
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-sm" data-testid="lyrics-options">
+        <label className="flex items-center gap-2">
+          <input type="checkbox" checked={item.lyricsVisible !== false} disabled={!editable} onChange={(e) => set({ lyricsVisible: e.target.checked ? undefined : false })} />
+          {t.lyricsVisible}
+        </label>
+        {item.lyricsVisible !== false && (
+          <label className="flex items-center gap-2" title={t.lyricsHideAtEndHint}>
+            <input type="checkbox" checked={item.lyricsHideAtEnd !== false} disabled={!editable} onChange={(e) => set({ lyricsHideAtEnd: e.target.checked ? undefined : false })} />
+            {t.lyricsHideAtEnd}
+          </label>
         )}
       </div>
 
@@ -472,7 +470,7 @@ export function ItemColors({ item, size = 'sm' }: { item: Pick<ShowItem, 'primar
 }
 
 /** Grundfarbe und Sekundärfarbe eines Lieds (je mit „entfernen“) */
-function ColorFields({ primary, secondary, editable, onChange }: { primary: string | undefined; secondary: string | undefined; editable: boolean; onChange: (patch: { primaryColor?: string; secondaryColor?: string }) => void }) {
+export function ColorFields({ primary, secondary, editable, onChange }: { primary: string | undefined; secondary: string | undefined; editable: boolean; onChange: (patch: { primaryColor?: string; secondaryColor?: string }) => void }) {
   const field = (key: 'primaryColor' | 'secondaryColor', label: string, value: string | undefined, fallback: string) => (
     <div className="flex items-center gap-2">
       <label className="flex items-center gap-2 text-sm">
@@ -550,7 +548,7 @@ function TempoField({ bpm, manualBpm, signature, editable, onChange }: { bpm: nu
   const progress = taps.length ? tapProgress(taps, beats) : null;
   return (
     <div className="space-y-1.5" data-testid="tempo-field">
-      <div className="flex items-end gap-2">
+      <div className="flex flex-wrap items-end gap-2 [&>*:first-child]:w-24">
         <Field label={t.fields.bpm}>
           <TextInput
             value={draft}
@@ -583,22 +581,22 @@ function TempoField({ bpm, manualBpm, signature, editable, onChange }: { bpm: nu
             ))}
           </select>
         </Field>
+        {editable && (
+          <Button
+            variant="secondary"
+            className="min-h-10 text-xs"
+            title={t.fields.tapHint}
+            onClick={() => {
+              const next = addTap(taps, { wall: tapClock() });
+              setTaps(next);
+              const result = tapTempo(next, beats);
+              if (result) onChange({ bpm: result.bpm, beatOffsetSec: undefined, ...(signature ? {} : { timeSignature: DEFAULT_TIME_SIGNATURE }) });
+            }}
+          >
+            {progress ? t.fields.tapProgress(progress.count, progress.remaining) : t.fields.tap}
+          </Button>
+        )}
       </div>
-      {editable && (
-        <Button
-          variant="secondary"
-          className="w-full text-xs"
-          title={t.fields.tapHint}
-          onClick={() => {
-            const next = addTap(taps, { wall: tapClock() });
-            setTaps(next);
-            const result = tapTempo(next, beats);
-            if (result) onChange({ bpm: result.bpm, beatOffsetSec: undefined, ...(signature ? {} : { timeSignature: DEFAULT_TIME_SIGNATURE }) });
-          }}
-        >
-          {progress ? t.fields.tapProgress(progress.count, progress.remaining) : t.fields.tap}
-        </Button>
-      )}
       {/* in der Vorstellung getappt: hat Vorrang, das gespeicherte bleibt */}
       {manualBpm !== undefined && (
         <p className="flex flex-wrap items-center gap-2 text-xs text-amber-700 dark:text-amber-400" data-testid="tempo-manual">

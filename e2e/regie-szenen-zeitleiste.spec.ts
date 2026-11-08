@@ -90,6 +90,22 @@ test('Tonszenen: Zeitleiste – Szene verschieben, Rand ziehen (vorige kürzer),
   await expect(page.locator('[data-testid=sound-scene-tab][aria-selected=true]')).toContainText('Intro');
   await expect(blocks.nth(0)).toHaveAttribute('data-selected', 'true');
 
+  // gezoomt: Scrollbalken; Griff ziehen bzw. daneben klicken verschiebt den Ausschnitt
+  await expect(timeline.getByTestId('timeline-scrollbar')).toHaveCount(0);
+  await timeline.getByRole('button', { name: 'Zeitleiste vergrößern' }).click();
+  await timeline.getByRole('button', { name: 'Zeitleiste vergrößern' }).click();
+  const bar = timeline.getByTestId('timeline-scrollbar');
+  await expect(bar).toBeVisible();
+  const start0 = Number(await track.getAttribute('data-start'));
+  const barBox = (await bar.boundingBox())!;
+  await page.mouse.click(barBox.x + barBox.width - 3, barBox.y + barBox.height / 2);
+  await expect.poll(async () => Number(await track.getAttribute('data-start'))).toBeGreaterThan(start0 + 5);
+  const end = Number(await track.getAttribute('data-start'));
+  await drag(page, timeline.getByTestId('timeline-scrollbar-thumb'), -barBox.width / 3);
+  await expect.poll(async () => Number(await track.getAttribute('data-start'))).toBeLessThan(end - 3);
+  await timeline.getByRole('button', { name: 'Alles' }).click();
+  await expect(bar).toHaveCount(0);
+
   // Wellenform: Standard aus; erst nach Audio sinnvoll
   await expect(timeline.getByTestId('waveform-toggle')).not.toBeChecked();
   await expect(timeline.getByTestId('scene-timeline-wave')).toHaveCount(0);

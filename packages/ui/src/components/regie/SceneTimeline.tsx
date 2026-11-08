@@ -11,6 +11,7 @@ import { ICON } from '../icons';
 import { Button } from '../ui';
 import { formatSceneTime } from './ScenesSection';
 import { seekAudio, usePlaybackState, usePlayerTime } from './SongMedia';
+import { TimelineScrollbar } from './TimelineScrollbar';
 import { Waveform, WaveformControls, useWaveformSettings } from './Waveform';
 
 const t = texts.regie.sceneTimeline;
@@ -113,6 +114,8 @@ export function SceneTimeline({
   const pos = (sec: number) => ((sec - start) / span) * 100;
   const track = useRef<HTMLDivElement>(null);
   const [drag, setDrag] = useState<Drag | null>(null);
+  /** zuletzt von Hand verschoben (dann eine Weile nicht mitlaufen) */
+  const lastScroll = useRef(0);
 
   const zoom = (factor: number, around = time) => {
     const nextSpan = Math.min(total, Math.max(MIN_SPAN, span * factor));
@@ -131,6 +134,7 @@ export function SceneTimeline({
     const onWheel = (e: WheelEvent) => {
       const { start: s, span: sp, total: tot } = wheelState.current;
       const rect = el.getBoundingClientRect();
+      lastScroll.current = performance.now();
       if (e.ctrlKey || e.metaKey) {
         e.preventDefault();
         const around = s + ((e.clientX - rect.left) / rect.width) * sp;
@@ -152,6 +156,7 @@ export function SceneTimeline({
   const playing = !!music && !music.paused;
   useEffect(() => {
     if (!playing || drag || span >= total) return;
+    if (performance.now() - lastScroll.current < 4000) return;
     if (time >= start && time <= start + span * 0.95) return;
     const id = requestAnimationFrame(() => setView({ span, start: time - span * 0.1 }));
     return () => cancelAnimationFrame(id);
@@ -284,6 +289,11 @@ export function SceneTimeline({
         )}
         {time >= start && time <= end && <div className="pointer-events-none absolute top-0 bottom-0 z-20 w-0.5 bg-red-500" style={{ left: `${pos(time)}%` }} data-testid="scene-timeline-playhead" />}
       </div>
+      <TimelineScrollbar start={start} span={span} total={total} label={t.scroll} onChange={(next) => {
+          lastScroll.current = performance.now();
+          setView({ span, start: next });
+        }}
+      />
       <div className="relative h-4 text-[11px] text-slate-500 tabular-nums">
         {labels.map((s) => (
           <span key={s} className="absolute -translate-x-1/2" style={{ left: `${pos(s)}%` }}>
