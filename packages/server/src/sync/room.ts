@@ -496,7 +496,7 @@ export class Room {
 
   /** Für Nachzügler: läuft die Wiedergabe, die Abspielposition bis jetzt weiterrechnen */
   private currentLead(lead: LeadInfo): LeadInfo {
-    const passed = (Date.now() - this.leadAt) / 1000;
+    const passed = ((Date.now() - this.leadAt) / 1000) * (lead.rate ?? 1);
     return {
       ...lead,
       ...(lead.playing && lead.at !== undefined ? { at: lead.at + passed } : {}),

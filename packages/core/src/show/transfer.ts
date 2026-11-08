@@ -24,7 +24,7 @@ import {
 import { readDevices } from '../signalflow/doc-ops';
 import { readPeople } from '../people/people';
 import { VERSION } from '../version';
-import { itemNumbers, readMedia, readShow } from './show';
+import { itemNumbers, lyricsImages, readMedia, readShow } from './show';
 import { readLightTargets } from './light';
 import { readScenes, readSceneStates, stateId } from './scenes';
 import { readSoundScenes } from './sound';
@@ -97,7 +97,7 @@ function usedMediaIds(items: ShowItem[], sections: TextSection[], settings: Show
   const ids = new Set<string>();
   for (const i of items) for (const m of i.media ?? []) ids.add(m.mediaId);
   for (const s of sections) if (s.backgroundMediaId) ids.add(s.backgroundMediaId);
-  if (settings?.lyricsBackground) ids.add(settings.lyricsBackground.mediaId);
+  for (const mediaId of lyricsImages(settings?.lyricsBackground)) ids.add(mediaId);
   return ids;
 }
 
@@ -259,7 +259,11 @@ export function applyRegieImport(doc: Y.Doc, content: RegieContent, plan: RegieI
     if (!append) {
       for (const name of ['showItems', 'showSections', 'lightScenes', 'sceneStates', 'soundScenes', 'lightTargets', 'lightPlacements', 'showSettings', 'lightGrid']) clear(doc, name);
       const { lyricsBackground, ...settings } = content.showSettings;
-      setFields(doc.getMap('showSettings'), { ...settings, lyricsBackground: lyricsBackground && media.has(lyricsBackground.mediaId) ? lyricsBackground : undefined });
+      // nur Bilder, die mitgekommen sind
+      const images = lyricsImages(lyricsBackground).filter((mediaId) => media.has(mediaId));
+      const [first, ...rest] = images;
+      const { slides: _slides, ...base } = lyricsBackground ?? { dim: 0.5 };
+      setFields(doc.getMap('showSettings'), { ...settings, lyricsBackground: lyricsBackground && first ? { ...base, mediaId: first, ...(rest.length ? { slides: rest } : {}) } : undefined });
       setFields(doc.getMap('lightGrid'), { ...content.lightGrid });
     }
 

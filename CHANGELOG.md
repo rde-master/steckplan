@@ -7,6 +7,23 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.36.0] - 2026-11-08
+
+### Hinzugefügt
+
+- Audio-Versatz als Startpunkt in der Datei: negativer Versatz – 0:00 des Punkts liegt mitten in der Audiodatei (−0:12 = ab 0:12 der Datei, z. B. Intro überspringen); Eingabe auch mit Minus
+- Versatz-Zeitleiste im Ablauf (Kasten „Musik“): der Punkt von Start 0:00 bis Ende, darunter die Musik mit Wellenform – ziehen stellt den Versatz ein (0,1-s-Raster), Anzeige des Zustands, „Auf 0“
+- Textfenster: Diashow als Hintergrund – mehrere Bilder (auch mehrere auf einmal hinzufügen), Reihenfolge ändern, einzeln entfernen; Standzeit je Bild und Überblendung einstellbar; alle Textfenster zeigen dasselbe Bild; ein eigenes Bild eines Abschnitts hat Vorrang
+- Textfenster: Darstellung je Lied (einzelne Zeilen oder ganzer Textabschnitt) – hat Vorrang vor der allgemeinen Einstellung
+- Schauspiel: Farbe je Rolle (Sprechername in Textfenster und Vorstellung); „Farben auf alle Schauspielstücke übertragen“ für gleichnamige Rollen
+- Führen: einen Schlag vor bzw. zurück springen (Raster aus Tempo und Lage der „1“)
+- Leerzeile im Text als Zwischenspiel (keine neue Strophe): bekommt beim Mitschreiben eine Zeit, im Textfenster wird dann nichts hervorgehoben; Bedienansichten zeigen „♪ Zwischenspiel“
+
+### Geändert
+
+- Manuelles (getapptes) Tempo ändert die Abspielgeschwindigkeit: das gespeicherte Tempo ist das der Aufnahme, das Lied läuft um manuell ÷ gespeichert schneller bzw. langsamer (50–200 %, Tonhöhe bleibt); Timecode, Text, Szenen, Art-Net und folgende Geräte laufen mit; Anzeige der Geschwindigkeit im Takt-Kreis
+- CI/Release: Electron wird vorab geladen und bei Download-Fehlern von GitHub mehrfach versucht, Installer-Bau wird wiederholt, Downloads werden zwischengespeichert
+
 ## [0.35.0] - 2026-11-08
 
 ### Hinzugefügt

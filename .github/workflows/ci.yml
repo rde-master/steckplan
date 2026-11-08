@@ -26,12 +26,26 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Cache Electron-Downloads
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cache/electron
+            ~/.cache/electron-builder
+            ~/Library/Caches/electron
+            ~/Library/Caches/electron-builder
+            ~/AppData/Local/electron/Cache
+            ~/AppData/Local/electron-builder/Cache
+          key: electron-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: electron-${{ runner.os }}-
       - name: Versionen konsistent
         run: pnpm version:sync && git diff --exit-code
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build
+      - name: Electron laden (mit Wiederholung)
+        run: node scripts/ci/install-electron.mjs
       - name: Smoke-Test Desktop (Linux, Xvfb)
         run: xvfb-run -a pnpm --filter @steckplan/desktop smoke
       - name: Playwright-Browser installieren
@@ -74,7 +88,21 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Cache Electron-Downloads
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cache/electron
+            ~/.cache/electron-builder
+            ~/Library/Caches/electron
+            ~/Library/Caches/electron-builder
+            ~/AppData/Local/electron/Cache
+            ~/AppData/Local/electron-builder/Cache
+          key: electron-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: electron-${{ runner.os }}-
       - run: pnpm build
+      - name: Electron laden (mit Wiederholung)
+        run: node scripts/ci/install-electron.mjs
       - name: Smoke-Test Desktop
         run: pnpm --filter @steckplan/desktop smoke
       - name: Playwright-Browser installieren (Handy-Seite im Desktop-Test)
@@ -82,7 +110,7 @@ jobs:
       - name: E2E-Test Desktop
         run: pnpm exec playwright test --project electron
       - name: Installer bauen
-        run: pnpm --filter @steckplan/desktop exec electron-builder ${{ matrix.builder }}
+        run: node scripts/ci/retry.mjs 3 pnpm --filter @steckplan/desktop exec electron-builder ${{ matrix.builder }}
       - uses: actions/upload-artifact@v7
         with:
           name: steckplan-${{ matrix.name }}-${{ github.sha }}

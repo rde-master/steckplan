@@ -1,7 +1,7 @@
 // Textfenster als eigene Seite: zentrierter Text, fünf Zeilen, Vollbild per Antippen.
 // Folgt der Person, die in der Vorstellung führt; im selben Browser auch der eigenen Vorstellung.
 import { useEffect, useState } from 'react';
-import { currentLineId, itemTimedLines, itemSections, lyricsRange, sectionBackground } from '@steckplan/core';
+import { currentLineId, FADE_SEC_DEFAULT, itemTimedLines, itemSections, lyricsImages, lyricsRange, sectionBackground, SLIDE_SEC_DEFAULT, slideIndex } from '@steckplan/core';
 import { LyricsDisplay, useCueClock, useLocalCue, type ReceivedCue } from '../components/regie/LyricsWindow';
 import { api } from '../lib/api';
 import { useProjectData } from '../lib/useProjectData';
@@ -27,6 +27,17 @@ function useFullscreen(): boolean {
   return on;
 }
 
+/** Aktuelles Bild der Diashow (wechselt nach der Standzeit) */
+function useSlide(count: number, slideSec: number): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (count <= 1) return;
+    const timer = window.setInterval(() => setNow(Date.now()), 250);
+    return () => window.clearInterval(timer);
+  }, [count]);
+  return slideIndex(now, count, slideSec);
+}
+
 export function LyricsPage({ id }: { id: string }) {
   const project = useProjectDoc(id);
   const data = useProjectData(project?.doc);
@@ -44,6 +55,7 @@ export function LyricsPage({ id }: { id: string }) {
   const title = item?.title || (item ? texts.regie.untitled : '');
   const showTitle = data.showSettings.lyricsShowTitle !== false;
   const roleNames = new Map((item?.roles ?? []).map((r) => [r.id, r.name]));
+  const roleColors = new Map((item?.roles ?? []).flatMap((r) => (r.color ? [[r.id, r.color] as const] : [])));
 
   useEffect(() => {
     document.title = title ? `${t.title} – ${title}` : t.title;
@@ -59,17 +71,22 @@ export function LyricsPage({ id }: { id: string }) {
   const dim = standard?.dim ?? 0.5;
   const sections = item ? itemSections(data.show.sections, item.id) : [];
   const sectionId = (lines.find((l) => l.line.id === current) ?? lines[0])?.sectionId;
-  const activeBackground = sectionBackground(sections, sectionId, standard?.mediaId);
-  // alle Bilder des Eintrags übereinander (vorgeladen), sichtbar nur das aktive – weich überblendet
-  const layers = [...new Set([standard?.mediaId, ...sections.map((s) => s.backgroundMediaId)].filter((x): x is string => !!x))];
+  // Standard-Hintergrund: ein Bild oder eine Diashow (nach der Wanduhr, auf allen Geräten gleich)
+  const slides = lyricsImages(standard);
+  const slide = useSlide(slides.length, standard?.slideSec ?? SLIDE_SEC_DEFAULT);
+  const sectionImage = sectionBackground(sections, sectionId, undefined);
+  const activeBackground = sectionImage ?? slides[slide];
+  const fadeMs = Math.round((standard?.fadeSec ?? FADE_SEC_DEFAULT) * 1000);
+  // alle Bilder übereinander (vorgeladen), sichtbar nur das aktive – weich überblendet
+  const layers = [...new Set([...slides, ...sections.map((s) => s.backgroundMediaId)].filter((x): x is string => !!x))];
 
   return (
     <div className="dark fixed inset-0 cursor-pointer overflow-hidden bg-slate-950 text-slate-100 select-none" onClick={toggleFullscreen} title={t.fullscreenHint} data-testid="lyrics-page">
       {layers.map((mediaId) => (
         <div
           key={mediaId}
-          className="absolute inset-0 bg-cover bg-center transition-opacity duration-700 ease-out"
-          style={{ backgroundImage: `url("${api.mediaUrl(id, mediaId)}")`, opacity: mediaId === activeBackground ? 1 : 0 }}
+          className="absolute inset-0 bg-cover bg-center transition-opacity ease-in-out"
+          style={{ backgroundImage: `url("${api.mediaUrl(id, mediaId)}")`, opacity: mediaId === activeBackground ? 1 : 0, transitionDuration: `${sectionImage ? 700 : fadeMs}ms` }}
           data-testid={mediaId === activeBackground ? 'lyrics-background' : undefined}
           data-media={mediaId}
         />
@@ -102,11 +119,11 @@ export function LyricsPage({ id }: { id: string }) {
           <LyricsDisplay
             activeColor={data.showSettings.lyricsActiveColor}
             activeBg={data.showSettings.lyricsActiveBg}
-            mode={data.showSettings.lyricsMode ?? 'lines'}
+            mode={item?.lyricsMode ?? data.showSettings.lyricsMode ?? 'lines'}
             highlight={data.showSettings.lyricsHighlight !== false}
             translation={data.showSettings.lyricsTranslation === true}
             title={showTitle ? title : ''}
-            lines={lines} currentLineId={current} roleNames={roleNames} {...lyricsRange(data.showSettings)} />
+            lines={lines} currentLineId={current} roleNames={roleNames} roleColors={roleColors} {...lyricsRange(data.showSettings)} />
         </div>
       )}
       </div>

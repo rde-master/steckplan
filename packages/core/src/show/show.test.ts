@@ -1,9 +1,19 @@
 import { describe, expect, it } from 'vitest';
+import type { MediaRef } from '../model/schema';
 import * as Y from 'yjs';
 import { can } from '../model/access';
 import { createEmptyProject } from '../model/project';
 import { createYDocFromProject, DIRECTION_ROOTS, readProjectFromYDoc, updateTouchesOnly } from '../model/ydoc';
 import {
+  isBreakLine,
+  applyRoleColors,
+  roleColorTargets,
+  addLyricsSlide,
+  lyricsImages,
+  moveLyricsSlide,
+  removeLyricsSlide,
+  setLyricsSlideTiming,
+  slideIndex,
   applySectionTranslation,
   sectionTranslationText,
   addItemMedia,
@@ -433,5 +443,60 @@ describe('Übersetzung je Zeile', () => {
     // Text geändert (Zeile eingefügt): Übersetzungen bleiben an ihren Zeilen
     const { lines: edited } = parseSectionText('Hallo Welt\nNeu\nWie geht es\nGut', translated, [], false);
     expect(edited.map((l) => l.translation)).toEqual(['Hello world', undefined, undefined, 'Fine']);
+  });
+});
+
+describe('Diashow im Textfenster', () => {
+  const ref = (id: string): MediaRef => ({ id, name: `${id}.jpg`, mime: 'image/jpeg', sizeBytes: 1, sha256: 'x', addedAt: '2026-11-08T00:00:00.000Z', addedBy: 'T' });
+  it('Bilder anhängen, verschieben, entfernen (das nächste rückt nach), Zeiten setzen', () => {
+    const doc = createYDocFromProject(createEmptyProject({ name: 'D' }));
+    const bg = () => doc.getMap('showSettings').get('lyricsBackground') as { mediaId: string; slides?: string[]; slideSec?: number; fadeSec?: number; dim: number } | undefined;
+    addLyricsSlide(doc, ref('a'), null);
+    expect(bg()).toEqual({ dim: 0.5, mediaId: 'a' });
+    addLyricsSlide(doc, ref('b'), null);
+    addLyricsSlide(doc, ref('c'), null);
+    expect(lyricsImages(bg())).toEqual(['a', 'b', 'c']);
+    setLyricsSlideTiming(doc, { slideSec: 5, fadeSec: 2 }, null);
+    moveLyricsSlide(doc, 'c', -1, null);
+    expect(lyricsImages(bg())).toEqual(['a', 'c', 'b']);
+    removeLyricsSlide(doc, 'a', null);
+    expect(bg()).toMatchObject({ mediaId: 'c', slides: ['b'], slideSec: 5, fadeSec: 2 });
+    expect(doc.getMap('media').has('a')).toBe(false);
+    expect(doc.getMap('media').has('b')).toBe(true);
+    removeLyricsSlide(doc, 'c', null);
+    removeLyricsSlide(doc, 'b', null);
+    expect(bg()).toBeUndefined();
+  });
+  it('Bild nach der Wanduhr', () => {
+    expect(slideIndex(0, 3, 5)).toBe(0);
+    expect(slideIndex(5_000, 3, 5)).toBe(1);
+    expect(slideIndex(14_999, 3, 5)).toBe(2);
+    expect(slideIndex(15_000, 3, 5)).toBe(0);
+    expect(slideIndex(99_000, 1, 5)).toBe(0);
+  });
+});
+
+describe('Rollenfarben', () => {
+  it('auf gleichnamige Rollen anderer Schauspielstücke übertragen', () => {
+    const doc = createYDocFromProject(createEmptyProject({ name: 'R' }));
+    const a = addShowItem(doc, 'play', null, { title: 'Akt 1', roles: [{ id: 'r1', name: 'Hexe', color: '#ff0000' }, { id: 'r2', name: 'Prinz', color: '#0000ff' }, { id: 'r3', name: 'Erzähler' }] });
+    const b = addShowItem(doc, 'play', null, { title: 'Akt 2', roles: [{ id: 'r4', name: 'hexe ' }, { id: 'r5', name: 'Erzähler', color: '#00ff00' }, { id: 'r6', name: 'Prinz', color: '#0000ff' }] });
+    addShowItem(doc, 'song', null, { title: 'Lied' });
+    const items = () => readShow(doc).items;
+    expect(roleColorTargets(items(), a)).toBe(1);
+    expect(applyRoleColors(doc, a, null)).toBe(1);
+    const roles = items().find((i) => i.id === b)!.roles!;
+    expect(roles.map((r) => r.color)).toEqual(['#ff0000', '#00ff00', '#0000ff']);
+    expect(roleColorTargets(items(), a)).toBe(0);
+    expect(applyRoleColors(doc, a, null)).toBe(0);
+  });
+});
+
+describe('Leerzeile (Zwischenspiel)', () => {
+  it('bleibt im Abschnitt erhalten (nur am Ende wird gekürzt) und gilt als Leerzeile', () => {
+    const { lines } = parseSectionText('Erste\n\nZweite\n\n', [], [], false);
+    expect(lines.map((l) => l.text)).toEqual(['Erste', '', 'Zweite']);
+    expect(lines.map((l) => isBreakLine(l))).toEqual([false, true, false]);
+    expect(isBreakLine({ text: '', direction: true })).toBe(false);
   });
 });

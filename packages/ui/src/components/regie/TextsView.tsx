@@ -5,6 +5,8 @@ import { ChevronLeft, ClipboardPaste, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import type * as Y from 'yjs';
 import {
+  applyRoleColors,
+  roleColorTargets,
   itemNumbers,
   appendPastedText,
   clearLineTimes,
@@ -21,6 +23,7 @@ import {
   type Person,
   newId,
   type ShowItem,
+  itemTempo,
 } from '@steckplan/core';
 import { useIsNarrow } from '../../lib/useProjectDoc';
 import type { ProjectData } from '../../lib/useProjectData';
@@ -87,7 +90,7 @@ function TextDetail({ projectId, doc, origin, data, item, editable, onBack }: { 
   const sections = itemSections(data.show.sections, item.id);
   const [pasting, setPasting] = useState(false);
   const [audio, setAudio] = useState<HTMLAudioElement | null>(null);
-  const { tc, music, sync } = usePointPlayback(item.id, item.durationSec, audio, item.audioOffsetSec);
+  const { tc, music, sync } = usePointPlayback(item.id, item.durationSec, audio, item.audioOffsetSec, itemTempo(item).rate);
   const time = usePlayerTime(music);
   const hasAudio = item.kind === 'song' && (item.media?.length ?? 0) > 0;
   const [textMode, setTextMode] = useState<'edit' | 'read' | 'record'>('edit');
@@ -127,7 +130,7 @@ function TextDetail({ projectId, doc, origin, data, item, editable, onBack }: { 
           <h2 className="min-w-0 flex-1 truncate text-lg font-semibold">{item.title || t.untitled}</h2>
         </header>
 
-        {item.kind === 'play' && <RolesEditor item={item} sections={sections} people={data.people} editable={editable} onChange={(roles) => updateShowItem(doc, item.id, { roles }, origin)} />}
+        {item.kind === 'play' && <RolesEditor item={item} sections={sections} people={data.people} editable={editable} onChange={(roles) => updateShowItem(doc, item.id, { roles }, origin)} colorTargets={roleColorTargets(data.show.items, item.id)} onApplyColors={() => applyRoleColors(doc, item.id, origin)} />}
 
         <section className="space-y-2" aria-label={t.text}>
           <div className="flex flex-wrap items-center gap-2 *:whitespace-nowrap">
@@ -196,15 +199,35 @@ function TextDetail({ projectId, doc, origin, data, item, editable, onBack }: { 
   );
 }
 
-function RolesEditor({ item, sections, people, editable, onChange }: { item: ShowItem; sections: ReturnType<typeof itemSections>; people: Person[]; editable: boolean; onChange: (roles: ShowItem['roles']) => void }) {
+function RolesEditor({
+  item,
+  sections,
+  people,
+  editable,
+  onChange,
+  colorTargets,
+  onApplyColors,
+}: {
+  item: ShowItem;
+  sections: ReturnType<typeof itemSections>;
+  people: Person[];
+  editable: boolean;
+  onChange: (roles: ShowItem['roles']) => void;
+  /** gleichnamige Rollen in anderen Schauspielstücken mit anderer Farbe */
+  colorTargets: number;
+  /** Farben auf alle Schauspielstücke übertragen; Zahl der geänderten Rollen */
+  onApplyColors: () => number;
+}) {
   const roles = item.roles ?? [];
+  const [notice, setNotice] = useState('');
   const usage = (roleId: string) => sections.reduce((n, s) => n + s.lines.filter((l) => l.roleId === roleId).length, 0);
-  const update = (id: string, patch: Partial<{ name: string; personId: string | undefined }>) =>
+  const update = (id: string, patch: Partial<{ name: string; personId: string | undefined; color: string | undefined }>) =>
     onChange(
       roles.map((r) => {
         if (r.id !== id) return r;
         const next = { ...r, ...patch };
         if (!next.personId) delete next.personId;
+        if (!next.color) delete next.color;
         return next;
       }),
     );
@@ -217,6 +240,20 @@ function RolesEditor({ item, sections, people, editable, onChange }: { item: Sho
             const used = usage(role.id);
             return (
               <li key={role.id} className="flex flex-wrap items-center gap-2" data-testid="regie-role">
+                <input
+                  type="color"
+                  aria-label={`${t.roleColor} ${role.name}`}
+                  title={t.roleColor}
+                  className="h-8 w-10 cursor-pointer rounded border border-slate-300 bg-transparent disabled:cursor-default dark:border-slate-600"
+                  value={role.color ?? '#7dd3fc'}
+                  disabled={!editable}
+                  onChange={(e) => update(role.id, { color: e.target.value })}
+                />
+                {role.color && editable && (
+                  <button type="button" className="text-xs text-slate-500 underline hover:no-underline" aria-label={`${t.roleColorReset} ${role.name}`} onClick={() => update(role.id, { color: undefined })}>
+                    {t.roleColorReset}
+                  </button>
+                )}
                 <input
                   aria-label={t.roleName}
                   className="min-w-32 flex-1 rounded-md border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-800"
@@ -251,9 +288,19 @@ function RolesEditor({ item, sections, people, editable, onChange }: { item: Sho
         </ul>
       )}
       {editable && (
-        <Button variant="ghost" className="text-xs" onClick={() => onChange([...roles, { id: newId(), name: `${t.roleName} ${roles.length + 1}` }])}>
-          {t.addRole}
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="ghost" className="text-xs" onClick={() => onChange([...roles, { id: newId(), name: `${t.roleName} ${roles.length + 1}` }])}>
+            {t.addRole}
+          </Button>
+          {roles.some((r) => r.color) && (
+            <Button variant="secondary" className="text-xs" title={t.roleColorsApplyHint} disabled={colorTargets === 0} onClick={() => setNotice(t.roleColorsApplied(onApplyColors()))} data-testid="role-colors-apply">
+              {t.roleColorsApply(colorTargets)}
+            </Button>
+          )}
+          <span role="status" className="text-xs text-emerald-700 dark:text-emerald-400">
+            {notice}
+          </span>
+        </div>
       )}
     </section>
   );

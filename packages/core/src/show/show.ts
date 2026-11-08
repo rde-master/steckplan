@@ -462,13 +462,86 @@ export function setLyricsBackground(doc: Y.Doc, ref: MediaRef | null, origin: un
         media.set(ref.id, map);
         setFields(map, { ...ref });
       }
-      settings.set('lyricsBackground', { mediaId: ref.id, dim });
+      const current = settings.get('lyricsBackground') as LyricsBackground | undefined;
+      settings.set('lyricsBackground', { ...current, mediaId: ref.id, dim });
     } else settings.delete('lyricsBackground');
     if (old && old !== ref?.id && !mediaInUse(doc, old)) media.delete(old);
   }, origin);
 }
 
 /** Abdunkeln des Hintergrundbilds ändern (0–1) */
+// ---------- Diashow im Textfenster ----------
+
+export type LyricsBackground = NonNullable<ShowSettings['lyricsBackground']>;
+export const SLIDE_SEC_DEFAULT = 8;
+export const FADE_SEC_DEFAULT = 1.5;
+
+/** Alle Bilder des Standard-Hintergrunds in Reihenfolge (eins = Einzelbild, mehrere = Diashow) */
+export function lyricsImages(bg: Pick<LyricsBackground, 'mediaId' | 'slides'> | undefined): string[] {
+  return bg ? [bg.mediaId, ...(bg.slides ?? []).filter((id) => id !== bg.mediaId)] : [];
+}
+
+/** Bild der Diashow zur Zeit nowMs (Wanduhr – auf allen Geräten gleich): Index und Standzeit */
+export function slideIndex(nowMs: number, count: number, slideSec = SLIDE_SEC_DEFAULT): number {
+  if (count <= 1) return 0;
+  return Math.floor(nowMs / 1000 / Math.max(1, slideSec)) % count;
+}
+
+function writeImages(doc: Y.Doc, images: string[], patch: Partial<LyricsBackground> = {}): void {
+  const settings = doc.getMap('showSettings');
+  const current = settings.get('lyricsBackground') as LyricsBackground | undefined;
+  if (images.length === 0) {
+    settings.delete('lyricsBackground');
+    return;
+  }
+  const [first, ...rest] = images;
+  const { slides: _s, ...base } = { dim: 0.5, ...current, ...patch };
+  settings.set('lyricsBackground', { ...base, mediaId: first!, ...(rest.length ? { slides: rest } : {}) });
+}
+
+/** Bild an die Diashow anhängen (ohne Hintergrund: wird das erste Bild) */
+export function addLyricsSlide(doc: Y.Doc, ref: MediaRef, origin: unknown): void {
+  doc.transact(() => {
+    const media = doc.getMap<Y.Map<unknown>>('media');
+    if (!media.has(ref.id)) {
+      const map = new Y.Map<unknown>();
+      media.set(ref.id, map);
+      setFields(map, { ...ref });
+    }
+    const images = lyricsImages(doc.getMap('showSettings').get('lyricsBackground') as LyricsBackground | undefined);
+    if (!images.includes(ref.id)) writeImages(doc, [...images, ref.id]);
+  }, origin);
+}
+
+/** Bild aus der Diashow entfernen (das nächste rückt nach); nicht mehr verwendete Datei verliert ihren Verweis */
+export function removeLyricsSlide(doc: Y.Doc, mediaId: string, origin: unknown): void {
+  doc.transact(() => {
+    const images = lyricsImages(doc.getMap('showSettings').get('lyricsBackground') as LyricsBackground | undefined);
+    writeImages(
+      doc,
+      images.filter((id) => id !== mediaId),
+    );
+    if (!mediaInUse(doc, mediaId)) doc.getMap('media').delete(mediaId);
+  }, origin);
+}
+
+/** Bild in der Diashow nach vorn (-1) bzw. hinten (1) */
+export function moveLyricsSlide(doc: Y.Doc, mediaId: string, delta: -1 | 1, origin: unknown): void {
+  const images = lyricsImages(doc.getMap('showSettings').get('lyricsBackground') as LyricsBackground | undefined);
+  const i = images.indexOf(mediaId);
+  const j = i + delta;
+  if (i < 0 || j < 0 || j >= images.length) return;
+  [images[i], images[j]] = [images[j]!, images[i]!];
+  doc.transact(() => writeImages(doc, images), origin);
+}
+
+/** Standzeit je Bild und Überblendung (Sekunden) */
+export function setLyricsSlideTiming(doc: Y.Doc, patch: { slideSec?: number; fadeSec?: number }, origin: unknown): void {
+  const images = lyricsImages(doc.getMap('showSettings').get('lyricsBackground') as LyricsBackground | undefined);
+  if (images.length === 0) return;
+  doc.transact(() => writeImages(doc, images, patch), origin);
+}
+
 export function setLyricsBackgroundDim(doc: Y.Doc, dim: number, origin: unknown): void {
   const settings = doc.getMap('showSettings');
   const current = settings.get('lyricsBackground') as { mediaId: string; dim: number } | undefined;
@@ -542,7 +615,7 @@ function copySectionBackground(doc: Y.Doc, from: TextSection, toId: string, orig
 export function mediaInUse(doc: Y.Doc, mediaId: string): boolean {
   const { items, sections } = readShow(doc);
   if (items.some((i) => i.media?.some((m) => m.mediaId === mediaId))) return true;
-  if ((doc.getMap('showSettings').get('lyricsBackground') as { mediaId?: string } | undefined)?.mediaId === mediaId) return true;
+  if (lyricsImages(doc.getMap('showSettings').get('lyricsBackground') as LyricsBackground | undefined).includes(mediaId)) return true;
   return sections.some((s) => s.backgroundMediaId === mediaId);
 }
 
@@ -597,6 +670,11 @@ export function setSectionText(doc: Y.Doc, sectionId: string, text: string, orig
   }, origin);
 }
 
+/** Leerzeile im Text (z. B. Zwischenspiel der Band): bekommt eine Zeit, im Textfenster wird dann nichts hervorgehoben */
+export function isBreakLine(line: Pick<TextLine, 'text' | 'direction'>): boolean {
+  return !line.direction && line.text.trim() === '';
+}
+
 /** Übersetzung eines Abschnitts als Text: je Textzeile eine Zeile */
 export function sectionTranslationText(lines: TextLine[]): string {
   const out = lines.map((l) => l.translation ?? '');
@@ -618,6 +696,54 @@ export function setSectionTranslation(doc: Y.Doc, sectionId: string, text: strin
   const section = readShow(doc).sections.find((s) => s.id === sectionId);
   if (!section) return;
   doc.transact(() => sectionsMap(doc).get(sectionId)?.set('lines', applySectionTranslation(section.lines, text)), origin);
+}
+
+// ---------- Rollenfarben ----------
+
+const roleKey = (name: string) => name.trim().toLocaleLowerCase('de');
+
+/**
+ * Farben der Rollen eines Schauspiels auf alle anderen Schauspielstücke übertragen: Rollen mit gleichem Namen
+ * (ohne Groß-/Kleinschreibung) bekommen dieselbe Farbe. Gibt die Zahl der geänderten Rollen zurück.
+ */
+export function applyRoleColors(doc: Y.Doc, fromItemId: string, origin: unknown): number {
+  const { items } = readShow(doc);
+  const source = items.find((i) => i.id === fromItemId);
+  const colors = new Map<string, string>();
+  for (const r of source?.roles ?? []) if (r.color && r.name.trim()) colors.set(roleKey(r.name), r.color);
+  if (colors.size === 0) return 0;
+  let changed = 0;
+  doc.transact(() => {
+    for (const item of items) {
+      if (item.id === fromItemId || item.kind !== 'play' || !item.roles?.length) continue;
+      let touched = false;
+      const roles = item.roles.map((r) => {
+        const color = colors.get(roleKey(r.name));
+        if (!color || r.color === color) return r;
+        touched = true;
+        changed++;
+        return { ...r, color };
+      });
+      if (touched) itemsMap(doc).get(item.id)?.set('roles', roles);
+    }
+  }, origin);
+  return changed;
+}
+
+/** Wie viele Rollen anderer Schauspielstücke heißen wie eine farbige Rolle dieses Stücks (und hätten eine andere Farbe)? */
+export function roleColorTargets(items: ShowItem[], fromItemId: string): number {
+  const source = items.find((i) => i.id === fromItemId);
+  const colors = new Map<string, string>();
+  for (const r of source?.roles ?? []) if (r.color && r.name.trim()) colors.set(roleKey(r.name), r.color);
+  let n = 0;
+  for (const item of items) {
+    if (item.id === fromItemId || item.kind !== 'play') continue;
+    for (const r of item.roles ?? []) {
+      const color = colors.get(roleKey(r.name));
+      if (color && r.color !== color) n++;
+    }
+  }
+  return n;
 }
 
 /** Ganzen Text einfügen: hängt die erkannten Abschnitte an den Eintrag an. */

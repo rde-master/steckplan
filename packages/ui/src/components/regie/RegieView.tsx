@@ -39,6 +39,7 @@ import {
   type ShowItem,
   type ShowItemKind,
   type ShowSettings,
+  itemTempo,
 } from '@steckplan/core';
 import { useIsNarrow } from '../../lib/useProjectDoc';
 import type { ProjectData } from '../../lib/useProjectData';
@@ -46,14 +47,16 @@ import { texts } from '../../texts';
 import { ICON } from '../icons';
 import { Button, Field, TextArea, TextInput } from '../ui';
 import { LightSetupView } from './LightSetupView';
+import { OffsetTimeline } from './OffsetTimeline';
+import { itemAudioSrc } from './Waveform';
 import { useRegieSelection } from './regieSelection';
 import { formatSceneTime, parseSceneTime } from './ScenesSection';
 import { ScenesView } from './ScenesView';
 import { SoundView } from './SoundView';
 import { openPerformance } from '../../pages/PerformancePage';
 import { TextsView } from './TextsView';
-import { MediaSection, PlayerBar, TimecodePanel, usePlayerTime } from './SongMedia';
-import { usePointPlayback } from '../../lib/transport';
+import { MediaSection, PlayerBar, seekAudio, TimecodePanel, usePlaybackState, usePlayerTime } from './SongMedia';
+import { Transport, usePointPlayback } from '../../lib/transport';
 import { lyricsUrl, openLyricsWindow } from './LyricsWindow';
 import { LyricsSettings } from './LyricsSettings';
 import { RegieTransferButtons } from './RegieTransfer';
@@ -300,9 +303,12 @@ function ItemDetail({
   const set = (patch: Partial<Omit<ShowItem, 'id'>>) => updateShowItem(doc, item.id, patch, origin);
   // Player zum Anhören (Text und Mitschreiben im Bereich „Texte“)
   const [audio, setAudio] = useState<HTMLAudioElement | null>(null);
-  const { tc, music, sync } = usePointPlayback(item.id, item.durationSec, audio, item.audioOffsetSec);
+  const { tc, music, sync } = usePointPlayback(item.id, item.durationSec, audio, item.audioOffsetSec, itemTempo(item).rate);
   const time = usePlayerTime(music);
+  // Länge der Datei kommt mit den Metadaten (neu zeichnen)
+  usePlaybackState(music);
   const lines = itemTimedLines(sections, item);
+  const settingsMode = data.showSettings.lyricsMode ?? 'lines';
   return (
     <article className="mx-auto max-w-3xl space-y-4 p-4" aria-label={item.title || t.untitled} data-testid="regie-detail">
       <header className="flex flex-wrap items-center gap-2">
@@ -371,6 +377,18 @@ function ItemDetail({
               </label>
             </div>
           )}
+          {(item.media?.length ?? 0) > 0 && (
+            <OffsetTimeline
+              offset={item.audioOffsetSec ?? 0}
+              audioLength={music instanceof Transport ? music.audioLength : 0}
+              duration={item.durationSec}
+              time={time}
+              src={itemAudioSrc(projectId, item)}
+              editable={editable}
+              onChange={(sec) => set({ audioOffsetSec: sec === 0 ? undefined : sec })}
+              onSeek={(sec) => seekAudio(music, sec)}
+            />
+          )}
         </fieldset>
       )}
 
@@ -384,6 +402,22 @@ function ItemDetail({
           <label className="flex items-center gap-2" title={t.lyricsHideAtEndHint}>
             <input type="checkbox" checked={item.lyricsHideAtEnd !== false} disabled={!editable} onChange={(e) => set({ lyricsHideAtEnd: e.target.checked ? undefined : false })} />
             {t.lyricsHideAtEnd}
+          </label>
+        )}
+        {item.lyricsVisible !== false && (
+          <label className="flex items-center gap-2" title={t.lyricsModeHint}>
+            {t.lyricsMode}
+            <select
+              className="rounded-md border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-800"
+              value={item.lyricsMode ?? ''}
+              disabled={!editable}
+              onChange={(e) => set({ lyricsMode: (e.target.value || undefined) as ShowItem['lyricsMode'] })}
+              data-testid="item-lyrics-mode"
+            >
+              <option value="">{t.lyricsModeDefault(texts.regie.lyricsPage.modes[settingsMode])}</option>
+              <option value="lines">{texts.regie.lyricsPage.modes.lines}</option>
+              <option value="block">{texts.regie.lyricsPage.modes.block}</option>
+            </select>
           </label>
         )}
       </div>
@@ -433,10 +467,23 @@ function ItemDetail({
   );
 }
 
-/** Versatz des Audios (Sekunden oder m:ss): die Musik setzt bei dieser Zeit des Punkts ein */
+/** Versatz als Text: „4“, „1:02.5“, negativ „-0:12“ */
+export function formatOffset(sec: number): string {
+  return `${sec < 0 ? '-' : ''}${formatSceneTime(Math.abs(sec)).replace('.', ',')}`;
+}
+
+/** Versatz aus dem Text (Sekunden oder m:ss, auch mit Minus) */
+export function parseOffset(text: string): number | undefined {
+  const v = text.trim().replace('−', '-');
+  const negative = v.startsWith('-');
+  const sec = parseSceneTime((negative ? v.slice(1) : v).replace(',', '.'));
+  return sec === undefined ? undefined : negative ? -sec : sec;
+}
+
+/** Versatz des Audios (Sekunden oder m:ss): positiv setzt die Musik später ein, negativ beginnt der Punkt mitten in der Datei */
 function OffsetField({ value, editable, onChange }: { value: number | undefined; editable: boolean; onChange: (sec: number | undefined) => void }) {
-  const [draft, setDraft] = useState(value ? formatSceneTime(value).replace('.', ',') : '0');
-  const parsed = parseSceneTime(draft.replace(',', '.'));
+  const [draft, setDraft] = useState(value ? formatOffset(value) : '0');
+  const parsed = parseOffset(draft);
   const invalid = draft.trim() !== '' && parsed === undefined;
   return (
     <Field label={t.fields.audioOffset} hint={t.fields.audioOffsetHint}>
