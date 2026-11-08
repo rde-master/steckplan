@@ -89,7 +89,15 @@ test('Führen-Ansicht: ohne Licht/Ton, Text klein (vorige/aktuelle/nächste), Ze
   await show.mouse.wheel(0, -300);
   await expect.poll(async () => Number(await trackEl.getAttribute('data-start'))).toBeLessThan(startBefore);
   expect(await seconds()).toBe(12);
+  // Scrollbalken: Klick ans Ende verschiebt den Ausschnitt dorthin, die Abspielposition bleibt
+  const bar = timeline.getByTestId('timeline-scrollbar');
+  await expect(bar).toBeVisible();
+  const barBox = (await bar.boundingBox())!;
+  await show.mouse.click(barBox.x + barBox.width - 2, barBox.y + barBox.height / 2);
+  await expect.poll(async () => Number(await trackEl.getAttribute('data-start')) + Number(await trackEl.getAttribute('data-span'))).toBeGreaterThan(19.9);
+  expect(await seconds()).toBe(12);
   await timeline.getByRole('button', { name: 'Alles' }).click();
+  await expect(bar).toHaveCount(0);
   await expect(trackEl).toHaveAttribute('data-span', '20.00');
   // Scrubben: aus → Ziehen springt nur beim Drücken; an → gedrückt ziehen verschiebt die Position
   const full = (await trackEl.boundingBox())!;

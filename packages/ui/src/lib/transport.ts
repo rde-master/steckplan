@@ -15,6 +15,9 @@ export interface Playback extends EventTarget {
   pause(): void;
 }
 
+/** größte Abweichung der eigenen Uhr vom Audio, bevor nachgeführt wird (Sekunden) */
+const DRIFT_SEC = 0.08;
+
 export class Transport extends EventTarget implements Playback {
   private audio: HTMLAudioElement | null = null;
   private playing = false;
@@ -42,8 +45,13 @@ export class Transport extends EventTarget implements Playback {
   get currentTime(): number {
     if (!this.playing) return this.base;
     const a = this.audio;
-    if (a && !a.paused && !a.ended) return a.currentTime + this.offset;
-    return Math.min(this.duration, this.base + (performance.now() - this.anchor) / 1000);
+    const clock = Math.min(this.duration, this.base + (performance.now() - this.anchor) / 1000);
+    if (a && !a.paused && !a.ended) {
+      // das Audio meldet seine Position in unregelmäßigen Schritten: gleichmäßige eigene Uhr, solange sie nah dran ist
+      const audioAt = a.currentTime + this.offset;
+      return Math.abs(clock - audioAt) <= DRIFT_SEC ? clock : audioAt;
+    }
+    return clock;
   }
 
   set currentTime(sec: number) {
@@ -197,7 +205,11 @@ export class Transport extends EventTarget implements Playback {
       const now = performance.now();
       const a = this.audio;
       // läuft das Audio, ist seine Zeit maßgeblich – Anker nachführen, damit die eigene Uhr nahtlos übernimmt
-      if (a && !a.paused && !a.ended) this.rebase(a.currentTime + this.offset);
+      if (a && !a.paused && !a.ended) {
+        // nur nachführen, wenn die eigene Uhr merklich abweicht (sonst ruckelt die Anzeige mit dem Audio)
+        const audioAt = a.currentTime + this.offset;
+        if (Math.abs(this.base + (now - this.anchor) / 1000 - audioAt) > DRIFT_SEC) this.rebase(audioAt);
+      }
       // Versatz erreicht: Audio einsetzen lassen
       else if (a && !a.ended && this.currentTime >= this.offset) {
         const len = Number.isFinite(a.duration) ? a.duration : undefined;
