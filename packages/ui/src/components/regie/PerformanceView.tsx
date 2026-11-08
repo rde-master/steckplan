@@ -29,6 +29,7 @@ import {
   type Library,
   type RemoteCommand,
   type SyncClientState,
+  isBreakLine,
 } from '@steckplan/core';
 import type { ProjectData } from '../../lib/useProjectData';
 import { texts } from '../../texts';
@@ -45,7 +46,7 @@ import { SceneProgress, type SceneMark } from './SceneProgress';
 import { hasRichText } from '../../lib/richText';
 import { SceneGrid } from './SceneGrid';
 import { formatSceneTime } from './ScenesSection';
-import { PlayerBar, seekAudio, TimecodePanel, usePlayerTime } from './SongMedia';
+import { BreakMark, PlayerBar, seekAudio, TimecodePanel, usePlayerTime } from './SongMedia';
 import { usePointPlayback, type Playback } from '../../lib/transport';
 
 const t = texts.regie.performance;
@@ -627,7 +628,7 @@ export function PerformanceView({
                       <div className="flex items-baseline gap-2">
                         <span className={`w-16 shrink-0 text-right text-xs tabular-nums ${at?.countdown ? 'font-semibold text-amber-400' : 'text-slate-500'}`}>{at?.text ?? ''}</span>
                         <p className={`min-w-0 flex-1 truncate rounded px-2 py-0.5 ${isCurrent ? 'bg-sky-900 text-lg font-semibold text-white' : 'text-base text-slate-400'} ${line.direction ? 'italic' : ''}`}>
-                          {line.direction ? `(${line.text})` : line.text || ' '}
+                          {line.direction ? `(${line.text})` : isBreakLine(line) ? <BreakMark /> : line.text}
                         </p>
                       </div>
                     </div>
@@ -734,7 +735,7 @@ export function PerformanceView({
                               {speaker}:
                             </span>
                           )}
-                          {line.direction ? `(${line.text})` : line.text || ' '}
+                          {line.direction ? `(${line.text})` : isBreakLine(line) ? <BreakMark /> : line.text}
                         </p>
                       </div>
                     </li>

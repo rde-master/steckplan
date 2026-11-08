@@ -483,6 +483,8 @@ export const texts = {
     sectionLabel: 'Bezeichnung',
     sectionText: (label: string) => `Text ${label}`,
     sectionTranslation: (label: string) => `Übersetzung ${label}`,
+    breakLine: '♪ Zwischenspiel',
+    breakHint: 'Leere Zeile im Text = Zwischenspiel (keine neue Strophe): sie bekommt beim Mitschreiben eine Zeit, im Textfenster wird dann nichts hervorgehoben.',
     translationEdit: 'Übersetzung',
     translationHint: 'Neben jedem Abschnitt die Übersetzung eintragen: je Textzeile eine Zeile (leer = keine). Das Textfenster kann sie unter dem Text zeigen.',
     translationPlaceholder: 'Übersetzung – je Zeile eine',

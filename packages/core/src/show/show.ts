@@ -670,6 +670,11 @@ export function setSectionText(doc: Y.Doc, sectionId: string, text: string, orig
   }, origin);
 }
 
+/** Leerzeile im Text (z. B. Zwischenspiel der Band): bekommt eine Zeit, im Textfenster wird dann nichts hervorgehoben */
+export function isBreakLine(line: Pick<TextLine, 'text' | 'direction'>): boolean {
+  return !line.direction && line.text.trim() === '';
+}
+
 /** Übersetzung eines Abschnitts als Text: je Textzeile eine Zeile */
 export function sectionTranslationText(lines: TextLine[]): string {
   const out = lines.map((l) => l.translation ?? '');

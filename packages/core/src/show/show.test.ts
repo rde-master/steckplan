@@ -5,6 +5,7 @@ import { can } from '../model/access';
 import { createEmptyProject } from '../model/project';
 import { createYDocFromProject, DIRECTION_ROOTS, readProjectFromYDoc, updateTouchesOnly } from '../model/ydoc';
 import {
+  isBreakLine,
   applyRoleColors,
   roleColorTargets,
   addLyricsSlide,
@@ -488,5 +489,14 @@ describe('Rollenfarben', () => {
     expect(roles.map((r) => r.color)).toEqual(['#ff0000', '#00ff00', '#0000ff']);
     expect(roleColorTargets(items(), a)).toBe(0);
     expect(applyRoleColors(doc, a, null)).toBe(0);
+  });
+});
+
+describe('Leerzeile (Zwischenspiel)', () => {
+  it('bleibt im Abschnitt erhalten (nur am Ende wird gekürzt) und gilt als Leerzeile', () => {
+    const { lines } = parseSectionText('Erste\n\nZweite\n\n', [], [], false);
+    expect(lines.map((l) => l.text)).toEqual(['Erste', '', 'Zweite']);
+    expect(lines.map((l) => isBreakLine(l))).toEqual([false, true, false]);
+    expect(isBreakLine({ text: '', direction: true })).toBe(false);
   });
 });

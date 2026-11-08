@@ -188,7 +188,7 @@ export function LyricsTimeline({
               >
                 <span className="line-clamp-2">
                   {active && <span className="mr-1 font-semibold tabular-nums">{clock(at)}</span>}
-                  {l.line.text || '–'}
+                  {l.line.text || texts.regie.breakLine}
                 </span>
               </button>
             );

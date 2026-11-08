@@ -3,7 +3,7 @@
 // Die Stelle kommt von der Person, die in der Vorstellung führt (über den Server, mit Abspielposition),
 // im selben Browser auch ohne Führen direkt von der eigenen Vorstellung.
 import { useEffect, useState } from 'react';
-import type { Cue, TimedLine } from '@steckplan/core';
+import { isBreakLine, type Cue, type TimedLine } from '@steckplan/core';
 
 export function lyricsPath(projectId: string): string {
   return `/projekt/${encodeURIComponent(projectId)}/text`;
@@ -180,8 +180,10 @@ function LinesView({ lines, current, roleNames, roleColors, before, after, highl
           const d = i - current;
           const visible = d >= -before && d <= after;
           const isCurrent = d === 0;
+          // Leerzeile (Zwischenspiel): nichts hervorheben
+          const lit = isCurrent && !isBreakLine(l.line);
           const speaker = l.line.roleId ? roleNames.get(l.line.roleId) : undefined;
-          const look = !visible ? 'opacity-0' : highlight ? (isCurrent ? 'scale-[1.2] font-semibold' : d < 0 ? 'scale-90 text-slate-400 opacity-70' : 'text-slate-100') : 'text-slate-100';
+          const look = !visible ? 'opacity-0' : highlight ? (lit ? 'scale-[1.2] font-semibold' : isCurrent ? 'text-slate-100' : d < 0 ? 'scale-90 text-slate-400 opacity-70' : 'text-slate-100') : 'text-slate-100';
           return (
             <li
               key={l.line.id}
@@ -192,9 +194,9 @@ function LinesView({ lines, current, roleNames, roleColors, before, after, highl
               aria-hidden={!visible || undefined}
             >
               <span
-                style={activeStyle(isCurrent)}
+                style={activeStyle(lit)}
                 data-testid={isCurrent ? 'lyrics-active-line' : undefined}
-                data-highlight={(isCurrent && highlight) || undefined}
+                data-highlight={(lit && highlight) || undefined}
                 className={`inline-block max-w-full rounded-xl px-[2vw] py-[0.3em] leading-tight transition-all duration-700 ease-out motion-reduce:transition-none [text-shadow:0_2px_10px_rgb(0_0_0/0.85)] ${look} ${l.line.direction ? 'italic' : ''}`}
               >
                 <LineContent line={l.line} speaker={speaker} speakerColor={l.line.roleId ? roleColors.get(l.line.roleId) : undefined} translation={translation} size={size} translationSize={translationSize} />
@@ -235,14 +237,15 @@ function BlockView({ lines, current, roleNames, roleColors, highlight, translati
           >
             {block.lines.map(({ line: l, index }) => {
               const isCurrent = index === current;
+              const lit = isCurrent && !isBreakLine(l.line);
               const speaker = l.line.roleId ? roleNames.get(l.line.roleId) : undefined;
               return (
                 <li key={l.line.id} className="max-w-full" data-testid={active ? 'lyrics-row' : undefined} data-current={isCurrent || undefined}>
                   <span
-                    style={activeStyle(isCurrent)}
+                    style={activeStyle(lit)}
                     data-testid={isCurrent && active ? 'lyrics-active-line' : undefined}
-                    data-highlight={(isCurrent && highlight) || undefined}
-                    className={`inline-block max-w-full rounded-xl px-[1.5vw] py-[0.15em] leading-tight transition-all duration-500 ease-out motion-reduce:transition-none [text-shadow:0_2px_10px_rgb(0_0_0/0.85)] ${isCurrent && highlight ? 'font-semibold' : 'text-slate-100'} ${l.line.direction ? 'italic' : ''}`}
+                    data-highlight={(lit && highlight) || undefined}
+                    className={`inline-block max-w-full rounded-xl px-[1.5vw] py-[0.15em] leading-tight transition-all duration-500 ease-out motion-reduce:transition-none [text-shadow:0_2px_10px_rgb(0_0_0/0.85)] ${lit && highlight ? 'font-semibold' : 'text-slate-100'} ${l.line.direction ? 'italic' : ''}`}
                   >
                     <LineContent line={l.line} speaker={speaker} speakerColor={l.line.roleId ? roleColors.get(l.line.roleId) : undefined} translation={translation} size={size} translationSize={translationSize} />
                   </span>
