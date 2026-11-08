@@ -33,6 +33,18 @@ export function beatAt(t: number, bpm: number, beats: number, offset = 0): BeatP
   return { count: inBar + 1, phase, barPhase: (inBar + phase) / beats, bar: Math.floor(index / beats) + 1 };
 }
 
+/**
+ * Zum nächsten (dir 1) bzw. vorigen (dir -1) Schlag im Raster aus Tempo und Lage der „1“ springen. Liegt t (fast)
+ * auf einem Schlag, geht es einen ganzen Schlag weiter. Nie vor 0.
+ */
+export function beatStep(t: number, bpm: number, offset: number, dir: 1 | -1): number {
+  const len = 60 / bpm;
+  const pos = (t - offset) / len;
+  const eps = 0.05;
+  const index = dir > 0 ? Math.floor(pos + eps) + 1 : Math.ceil(pos - eps) - 1;
+  return Math.max(0, Math.round((offset + index * len) * 1000) / 1000);
+}
+
 export interface Tap {
   /** Zeitpunkt des Tippens (Sekunden, monoton – z. B. performance.now() / 1000) */
   wall: number;

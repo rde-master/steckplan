@@ -1,5 +1,6 @@
 // Takt-Anzeige der Vorstellung: Kreis mit einem Punkt je Zählzeit, der aktuelle leuchtet (die „1“ betont), ein Bogen
 // läuft im Takt um, in der Mitte die Zählzeit. Daneben Tempo und Taktart, darunter „Tap“ (zwei volle Takte tippen).
+import { ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { beatAt, parseTimeSignature } from '@steckplan/core';
 import { texts } from '../../texts';
@@ -46,6 +47,7 @@ export function BeatPanel({
   manual = false,
   standardBpm,
   onReset,
+  onBeatStep,
 }: {
   bpm: number | undefined;
   signature: string | undefined;
@@ -65,6 +67,8 @@ export function BeatPanel({
   standardBpm?: number | undefined;
   /** manuelles Tempo verwerfen */
   onReset?: (() => void) | undefined;
+  /** einen Schlag vor (1) bzw. zurück (-1) springen */
+  onBeatStep?: ((dir: 1 | -1) => void) | undefined;
 }) {
   const SIZE = big ? 210 : 132;
   const C = SIZE / 2;
@@ -150,6 +154,24 @@ export function BeatPanel({
           >
             {tapping ? t.tapProgress(tap.remaining) : t.tap}
           </button>
+        )}
+        {onBeatStep && !!bpm && (
+          <div className="flex gap-2" data-testid="beat-step">
+            {([-1, 1] as const).map((dir) => (
+              <button
+                key={dir}
+                type="button"
+                onClick={() => onBeatStep(dir)}
+                title={dir < 0 ? t.beatBackHint : t.beatForwardHint}
+                aria-label={dir < 0 ? t.beatBack : t.beatForward}
+                className={`flex flex-1 items-center justify-center gap-1 rounded-md border border-slate-600 font-semibold hover:bg-slate-800 active:scale-95 ${big ? 'min-h-14 px-3 text-lg' : 'px-2 py-1 text-xs'}`}
+              >
+                {dir < 0 ? <ChevronsLeft size={big ? 22 : 14} aria-hidden /> : null}
+                {t.beatShort}
+                {dir > 0 ? <ChevronsRight size={big ? 22 : 14} aria-hidden /> : null}
+              </button>
+            ))}
+          </div>
         )}
       </div>
     </div>

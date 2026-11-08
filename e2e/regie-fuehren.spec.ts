@@ -77,6 +77,14 @@ test('Führen-Ansicht: ohne Licht/Ton, Text klein (vorige/aktuelle/nächste), Ze
   await expect.poll(seconds).toBe(12);
   await expect(list.locator('[data-testid=lead-scene-item][data-current]').filter({ hasText: 'Dunkel' })).toHaveCount(1);
   await expect(lead.getByTestId('performance-scene')).toContainText('Dunkel');
+  // Schlag vor/zurück (120 BPM: 0,5 s je Schlag)
+  await lead.getByRole('button', { name: 'Einen Schlag vor' }).click();
+  await expect(lead.getByTestId('timecode')).toHaveText('00:00:12:12');
+  await lead.getByRole('button', { name: 'Einen Schlag zurück' }).click();
+  await lead.getByRole('button', { name: 'Einen Schlag zurück' }).click();
+  await expect(lead.getByTestId('timecode')).toHaveText('00:00:11:12');
+  await lead.getByRole('button', { name: 'Einen Schlag vor' }).click();
+  await expect(lead.getByTestId('timecode')).toHaveText('00:00:12:00');
   // Zoom, dann Mausrad verschiebt den Ausschnitt – die Abspielposition bleibt
   const trackEl = timeline.getByTestId('lead-timeline-track');
   await timeline.getByRole('button', { name: 'Zeitstrahl vergrößern' }).click();

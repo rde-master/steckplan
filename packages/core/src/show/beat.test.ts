@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addTap, bpmCommand, itemTempo, beatAt, parseTimeSignature, tapProgress, tapTempo, TAP_RESET_SEC, type Tap } from './beat';
+import { addTap, beatStep, bpmCommand, itemTempo, beatAt, parseTimeSignature, tapProgress, tapTempo, TAP_RESET_SEC, type Tap } from './beat';
 
 describe('Tempo und Takt', () => {
   it('Taktart lesen', () => {
@@ -55,5 +55,17 @@ describe('gültiges Tempo und OSC-Befehl', () => {
     expect(bpmCommand('Master 3.1 At BPM {bpm}', 121.46)).toBe('Master 3.1 At BPM 121.5');
     expect(bpmCommand('Master 3.2 At BPM', 90)).toBe('Master 3.2 At BPM 90');
     expect(bpmCommand('  ', 90)).toBe('Master 3.1 At BPM 90');
+  });
+});
+
+describe('Schlag vor/zurück', () => {
+  it('springt im Raster (120 BPM = 0,5 s, die „1“ bei 0,2 s)', () => {
+    expect(beatStep(1.0, 120, 0.2, 1)).toBe(1.2);
+    expect(beatStep(1.0, 120, 0.2, -1)).toBe(0.7);
+    // auf einem Schlag: einen ganzen weiter bzw. zurück
+    expect(beatStep(1.2, 120, 0.2, 1)).toBe(1.7);
+    expect(beatStep(1.21, 120, 0.2, -1)).toBe(0.7);
+    // nie vor 0
+    expect(beatStep(0.1, 120, 0.2, -1)).toBe(0);
   });
 });
