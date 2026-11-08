@@ -474,6 +474,8 @@ export const ShowItemSchema = z.object({
   lyricsVisible: z.boolean().optional(),
   /** Textfenster: false = Text am Ende der Dauer stehen lassen (Standard: ausblenden) */
   lyricsHideAtEnd: z.boolean().optional(),
+  /** Textfenster: Darstellung für diesen Punkt (sonst die allgemeine aus den Regie-Einstellungen) */
+  lyricsMode: z.enum(['lines', 'block']).optional(),
   /**
    * Versatz des Audios (Sekunden): positiv = die Musik setzt bei dieser Zeit des Punkts (Timecode) ein;
    * negativ = der Punkt beginnt bei dieser Stelle der Datei (−12 → 0:00 des Punkts ist 0:12 der Datei)

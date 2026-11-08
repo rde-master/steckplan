@@ -307,6 +307,7 @@ function ItemDetail({
   // Länge der Datei kommt mit den Metadaten (neu zeichnen)
   usePlaybackState(music);
   const lines = itemTimedLines(sections, item);
+  const settingsMode = data.showSettings.lyricsMode ?? 'lines';
   return (
     <article className="mx-auto max-w-3xl space-y-4 p-4" aria-label={item.title || t.untitled} data-testid="regie-detail">
       <header className="flex flex-wrap items-center gap-2">
@@ -400,6 +401,22 @@ function ItemDetail({
           <label className="flex items-center gap-2" title={t.lyricsHideAtEndHint}>
             <input type="checkbox" checked={item.lyricsHideAtEnd !== false} disabled={!editable} onChange={(e) => set({ lyricsHideAtEnd: e.target.checked ? undefined : false })} />
             {t.lyricsHideAtEnd}
+          </label>
+        )}
+        {item.lyricsVisible !== false && (
+          <label className="flex items-center gap-2" title={t.lyricsModeHint}>
+            {t.lyricsMode}
+            <select
+              className="rounded-md border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-800"
+              value={item.lyricsMode ?? ''}
+              disabled={!editable}
+              onChange={(e) => set({ lyricsMode: (e.target.value || undefined) as ShowItem['lyricsMode'] })}
+              data-testid="item-lyrics-mode"
+            >
+              <option value="">{t.lyricsModeDefault(texts.regie.lyricsPage.modes[settingsMode])}</option>
+              <option value="lines">{texts.regie.lyricsPage.modes.lines}</option>
+              <option value="block">{texts.regie.lyricsPage.modes.block}</option>
+            </select>
           </label>
         )}
       </div>
