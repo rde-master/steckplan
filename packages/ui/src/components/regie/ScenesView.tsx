@@ -79,6 +79,7 @@ export function ScenesView({ projectId, doc, origin, data, library, editable }: 
       <ScenesSection waveSrc={waveSrc} key={`scenes-${item.id}`} doc={doc} origin={origin} item={item} data={data} library={library} lines={lines} time={time} audio={music} editable={editable} />
       {(
         <PlayerBar
+          record={editable ? { doc, origin } : undefined}
           settings={data.showSettings}
           key={`player-${item.id}`}
           projectId={projectId}
