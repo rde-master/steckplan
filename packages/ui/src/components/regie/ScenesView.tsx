@@ -12,6 +12,7 @@ import { ICON } from '../icons';
 import { Button } from '../ui';
 import { ItemNumber, KIND_ICONS } from './RegieView';
 import { useRegieSelection } from './regieSelection';
+import { itemAudioSrc } from './Waveform';
 import { ScenesSection } from './ScenesSection';
 import { PlayerBar, TimecodePanel, usePlayerTime } from './SongMedia';
 
@@ -55,6 +56,7 @@ export function ScenesView({ projectId, doc, origin, data, library, editable }: 
   );
 
   const lines = item ? itemTimedLines(data.show.sections, item) : [];
+  const waveSrc = itemAudioSrc(projectId, item);
   const hasAudio = !!item && (item.media?.length ?? 0) > 0;
   const detail = item ? (
     <article className="mx-auto max-w-[112rem] space-y-4 p-4" aria-label={item.title || texts.regie.untitled} data-testid="scenes-detail">
@@ -68,7 +70,7 @@ export function ScenesView({ projectId, doc, origin, data, library, editable }: 
         {!hasAudio && item.kind === 'song' && <span className="text-xs text-slate-500">{t.noAudio}</span>}
       </header>
       {/* eigene Schlüssel je Kind: gleiche Schlüssel bei Geschwistern ließen beim Wechsel des Stücks die alten Szenen stehen */}
-      <ScenesSection key={`scenes-${item.id}`} doc={doc} origin={origin} item={item} data={data} library={library} lines={lines} time={time} audio={music} editable={editable} />
+      <ScenesSection waveSrc={waveSrc} key={`scenes-${item.id}`} doc={doc} origin={origin} item={item} data={data} library={library} lines={lines} time={time} audio={music} editable={editable} />
       {(
         <PlayerBar
           settings={data.showSettings}

@@ -10,13 +10,14 @@ import { texts } from '../../texts';
 import { ICON } from '../icons';
 import { Button } from '../ui';
 import { RichTextEditor } from './RichTextEditor';
+import { SceneTimeline } from './SceneTimeline';
 import { formatSceneTime, SceneTimeInput } from './ScenesSection';
 import { seekAudio } from './SongMedia';
 
 const t = texts.regie.sound;
 const ts = texts.light.scenes;
 
-export function SoundScenesSection({ doc, origin, item, data, lines, music, editable }: { doc: Y.Doc; origin: object; item: ShowItem; data: ProjectData; lines: TimedLine[]; music: Playback | null; editable: boolean }) {
+export function SoundScenesSection({ doc, origin, item, data, lines, music, editable, waveSrc }: { doc: Y.Doc; origin: object; item: ShowItem; data: ProjectData; lines: TimedLine[]; music: Playback | null; editable: boolean; waveSrc?: string }) {
   const scenes = itemSoundScenes(data.soundScenes, item.id);
   const lightCount = itemScenes(data.lightScenes, item.id).length;
   const plainLines = lines.map((l) => l.line);
@@ -53,6 +54,20 @@ export function SoundScenesSection({ doc, origin, item, data, lines, music, edit
           </>
         )}
       </div>
+
+      {scenes.length > 0 && (
+        <SceneTimeline
+          tone="sound"
+          scenes={scenes.map((s, i) => ({ id: s.id, number: i + 1, name: s.name, at: sceneTime(s, plainLines) }))}
+          music={music}
+          src={waveSrc}
+          audioOffset={item.audioOffsetSec ?? 0}
+          selectedId={scene?.id}
+          onSelect={setChosen}
+          onMove={(changes) => doc.transact(() => changes.forEach((c) => updateSoundScene(doc, c.id, { atSec: c.atSec }, origin)), origin)}
+          editable={editable}
+        />
+      )}
 
       {scenes.length === 0 ? (
         <p className="text-sm text-slate-500">{lightCount > 0 ? t.noScenesLight : t.noScenes}</p>

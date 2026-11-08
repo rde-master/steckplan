@@ -356,7 +356,7 @@ function ItemDetail({
         )}
         {item.kind === 'song' && (
           <div className="sm:col-start-2">
-            <TempoField key={`${item.id}:${item.bpm ?? ''}`} bpm={item.bpm} signature={item.timeSignature} editable={editable} onChange={(patch) => set(patch)} />
+            <TempoField key={`${item.id}:${item.bpm ?? ''}`} bpm={item.bpm} manualBpm={item.manualBpm} signature={item.timeSignature} editable={editable} onChange={(patch) => set(patch)} />
           </div>
         )}
         {(item.media?.length ?? 0) > 0 && (
@@ -536,7 +536,7 @@ function NumberField({ number, taken, editable, onChange }: { number: number; ta
 }
 
 /** Tempo (BPM, auch per Tap) und Taktart eines Lieds */
-function TempoField({ bpm, signature, editable, onChange }: { bpm: number | undefined; signature: string | undefined; editable: boolean; onChange: (patch: { bpm?: number; timeSignature?: string; beatOffsetSec?: number }) => void }) {
+function TempoField({ bpm, manualBpm, signature, editable, onChange }: { bpm: number | undefined; manualBpm: number | undefined; signature: string | undefined; editable: boolean; onChange: (patch: { bpm?: number; timeSignature?: string; beatOffsetSec?: number; manualBpm?: number; manualBeatOffsetSec?: number }) => void }) {
   const [draft, setDraft] = useState(bpm !== undefined ? String(bpm).replace('.', ',') : '');
   const value = draft.trim() === '' ? undefined : Number(draft.replace(',', '.'));
   const invalid = value !== undefined && (!Number.isFinite(value) || value < BPM_MIN || value > BPM_MAX);
@@ -598,6 +598,17 @@ function TempoField({ bpm, signature, editable, onChange }: { bpm: number | unde
         >
           {progress ? t.fields.tapProgress(progress.count, progress.remaining) : t.fields.tap}
         </Button>
+      )}
+      {/* in der Vorstellung getappt: hat Vorrang, das gespeicherte bleibt */}
+      {manualBpm !== undefined && (
+        <p className="flex flex-wrap items-center gap-2 text-xs text-amber-700 dark:text-amber-400" data-testid="tempo-manual">
+          {t.fields.manualBpm(String(Math.round(manualBpm * 10) / 10).replace('.', ','))}
+          {editable && (
+            <button type="button" className="underline hover:no-underline" onClick={() => onChange({ manualBpm: undefined, manualBeatOffsetSec: undefined })}>
+              {t.fields.manualReset}
+            </button>
+          )}
+        </p>
       )}
     </div>
   );

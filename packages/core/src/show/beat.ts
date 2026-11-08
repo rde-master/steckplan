@@ -88,3 +88,33 @@ export function tapTempo(taps: Tap[], beats: number): { bpm: number; offset?: nu
   const offset = ((intercept % bar) + bar) % bar;
   return { bpm, offset: Math.round(offset * 1000) / 1000 };
 }
+
+// ---------- gültiges Tempo (manuell vor Standard) ----------
+
+export interface ItemTempo {
+  bpm: number | undefined;
+  /** Zeit einer „1“ */
+  offset: number | undefined;
+  /** stammt vom Tappen (manuell)? */
+  manual: boolean;
+}
+
+/** Tempo eines Punkts: das manuelle (getappte) hat Vorrang, sonst das gespeicherte */
+export function itemTempo(item: { bpm?: number | undefined; beatOffsetSec?: number | undefined; manualBpm?: number | undefined; manualBeatOffsetSec?: number | undefined }): ItemTempo {
+  if (item.manualBpm !== undefined) return { bpm: item.manualBpm, offset: item.manualBeatOffsetSec ?? item.beatOffsetSec, manual: true };
+  return { bpm: item.bpm, offset: item.beatOffsetSec, manual: false };
+}
+
+export const OSC_BPM_DEFAULTS = { enabled: false, host: '', port: 8000, address: '/cmd', command: 'Master 3.1 At BPM {bpm}' } as const;
+
+/** Tempo als Text für den Befehl: höchstens eine Nachkommastelle mit Punkt („120“, „121.5“) */
+export function formatBpmValue(bpm: number): string {
+  return String(Math.round(bpm * 10) / 10);
+}
+
+/** Befehl aus der Vorlage: {bpm} wird ersetzt; ohne Platzhalter wird das Tempo angehängt */
+export function bpmCommand(template: string, bpm: number): string {
+  const value = formatBpmValue(bpm);
+  const text = template.trim() || OSC_BPM_DEFAULTS.command;
+  return text.includes('{bpm}') ? text.split('{bpm}').join(value) : `${text} ${value}`;
+}

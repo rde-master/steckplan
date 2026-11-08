@@ -99,7 +99,7 @@ test('Timecode je Ablaufpunkt ab 00:00:00:00, feste Nummern, Lied hängt am Time
     const settings = page.getByTestId('lyrics-settings');
     await settings.getByLabel('Ziel (IP oder Broadcast)').fill('127.0.0.1');
     await settings.getByLabel('Ziel (IP oder Broadcast)').press('Enter');
-    await settings.getByLabel('Senden').check();
+    await settings.getByLabel('Senden', { exact: true }).check();
     await page.getByRole('button', { name: 'Fertig' }).click();
     show = await openPerformance(page);
     perf = show.getByTestId('performance');

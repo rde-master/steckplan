@@ -33,6 +33,7 @@ import { FixturePanel } from './FixturePanel';
 import { MOD_KEY, setSceneClip, useSceneClip } from './sceneClipboard';
 import { SceneCopyDialog } from './SceneCopyDialog';
 import { SceneGrid } from './SceneGrid';
+import { SceneTimeline } from './SceneTimeline';
 
 const t = texts.light.scenes;
 
@@ -68,6 +69,7 @@ export function ScenesSection({
   time,
   audio,
   editable,
+  waveSrc,
 }: {
   doc: Y.Doc;
   origin: object;
@@ -78,6 +80,8 @@ export function ScenesSection({
   time: number;
   audio: Playback | null;
   editable: boolean;
+  /** Audiodatei für die Wellenform der Zeitleiste */
+  waveSrc?: string;
 }) {
   const templates = useMemo(() => new Map((library?.templates ?? []).map((tp) => [tp.id, tp])), [library]);
   const lights = useMemo(() => lightDevices(data.devices, templates), [data.devices, templates]);
@@ -237,6 +241,23 @@ export function ScenesSection({
         )}
         <KeyOverview />
       </div>
+
+      {scenes.length > 0 && (
+        <SceneTimeline
+          tone="light"
+          scenes={scenes.map((s, i) => ({ id: s.id, number: i + 1, name: s.name, at: sceneTime(s, plainLines) }))}
+          music={audio}
+          src={waveSrc}
+          audioOffset={item.audioOffsetSec ?? 0}
+          selectedId={scene?.id}
+          onSelect={(id) => {
+            setChosen(id);
+            setFollow(false);
+          }}
+          onMove={(changes) => doc.transact(() => changes.forEach((c) => updateScene(doc, c.id, { atSec: c.atSec }, origin)), origin)}
+          editable={editable}
+        />
+      )}
 
       {scenes.length === 0 ? (
         <p className="text-sm text-slate-500">{t.none}</p>

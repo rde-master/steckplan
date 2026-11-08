@@ -485,6 +485,9 @@ export const ShowItemSchema = z.object({
   timeSignature: z.string().regex(/^\d{1,2}\/\d{1,2}$/).optional(),
   /** Zeit des Punkts, an der eine „1“ liegt (vom Tappen beim Abspielen) */
   beatOffsetSec: z.number().min(0).optional(),
+  /** Manuelles Tempo vom Tappen in der Vorstellung (hat Vorrang vor bpm, das gespeicherte bleibt) und seine „1“ */
+  manualBpm: z.number().min(20).max(400).optional(),
+  manualBeatOffsetSec: z.number().min(0).optional(),
   /** Farben des Lieds: Grundfarbe und Sekundärfarbe (#rrggbb) */
   primaryColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
   secondaryColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
@@ -692,6 +695,17 @@ export const ShowSettingsSchema = z.object({
   remainBlinkSec: z.number().int().min(0).max(REMAIN_MAX_BLINK).optional(),
   /** Timecode per Art-Net senden (vom Server, solange in der Vorstellung jemand führt) */
   artnet: z.object({ enabled: z.boolean().default(false), host: z.string().default('255.255.255.255') }).optional(),
+  /** Aktuelles Tempo per OSC senden (vom Server, solange jemand führt), z. B. /cmd "Master 3.1 At BPM 120" */
+  oscBpm: z
+    .object({
+      enabled: z.boolean().default(false),
+      host: z.string().default(''),
+      port: z.number().int().min(1).max(65535).default(8000),
+      address: z.string().default('/cmd'),
+      /** Text mit Platzhalter {bpm} */
+      command: z.string().default('Master 3.1 At BPM {bpm}'),
+    })
+    .optional(),
 });
 
 /** Restzeit im Player: Schwellen aus den Einstellungen, sonst Standard */
