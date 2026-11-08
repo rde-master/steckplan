@@ -474,8 +474,11 @@ export const ShowItemSchema = z.object({
   lyricsVisible: z.boolean().optional(),
   /** Textfenster: false = Text am Ende der Dauer stehen lassen (Standard: ausblenden) */
   lyricsHideAtEnd: z.boolean().optional(),
-  /** Versatz des Audios: die Musik setzt bei dieser Zeit des Punkts (Timecode) ein (Sekunden) */
-  audioOffsetSec: z.number().min(0).max(3600).optional(),
+  /**
+   * Versatz des Audios (Sekunden): positiv = die Musik setzt bei dieser Zeit des Punkts (Timecode) ein;
+   * negativ = der Punkt beginnt bei dieser Stelle der Datei (−12 → 0:00 des Punkts ist 0:12 der Datei)
+   */
+  audioOffsetSec: z.number().min(-3600).max(3600).optional(),
   /** true: der Versatz gilt auch für die Zeitpunkte der Textzeilen (sie zählen ab Musikbeginn) */
   audioOffsetText: z.boolean().optional(),
   /** Feste Nummer im Ablauf (bleibt beim Umsortieren) */
@@ -683,7 +686,16 @@ export const ShowSettingsSchema = z.object({
   /** Beginn des Ablaufs „HH:MM“ */
   startTime: z.string().optional(),
   /** Hintergrundbild des Textfensters (Datei im Medienspeicher), abgedunkelt um dim (0–1) */
-  lyricsBackground: z.object({ mediaId: id, dim: z.number().min(0).max(1).default(0.5) }).optional(),
+  lyricsBackground: z
+    .object({
+      mediaId: id,
+      dim: z.number().min(0).max(1).default(0.5),
+      /** Diashow: weitere Bilder nach dem ersten, Standzeit je Bild und Überblendung (Sekunden) */
+      slides: z.array(id).optional(),
+      slideSec: z.number().min(1).max(600).optional(),
+      fadeSec: z.number().min(0).max(30).optional(),
+    })
+    .optional(),
   /** Textfenster: Zeilen vor bzw. nach der aktuellen (Standard 1 und 3) */
   lyricsBefore: z.number().int().min(0).max(LYRICS_MAX_BEFORE).optional(),
   lyricsAfter: z.number().int().min(0).max(LYRICS_MAX_AFTER).optional(),
