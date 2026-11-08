@@ -12,7 +12,9 @@ import {
   removeSection,
   SECTION_KINDS,
   sectionToText,
+  sectionTranslationText,
   setSectionText,
+  setSectionTranslation,
   updateSection,
   type SectionKind,
   type ShowItem,
@@ -47,8 +49,18 @@ export function SectionsEditor({
 }) {
   const play = item.kind === 'play';
   const defaultKind: SectionKind = play ? 'scene' : item.kind === 'song' ? 'verse' : 'other';
+  // Übersetzung bearbeiten: sichtbar, sobald es eine gibt (sonst auf Wunsch)
+  const hasTranslation = sections.some((s) => s.lines.some((l) => l.translation));
+  const [showTranslation, setShowTranslation] = useState(false);
+  const translating = hasTranslation || showTranslation;
   return (
     <div className="space-y-3">
+      {sections.length > 0 && (
+        <label className="flex items-center gap-2 text-sm" title={t.translationHint}>
+          <input type="checkbox" checked={translating} disabled={hasTranslation} onChange={(e) => setShowTranslation(e.target.checked)} data-testid="translation-toggle" />
+          {t.translationEdit}
+        </label>
+      )}
       {sections.length === 0 && <p className="text-sm text-slate-500">{t.noText}</p>}
       {sections.map((section, index) => (
         <div key={section.id} className="rounded-lg border border-slate-200 bg-white p-2 dark:border-slate-700 dark:bg-slate-900" data-testid="regie-section">
@@ -96,7 +108,14 @@ export function SectionsEditor({
               </span>
             )}
           </div>
-          <SectionText doc={doc} origin={origin} section={section} item={item} editable={editable} />
+          {translating ? (
+            <div className="grid gap-2 sm:grid-cols-2">
+              <SectionText doc={doc} origin={origin} section={section} item={item} editable={editable} nowrap />
+              <TranslationText doc={doc} origin={origin} section={section} editable={editable} />
+            </div>
+          ) : (
+            <SectionText doc={doc} origin={origin} section={section} item={item} editable={editable} />
+          )}
           <SectionBackground projectId={projectId} doc={doc} origin={origin} section={section} sections={sections} settings={settings} editable={editable} />
         </div>
       ))}
@@ -109,7 +128,7 @@ export function SectionsEditor({
   );
 }
 
-function SectionText({ doc, origin, section, item, editable }: { doc: Y.Doc; origin: object; section: TextSection; item: ShowItem; editable: boolean }) {
+function SectionText({ doc, origin, section, item, editable, nowrap = false }: { doc: Y.Doc; origin: object; section: TextSection; item: ShowItem; editable: boolean; /** neben der Übersetzung: nicht umbrechen, damit die Zeilen nebeneinander bleiben */ nowrap?: boolean }) {
   const play = item.kind === 'play';
   const stored = sectionToText(section.lines, item.roles ?? [], play);
   // null = nicht in Bearbeitung → Stand aus dem Dokument zeigen (auch Änderungen anderer)
@@ -125,6 +144,7 @@ function SectionText({ doc, origin, section, item, editable }: { doc: Y.Doc; ori
       readOnly={!editable}
       placeholder={play ? t.sectionPlayHint : undefined}
       spellCheck
+      wrap={nowrap ? 'off' : undefined}
       onFocus={() => editable && setDraft(stored)}
       onChange={(e) => {
         setDraft(e.target.value);
@@ -132,5 +152,36 @@ function SectionText({ doc, origin, section, item, editable }: { doc: Y.Doc; ori
       }}
       onBlur={() => setDraft(null)}
     />
+  );
+}
+
+/** Übersetzung eines Abschnitts: je Textzeile eine Zeile (gleiche Höhe wie der Text, damit die Zeilen nebeneinander stehen) */
+function TranslationText({ doc, origin, section, editable }: { doc: Y.Doc; origin: object; section: TextSection; editable: boolean }) {
+  const stored = sectionTranslationText(section.lines);
+  const [draft, setDraft] = useState<string | null>(null);
+  const value = draft ?? stored;
+  const rows = Math.min(24, Math.max(3, section.lines.length + 1, value.split('\n').length + 1));
+  const extra = value.replace(/\n+$/, '').split('\n').length - section.lines.length;
+  return (
+    <div>
+      <textarea
+        aria-label={t.sectionTranslation(section.label)}
+        className="w-full rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 font-[inherit] text-sm leading-relaxed text-slate-600 italic focus:border-sky-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500/30 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:focus:bg-slate-900"
+        rows={rows}
+        value={value}
+        readOnly={!editable}
+        placeholder={t.translationPlaceholder}
+        spellCheck
+        wrap="off"
+        onFocus={() => editable && setDraft(stored)}
+        onChange={(e) => {
+          setDraft(e.target.value);
+          setSectionTranslation(doc, section.id, e.target.value, origin);
+        }}
+        onBlur={() => setDraft(null)}
+        data-testid="section-translation"
+      />
+      {extra > 0 && <p className="text-xs text-amber-700 dark:text-amber-400">{t.translationExtra(extra)}</p>}
+    </div>
   );
 }
