@@ -8,6 +8,7 @@ import { setLineTime, type TimedLine } from '@steckplan/core';
 import { texts } from '../../texts';
 import { ICON } from '../icons';
 import { Button } from '../ui';
+import { Waveform, WaveformControls, useWaveformSettings } from './Waveform';
 
 const t = texts.regie.media;
 
@@ -45,6 +46,8 @@ export function LyricsTimeline({
   timeOffset,
   editable,
   onSeek,
+  waveSrc,
+  audioOffset = 0,
 }: {
   doc: Y.Doc;
   origin: object;
@@ -56,7 +59,14 @@ export function LyricsTimeline({
   timeOffset: number;
   editable: boolean;
   onSeek: (sec: number) => void;
+  /** Audiodatei für die Wellenform */
+  waveSrc?: string;
+  /** die Datei beginnt bei diesem Zeitpunkt */
+  audioOffset?: number;
 }) {
+  const wave = useWaveformSettings();
+  // sichtbarer Ausschnitt (für die Wellenform)
+  const [visible, setVisible] = useState({ left: 0, width: 0 });
   const [zoom, setZoom] = useState(2);
   const pps = ZOOMS[zoom]!;
   const timed = lines.filter((l) => l.line.atSec !== undefined);
@@ -74,6 +84,19 @@ export function LyricsTimeline({
     const x = time * pps;
     if (x < el.scrollLeft + 40 || x > el.scrollLeft + el.clientWidth - 40) el.scrollLeft = Math.max(0, x - el.clientWidth / 3);
   }, [time, pps, dragging]);
+  useEffect(() => {
+    const el = scroller.current;
+    if (!el || !wave.on) return;
+    const measure = () => setVisible({ left: el.scrollLeft, width: el.clientWidth });
+    measure();
+    el.addEventListener('scroll', measure, { passive: true });
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => {
+      el.removeEventListener('scroll', measure);
+      ro.disconnect();
+    };
+  }, [wave.on, pps]);
 
   const startDrag = (e: ReactPointerEvent<HTMLButtonElement>, index: number) => {
     const l = timed[index]!;
@@ -109,6 +132,7 @@ export function LyricsTimeline({
         <span className="font-semibold tracking-wide uppercase">{t.timeline}</span>
         <span className="truncate">{editable ? t.timelineHint : ''}</span>
         <span className="flex-1" />
+        <WaveformControls />
         <Button variant="ghost" className="min-h-7 px-1.5" aria-label={t.zoomOut} title={t.zoomOut} disabled={zoom === 0} onClick={() => setZoom(zoom - 1)}>
           <ZoomOut {...ICON} />
         </Button>
@@ -118,7 +142,7 @@ export function LyricsTimeline({
       </div>
       <div ref={scroller} className="overflow-x-auto rounded-md border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-950">
         <div
-          className="relative h-20 cursor-pointer select-none"
+          className={`relative cursor-pointer select-none ${wave.on ? 'h-36' : 'h-20'}`}
           style={{ width }}
           data-testid="timeline-track"
           onClick={(e) => {
@@ -128,6 +152,12 @@ export function LyricsTimeline({
             onSeek(Math.max(0, ROUND((e.clientX - rect.left) / pps)));
           }}
         >
+          {/* Wellenform unter den Zeilen, nur der sichtbare Ausschnitt */}
+          {wave.on && visible.width > 0 && (
+            <div className="pointer-events-none absolute top-[4.75rem] bottom-1 border-t border-slate-200 dark:border-slate-800" style={{ left: visible.left, width: visible.width }} data-testid="timeline-wave">
+              <Waveform src={waveSrc} offset={audioOffset} start={visible.left / pps} span={visible.width / pps} />
+            </div>
+          )}
           {/* Skala */}
           {ticks.map((s) => (
             <div key={s} className="pointer-events-none absolute top-0 h-full border-l border-slate-200 dark:border-slate-800" style={{ left: s * pps }}>

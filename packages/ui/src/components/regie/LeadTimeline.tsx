@@ -11,6 +11,7 @@ import { texts } from '../../texts';
 import { ICON } from '../icons';
 import { useFrame } from './BeatPanel';
 import { formatSceneTime } from './ScenesSection';
+import { Waveform, WaveformControls, useWaveformSettings } from './Waveform';
 
 const t = texts.regie.performance;
 
@@ -86,6 +87,8 @@ export function LeadTimeline({
   lightScenes,
   soundScenes,
   onScene,
+  waveSrc,
+  audioOffset = 0,
 }: {
   duration: number;
   lines: TimedLine[];
@@ -100,8 +103,13 @@ export function LeadTimeline({
   soundScenes: TimelineScene[];
   /** Szene aus der Liste gewählt: dorthin springen */
   onScene?: (kind: 'light' | 'sound', scene: TimelineScene) => void;
+  /** Audiodatei für die Wellenform */
+  waveSrc?: string;
+  /** die Datei beginnt bei diesem Zeitpunkt */
+  audioOffset?: number;
 }) {
   useFrame(playing);
+  const wave = useWaveformSettings();
   const time = getTime();
   const total = duration > 0 ? duration : 1;
   // Ausschnitt: Beginn und Länge (Sekunden); Standard alles
@@ -222,6 +230,7 @@ export function LeadTimeline({
           <span className="font-semibold tracking-wide uppercase">{t.timeline}</span>
           <span className="hidden truncate sm:inline">{t.timelineHint}</span>
           <span className="flex-1" />
+          <WaveformControls dark />
           <label className={`flex cursor-pointer items-center gap-1.5 rounded-md border px-2 py-1 ${scrub ? 'border-amber-500 bg-amber-500/15 text-amber-200' : 'border-slate-700'}`} title={t.scrubHint}>
             <input type="checkbox" className="sr-only" checked={scrub} onChange={(e) => setScrubOn(e.target.checked)} aria-label={t.scrub} />
             <Hand size={14} aria-hidden /> {t.scrub}: {scrub ? t.on : t.off}
@@ -282,6 +291,11 @@ export function LeadTimeline({
               );
             })}
           </div>
+          {wave.on && (
+            <div className="pointer-events-none relative h-20 border-t border-slate-800" data-testid="lead-timeline-wave">
+              <Waveform src={waveSrc} offset={audioOffset} start={start} span={span} color="rgb(52 211 153 / 0.55)" />
+            </div>
+          )}
           {/* Abspielstand über alles */}
           {time >= start && time <= end && (
             <div className="pointer-events-none absolute top-0 bottom-0 z-10 w-1 -translate-x-1/2 rounded bg-red-500 shadow-[0_0_12px_rgb(239_68_68/0.8)]" style={{ left: pct(time) }} data-testid="lead-playhead" />

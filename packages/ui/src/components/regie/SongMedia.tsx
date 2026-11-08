@@ -245,7 +245,7 @@ export function usePlayerTime(el: Playback | null): number {
 }
 
 /** Läuft der Transport? Ende (Dauer) – für die Anzeige */
-function usePlaybackState(playback: Playback | null): { playing: boolean; duration: number } {
+export function usePlaybackState(playback: Playback | null): { playing: boolean; duration: number } {
   const [state, setState] = useState({ playing: false, duration: Number.POSITIVE_INFINITY });
   useEffect(() => {
     if (!playback) return;

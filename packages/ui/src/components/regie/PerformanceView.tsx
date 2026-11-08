@@ -35,6 +35,7 @@ import { openLyricsWindow, useCueClock, useLocalCueSender, type ReceivedCue } fr
 import { ItemColors, ItemNumber, KIND_ICONS } from './RegieView';
 import { BeatPanel } from './BeatPanel';
 import { LeadTimeline } from './LeadTimeline';
+import { itemAudioSrc } from './Waveform';
 import { DeskCuePanel } from './DeskCuePanel';
 import type * as Y from 'yjs';
 import { RichTextView } from './RichTextEditor';
@@ -629,6 +630,8 @@ export function PerformanceView({
             getTime={() => audio.currentTime}
             playing={playing}
             onSeek={(sec) => perform({ action: 'seek', value: sec })}
+            waveSrc={itemAudioSrc(projectId, item)}
+            audioOffset={item.audioOffsetSec ?? 0}
             lightScenes={scenes.map((s, i) => ({ id: s.id, number: i + 1, name: s.name, at: sceneTime(s, plainLines), current: i === sceneIndex }))}
             soundScenes={soundScenes.map((s, i) => ({ id: s.id, number: i + 1, name: s.name, at: sceneTime(s, plainLines), current: i === soundIndex }))}
             onScene={(kind, s) => {
