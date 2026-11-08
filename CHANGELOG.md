@@ -7,6 +7,14 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.36.0] - 2026-11-08
+
+### Hinzugefügt
+
+- Audio-Versatz als Startpunkt in der Datei: negativer Versatz – 0:00 des Punkts liegt mitten in der Audiodatei (−0:12 = ab 0:12 der Datei, z. B. Intro überspringen); Eingabe auch mit Minus
+- Versatz-Zeitleiste im Ablauf (Kasten „Musik“): der Punkt von Start 0:00 bis Ende, darunter die Musik mit Wellenform – ziehen stellt den Versatz ein (0,1-s-Raster), Anzeige des Zustands, „Auf 0“
+- Textfenster: Diashow als Hintergrund – mehrere Bilder (auch mehrere auf einmal hinzufügen), Reihenfolge ändern, einzeln entfernen; Standzeit je Bild und Überblendung einstellbar; alle Textfenster zeigen dasselbe Bild; ein eigenes Bild eines Abschnitts hat Vorrang
+
 ## [0.35.0] - 2026-11-08
 
 ### Hinzugefügt
