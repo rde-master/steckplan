@@ -7,6 +7,18 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.34.0] - 2026-11-08
+
+### Hinzugefügt
+
+- Lichtszenen und Tonszenen: oben eine Zeitleiste – jede Szene als Block bis zur nächsten; Block ziehen verschiebt die Szene (ihre Länge bleibt), linken Rand ziehen verschiebt die Grenze (die Szene wird länger, die vorige kürzer und umgekehrt); Raster 0,1 s, nie über die Nachbarn hinaus; Klick wählt die Szene und springt dorthin; Zoom (Lupen, Strg + Mausrad), Abspielstand als rote Linie
+- Wellenform der Audiodatei in allen Zeitleisten (Mitschreiben, Licht-/Tonszenen, Führen): Schalter „Wellenform“ (Standard aus) und Regler „Höhe“ (1×–12×), damit leise Stellen sichtbar werden; gilt für alle Zeitleisten und bleibt im Browser gemerkt
+- Tempo per OSC senden (Regie-Einstellungen): Ziel, Port, Adresse (Standard `/cmd`) und Befehl mit Platzhalter (Standard `Master 3.1 At BPM {bpm}`); der Server sendet, solange jemand führt – beim Wechsel des Lieds und wenn sich das Tempo ändert; „Jetzt senden“ zum erneuten Senden
+
+### Geändert
+
+- Tap in der Vorstellung (Knopf, Taste T, OSC `/steckplan/tap`) überschreibt das gespeicherte Tempo nicht mehr, sondern setzt ein manuelles Tempo; das manuelle hat Vorrang, sonst gilt das gespeicherte; „Standard (…)“ im Takt-Kreis bzw. „Verwerfen“ im Ablauf kehrt zum gespeicherten zurück
+
 ## [0.33.0] - 2026-11-07
 
 ### Hinzugefügt
