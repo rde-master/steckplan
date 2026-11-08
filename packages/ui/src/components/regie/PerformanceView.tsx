@@ -89,6 +89,30 @@ function readSide(): Side {
 
 /** Herkunft der Änderungen aus der Vorstellung (Tap-Tempo) */
 const PERFORMANCE_ORIGIN = { source: 'performance' };
+const TEXT_HIDDEN_KEY = 'steckplan.performanceTextHidden';
+
+function readTextHidden(): boolean {
+  try {
+    return localStorage.getItem(TEXT_HIDDEN_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+/** Text der Vorstellung (Frei/Folgen) ein- bzw. ausgeklappt – je Gerät gemerkt */
+function useTextHidden(): [boolean, (hidden: boolean) => void] {
+  const [hidden, setHidden] = useState(readTextHidden);
+  const set = (next: boolean) => {
+    setHidden(next);
+    try {
+      if (next) localStorage.setItem(TEXT_HIDDEN_KEY, '1');
+      else localStorage.removeItem(TEXT_HIDDEN_KEY);
+    } catch {
+      // ohne Speicher gilt die Wahl bis zum Neuladen
+    }
+  };
+  return [hidden, set];
+}
 
 /** Zeitpunkt eines Taps (Sekunden, monoton) */
 function tapClock(): number {
@@ -268,6 +292,7 @@ export function PerformanceView({
 
   // Tap-Tempo: zwei volle Takte tippen (Knopf, Taste T, OSC /steckplan/tap) – dann übernimmt das Lied das Tempo,
   // beim Abspielen auch die Lage der „1“ (der erste Tap); mit jedem weiteren vollen Takt erneut. Gespeichert im Lied.
+  const [textHidden, setTextHidden] = useTextHidden();
   const [tapState, setTapState] = useState<{ itemId: string; taps: Tap[] } | null>(null);
   const taps = tapState && tapState.itemId === item?.id ? tapState.taps : [];
   const beats = parseTimeSignature(item?.timeSignature).beats;
@@ -702,8 +727,27 @@ export function PerformanceView({
           </div>
         </main>
       ) : (
-        <main className="grid min-h-0 flex-1 gap-4 overflow-y-auto py-4 pr-6 pl-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:overflow-hidden">
+        <main className={`grid min-h-0 flex-1 gap-4 overflow-y-auto py-4 pr-6 pl-4 lg:overflow-hidden ${textHidden ? 'lg:grid-cols-[2.75rem_minmax(0,1fr)]' : 'lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]'}`}>
+          {/* Text nach links einklappbar (je Gerät gemerkt) – eingeklappt wird er gar nicht erst gezeichnet */}
+          {textHidden ? (
+            <button
+              type="button"
+              onClick={() => setTextHidden(false)}
+              title={t.showText}
+              aria-label={t.showText}
+              className="flex items-center justify-center gap-2 rounded-md border border-slate-700 py-2 text-sm text-slate-300 hover:bg-slate-800 lg:flex-col lg:justify-start lg:py-4"
+              data-testid="performance-text-show"
+            >
+              <ChevronsRight size={20} aria-hidden />
+              <span className="lg:[writing-mode:vertical-rl]">{texts.regie.text}</span>
+            </button>
+          ) : (
           <section className="min-h-0 space-y-3 lg:overflow-y-auto" aria-label={texts.regie.text}>
+            <div className="flex justify-end">
+              <button type="button" onClick={() => setTextHidden(true)} title={t.hideText} className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-slate-400 hover:bg-slate-800" data-testid="performance-text-hide">
+                <ChevronsLeft size={16} aria-hidden /> {t.hideText}
+              </button>
+            </div>
             {item.notes && <p className="rounded-md bg-slate-900 p-3 text-slate-300">{item.notes}</p>}
             {lines.length === 0 ? (
               item.kind === 'break' || item.kind === 'announcement' ? <p className="text-3xl font-semibold text-slate-300">{item.title}</p> : <p className="text-slate-500">{texts.regie.noText}</p>
@@ -744,6 +788,7 @@ export function PerformanceView({
               </ol>
             )}
           </section>
+          )}
 
           <section className="min-h-0 space-y-3 lg:overflow-y-auto" aria-label={side === 'light' ? texts.light.scenes.title : texts.regie.sound.title}>
             <div className="flex w-fit overflow-hidden rounded-md border border-slate-700 text-sm" role="tablist" aria-label={t.sideLabel}>
