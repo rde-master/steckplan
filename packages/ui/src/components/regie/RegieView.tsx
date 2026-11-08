@@ -39,6 +39,7 @@ import {
   type ShowItem,
   type ShowItemKind,
   type ShowSettings,
+  itemTempo,
 } from '@steckplan/core';
 import { useIsNarrow } from '../../lib/useProjectDoc';
 import type { ProjectData } from '../../lib/useProjectData';
@@ -302,7 +303,7 @@ function ItemDetail({
   const set = (patch: Partial<Omit<ShowItem, 'id'>>) => updateShowItem(doc, item.id, patch, origin);
   // Player zum Anhören (Text und Mitschreiben im Bereich „Texte“)
   const [audio, setAudio] = useState<HTMLAudioElement | null>(null);
-  const { tc, music, sync } = usePointPlayback(item.id, item.durationSec, audio, item.audioOffsetSec);
+  const { tc, music, sync } = usePointPlayback(item.id, item.durationSec, audio, item.audioOffsetSec, itemTempo(item).rate);
   const time = usePlayerTime(music);
   // Länge der Datei kommt mit den Metadaten (neu zeichnen)
   usePlaybackState(music);

@@ -86,7 +86,8 @@ function fit(values: number[]): { slope: number; intercept: number } {
  * Tempo aus der Tap-Folge – erst nach zwei vollen Takten, danach mit jedem weiteren vollen Takt (aus den letzten zwei).
  * Der erste Tap jeder Folge ist eine „1“. Lief die Wiedergabe, liefert es auch die Lage der „1“ (offset).
  */
-export function tapTempo(taps: Tap[], beats: number): { bpm: number; offset?: number } | null {
+/** gridBpm: Tempo des Rasters in der Zeit des Punkts (läuft das Lied schneller, das der Aufnahme); sonst das getappte */
+export function tapTempo(taps: Tap[], beats: number, gridBpm?: number): { bpm: number; offset?: number } | null {
   const n = taps.length;
   if (n < 2 * beats || n % beats !== 0) return null;
   const recent = taps.slice(n - 2 * beats);
@@ -96,7 +97,7 @@ export function tapTempo(taps: Tap[], beats: number): { bpm: number; offset?: nu
   if (recent.some((t) => t.at === undefined)) return { bpm };
   // Lage der Schläge in der Zeit des Punkts; recent[0] ist eine „1“ (die Folge zählt ab ihrem ersten Tap)
   const { intercept } = fit(recent.map((t) => t.at!));
-  const bar = (60 / bpm) * beats;
+  const bar = (60 / (gridBpm ?? bpm)) * beats;
   const offset = ((intercept % bar) + bar) % bar;
   return { bpm, offset: Math.round(offset * 1000) / 1000 };
 }
@@ -104,17 +105,31 @@ export function tapTempo(taps: Tap[], beats: number): { bpm: number; offset?: nu
 // ---------- gültiges Tempo (manuell vor Standard) ----------
 
 export interface ItemTempo {
+  /** gültiges Tempo (manuell vor gespeichert) – so schnell klingt es */
   bpm: number | undefined;
+  /** Tempo des Taktrasters in der Zeit des Punkts (die Aufnahme: das gespeicherte, sonst das gültige) */
+  gridBpm: number | undefined;
   /** Zeit einer „1“ */
   offset: number | undefined;
   /** stammt vom Tappen (manuell)? */
   manual: boolean;
+  /** Abspielgeschwindigkeit: manuell ÷ gespeichert (0,5 … 2), sonst 1 */
+  rate: number;
 }
 
-/** Tempo eines Punkts: das manuelle (getappte) hat Vorrang, sonst das gespeicherte */
+export const RATE_MIN = 0.5;
+export const RATE_MAX = 2;
+
+/**
+ * Tempo eines Punkts: das manuelle (getappte) hat Vorrang, sonst das gespeicherte. Gibt es beide, ist das
+ * gespeicherte das Tempo der Aufnahme – das Lied läuft dann um manuell ÷ gespeichert schneller bzw. langsamer.
+ */
 export function itemTempo(item: { bpm?: number | undefined; beatOffsetSec?: number | undefined; manualBpm?: number | undefined; manualBeatOffsetSec?: number | undefined }): ItemTempo {
-  if (item.manualBpm !== undefined) return { bpm: item.manualBpm, offset: item.manualBeatOffsetSec ?? item.beatOffsetSec, manual: true };
-  return { bpm: item.bpm, offset: item.beatOffsetSec, manual: false };
+  if (item.manualBpm === undefined) return { bpm: item.bpm, gridBpm: item.bpm, offset: item.beatOffsetSec, manual: false, rate: 1 };
+  const offset = item.manualBeatOffsetSec ?? item.beatOffsetSec;
+  if (item.bpm === undefined) return { bpm: item.manualBpm, gridBpm: item.manualBpm, offset, manual: true, rate: 1 };
+  const rate = Math.round(Math.min(RATE_MAX, Math.max(RATE_MIN, item.manualBpm / item.bpm)) * 10000) / 10000;
+  return { bpm: item.manualBpm, gridBpm: item.bpm, offset, manual: true, rate };
 }
 
 export const OSC_BPM_DEFAULTS = { enabled: false, host: '', port: 8000, address: '/cmd', command: 'Master 3.1 At BPM {bpm}' } as const;

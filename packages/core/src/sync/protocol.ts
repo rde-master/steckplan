@@ -20,6 +20,8 @@ export interface Cue {
   playing?: boolean;
   /** Timecode, wenn er nicht an der Musik hängt (sonst wie at/playing) – Quelle für Art-Net */
   tc?: { at: number; playing: boolean };
+  /** Abspielgeschwindigkeit (1 = Original): so schnell zählen Folgende und Art-Net weiter */
+  rate?: number;
 }
 
 /** Fernsteuerung der Vorstellung (OSC bzw. HTTP) */
@@ -128,6 +130,7 @@ export function decodeCue(decoder: decoding.Decoder): Cue | null {
     ...(v.sceneId ? { sceneId: v.sceneId } : {}),
     ...(at !== undefined ? { at, playing: v.playing === true } : {}),
     ...(tcAt !== undefined ? { tc: { at: tcAt, playing: (v.tc as { playing?: unknown }).playing === true } } : {}),
+    ...(typeof v.rate === 'number' && Number.isFinite(v.rate) && v.rate >= 0.25 && v.rate <= 4 && v.rate !== 1 ? { rate: v.rate } : {}),
   };
 }
 

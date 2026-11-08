@@ -45,6 +45,8 @@ export function BeatPanel({
   tap,
   big = false,
   manual = false,
+  displayBpm,
+  rate = 1,
   standardBpm,
   onReset,
   onBeatStep,
@@ -63,6 +65,10 @@ export function BeatPanel({
   big?: boolean;
   /** Tempo vom Tappen (manuell) statt des gespeicherten */
   manual?: boolean;
+  /** angezeigtes Tempo (sonst bpm = Tempo des Rasters) */
+  displayBpm?: number | undefined;
+  /** Abspielgeschwindigkeit (1 = Original) */
+  rate?: number;
   /** gespeichertes Tempo des Lieds */
   standardBpm?: number | undefined;
   /** manuelles Tempo verwerfen */
@@ -126,7 +132,7 @@ export function BeatPanel({
       </div>
       <div className="flex min-w-24 flex-col gap-1.5">
         <div className="leading-none" data-testid="beat-bpm">
-          <span className={`${big ? 'text-6xl' : 'text-4xl'} font-bold tabular-nums`}>{bpm ? String(Math.round(bpm * 10) / 10).replace('.', ',') : '–'}</span>
+          <span className={`${big ? 'text-6xl' : 'text-4xl'} font-bold tabular-nums`}>{(displayBpm ?? bpm) ? String(Math.round((displayBpm ?? bpm)! * 10) / 10).replace('.', ',') : '–'}</span>
           <span className="ml-1 text-sm text-slate-400">BPM</span>
         </div>
         {manual && (
@@ -134,6 +140,11 @@ export function BeatPanel({
             <span className="rounded bg-amber-500/20 px-1.5 py-0.5 font-semibold text-amber-300" title={t.manualHint}>
               {t.manual}
             </span>
+            {rate !== 1 && (
+              <span className="rounded bg-sky-500/20 px-1.5 py-0.5 font-semibold text-sky-300 tabular-nums" title={t.rateHint} data-testid="beat-rate">
+                {t.rate(rate)}
+              </span>
+            )}
             {onReset && (
               <button type="button" className="rounded border border-slate-600 px-1.5 py-0.5 text-slate-300 hover:bg-slate-800" title={t.resetTempoHint} onClick={onReset} data-testid="beat-reset">
                 {t.resetTempo(standardBpm !== undefined ? String(Math.round(standardBpm * 10) / 10).replace('.', ',') : undefined)}

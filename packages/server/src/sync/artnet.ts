@@ -58,7 +58,9 @@ export class ArtNetTimecode {
     const source = lead?.tc ?? (lead?.at !== undefined ? { at: lead.at, playing: lead.playing === true } : undefined);
     if (!sender || !config?.enabled || !isArtNetHost(config.host) || !source) return;
     const host = config.host.trim();
-    const position = () => (source.playing ? source.at + Math.max(0, this.now() - receivedAt) / 1000 : source.at);
+    // läuft das Lied schneller bzw. langsamer, zählt auch der Timecode so
+    const rate = lead?.rate ?? 1;
+    const position = () => (source.playing ? source.at + (Math.max(0, this.now() - receivedAt) / 1000) * rate : source.at);
     sender.send(artTimecodePacket(position()), host);
     if (source.playing) this.timer = setInterval(() => sender.send(artTimecodePacket(position()), host), 1000 / TIMECODE_FPS);
   }

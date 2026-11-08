@@ -3,7 +3,7 @@
 import { ChevronLeft } from 'lucide-react';
 import { useState } from 'react';
 import type * as Y from 'yjs';
-import { itemTimedLines, itemNumbers, itemSoundScenes, sceneTime, updateShowItem } from '@steckplan/core';
+import { itemTempo, itemTimedLines, itemNumbers, itemSoundScenes, sceneTime, updateShowItem } from '@steckplan/core';
 import { usePointPlayback } from '../../lib/transport';
 import { hasRichText } from '../../lib/richText';
 import { useIsNarrow } from '../../lib/useProjectDoc';
@@ -27,7 +27,7 @@ export function SoundView({ projectId, doc, origin, data, editable }: { projectI
   const item = items.find((i) => i.id === selectedId) ?? (narrow ? undefined : items[0]);
   const numbers = itemNumbers(items);
   const [audio, setAudio] = useState<HTMLAudioElement | null>(null);
-  const { tc, music, sync } = usePointPlayback(item?.id, item?.durationSec, audio, item?.audioOffsetSec);
+  const { tc, music, sync } = usePointPlayback(item?.id, item?.durationSec, audio, item?.audioOffsetSec, itemTempo(item ?? {}).rate);
   const time = usePlayerTime(music);
 
   if (items.length === 0) return <p className="mx-auto max-w-2xl p-6 text-sm text-slate-500" data-testid="sound-view">{t.empty}</p>;

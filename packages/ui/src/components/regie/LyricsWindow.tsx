@@ -78,7 +78,7 @@ export function useCueClock(cue: ReceivedCue | null): number | undefined {
     return () => cancelAnimationFrame(frame);
   }, [running]);
   if (!cue || cue.at === undefined) return undefined;
-  return running ? cue.at + Math.max(0, now - cue.receivedAt) / 1000 : cue.at;
+  return running ? cue.at + (Math.max(0, now - cue.receivedAt) / 1000) * (cue.rate ?? 1) : cue.at;
 }
 
 // ---------- Anzeige ----------

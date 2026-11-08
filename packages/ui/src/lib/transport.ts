@@ -27,6 +27,8 @@ export class Transport extends EventTarget implements Playback {
   private itemDuration: number | undefined;
   private frame = 0;
   private lastUpdate = 0;
+  /** Abspielgeschwindigkeit (1 = Original): die Zeit des Punkts läuft so viel schneller, das Audio ebenso */
+  private rate = 1;
 
   constructor(itemDuration?: number) {
     super();
@@ -45,7 +47,7 @@ export class Transport extends EventTarget implements Playback {
   get currentTime(): number {
     if (!this.playing) return this.base;
     const a = this.audio;
-    const clock = Math.min(this.duration, this.base + (performance.now() - this.anchor) / 1000);
+    const clock = Math.min(this.duration, this.base + ((performance.now() - this.anchor) / 1000) * this.rate);
     if (a && !a.paused && !a.ended) {
       // das Audio meldet seine Position in unregelmäßigen Schritten: gleichmäßige eigene Uhr, solange sie nah dran ist
       const audioAt = a.currentTime + this.offset;
@@ -67,6 +69,21 @@ export class Transport extends EventTarget implements Playback {
     this.rebase(at);
     this.syncAudio();
     this.emit('durationchange');
+  }
+
+  /** Geschwindigkeit setzen (0,5 … 2; Tonhöhe bleibt) */
+  setRate(rate: number): void {
+    const next = Number.isFinite(rate) ? Math.min(2, Math.max(0.5, rate)) : 1;
+    if (next === this.rate) return;
+    const at = this.currentTime;
+    this.rate = next;
+    this.rebase(at);
+    if (this.audio) this.audio.playbackRate = next;
+    this.emit('ratechange');
+  }
+
+  get playbackRate(): number {
+    return this.rate;
   }
 
   get audioOffset(): number {
@@ -107,6 +124,7 @@ export class Transport extends EventTarget implements Playback {
     this.audio = audio;
     this.rebase(at);
     if (audio) {
+      audio.playbackRate = this.rate;
       audio.addEventListener('ended', this.onAudioEnded);
       audio.addEventListener('loadedmetadata', this.onAudioMeta);
       if (audio.readyState >= 1) this.syncAudio();
@@ -208,7 +226,7 @@ export class Transport extends EventTarget implements Playback {
       if (a && !a.paused && !a.ended) {
         // nur nachführen, wenn die eigene Uhr merklich abweicht (sonst ruckelt die Anzeige mit dem Audio)
         const audioAt = a.currentTime + this.offset;
-        if (Math.abs(this.base + (now - this.anchor) / 1000 - audioAt) > DRIFT_SEC) this.rebase(audioAt);
+        if (Math.abs(this.base + ((now - this.anchor) / 1000) * this.rate - audioAt) > DRIFT_SEC) this.rebase(audioAt);
       }
       // Versatz erreicht: Audio einsetzen lassen
       else if (a && !a.ended && this.currentTime >= this.offset) {
@@ -242,12 +260,13 @@ export class Transport extends EventTarget implements Playback {
 }
 
 /** Transport (Timecode) für einen Ablaufpunkt (neu je Punkt), mit dessen Dauer; „Mit Musik“ koppelt das Audio */
-export function useTransport(itemId: string | undefined, itemDuration: number | undefined, audio: HTMLAudioElement | null, sync = true, offset = 0): Transport {
+export function useTransport(itemId: string | undefined, itemDuration: number | undefined, audio: HTMLAudioElement | null, sync = true, offset = 0, rate = 1): Transport {
   // eslint-disable-next-line react-hooks/exhaustive-deps -- je Punkt ein eigener Transport
   const transport = useMemo(() => new Transport(), [itemId]);
   useEffect(() => () => transport.dispose(), [transport]);
   useEffect(() => transport.setItemDuration(itemDuration), [transport, itemDuration]);
   useEffect(() => transport.setOffset(offset), [transport, offset]);
+  useEffect(() => transport.setRate(rate), [transport, rate]);
   // entkoppeln lässt die Musik weiterlaufen
   useEffect(() => transport.attach(sync ? audio : null, false), [transport, audio, sync]);
   return transport;
@@ -286,12 +305,19 @@ export function useTimecodeSync(): boolean {
   );
 }
 
+/** Geschwindigkeit eines Audio-Elements setzen (0,5 … 2) */
+function applyRate(audio: HTMLAudioElement | null, rate: number): void {
+  if (audio) audio.playbackRate = Math.min(2, Math.max(0.5, rate));
+}
+
 /**
  * Timecode und Musik eines Punkts: tc = Timecode (Transport), music = was der Player steuert und wonach Text und
  * Szenen laufen – mit Musik gekoppelt der Transport selbst, sonst das Audio-Element (ohne Audio: der Timecode).
  */
-export function usePointPlayback(itemId: string | undefined, itemDuration: number | undefined, audio: HTMLAudioElement | null, offset = 0): { tc: Transport; music: Playback; sync: boolean } {
+export function usePointPlayback(itemId: string | undefined, itemDuration: number | undefined, audio: HTMLAudioElement | null, offset = 0, rate = 1): { tc: Transport; music: Playback; sync: boolean } {
   const sync = useTimecodeSync();
-  const tc = useTransport(itemId, itemDuration, audio, sync, offset);
+  const tc = useTransport(itemId, itemDuration, audio, sync, offset, rate);
+  // ohne Kopplung spielt das Audio-Element selbst – auch dann mit der Geschwindigkeit
+  useEffect(() => applyRate(audio, rate), [audio, rate]);
   return { tc, music: sync || !audio ? tc : audio, sync };
 }

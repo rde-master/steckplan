@@ -45,10 +45,15 @@ describe('Tempo und Takt', () => {
 
 describe('gültiges Tempo und OSC-Befehl', () => {
   it('manuelles Tempo hat Vorrang, sonst das gespeicherte', () => {
-    expect(itemTempo({ bpm: 120, beatOffsetSec: 0.5 })).toEqual({ bpm: 120, offset: 0.5, manual: false });
-    expect(itemTempo({ bpm: 120, beatOffsetSec: 0.5, manualBpm: 98.4, manualBeatOffsetSec: 1.2 })).toEqual({ bpm: 98.4, offset: 1.2, manual: true });
-    expect(itemTempo({ bpm: 120, beatOffsetSec: 0.5, manualBpm: 98.4 })).toEqual({ bpm: 98.4, offset: 0.5, manual: true });
-    expect(itemTempo({})).toEqual({ bpm: undefined, offset: undefined, manual: false });
+    expect(itemTempo({ bpm: 120, beatOffsetSec: 0.5 })).toEqual({ bpm: 120, gridBpm: 120, offset: 0.5, manual: false, rate: 1 });
+    // beides: das gespeicherte ist die Aufnahme – Raster bleibt, das Lied läuft langsamer
+    expect(itemTempo({ bpm: 120, beatOffsetSec: 0.5, manualBpm: 96, manualBeatOffsetSec: 1.2 })).toEqual({ bpm: 96, gridBpm: 120, offset: 1.2, manual: true, rate: 0.8 });
+    expect(itemTempo({ bpm: 120, beatOffsetSec: 0.5, manualBpm: 132 })).toEqual({ bpm: 132, gridBpm: 120, offset: 0.5, manual: true, rate: 1.1 });
+    // nur manuell: kein Bezug, Geschwindigkeit bleibt
+    expect(itemTempo({ manualBpm: 98.4 })).toEqual({ bpm: 98.4, gridBpm: 98.4, offset: undefined, manual: true, rate: 1 });
+    // begrenzt auf 0,5 … 2
+    expect(itemTempo({ bpm: 60, manualBpm: 200 }).rate).toBe(2);
+    expect(itemTempo({})).toEqual({ bpm: undefined, gridBpm: undefined, offset: undefined, manual: false, rate: 1 });
   });
   it('Befehl aus der Vorlage', () => {
     expect(bpmCommand('Master 3.1 At BPM {bpm}', 120)).toBe('Master 3.1 At BPM 120');
