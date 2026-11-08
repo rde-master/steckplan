@@ -1,5 +1,5 @@
 // Lied: Audiodateien (hochladen, Standard, Bezeichnung), Player-Leiste und Text zum Mitlesen/Mitschreiben.
-import { Pause, Play, Square, Star, Timer, Trash2, Upload, Volume2, X } from 'lucide-react';
+import { Drum, Pause, Play, Rewind, Square, Star, Timer, Trash2, Upload, Volume2, X } from 'lucide-react';
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import type * as Y from 'yjs';
 import {
@@ -18,9 +18,11 @@ import {
   type ShowSettings,
   type TimedLine,
   isBreakLine,
+  itemTempo,
 } from '@steckplan/core';
 import { api, errorMessage } from '../../lib/api';
 import { readAudioDuration, uploadMedia } from '../../lib/mediaUpload';
+import { setClickSettings, useClickSettings, useClickTrack } from '../../lib/click';
 import { useSession } from '../../lib/session';
 import { setTimecodeSync, Transport, type Playback } from '../../lib/transport';
 import { texts } from '../../texts';
@@ -385,6 +387,8 @@ export function PlayerBar({
   const [volume, setVolume] = useState(1);
   const container = useRef<HTMLDivElement>(null);
   usePlayPauseKey(playback, !recording);
+  // Klick auf jeden Schlag und Vorlauf (je Gerät eingestellt)
+  useClickTrack(playback, item);
   // beim Wechsel des Punkts bzw. der Datei die Musik anhalten (ohne „Mit Musik“ hängt sie nicht am Timecode)
   const mediaId = current?.mediaId;
   useEffect(() => {
@@ -478,6 +482,7 @@ export function PlayerBar({
             />
           </label>
         )}
+        <ClickControls item={item} />
         {aside && <div className="ml-auto">{aside}</div>}
       </div>
       {(list.length > 1 || recording) && (
@@ -706,6 +711,28 @@ export function BreakMark() {
   return (
     <span className="text-slate-400 italic" data-testid="break-line">
       {texts.regie.breakLine}
+    </span>
+  );
+}
+
+/** Schalter für Klick (je Schlag, die „1“ betont) und Vorlauf (ein Takt) – nur mit Tempo */
+function ClickControls({ item }: { item: ShowItem }) {
+  const { click, preroll, volume } = useClickSettings();
+  if (itemTempo(item).gridBpm === undefined) return null;
+  const toggle = (on: boolean) => `flex cursor-pointer items-center gap-1 rounded-md border px-2 py-1 text-xs ${on ? 'border-sky-500 bg-sky-500/15 text-sky-800 dark:text-sky-200' : 'border-slate-300 text-slate-600 dark:border-slate-600 dark:text-slate-300'}`;
+  return (
+    <span className="flex shrink-0 items-center gap-1" data-testid="click-controls">
+      <label className={toggle(click)} title={t.clickHint}>
+        <input type="checkbox" className="sr-only" checked={click} onChange={(e) => setClickSettings({ click: e.target.checked })} aria-label={t.click} data-testid="click-toggle" />
+        <Drum size={14} aria-hidden /> {t.click}
+      </label>
+      <label className={toggle(preroll)} title={t.prerollHint}>
+        <input type="checkbox" className="sr-only" checked={preroll} onChange={(e) => setClickSettings({ preroll: e.target.checked })} aria-label={t.preroll} data-testid="preroll-toggle" />
+        <Rewind size={14} aria-hidden /> {t.preroll}
+      </label>
+      {(click || preroll) && (
+        <input type="range" min={0} max={1} step={0.05} value={volume} onChange={(e) => setClickSettings({ volume: Number(e.target.value) })} className="w-16 accent-sky-600" aria-label={t.clickVolume} title={t.clickVolume} />
+      )}
     </span>
   );
 }

@@ -29,6 +29,8 @@ export class Transport extends EventTarget implements Playback {
   private lastUpdate = 0;
   /** Abspielgeschwindigkeit (1 = Original): die Zeit des Punkts läuft so viel schneller, das Audio ebenso */
   private rate = 1;
+  private preroll: { barSec: number; beats: number } | null = null;
+  private countTimer: number | undefined;
 
   constructor(itemDuration?: number) {
     super();
@@ -132,10 +134,51 @@ export class Transport extends EventTarget implements Playback {
     this.emit('durationchange');
   }
 
+  /**
+   * Vorlauf: beim Start einen Takt früher beginnen (barSec in der Zeit des Punkts). Reicht der Platz davor nicht
+   * (Anfang), wird stattdessen ein Takt eingezählt – Ereignis „countin“ (detail: beats, beatSec in echter Zeit).
+   */
+  setPreroll(preroll: { barSec: number; beats: number } | null): void {
+    this.preroll = preroll && preroll.barSec > 0 && preroll.beats > 0 ? preroll : null;
+  }
+
+  /** wird gerade eingezählt? */
+  get counting(): boolean {
+    return this.countTimer !== undefined;
+  }
+
+  private cancelCount(): void {
+    if (this.countTimer === undefined) return;
+    window.clearTimeout(this.countTimer);
+    this.countTimer = undefined;
+    this.emit('countend');
+  }
+
   async play(): Promise<void> {
-    if (this.playing) return;
+    if (this.playing || this.countTimer !== undefined) return;
     const restart = this.base >= this.duration; // am Ende: von vorn
     if (restart) this.base = 0;
+    if (this.preroll) {
+      const target = this.base - this.preroll.barSec;
+      if (target >= -0.001) {
+        this.rebase(Math.max(0, target));
+        this.syncAudio();
+        this.emit('seeked');
+      } else {
+        const beatSec = this.preroll.barSec / this.preroll.beats / this.rate;
+        this.dispatchEvent(new CustomEvent('countin', { detail: { beats: this.preroll.beats, beatSec } }));
+        this.countTimer = window.setTimeout(() => {
+          this.countTimer = undefined;
+          this.emit('countend');
+          this.start(restart);
+        }, beatSec * this.preroll.beats * 1000);
+        return;
+      }
+    }
+    this.start(restart);
+  }
+
+  private start(restart: boolean): void {
     this.playing = true;
     this.anchor = performance.now();
     this.syncAudio();
@@ -145,6 +188,7 @@ export class Transport extends EventTarget implements Playback {
   }
 
   pause(): void {
+    this.cancelCount();
     if (!this.playing) return;
     this.base = this.currentTime;
     this.playing = false;
@@ -160,6 +204,7 @@ export class Transport extends EventTarget implements Playback {
   }
 
   seek(sec: number): void {
+    this.cancelCount();
     this.rebase(Math.min(Math.max(0, sec), this.duration));
     this.syncAudio();
     this.emit('seeked');
