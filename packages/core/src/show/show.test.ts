@@ -5,6 +5,8 @@ import { can } from '../model/access';
 import { createEmptyProject } from '../model/project';
 import { createYDocFromProject, DIRECTION_ROOTS, readProjectFromYDoc, updateTouchesOnly } from '../model/ydoc';
 import {
+  applyRoleColors,
+  roleColorTargets,
   addLyricsSlide,
   lyricsImages,
   moveLyricsSlide,
@@ -470,5 +472,21 @@ describe('Diashow im Textfenster', () => {
     expect(slideIndex(14_999, 3, 5)).toBe(2);
     expect(slideIndex(15_000, 3, 5)).toBe(0);
     expect(slideIndex(99_000, 1, 5)).toBe(0);
+  });
+});
+
+describe('Rollenfarben', () => {
+  it('auf gleichnamige Rollen anderer Schauspielstücke übertragen', () => {
+    const doc = createYDocFromProject(createEmptyProject({ name: 'R' }));
+    const a = addShowItem(doc, 'play', null, { title: 'Akt 1', roles: [{ id: 'r1', name: 'Hexe', color: '#ff0000' }, { id: 'r2', name: 'Prinz', color: '#0000ff' }, { id: 'r3', name: 'Erzähler' }] });
+    const b = addShowItem(doc, 'play', null, { title: 'Akt 2', roles: [{ id: 'r4', name: 'hexe ' }, { id: 'r5', name: 'Erzähler', color: '#00ff00' }, { id: 'r6', name: 'Prinz', color: '#0000ff' }] });
+    addShowItem(doc, 'song', null, { title: 'Lied' });
+    const items = () => readShow(doc).items;
+    expect(roleColorTargets(items(), a)).toBe(1);
+    expect(applyRoleColors(doc, a, null)).toBe(1);
+    const roles = items().find((i) => i.id === b)!.roles!;
+    expect(roles.map((r) => r.color)).toEqual(['#ff0000', '#00ff00', '#0000ff']);
+    expect(roleColorTargets(items(), a)).toBe(0);
+    expect(applyRoleColors(doc, a, null)).toBe(0);
   });
 });

@@ -433,7 +433,13 @@ export type Background = z.infer<typeof BackgroundSchema>;
 export const SHOW_ITEM_KINDS = ['song', 'play', 'break', 'announcement'] as const;
 export type ShowItemKind = (typeof SHOW_ITEM_KINDS)[number];
 
-export const ShowRoleSchema = z.object({ id, name: z.string(), personId: id.optional() });
+export const ShowRoleSchema = z.object({
+  id,
+  name: z.string(),
+  personId: id.optional(),
+  /** Farbe der Rolle (#rrggbb) – Sprechername in Textfenster und Vorstellung */
+  color: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+});
 export type ShowRole = z.infer<typeof ShowRoleSchema>;
 
 /** Datei im Medienspeicher (nicht in der Projektdatei); das Projekt hält nur den Verweis */

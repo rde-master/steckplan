@@ -445,6 +445,7 @@ export function PerformanceView({
   const soundNote = soundIndex >= 0 ? stickyNote(soundScenes, soundIndex, hasRichText) : undefined;
   const Icon = item ? KIND_ICONS[item.kind] : null;
   const roleNames = new Map((item?.roles ?? []).map((r) => [r.id, r.name]));
+  const roleColors = new Map((item?.roles ?? []).flatMap((r) => (r.color ? [[r.id, r.color] as const] : [])));
   // Countdown bis zu den nächsten fünf Zeilen (mit Audio), sonst die feste Zeit
   const currentIndex = lines.findIndex((l) => l.line.id === currentLine);
   // Fortschritt bis zur nächsten Zeile (mit Audio): grüner Balken über der aktuellen, roter über der nächsten
@@ -719,7 +720,11 @@ export function PerformanceView({
                           {at?.text ?? ''}
                         </span>
                         <p className={`min-w-0 flex-1 rounded-md px-2 py-1 leading-snug transition-colors ${isCurrent ? 'bg-sky-900 text-2xl font-semibold text-white' : 'text-xl text-slate-200'} ${line.direction ? 'italic text-slate-400' : ''}`}>
-                          {speaker && <span className="mr-2 font-semibold text-sky-300">{speaker}:</span>}
+                          {speaker && (
+                            <span className={`mr-2 font-semibold ${roleColors.get(line.roleId!) ? '' : 'text-sky-300'}`} style={roleColors.get(line.roleId!) ? { color: roleColors.get(line.roleId!) } : undefined} data-testid="performance-speaker">
+                              {speaker}:
+                            </span>
+                          )}
                           {line.direction ? `(${line.text})` : line.text || ' '}
                         </p>
                       </div>

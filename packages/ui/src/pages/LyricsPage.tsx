@@ -55,6 +55,7 @@ export function LyricsPage({ id }: { id: string }) {
   const title = item?.title || (item ? texts.regie.untitled : '');
   const showTitle = data.showSettings.lyricsShowTitle !== false;
   const roleNames = new Map((item?.roles ?? []).map((r) => [r.id, r.name]));
+  const roleColors = new Map((item?.roles ?? []).flatMap((r) => (r.color ? [[r.id, r.color] as const] : [])));
 
   useEffect(() => {
     document.title = title ? `${t.title} – ${title}` : t.title;
@@ -122,7 +123,7 @@ export function LyricsPage({ id }: { id: string }) {
             highlight={data.showSettings.lyricsHighlight !== false}
             translation={data.showSettings.lyricsTranslation === true}
             title={showTitle ? title : ''}
-            lines={lines} currentLineId={current} roleNames={roleNames} {...lyricsRange(data.showSettings)} />
+            lines={lines} currentLineId={current} roleNames={roleNames} roleColors={roleColors} {...lyricsRange(data.showSettings)} />
         </div>
       )}
       </div>
