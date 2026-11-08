@@ -536,6 +536,9 @@ export const texts = {
       lyricsWindow: 'Textfenster',
       hideText: 'Text einklappen',
       showText: 'Text einblenden',
+      hideSide: 'Licht/Ton einklappen',
+      showSide: 'Licht/Ton einblenden',
+      sideShort: 'Licht / Ton',
       remote: (action: string, value?: number) =>
         `Fernsteuerung: ${({ play: 'Start', pause: 'Pause', toggle: 'Start/Pause', stop: 'Stopp', forward: 'vor', back: 'zurück', seek: 'springen', item: 'Punkt', next: 'nächster Punkt', prev: 'voriger Punkt', sceneNext: 'nächste Szene', scenePrev: 'vorige Szene', tcForward: 'Timecode vor', tcBack: 'Timecode zurück', tap: 'Tap' } as Record<string, string>)[action] ?? action}${value !== undefined ? ` ${String(value).replace('.', ',')}` : ''}`,
       nextUp: 'Als Nächstes:',

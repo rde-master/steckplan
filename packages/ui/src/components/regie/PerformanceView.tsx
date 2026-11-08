@@ -89,24 +89,22 @@ function readSide(): Side {
 
 /** Herkunft der Änderungen aus der Vorstellung (Tap-Tempo) */
 const PERFORMANCE_ORIGIN = { source: 'performance' };
-const TEXT_HIDDEN_KEY = 'steckplan.performanceTextHidden';
-
-function readTextHidden(): boolean {
+function readHidden(key: string): boolean {
   try {
-    return localStorage.getItem(TEXT_HIDDEN_KEY) === '1';
+    return localStorage.getItem(key) === '1';
   } catch {
     return false;
   }
 }
 
-/** Text der Vorstellung (Frei/Folgen) ein- bzw. ausgeklappt – je Gerät gemerkt */
-function useTextHidden(): [boolean, (hidden: boolean) => void] {
-  const [hidden, setHidden] = useState(readTextHidden);
+/** Bereich der Vorstellung (Text bzw. Licht/Ton) ein- bzw. ausgeklappt – je Gerät gemerkt */
+function useHidden(key: string): [boolean, (hidden: boolean) => void] {
+  const [hidden, setHidden] = useState(() => readHidden(key));
   const set = (next: boolean) => {
     setHidden(next);
     try {
-      if (next) localStorage.setItem(TEXT_HIDDEN_KEY, '1');
-      else localStorage.removeItem(TEXT_HIDDEN_KEY);
+      if (next) localStorage.setItem(key, '1');
+      else localStorage.removeItem(key);
     } catch {
       // ohne Speicher gilt die Wahl bis zum Neuladen
     }
@@ -292,7 +290,8 @@ export function PerformanceView({
 
   // Tap-Tempo: zwei volle Takte tippen (Knopf, Taste T, OSC /steckplan/tap) – dann übernimmt das Lied das Tempo,
   // beim Abspielen auch die Lage der „1“ (der erste Tap); mit jedem weiteren vollen Takt erneut. Gespeichert im Lied.
-  const [textHidden, setTextHidden] = useTextHidden();
+  const [textHidden, setTextHidden] = useHidden('steckplan.performanceTextHidden');
+  const [sideHidden, setSideHidden] = useHidden('steckplan.performanceSideHidden');
   const [tapState, setTapState] = useState<{ itemId: string; taps: Tap[] } | null>(null);
   const taps = tapState && tapState.itemId === item?.id ? tapState.taps : [];
   const beats = parseTimeSignature(item?.timeSignature).beats;
@@ -727,7 +726,7 @@ export function PerformanceView({
           </div>
         </main>
       ) : (
-        <main className={`grid min-h-0 flex-1 gap-4 overflow-y-auto py-4 pr-6 pl-4 lg:overflow-hidden ${textHidden ? 'lg:grid-cols-[2.75rem_minmax(0,1fr)]' : 'lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]'}`}>
+        <main className={`grid min-h-0 flex-1 gap-4 overflow-y-auto py-4 pr-6 pl-4 lg:overflow-hidden ${textHidden && sideHidden ? 'lg:grid-cols-[2.75rem_2.75rem]' : textHidden ? 'lg:grid-cols-[2.75rem_minmax(0,1fr)]' : sideHidden ? 'lg:grid-cols-[minmax(0,1fr)_2.75rem]' : 'lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]'}`}>
           {/* Text nach links einklappbar (je Gerät gemerkt) – eingeklappt wird er gar nicht erst gezeichnet */}
           {textHidden ? (
             <button
@@ -790,13 +789,33 @@ export function PerformanceView({
           </section>
           )}
 
-          <section className="min-h-0 space-y-3 lg:overflow-y-auto" aria-label={side === 'light' ? texts.light.scenes.title : texts.regie.sound.title}>
-            <div className="flex w-fit overflow-hidden rounded-md border border-slate-700 text-sm" role="tablist" aria-label={t.sideLabel}>
-              {(['light', 'sound'] as Side[]).map((s) => (
-                <button key={s} type="button" role="tab" aria-selected={side === s} onClick={() => chooseSide(s)} className={`px-4 py-1.5 ${side === s ? 'bg-sky-600 text-white' : 'hover:bg-slate-800'}`}>
-                  {t.sides[s]}
-                </button>
-              ))}
+          {/* Licht/Ton nach rechts einklappbar (je Gerät gemerkt) – eingeklappt nicht gezeichnet */}
+          {sideHidden ? (
+            <button
+              type="button"
+              onClick={() => setSideHidden(false)}
+              title={t.showSide}
+              aria-label={t.showSide}
+              className="flex items-center justify-center gap-2 rounded-md border border-slate-700 py-2 text-sm text-slate-300 hover:bg-slate-800 lg:flex-col lg:justify-start lg:py-4"
+              data-testid="performance-side-show"
+            >
+              <ChevronsLeft size={20} aria-hidden />
+              <span className="lg:[writing-mode:vertical-rl]">{t.sideShort}</span>
+            </button>
+          ) : (
+          <section className="min-h-0 space-y-3 lg:overflow-y-auto" aria-label={side === 'light' ? texts.light.scenes.title : texts.regie.sound.title} data-testid="performance-side">
+            <div className="flex items-center gap-2">
+              <div className="flex w-fit overflow-hidden rounded-md border border-slate-700 text-sm" role="tablist" aria-label={t.sideLabel}>
+                {(['light', 'sound'] as Side[]).map((s) => (
+                  <button key={s} type="button" role="tab" aria-selected={side === s} onClick={() => chooseSide(s)} className={`px-4 py-1.5 ${side === s ? 'bg-sky-600 text-white' : 'hover:bg-slate-800'}`}>
+                    {t.sides[s]}
+                  </button>
+                ))}
+              </div>
+              <span className="flex-1" />
+              <button type="button" onClick={() => setSideHidden(true)} title={t.hideSide} className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-slate-400 hover:bg-slate-800" data-testid="performance-side-hide">
+                {t.hideSide} <ChevronsRight size={16} aria-hidden />
+              </button>
             </div>
             {side === 'sound' ? (
               <>
@@ -868,6 +887,7 @@ export function PerformanceView({
               </>
             )}
           </section>
+          )}
         </main>
       )}
 
