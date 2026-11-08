@@ -67,7 +67,7 @@ export function ScenesView({ projectId, doc, origin, data, library, editable }: 
           </Button>
         )}
         <h2 className="min-w-0 flex-1 truncate text-lg font-semibold">{item.title || texts.regie.untitled}</h2>
-        {!hasAudio && item.kind === 'song' && <span className="text-xs text-slate-500">{t.noAudio}</span>}
+        {!hasAudio && (item.kind === 'song' || item.kind === 'play') && <span className="text-xs text-slate-500">{t.noAudio}</span>}
       </header>
       {/* Liedfarben: Orientierung für das Licht-Design */}
       {item.kind === 'song' && (

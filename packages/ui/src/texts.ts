@@ -134,7 +134,7 @@ export const texts = {
       count: (n: number) => (n === 0 ? 'keine Szene' : n === 1 ? '1 Szene' : `${n} Szenen`),
       empty: 'Noch keine Lieder oder Schauspielstücke im Ablauf.',
       back: 'Zurück zur Liste',
-      noAudio: 'Keine Audiodatei – im Ablauf beim Lied hinzufügen.',
+      noAudio: 'Keine Audiodatei – im Ablauf hinzufügen.',
     },
     viewsLabel: 'Regie-Bereich',
     grid: 'Raster',
@@ -502,7 +502,7 @@ export const texts = {
       items: 'Lieder, Schauspiel und Ansagen',
       empty: 'Noch keine Lieder, Schauspielstücke oder Ansagen im Ablauf.',
       back: 'Zurück zur Liste',
-      noAudio: 'Mitlesen und Mitschreiben gibt es, sobald das Lied eine Audiodatei hat (im Ablauf hinzufügen).',
+      noAudio: 'Mitlesen und Mitschreiben gibt es, sobald eine Audiodatei da ist (im Ablauf hinzufügen – beim Schauspiel z. B. eine Tonaufnahme der Probe).',
     },
     performance: {
       open: 'Vorstellung',
