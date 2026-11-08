@@ -3,14 +3,14 @@
 import { ChevronLeft } from 'lucide-react';
 import { useState } from 'react';
 import type * as Y from 'yjs';
-import { itemTimedLines, itemNumbers, itemScenes, sceneTime, type Library } from '@steckplan/core';
+import { itemTimedLines, itemNumbers, itemScenes, sceneTime, updateShowItem, type Library } from '@steckplan/core';
 import { usePointPlayback } from '../../lib/transport';
 import { useIsNarrow } from '../../lib/useProjectDoc';
 import type { ProjectData } from '../../lib/useProjectData';
 import { texts } from '../../texts';
 import { ICON } from '../icons';
 import { Button } from '../ui';
-import { ItemNumber, KIND_ICONS } from './RegieView';
+import { ColorFields, ItemNumber, KIND_ICONS } from './RegieView';
 import { useRegieSelection } from './regieSelection';
 import { itemAudioSrc } from './Waveform';
 import { ScenesSection } from './ScenesSection';
@@ -69,6 +69,12 @@ export function ScenesView({ projectId, doc, origin, data, library, editable }: 
         <h2 className="min-w-0 flex-1 truncate text-lg font-semibold">{item.title || texts.regie.untitled}</h2>
         {!hasAudio && item.kind === 'song' && <span className="text-xs text-slate-500">{t.noAudio}</span>}
       </header>
+      {/* Liedfarben: Orientierung für das Licht-Design */}
+      {item.kind === 'song' && (
+        <div data-testid="scenes-colors">
+          <ColorFields primary={item.primaryColor} secondary={item.secondaryColor} editable={editable} onChange={(patch) => updateShowItem(doc, item.id, patch, origin)} />
+        </div>
+      )}
       {/* eigene Schlüssel je Kind: gleiche Schlüssel bei Geschwistern ließen beim Wechsel des Stücks die alten Szenen stehen */}
       <ScenesSection waveSrc={waveSrc} key={`scenes-${item.id}`} doc={doc} origin={origin} item={item} data={data} library={library} lines={lines} time={time} audio={music} editable={editable} />
       {(
