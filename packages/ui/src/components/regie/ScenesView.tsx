@@ -67,7 +67,7 @@ export function ScenesView({ projectId, doc, origin, data, library, editable }: 
           </Button>
         )}
         <h2 className="min-w-0 flex-1 truncate text-lg font-semibold">{item.title || texts.regie.untitled}</h2>
-        {!hasAudio && item.kind === 'song' && <span className="text-xs text-slate-500">{t.noAudio}</span>}
+        {!hasAudio && (item.kind === 'song' || item.kind === 'play') && <span className="text-xs text-slate-500">{t.noAudio}</span>}
       </header>
       {/* Liedfarben: Orientierung für das Licht-Design */}
       {item.kind === 'song' && (
@@ -79,6 +79,7 @@ export function ScenesView({ projectId, doc, origin, data, library, editable }: 
       <ScenesSection waveSrc={waveSrc} key={`scenes-${item.id}`} doc={doc} origin={origin} item={item} data={data} library={library} lines={lines} time={time} audio={music} editable={editable} />
       {(
         <PlayerBar
+          record={editable ? { doc, origin } : undefined}
           settings={data.showSettings}
           key={`player-${item.id}`}
           projectId={projectId}

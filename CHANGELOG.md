@@ -7,6 +7,17 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.37.0] - 2026-11-08
+
+### Hinzugefügt
+
+- Klick zur Wiedergabe: auf jeden Taktschlag ein kurzer Ton, die „1“ höher und lauter – nach Tempo, Taktart und Lage der „1“, folgt auch der Geschwindigkeit; Lautstärke einstellbar; je Gerät
+- Vorlauf: beim Start einen Takt früher beginnen, am Liedanfang stattdessen einen Takt einzählen – wirkt auf alle Start-Wege (Player, Timecode, Leertaste, Fernsteuerung); je Gerät
+- Aufnahme mit dem Mikrofon in jedem Player: einschalten, dann nimmt jede Wiedergabe mit auf; beim Anhalten als Audiodatei beim Punkt gespeichert („Aufnahme … ab 0:12“) – nur über HTTPS, localhost oder in der Desktop-App
+- Schauspiel: Tonaufnahme (Audiodateien) wie beim Lied – im Ablauf hinzufügen, Mitlesen und Mitschreiben in Texte
+- Versatz-Zeitleiste: Zoom (Lupen, Strg + Mausrad), Verschieben per Mausrad und Scrollbalken
+- Vorstellung (Frei/Folgen): Text nach links und Licht/Ton nach rechts einklappbar – eingeklappt nicht gezeichnet (entlastet); je Gerät gemerkt
+
 ## [0.36.0] - 2026-11-08
 
 ### Hinzugefügt

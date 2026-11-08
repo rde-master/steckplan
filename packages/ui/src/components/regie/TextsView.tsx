@@ -92,7 +92,8 @@ function TextDetail({ projectId, doc, origin, data, item, editable, onBack }: { 
   const [audio, setAudio] = useState<HTMLAudioElement | null>(null);
   const { tc, music, sync } = usePointPlayback(item.id, item.durationSec, audio, item.audioOffsetSec, itemTempo(item).rate);
   const time = usePlayerTime(music);
-  const hasAudio = item.kind === 'song' && (item.media?.length ?? 0) > 0;
+  // Audio (Lied oder Tonaufnahme des Schauspiels): Mitlesen und Mitschreiben
+  const hasAudio = (item.kind === 'song' || item.kind === 'play') && (item.media?.length ?? 0) > 0;
   const [textMode, setTextMode] = useState<'edit' | 'read' | 'record'>('edit');
   const mode = hasAudio ? textMode : 'edit';
   // Zeiten auf der Zeitachse des Punkts; gespeichert wird ab Musikbeginn, wenn der Versatz auch für den Text gilt
@@ -153,7 +154,7 @@ function TextDetail({ projectId, doc, origin, data, item, editable, onBack }: { 
               </Button>
             )}
           </div>
-          {item.kind === 'song' && !hasAudio && <p className="text-xs text-slate-500">{tv.noAudio}</p>}
+          {(item.kind === 'song' || item.kind === 'play') && !hasAudio && <p className="text-xs text-slate-500">{tv.noAudio}</p>}
           {mode === 'record' && <p className="text-xs text-slate-500">{t.recordHint}</p>}
           {mode === 'record' && <LyricsTimeline doc={doc} origin={origin} lines={lines} time={time} duration={music.duration} timeOffset={offset} editable={editable} onSeek={(sec) => seekAudio(music, sec)} waveSrc={itemAudioSrc(projectId, item)} audioOffset={item.audioOffsetSec ?? 0} />}
           {mode === 'edit' ? (
@@ -165,6 +166,7 @@ function TextDetail({ projectId, doc, origin, data, item, editable, onBack }: { 
       </article>
       {/* Player über die ganze Breite – der Timecode steht rechts am Rand */}
       <PlayerBar
+          record={editable ? { doc, origin } : undefined}
         settings={data.showSettings}
         aside={<TimecodePanel tc={tc} sync={sync} />}
         projectId={projectId}

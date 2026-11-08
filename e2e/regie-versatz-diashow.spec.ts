@@ -53,7 +53,7 @@ test('Audio-Versatz: Startpunkt in der Datei (negativ) per Zeitleiste und Eingab
   await expect(music).toBeVisible();
   await expect(timeline.getByTestId('offset-status')).toHaveText('Musik beginnt mit dem Punkt');
   // Wellenform immer sichtbar
-  await expect(music.getByTestId('waveform')).toHaveAttribute('data-ready', 'true', { timeout: 10_000 });
+  await expect(timeline.getByTestId('waveform')).toHaveAttribute('data-ready', 'true', { timeout: 10_000 });
 
   // Musik 3 s nach links ziehen → 0:00 des Punkts = 0:03 der Datei
   const track = timeline.getByTestId('offset-track');
@@ -84,6 +84,25 @@ test('Audio-Versatz: Startpunkt in der Datei (negativ) per Zeitleiste und Eingab
   await expect(timeline.getByTestId('offset-status')).toHaveText('Musik setzt bei 0:02 ein');
   await timeline.getByRole('button', { name: 'Auf 0' }).click();
   await expect.poll(saved).toBeUndefined();
+
+  // Zoom: vergrößern → kleinerer Ausschnitt mit Scrollbalken, Musik feiner verschiebbar; „Alles“ zurück
+  const spanAll = Number(await track.getAttribute('data-span'));
+  await timeline.getByRole('button', { name: 'Versatz-Zeitleiste vergrößern' }).click();
+  await timeline.getByRole('button', { name: 'Versatz-Zeitleiste vergrößern' }).click();
+  const spanZoomed = Number(await track.getAttribute('data-span'));
+  expect(spanZoomed).toBeLessThan(spanAll * 0.6);
+  await expect(timeline.getByTestId('timeline-scrollbar')).toBeVisible();
+  const zpx = (await track.boundingBox())!.width / spanZoomed;
+  const mb = (await music.boundingBox())!;
+  const x0 = Math.max(mb.x + 20, (await track.boundingBox())!.x + 20);
+  await page.mouse.move(x0, mb.y + mb.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(x0 - 0.25 * zpx, mb.y + mb.height / 2, { steps: 3 });
+  await page.mouse.move(x0 - 0.5 * zpx, mb.y + mb.height / 2, { steps: 3 });
+  await page.mouse.up();
+  await expect.poll(saved).toBe(-0.5);
+  await timeline.getByRole('button', { name: 'Alles' }).click();
+  await expect(timeline.getByTestId('timeline-scrollbar')).toHaveCount(0);
 });
 
 test('Textfenster: Diashow mit mehreren Bildern, Standzeit und Überblendung', async ({ page }) => {

@@ -441,10 +441,11 @@ function ItemDetail({
         <TextArea aria-label={t.fields.notes} value={item.notes ?? ''} disabled={!editable} onChange={(e) => set({ notes: e.target.value || undefined })} />
       </Collapsible>
 
-      {item.kind === 'song' && <MediaSection projectId={projectId} doc={doc} origin={origin} item={item} media={media} editable={editable} />}
+      {(item.kind === 'song' || item.kind === 'play') && <MediaSection projectId={projectId} doc={doc} origin={origin} item={item} media={media} editable={editable} />}
 
       {(
         <PlayerBar
+          record={editable ? { doc, origin } : undefined}
           settings={data.showSettings}
           aside={<TimecodePanel tc={tc} sync={sync} />}
           markers={itemScenes(data.lightScenes, item.id).flatMap((s, i) => {
