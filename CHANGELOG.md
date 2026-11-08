@@ -7,6 +7,24 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.35.0] - 2026-11-08
+
+### Hinzugefügt
+
+- Textfenster: Darstellung „Ganzer Textabschnitt“ – die ganze Strophe bzw. der ganze Refrain der aktuellen Zeile, beim Wechsel weich überblendet (Regie-Einstellungen; Standard weiterhin einzelne Zeilen)
+- Textfenster: Hervorhebung der aktuellen Zeile abschaltbar
+- Übersetzung je Textzeile: im Bereich „Texte“ neben jedem Abschnitt eintragen (je Zeile eine); im Textfenster auf Wunsch kleiner und kursiv unter jeder Zeile; bleibt beim Ändern des Texts an ihrer Zeile
+- Scrollbalken in gezoomten Zeitleisten (Licht-/Tonszenen und Führen): Griff ziehen oder daneben klicken
+
+### Geändert
+
+- Ablauf: Details übersichtlicher – Titel, Nummer und Dauer in einer Zeile, darunter Interpret; Tempo, Taktart, Tap und Audio-Versatz zusammen im Kasten „Musik“
+- Grund- und Sekundärfarbe des Lieds jetzt bei den Lichtszenen (statt im Ablauf)
+
+### Behoben
+
+- Timecode-Anzeige läuft gleichmäßig (ruckelte mit der Position des Audios; der gesendete Art-Net-Timecode war nicht betroffen)
+
 ## [0.34.0] - 2026-11-08
 
 ### Hinzugefügt
