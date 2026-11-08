@@ -448,8 +448,8 @@ export function PlayerBar({
           {tr && audioLength > 0 && duration > 0 && (
             <span
               className="pointer-events-none absolute -bottom-0.5 h-1 rounded-full bg-sky-400/70"
-              style={{ left: `${(audioOffset / duration) * 100}%`, width: `${(Math.min(audioLength, duration - audioOffset) / duration) * 100}%` }}
-              title={t.audioSegment(formatDuration(audioOffset), formatDuration(audioLength))}
+              style={{ left: `${(Math.max(0, audioOffset) / duration) * 100}%`, width: `${((Math.min(duration, audioOffset + audioLength) - Math.max(0, audioOffset)) / duration) * 100}%` }}
+              title={audioOffset < 0 ? t.audioSegmentFrom(formatDuration(-audioOffset), formatDuration(audioLength)) : t.audioSegment(formatDuration(audioOffset), formatDuration(audioLength))}
               data-testid="audio-segment"
             />
           )}

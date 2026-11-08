@@ -177,8 +177,10 @@ function usePeaks(src: string | undefined, enabled: boolean): { peaks: Peaks | n
  * Wellenform des Ausschnitts start … start + span (Sekunden der Zeitleiste) über die ganze Fläche des Elternelements.
  * offset: die Datei beginnt bei diesem Zeitpunkt der Zeitleiste.
  */
-export function Waveform({ src, offset = 0, start, span, className = '', color = 'rgb(16 185 129 / 0.45)' }: { src: string | undefined; offset?: number; start: number; span: number; className?: string; color?: string }) {
-  const { on, gain } = useWaveformSettings();
+export function Waveform({ src, offset = 0, start, span, className = '', color = 'rgb(16 185 129 / 0.45)', force = false }: { src: string | undefined; offset?: number; start: number; span: number; className?: string; color?: string; /** immer zeigen (unabhängig vom Schalter) */ force?: boolean }) {
+  const settings = useWaveformSettings();
+  const on = settings.on || force;
+  const { gain } = settings;
   const { peaks, loading } = usePeaks(src, on);
   const canvas = useRef<HTMLCanvasElement>(null);
   const [size, setSize] = useState({ w: 0, h: 0 });

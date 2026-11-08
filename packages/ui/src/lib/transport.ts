@@ -58,9 +58,9 @@ export class Transport extends EventTarget implements Playback {
     this.seek(sec);
   }
 
-  /** Versatz: das Audio beginnt bei dieser Zeit des Punkts (Sekunden) */
+  /** Versatz: das Audio beginnt bei dieser Zeit des Punkts (Sekunden; negativ = der Punkt beginnt mitten in der Datei) */
   setOffset(sec: number | undefined): void {
-    const next = Math.max(0, sec ?? 0);
+    const next = Math.max(-3600, Math.min(3600, sec ?? 0));
     if (next === this.offset) return;
     const at = this.currentTime;
     this.offset = next;
