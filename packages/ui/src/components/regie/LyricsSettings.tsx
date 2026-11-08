@@ -2,7 +2,7 @@
 import { ImageUp, Trash2 } from 'lucide-react';
 import { useRef, useState } from 'react';
 import type * as Y from 'yjs';
-import { isArtNetHost, LYRICS_MAX_AFTER, LYRICS_MAX_BEFORE, lyricsRange, REMAIN_MAX_BLINK, REMAIN_MAX_WARN, remainRange, setLyricsBackground, setLyricsBackgroundDim, updateShowSettings, type MediaRef, type ShowSettings } from '@steckplan/core';
+import { bpmCommand, isArtNetHost, OSC_BPM_DEFAULTS, LYRICS_MAX_AFTER, LYRICS_MAX_BEFORE, lyricsRange, REMAIN_MAX_BLINK, REMAIN_MAX_WARN, remainRange, setLyricsBackground, setLyricsBackgroundDim, updateShowSettings, type MediaRef, type ShowSettings } from '@steckplan/core';
 import { api, errorMessage } from '../../lib/api';
 import { uploadMedia } from '../../lib/mediaUpload';
 import { useSession } from '../../lib/session';
@@ -56,6 +56,7 @@ export function LyricsSettings({ projectId, doc, origin, settings, onClose }: { 
         </div>
         <p className="text-xs text-slate-500">{t.remainHint}</p>
         <ArtNetSettings doc={doc} origin={origin} settings={settings} inputClass={selectClass} />
+        <OscBpmSettings projectId={projectId} doc={doc} origin={origin} settings={settings} inputClass={selectClass} />
         <p className="text-sm">
           <a
             href="/osc"
@@ -213,6 +214,80 @@ function ArtNetSettings({ doc, origin, settings, inputClass }: { doc: Y.Doc; ori
         <span className="text-xs text-slate-500">{t.artnetPort}</span>
       </label>
       <p className="text-xs text-slate-500">{t.artnetHint}</p>
+    </div>
+  );
+}
+
+/** Eingabefeld, das beim Verlassen (bzw. Enter) übernimmt, wenn gültig */
+function DraftInput({ value, valid, onCommit, className, label, testId }: { value: string; valid: (v: string) => boolean; onCommit: (v: string) => void; className: string; label: string; testId: string }) {
+  const [draft, setDraft] = useState<string | null>(null);
+  const shown = draft ?? value;
+  const ok = valid(shown);
+  return (
+    <input
+      className={`${className} ${ok ? '' : 'border-red-500'}`}
+      value={shown}
+      aria-label={label}
+      aria-invalid={!ok}
+      data-testid={testId}
+      onFocus={() => setDraft(value)}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={() => {
+        if (ok && shown.trim() !== value) onCommit(shown.trim());
+        setDraft(null);
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+      }}
+    />
+  );
+}
+
+/** Tempo per OSC: ein/aus, Ziel, Port, Adresse und Befehl mit {bpm} (der Server sendet, solange jemand führt) */
+function OscBpmSettings({ projectId, doc, origin, settings, inputClass }: { projectId: string; doc: Y.Doc; origin: object; settings: ShowSettings; inputClass: string }) {
+  const osc = { ...OSC_BPM_DEFAULTS, ...settings.oscBpm };
+  const set = (patch: Partial<typeof osc>) => updateShowSettings(doc, { oscBpm: { ...osc, ...patch } }, origin);
+  const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null);
+  const sendNow = async () => {
+    try {
+      const { sent } = await api.sendOscBpm(projectId);
+      setResult({ ok: true, text: t.oscBpmSent(sent) });
+    } catch (e) {
+      setResult({ ok: false, text: errorMessage(e) });
+    }
+  };
+  return (
+    <div className="space-y-2 border-t border-slate-200 pt-3 dark:border-slate-700" data-testid="osc-bpm-settings">
+      <h3 className="text-sm font-semibold">{t.oscBpm}</h3>
+      <label className="flex items-center gap-2 text-sm">
+        <input type="checkbox" checked={osc.enabled} onChange={(e) => set({ enabled: e.target.checked })} data-testid="osc-bpm-enabled" />
+        {t.oscBpmEnabled}
+      </label>
+      <div className="flex flex-wrap items-center gap-2 text-sm">
+        <span>{t.oscBpmHost}</span>
+        <DraftInput value={osc.host} valid={isArtNetHost} onCommit={(host) => set({ host })} className={`${inputClass} w-40 font-mono`} label={t.oscBpmHost} testId="osc-bpm-host" />
+        <span>{t.oscBpmPort}</span>
+        <DraftInput value={String(osc.port)} valid={(v) => /^\d{1,5}$/.test(v.trim()) && Number(v) >= 1 && Number(v) <= 65535} onCommit={(v) => set({ port: Number(v) })} className={`${inputClass} w-24 font-mono`} label={t.oscBpmPort} testId="osc-bpm-port" />
+      </div>
+      <div className="flex flex-wrap items-center gap-2 text-sm">
+        <span>{t.oscBpmAddress}</span>
+        <DraftInput value={osc.address} valid={(v) => /^\/\S+$/.test(v.trim())} onCommit={(address) => set({ address })} className={`${inputClass} w-28 font-mono`} label={t.oscBpmAddress} testId="osc-bpm-address" />
+        <span>{t.oscBpmCommand}</span>
+        <DraftInput value={osc.command} valid={(v) => v.trim() !== ''} onCommit={(command) => set({ command })} className={`${inputClass} min-w-56 flex-1 font-mono`} label={t.oscBpmCommand} testId="osc-bpm-command" />
+      </div>
+      <p className="text-xs text-slate-500">
+        {t.oscBpmExample(osc.address, bpmCommand(osc.command, 120))} {t.oscBpmHint}
+      </p>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button variant="secondary" className="text-xs" disabled={!osc.enabled || !isArtNetHost(osc.host)} onClick={() => void sendNow()}>
+          {t.oscBpmSendNow}
+        </Button>
+        {result && (
+          <span role="status" className={`text-xs ${result.ok ? 'text-emerald-700 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
+            {result.text}
+          </span>
+        )}
+      </div>
     </div>
   );
 }

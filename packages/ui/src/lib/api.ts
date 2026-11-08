@@ -131,6 +131,7 @@ export const api = {
   getOsc: () => request<{ settings: OscSettings; status: OscStatus }>('GET', '/api/settings/osc'),
   disconnectConnection: (projectId: string, connectionId: string) => request<void>('POST', `/api/projects/${encodeURIComponent(projectId)}/connections/${encodeURIComponent(connectionId)}/disconnect`),
   getDeskCues: () => request<{ cues: DeskCue[] }>('GET', '/api/desk-cues'),
+  sendOscBpm: (projectId: string) => request<{ sent: string }>('POST', `/api/projects/${encodeURIComponent(projectId)}/osc-bpm`),
   sendDeskCue: (text: string) => request<{ cues: DeskCue[] }>('POST', '/api/desk-cues', { text }),
   remote: (action: string, value?: number) => request<{ rooms: number }>('POST', '/api/remote', value !== undefined ? { action, value } : { action }),
   setOsc: (patch: Partial<OscSettings>) => request<{ settings: OscSettings; status: OscStatus }>('PUT', '/api/settings/osc', patch),

@@ -43,6 +43,9 @@ export function BeatPanel({
   onTap,
   tap,
   big = false,
+  manual = false,
+  standardBpm,
+  onReset,
 }: {
   bpm: number | undefined;
   signature: string | undefined;
@@ -56,6 +59,12 @@ export function BeatPanel({
   tap: { count: number; remaining: number } | null;
   /** Führen-Ansicht: großer Kreis und großer Tap-Knopf */
   big?: boolean;
+  /** Tempo vom Tappen (manuell) statt des gespeicherten */
+  manual?: boolean;
+  /** gespeichertes Tempo des Lieds */
+  standardBpm?: number | undefined;
+  /** manuelles Tempo verwerfen */
+  onReset?: (() => void) | undefined;
 }) {
   const SIZE = big ? 210 : 132;
   const C = SIZE / 2;
@@ -116,6 +125,18 @@ export function BeatPanel({
           <span className={`${big ? 'text-6xl' : 'text-4xl'} font-bold tabular-nums`}>{bpm ? String(Math.round(bpm * 10) / 10).replace('.', ',') : '–'}</span>
           <span className="ml-1 text-sm text-slate-400">BPM</span>
         </div>
+        {manual && (
+          <div className="flex flex-wrap items-center gap-1.5 text-xs" data-testid="beat-manual">
+            <span className="rounded bg-amber-500/20 px-1.5 py-0.5 font-semibold text-amber-300" title={t.manualHint}>
+              {t.manual}
+            </span>
+            {onReset && (
+              <button type="button" className="rounded border border-slate-600 px-1.5 py-0.5 text-slate-300 hover:bg-slate-800" title={t.resetTempoHint} onClick={onReset} data-testid="beat-reset">
+                {t.resetTempo(standardBpm !== undefined ? String(Math.round(standardBpm * 10) / 10).replace('.', ',') : undefined)}
+              </button>
+            )}
+          </div>
+        )}
         <div className={`${big ? 'text-2xl' : 'text-lg'} font-semibold text-slate-300 tabular-nums`} data-testid="beat-signature">
           {beats}/{parseTimeSignature(signature).unit}
         </div>

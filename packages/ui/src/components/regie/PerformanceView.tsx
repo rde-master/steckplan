@@ -9,6 +9,7 @@ import {
   TAP_RESET_SEC,
   tapProgress,
   tapTempo,
+  itemTempo,
   updateShowItem,
   type Tap,
   currentLineId,
@@ -265,6 +266,9 @@ export function PerformanceView({
   const [tapState, setTapState] = useState<{ itemId: string; taps: Tap[] } | null>(null);
   const taps = tapState && tapState.itemId === item?.id ? tapState.taps : [];
   const beats = parseTimeSignature(item?.timeSignature).beats;
+  const tempo = itemTempo(item ?? {});
+  /** manuelles Tempo verwerfen: wieder das gespeicherte */
+  const resetTempo = doc && canLead && item?.manualBpm !== undefined ? () => updateShowItem(doc, item.id, { manualBpm: undefined, manualBeatOffsetSec: undefined }, PERFORMANCE_ORIGIN) : undefined;
   useEffect(() => {
     if (!tapState) return;
     const timer = window.setTimeout(() => setTapState(null), TAP_RESET_SEC * 1000);
@@ -276,7 +280,8 @@ export function PerformanceView({
     setTapState({ itemId: item.id, taps: next });
     const result = tapTempo(next, beats);
     if (result && doc && canLead) {
-      updateShowItem(doc, item.id, { bpm: result.bpm, ...(result.offset !== undefined ? { beatOffsetSec: result.offset } : {}), ...(item.timeSignature ? {} : { timeSignature: DEFAULT_TIME_SIGNATURE }) }, PERFORMANCE_ORIGIN);
+      // das gespeicherte Tempo bleibt: getappt wird das manuelle (hat Vorrang)
+      updateShowItem(doc, item.id, { manualBpm: result.bpm, ...(result.offset !== undefined ? { manualBeatOffsetSec: result.offset } : {}), ...(item.timeSignature ? {} : { timeSignature: DEFAULT_TIME_SIGNATURE }) }, PERFORMANCE_ORIGIN);
     }
   };
 
@@ -624,9 +629,9 @@ export function PerformanceView({
             duration={timelineLength}
             lines={lines}
             currentLineId={currentLine}
-            bpm={item.bpm}
+            bpm={tempo.bpm}
             signature={item.timeSignature}
-            offset={item.beatOffsetSec}
+            offset={tempo.offset}
             getTime={() => audio.currentTime}
             playing={playing}
             onSeek={(sec) => perform({ action: 'seek', value: sec })}
@@ -641,14 +646,19 @@ export function PerformanceView({
             }}
           />
           <div className="flex flex-wrap items-center justify-center gap-x-12 gap-y-4">
-            {(item.kind === 'song' || item.bpm !== undefined) && (
-              <BeatPanel big bpm={item.bpm} signature={item.timeSignature} offset={item.beatOffsetSec} getTime={() => audio.currentTime} playing={playing} onTap={doTap} tap={taps.length ? tapProgress(taps, beats) : null} />
+            {(item.kind === 'song' || tempo.bpm !== undefined) && (
+              <BeatPanel big bpm={tempo.bpm} manual={tempo.manual} standardBpm={item.bpm} onReset={resetTempo} signature={item.timeSignature} offset={tempo.offset} getTime={() => audio.currentTime} playing={playing} onTap={doTap} tap={taps.length ? tapProgress(taps, beats) : null} />
             )}
             <div className="flex flex-col items-center gap-1">
               <TimecodePanel tc={tc} sync={withMusic} huge />
               {data.showSettings.artnet?.enabled && (
                 <span className="text-sm text-emerald-400" data-testid="artnet-state">
                   {t.artnetSending(data.showSettings.artnet.host)}
+                </span>
+              )}
+              {data.showSettings.oscBpm?.enabled && (
+                <span className="text-sm text-emerald-400" data-testid="osc-bpm-state">
+                  {t.oscBpmSending(data.showSettings.oscBpm.host, data.showSettings.oscBpm.port)}
                 </span>
               )}
             </div>
@@ -803,11 +813,14 @@ export function PerformanceView({
 
       <footer className="flex shrink-0 items-end gap-3 border-t border-slate-800 pt-2 pr-6 pl-3 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
         {/* Tempo und Takt links neben dem Player (Führen: groß in der Mitte) */}
-        {item && !leadLayout && (item.kind === 'song' || item.bpm !== undefined) && (
+        {item && !leadLayout && (item.kind === 'song' || tempo.bpm !== undefined) && (
           <BeatPanel
-            bpm={item.bpm}
+            bpm={tempo.bpm}
+            manual={tempo.manual}
+            standardBpm={item.bpm}
+            {...(!following && resetTempo ? { onReset: () => (takeOver(), resetTempo()) } : {})}
             signature={item.timeSignature}
-            offset={item.beatOffsetSec}
+            offset={tempo.offset}
             getTime={following ? () => time : () => audio.currentTime}
             playing={playing}
             {...(!following ? { onTap: () => (takeOver(), doTap()) } : {})}

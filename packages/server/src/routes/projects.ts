@@ -243,6 +243,17 @@ export function registerProjectRoutes(app: FastifyInstance, rooms: RoomManager, 
   });
 
   // Technik-Übergabe: Empfang / Rückgabe bestätigen (Helfer für sich selbst), zurücksetzen nur Bearbeiten
+  // Tempo des geführten Punkts jetzt erneut per OSC senden (Einstellung prüfen)
+  app.post<{ Params: { id: string } }>('/api/projects/:id/osc-bpm', async (request, reply) => {
+    if (!requireSession(request, reply, 'editShow')) return reply;
+    const room = await messageRoom(request.params.id, reply);
+    if (!room) return reply;
+    if (!room.hasLead) return reply.code(409).send({ error: 'Niemand führt – in der Vorstellung „Führen“ wählen.' });
+    const sent = room.sendBpm(true);
+    if (sent === null) return reply.code(409).send({ error: 'Nichts gesendet – Senden eingeschaltet, Ziel gültig und Tempo beim Lied eingetragen?' });
+    return { sent };
+  });
+
   app.post<{ Params: { id: string }; Body: { personId?: unknown; action?: unknown } }>('/api/projects/:id/handover', async (request, reply) => {
     const session = requireSession(request, reply, 'helperSignup');
     if (!session) return reply;

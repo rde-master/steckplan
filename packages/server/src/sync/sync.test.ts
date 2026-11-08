@@ -4,6 +4,7 @@ import * as Y from 'yjs';
 import { addShowItem, createEmptyProject, readProjectFromYDoc, readShow, type SyncClient } from '@steckplan/core';
 import { isManagedStore } from '../storage/types';
 import { connect, login, startTestServer, waitFor, type TestServer } from '../test-utils';
+import { parseOsc } from '../osc/osc';
 
 let server: TestServer | undefined;
 const clients: SyncClient[] = [];
@@ -179,6 +180,55 @@ describe('Live-Sync', () => {
     const after = sent.length;
     await new Promise((r) => setTimeout(r, 200));
     expect(sent.length).toBe(after);
+  });
+
+  it('OSC-Tempo: beim Führen /cmd mit Text, manuelles Tempo vor gespeichertem, nur bei Änderung, „jetzt senden“', async () => {
+    const sent: { host: string; port: number; packet: Buffer }[] = [];
+    server = await startTestServer({ oscOut: { send: (p, host, port) => void sent.push({ host, port, packet: Buffer.from(p) }), close: () => undefined } });
+    if (!isManagedStore(server.store)) throw new Error();
+    const id = await server.store.create(createEmptyProject({ name: 'Live' }));
+    const cookie = await login(server, 'direction', 'Regina');
+    const regie = track(connect(server, id, cookie));
+    await regie.whenSynced();
+    const items = regie.doc.getMap<Y.Map<unknown>>('showItems');
+    const song = new Y.Map<unknown>();
+    regie.doc.transact(() => {
+      items.set('song', song);
+      song.set('id', 'song');
+      song.set('kind', 'song');
+      song.set('order', 0);
+      song.set('bpm', 120);
+    });
+    const texts = () => sent.map((m) => parseOsc(m.packet)[0]!).map((m) => `${m.address} ${String(m.args[0])}`);
+    // ohne Einstellung bzw. ohne Führen: nichts
+    regie.sendCue({ itemId: 'song', at: 0, playing: false });
+    await new Promise((r) => setTimeout(r, 150));
+    expect(sent).toHaveLength(0);
+    regie.doc.getMap('showSettings').set('oscBpm', { enabled: true, host: '192.168.1.20', port: 8001, address: '/cmd', command: 'Master 3.1 At BPM {bpm}' });
+    await waitFor(() => sent.length === 1);
+    expect(sent[0]).toMatchObject({ host: '192.168.1.20', port: 8001 });
+    expect(texts()).toEqual(['/cmd Master 3.1 At BPM 120']);
+    // gleiche Stelle erneut: nichts Neues
+    regie.sendCue({ itemId: 'song', at: 3, playing: true });
+    await new Promise((r) => setTimeout(r, 150));
+    expect(sent).toHaveLength(1);
+    // getappt: manuelles Tempo hat Vorrang, das gespeicherte bleibt
+    song.set('manualBpm', 121.46);
+    await waitFor(() => sent.length === 2);
+    expect(texts()[1]).toBe('/cmd Master 3.1 At BPM 121.5');
+    expect(song.get('bpm')).toBe(120);
+    // manuelles verworfen → wieder das gespeicherte
+    song.delete('manualBpm');
+    await waitFor(() => sent.length === 3);
+    expect(texts()[2]).toBe('/cmd Master 3.1 At BPM 120');
+    // jetzt senden: auch ohne Änderung
+    const res = await server.app.inject({ method: 'POST', url: `/api/projects/${id}/osc-bpm`, headers: { cookie } });
+    expect(res.json()).toEqual({ sent: 'Master 3.1 At BPM 120' });
+    expect(sent).toHaveLength(4);
+    // Führen beenden: „jetzt senden“ geht nicht
+    regie.sendCue(null);
+    await new Promise((r) => setTimeout(r, 100));
+    expect((await server.app.inject({ method: 'POST', url: `/api/projects/${id}/osc-bpm`, headers: { cookie } })).statusCode).toBe(409);
   });
 
   it('Bearbeiter trennt ein verbundenes Gerät: kein automatisches Neuverbinden, nur auf Wunsch; Lesen/Regie dürfen nicht trennen', async () => {
