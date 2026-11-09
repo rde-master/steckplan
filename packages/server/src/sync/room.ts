@@ -46,6 +46,9 @@ import {
   type DeskCue,
   type ServerInfo,
   itemTempo,
+  readLightEvents,
+  readOscCommands,
+  type OscLogEntry,
 } from '@steckplan/core';
 import type { Session } from '../auth/sessions';
 import type { LibraryChange, LibraryStore } from '../library/library-store';
@@ -55,6 +58,7 @@ import { ActivityTracker, STAMP_ORIGIN, type Actor } from './activity';
 import { VERSION_INTERVAL_MS, type VersionInfo, type VersionStore } from '../storage/version-store';
 import { ArtNetTimecode, type ArtNetConfig, type TimecodeSender } from './artnet';
 import { BpmSender, oscBpmConfig, type OscOut } from '../osc/bpm-out';
+import { OscCommandRunner, type OscCommandData } from '../osc/commands-out';
 
 export interface Connection {
   id: string;
@@ -156,11 +160,34 @@ export class Room {
     this.doc.on('afterTransaction', this.handleTransaction);
     this.timecode = new ArtNetTimecode(deps.artnet);
     this.bpmSender = new BpmSender(deps.oscOut);
+    this.oscRunner = new OscCommandRunner(deps.oscOut, (entries) => this.broadcast(encodeInfo({ type: 'oscLog', entries })));
     this.doc.getMap('showSettings').observe(this.handleShowSettings);
   }
 
   private readonly timecode: ArtNetTimecode;
   private readonly bpmSender: BpmSender;
+  private readonly oscRunner: OscCommandRunner;
+
+  /** Daten für die OSC-Befehle der Regie (aus dem Dokument) */
+  private oscData(): OscCommandData {
+    const settings = this.doc.getMap('showSettings').get('oscOut') as { host?: string; port?: number } | undefined;
+    const items = this.doc.getMap<Y.Map<unknown>>('showItems');
+    const scenes = this.doc.getMap<Y.Map<unknown>>('lightScenes');
+    return {
+      commands: readOscCommands(this.doc),
+      events: readLightEvents(this.doc),
+      target: settings?.host ? { host: settings.host, port: settings.port ?? 8000 } : undefined,
+      itemTitle: (id) => String(items.get(id)?.get('title') || '–'),
+      sceneName: (id) => String(scenes.get(id)?.get('name') || '–'),
+    };
+  }
+
+  /** OSC-Befehl der Regie jetzt senden (von Hand/Test); null = gibt es nicht */
+  sendOscCommand(id: string, by: string): OscLogEntry | null {
+    const command = readOscCommands(this.doc).find((c) => c.id === id);
+    if (!command) return null;
+    return this.oscRunner.sendNow(command, command.label ? `Von Hand (${by}): ${command.label}` : `Von Hand (${by})`, this.oscData());
+  }
 
   /** Tempo des geführten Punkts per OSC (nur bei Änderung, force: jetzt erneut); gesendeter Text oder null */
   sendBpm(force = false): string | null {
@@ -449,6 +476,7 @@ export class Room {
     if (this.lead) this.send(connection, encodeInfo({ type: 'lead', lead: this.currentLead(this.lead) }));
     const cues = this.deps.deskCues?.() ?? [];
     if (cues.length) this.send(connection, encodeInfo({ type: 'deskCues', cues }));
+    if (this.oscRunner.entries.length) this.send(connection, encodeInfo({ type: 'oscLog', entries: this.oscRunner.entries }));
   }
 
   /** Lichtpult-Cues an alle Verbindungen */
@@ -492,6 +520,7 @@ export class Room {
     this.broadcast(encodeInfo({ type: 'lead', lead }));
     this.timecode.update(lead, this.leadAt, this.artnetConfig());
     this.sendBpm();
+    this.oscRunner.update(lead, this.leadAt, this.oscData());
   }
 
   /** Für Nachzügler: läuft die Wiedergabe, die Abspielposition bis jetzt weiterrechnen */
@@ -601,7 +630,11 @@ export class Room {
     syncProtocol.writeUpdate(encoder, update);
     this.broadcast(encoding.toUint8Array(encoder), origin);
     // neues Tempo (z. B. getappt) beim geführten Punkt
-    if (this.lead) this.sendBpm();
+    if (this.lead) {
+      this.sendBpm();
+      // geänderte Befehle/Events beim geführten Punkt neu einplanen (ohne erneuten Start-Befehl)
+      if (origin !== STAMP_ORIGIN) this.oscRunner.update(this.lead, this.leadAt, this.oscData());
+    }
 
     if (origin === STAMP_ORIGIN) {
       // nur „zuletzt geändert“ – zählt nicht als Bearbeitung
@@ -702,6 +735,7 @@ export class Room {
   async close(code: number, reason: string): Promise<void> {
     this.activity.stop();
     this.timecode.stop();
+    this.oscRunner.stop();
     this.doc.getMap('showSettings').unobserve(this.handleShowSettings);
     await this.flush();
     this.closed = true;

@@ -54,13 +54,16 @@ export function removeItemLightEvents(doc: Y.Doc, itemId: string): void {
 }
 
 /** Events eines Eintrags auf einen anderen kopieren (beim Kopieren des Eintrags) */
-export function copyItemLightEvents(doc: Y.Doc, fromItem: string, toItem: string): void {
+export function copyItemLightEvents(doc: Y.Doc, fromItem: string, toItem: string): Map<string, string> {
+  const ids = new Map<string, string>();
   for (const e of itemLightEvents(readLightEvents(doc), fromItem)) {
     const id = newId();
+    ids.set(e.id, id);
     const map = new Y.Map<unknown>();
     eventsMap(doc).set(id, map);
     for (const [k, v] of Object.entries({ ...e, id, itemId: toItem })) map.set(k, v);
   }
+  return ids;
 }
 
 /** Kommende Events ab Zeit t (gerade erreichte zählen noch kurz als „jetzt“) */

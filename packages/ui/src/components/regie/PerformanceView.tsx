@@ -31,6 +31,7 @@ import {
   type SyncClientState,
   isBreakLine,
   itemLightEvents,
+  triggerCommands,
 } from '@steckplan/core';
 import type { ProjectData } from '../../lib/useProjectData';
 import { texts } from '../../texts';
@@ -46,6 +47,7 @@ import { setClickSettings, useClickSettings } from '../../lib/click';
 import { LeadTimeline } from './LeadTimeline';
 import { itemAudioSrc } from './Waveform';
 import { DeskCuePanel } from './DeskCuePanel';
+import { OscLeadPanel, readOscAuto, writeOscAuto } from './OscLeadPanel';
 import { LightEventCountdown } from './LightEvents';
 import type * as Y from 'yjs';
 import { RichTextView } from './RichTextEditor';
@@ -208,9 +210,15 @@ export function PerformanceView({
   // Bei Eintrag/Szene, Start, Pause, Spulen und alle zwei Sekunden während der Wiedergabe.
   const itemId = item?.id;
   const localCue = useLocalCueSender(projectId);
-  const cueState = useRef({ mode, itemId, sceneId, audio, tc, sendCue, localCue });
+  // OSC der Regie automatisch senden (Schalter beim Führen, je Gerät gemerkt) – geht mit der Stelle an den Server
+  const [oscAuto, setOscAutoState] = useState(readOscAuto);
+  const setOscAuto = (on: boolean) => {
+    setOscAutoState(on);
+    writeOscAuto(on);
+  };
+  const cueState = useRef({ mode, itemId, sceneId, audio, tc, sendCue, localCue, oscAuto });
   useEffect(() => {
-    cueState.current = { mode, itemId, sceneId, audio, tc, sendCue, localCue };
+    cueState.current = { mode, itemId, sceneId, audio, tc, sendCue, localCue, oscAuto };
   });
   useEffect(() => {
     const send = () => {
@@ -223,6 +231,7 @@ export function PerformanceView({
         at: c.audio.currentTime,
         playing: !c.audio.paused,
         tc: { at: c.tc.currentTime, playing: !c.tc.paused },
+        ...(c.oscAuto ? { osc: true } : {}),
         ...(c.tc.playbackRate !== 1 ? { rate: c.tc.playbackRate } : {}),
       };
       c.localCue(cue);
@@ -239,7 +248,7 @@ export function PerformanceView({
       for (const source of sources) for (const e of events) source.removeEventListener(e, send);
       window.clearInterval(timer);
     };
-  }, [mode, itemId, sceneId, audio, tc]);
+  }, [mode, itemId, sceneId, audio, tc, oscAuto]);
   // beim Verlassen nicht weiter führen
   const leading = useRef(false);
   useEffect(() => {
@@ -790,7 +799,10 @@ export function PerformanceView({
                 </span>
               )}
             </div>
-            <DeskCuePanel cues={sync.deskCues} className="w-72" />
+            <div className="flex w-72 flex-col gap-3">
+              <DeskCuePanel cues={sync.deskCues} />
+              <OscLeadPanel projectId={projectId} auto={oscAuto} onAuto={setOscAuto} manual={triggerCommands(data.oscCommands, item.id, 'manual')} log={sync.oscLog} />
+            </div>
           </div>
           {/* nur zur Orientierung beim Weiterschalten: welche Szene dran ist und welche als Nächstes kommt */}
           {scene && (

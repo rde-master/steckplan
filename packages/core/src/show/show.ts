@@ -5,6 +5,7 @@ import * as Y from 'yjs';
 import { newId } from '../model/project';
 import { copyItemScenes, removeItemScenes } from './scenes';
 import { copyItemLightEvents, removeItemLightEvents } from './events';
+import { copyItemOscCommands, removeItemOscCommands } from './osc-commands';
 import { copyItemSoundScenes, removeItemSoundScenes } from './sound';
 import type { ItemMedia, MediaRef, SectionKind, ShowItem, ShowItemKind, ShowRole, ShowSettings, TextLine, TextSection } from '../model/schema';
 
@@ -398,6 +399,7 @@ export function removeShowItem(doc: Y.Doc, id: string, origin: unknown): void {
     for (const mediaId of backgrounds) if (!mediaInUse(doc, mediaId)) doc.getMap('media').delete(mediaId);
     removeItemScenes(doc, id);
     removeItemLightEvents(doc, id);
+    removeItemOscCommands(doc, id);
     removeItemSoundScenes(doc, id);
     renumber(doc, readShow(doc).items.map((i) => i.id));
   }, origin);
@@ -439,8 +441,9 @@ export function duplicateShowItem(doc: Y.Doc, id: string, origin: unknown): stri
       const sectionCopy = addSection(doc, copyId, s.kind, s.label, origin, lines);
       copySectionBackground(doc, s, sectionCopy, origin);
     }
-    copyItemScenes(doc, id, copyId, lineIds);
-    copyItemLightEvents(doc, id, copyId);
+    const sceneIds = copyItemScenes(doc, id, copyId, lineIds);
+    const eventIds = copyItemLightEvents(doc, id, copyId);
+    copyItemOscCommands(doc, id, copyId, new Map([...sceneIds, ...eventIds]));
     copyItemSoundScenes(doc, id, copyId, lineIds);
   }, origin);
   return copyId;
