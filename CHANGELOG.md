@@ -7,6 +7,15 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.38.0] - 2026-11-09
+
+### Hinzugefügt
+
+- APC40 (Akai, Original) per MIDI in der Vorstellung (Desktop-App; in Chrome auch über HTTPS/localhost): Gerät wird automatisch erkannt und in Modus 2 geschaltet, auch nach dem Einstecken
+- Farbige LEDs: Clip-Matrix = Ablaufpunkte 1–40 (aktuell grün, beim Abspielen blinkend; nächster rot; übrige gelb), Transport, Szenen, Tap, Schlag, Klick und Vorlauf zeigen ihren Zustand
+- Belegung grafisch einstellbar: das Gerät als Bild mit LED-Vorschau, Taste anklicken oder am Gerät drücken, Aktion wählen (Start/Pause, Stopp, Spulen, Eintrag/Szene vor/zurück, Ablaufpunkt Nr., Tap, Schlag vor/zurück, Klick, Vorlauf, Führen übernehmen); Standardbelegung wiederherstellbar; je Gerät gespeichert
+- Drehregler „Cue Level“: Abspielposition fein verschieben (0,1 s je Raste)
+
 ## [0.37.0] - 2026-11-08
 
 ### Hinzugefügt
