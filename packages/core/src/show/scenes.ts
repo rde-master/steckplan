@@ -211,10 +211,12 @@ export function removeItemScenes(doc: Y.Doc, itemId: string): void {
 }
 
 /** Szenen eines Eintrags auf einen anderen kopieren (beim Kopieren des Eintrags; Textzeilen umgeschlüsselt). */
-export function copyItemScenes(doc: Y.Doc, fromItem: string, toItem: string, lineIds: Map<string, string>): void {
+export function copyItemScenes(doc: Y.Doc, fromItem: string, toItem: string, lineIds: Map<string, string>): Map<string, string> {
   const states = readSceneStates(doc);
+  const ids = new Map<string, string>();
   for (const scene of itemScenes(readScenes(doc), fromItem)) {
     const id = newId();
+    ids.set(scene.id, id);
     const map = new Y.Map<unknown>();
     scenesMap(doc).set(id, map);
     const { id: _id, itemId: _item, lineId, ...rest } = scene;
@@ -227,4 +229,5 @@ export function copyItemScenes(doc: Y.Doc, fromItem: string, toItem: string, lin
       setFields(smap, { ...values, id: stateId(id, state.deviceId), sceneId: id });
     }
   }
+  return ids;
 }
