@@ -36,6 +36,7 @@ import {
   type Library,
   type PackItem,
   type ProjectMeta,
+  wirelessLinks,
 } from '@steckplan/core';
 import type { ColorMode } from '../lib/editor';
 import type { ProjectData } from '../lib/useProjectData';
@@ -530,7 +531,7 @@ export async function buildExportDoc(opts: ExportOptions, input: ExportInput): P
         const worldPerPt = Math.max(bounds.width / area.width, bounds.height / area.height, 0.5);
         const view = { x: bounds.x - (area.width * worldPerPt - bounds.width) / 2, y: bounds.y - (area.height * worldPerPt - bounds.height) / 2, width: area.width * worldPerPt, height: area.height * worldPerPt };
         tiles.push({
-          svg: signalFlowSvg(boxes, lines, view, area.width, area.height, frames, refs),
+          svg: signalFlowSvg(boxes, lines, view, area.width, area.height, frames, refs, wirelessLinks(data, new Map(library.templates.map((t) => [t.id, t])))),
           label: page.name ? `${page.name} (${index + 1} von ${pages.length})` : `${index + 1} von ${pages.length}`,
         });
       });

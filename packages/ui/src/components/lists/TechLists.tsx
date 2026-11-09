@@ -1,6 +1,7 @@
 // DMX-Patchliste und Netzwerkliste.
 import { useMemo, useState } from 'react';
-import { buildDmxPatch, buildNetworkList, checkDmx, checkNetwork, deviceMatches, formatDmx, type Library } from '@steckplan/core';
+import type * as Y from 'yjs';
+import { buildDmxPatch, buildNetworkList, checkDmx, checkNetwork, deviceMatches, formatDmx, updateDevices, type Library } from '@steckplan/core';
 import { useEditor } from '../../lib/editor';
 import type { ProjectData } from '../../lib/useProjectData';
 import { texts } from '../../texts';
@@ -21,7 +22,7 @@ function useTemplates(library: Library | null) {
   return useMemo(() => new Map((library?.templates ?? []).map((t) => [t.id, t])), [library]);
 }
 
-export function DmxPatchView({ data, library }: { data: ProjectData; library: Library | null }) {
+export function DmxPatchView({ data, library, doc, origin, editable = false }: { data: ProjectData; library: Library | null; doc?: Y.Doc; origin?: object; editable?: boolean }) {
   const filter = useEditor((s) => s.filter);
   const templates = useTemplates(library);
   const devices = data.devices.filter((x) => deviceMatches(filter, x, templates.get(x.templateId)));
@@ -46,7 +47,29 @@ export function DmxPatchView({ data, library }: { data: ProjectData; library: Li
           </button>
         ))}
       </div>
-      {view === 'universe' ? <DmxUniverseView rows={rows} /> : <DmxTable rows={rows} problems={problems} />}
+      {view === 'universe' ? (
+        <DmxUniverseView
+          rows={rows}
+          editable={editable && !!doc}
+          channelsFor={(id) => {
+            const device = data.devices.find((x) => x.id === id);
+            const template = device ? templates.get(device.templateId) : undefined;
+            const modes = template?.dmxModes ?? [];
+            return (modes.find((m) => m.name === device?.dmx?.modeName) ?? modes[0])?.channels ?? 1;
+          }}
+          onPatch={(id, at) => {
+            if (!doc || !origin) return;
+            const device = data.devices.find((x) => x.id === id);
+            const template = device ? templates.get(device.templateId) : undefined;
+            const modes = template?.dmxModes ?? [];
+            const modeName = (modes.find((m) => m.name === device?.dmx?.modeName) ?? modes[0])?.name;
+            if (!device || !modeName) return;
+            updateDevices(doc, [{ id, patch: { dmx: at ? { modeName, universe: at.universe, address: at.address } : undefined } }], origin);
+          }}
+        />
+      ) : (
+        <DmxTable rows={rows} problems={problems} />
+      )}
     </div>
   );
 }

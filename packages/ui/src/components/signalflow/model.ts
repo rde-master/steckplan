@@ -212,3 +212,17 @@ export function buildGroupFrames(groups: Group[], boxes: DeviceBox[]): { id: str
     }];
   });
 }
+
+/** Punkt auf dem Rand eines Kastens in Richtung eines anderen Kastens (Mitte zu Mitte) – für Funkstrecken */
+export function edgePoint(box: DeviceBox, toward: DeviceBox): { x: number; y: number } {
+  const cx = box.x + box.layout.width / 2;
+  const cy = box.y + box.layout.height / 2;
+  const dx = toward.x + toward.layout.width / 2 - cx;
+  const dy = toward.y + toward.layout.height / 2 - cy;
+  if (dx === 0 && dy === 0) return { x: cx, y: cy };
+  const scale = Math.min(Math.abs(dx) > 0 ? box.layout.width / 2 / Math.abs(dx) : Infinity, Math.abs(dy) > 0 ? box.layout.height / 2 / Math.abs(dy) : Infinity);
+  return { x: cx + dx * scale, y: cy + dy * scale };
+}
+
+/** Farbe der Funkstrecken (DMX per Funk) */
+export const WIRELESS_COLOR = '#a855f7';

@@ -160,6 +160,8 @@ export const TemplateSchema = z.object({
     .optional(),
   ports: z.array(PortDefSchema).optional(),
   dmxModes: z.array(z.object({ name: z.string(), channels: z.number().int().positive() })).optional(),
+  /** DMX per Funk: Gerät kann ein Universum senden bzw. empfangen (es wird immer das ganze Universum übertragen) */
+  wirelessDmx: z.object({ send: z.boolean().optional(), receive: z.boolean().optional() }).optional(),
   /** Lichtfähigkeiten (Regie: Lichtaufbau und -szenen) */
   light: LightCapsSchema.optional(),
   powerW: z.number().nonnegative().optional(),
@@ -238,6 +240,8 @@ export const DeviceInstanceSchema = z.object({
       address: z.number().int().min(1).max(512),
     })
     .optional(),
+  /** DMX per Funk: Sender – welches Universum er sendet; Empfänger – von welchem Sender (Pairing) */
+  wirelessDmx: z.object({ universe: z.number().int().positive().optional(), fromId: id.optional() }).optional(),
   network: z
     .array(
       z.object({
