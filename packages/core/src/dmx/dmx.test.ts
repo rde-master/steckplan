@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Cable, DeviceInstance, Template } from '../model/schema';
-import { autoAddress, buildDmxPatch, checkDmx, checkWirelessDmx, dmxChain, dmxUniverses, formatDmx, wirelessLinks, type DmxPatchRow } from './dmx';
+import { autoAddress, buildDmxPatch, checkDmx, checkWirelessDmx, dmxChain, dmxUniverses, formatDmx, wirelessBlockedPorts, wirelessLinks, type DmxPatchRow } from './dmx';
 
 const T0 = '2026-01-01T00:00:00.000Z';
 const dmxPorts = [
@@ -116,6 +116,13 @@ describe('DMX per Funk', () => {
   });
   it('Kette läuft über die Funkstrecke weiter (auch zu Scheinwerfern mit eingebautem Empfänger)', () => {
     expect(dmxChain('pult', { devices, cables }, all)).toEqual(['pult', 'sender', 'box', 's1', 'a1', 'a2']);
+  });
+  it('DMX-Eingang gesperrt, sobald ein Sender gewählt ist; Kabel dort wird gemeldet', () => {
+    expect([...wirelessBlockedPorts(devices.find((d) => d.id === 'a1')!, akku)]).toEqual(['in']);
+    expect([...wirelessBlockedPorts(dev('x', 'akku'), akku)]).toEqual([]);
+    expect([...wirelessBlockedPorts({ wirelessDmx: { fromId: 'sender' } }, spot)]).toEqual([]);
+    const withCable = checkWirelessDmx({ devices, cables: [...cables, cable('s1', 'thru', 'a1', 'in')] }, all);
+    expect(withCable.map((i) => i.id)).toContain('wdmx-cable:a1:in');
   });
   it('Prüfungen: Sender ohne Universum, Empfänger ohne/mit fehlendem Sender, falsches Universum', () => {
     expect(checkWirelessDmx({ devices }, all).map((i) => i.id).sort()).toEqual(['wdmx-mismatch:a2', 'wdmx-nosender:box2', 'wdmx-sender:a3', 'wdmx-universe:sender2']);

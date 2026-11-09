@@ -190,13 +190,19 @@ export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onC
 
   const isDefective = (deviceId: string, portId: string) => boxById.get(deviceId)?.defects.has(portId) ?? false;
   const DEFECT_MESSAGE = 'Dieser Anschluss ist als defekt markiert – bitte einen anderen wählen (Markierung in den Eigenschaften oder per Rechtsklick entfernen).';
+  /** DMX-Eingang wird per Funk versorgt: kein Kabel */
+  const isWirelessIn = (deviceId: string, portId: string) => boxById.get(deviceId)?.wirelessIn.has(portId) ?? false;
+  const WIRELESS_MESSAGE = 'Dieses Gerät bekommt DMX per Funk – am DMX-Eingang kann kein Kabel angeschlossen werden (in den Eigenschaften unter „DMX per Funk“ den Sender abwählen, um wieder per Kabel zu verbinden).';
+  /** gesperrter Anschluss: Meldung, sonst null */
+  const blocked = (deviceId: string, portId: string): string | null => (isDefective(deviceId, portId) ? DEFECT_MESSAGE : isWirelessIn(deviceId, portId) ? WIRELESS_MESSAGE : null);
 
   function startConnect(ref: PortRef, e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) {
     if (!editable) return;
     if ('button' in e.evt && e.evt.button !== 0) return;
     e.cancelBubble = true;
-    if (isDefective(ref.deviceId, ref.portId)) {
-      onInvalidConnection(DEFECT_MESSAGE);
+    const reason = blocked(ref.deviceId, ref.portId);
+    if (reason) {
+      onInvalidConnection(reason);
       return;
     }
     const box = boxById.get(ref.deviceId);
@@ -243,8 +249,9 @@ export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onC
       const old = cable?.[move.end];
       if (!cable || (old && old.deviceId === ref.deviceId && old.portId === ref.portId)) return;
     }
-    if (isDefective(ref.deviceId, ref.portId)) {
-      onInvalidConnection(DEFECT_MESSAGE);
+    const reason = blocked(ref.deviceId, ref.portId);
+    if (reason) {
+      onInvalidConnection(reason);
       return;
     }
     const oriented = orientConnection(from, ref);
@@ -263,7 +270,7 @@ export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onC
   function candidateState(deviceId: string, port: EffectivePort): 'ok' | 'invalid' | null {
     if (!connecting) return null;
     if (deviceId === connecting.from.deviceId && port.id === connecting.from.portId) return null;
-    if (isDefective(deviceId, port.id)) return 'invalid';
+    if (blocked(deviceId, port.id)) return 'invalid';
     return orientConnection(connecting.from, { deviceId, portId: port.id, port }) ? 'ok' : 'invalid';
   }
 
@@ -727,6 +734,12 @@ export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onC
                           if (editable) onToggleDefect?.(box.device.id, port.id);
                         }}
                       />
+                      {box.wirelessIn.has(port.id) && !box.defects.has(port.id) && (
+                        <Group name="port-wireless" id={`wireless-in-${box.device.id}-${port.id}`} listening={false}>
+                          <Line points={[x - 6, y - 6, x + 6, y + 6]} stroke="#dc2626" strokeWidth={2.5} lineCap="round" />
+                          <Line points={[x + 6, y - 6, x - 6, y + 6]} stroke="#dc2626" strokeWidth={2.5} lineCap="round" />
+                        </Group>
+                      )}
                       {box.defects.has(port.id) && (
                         <Group name="port-defect" id={`defect-${box.device.id}-${port.id}`} listening={false}>
                           <Line points={[x - 6, y - 6, x + 6, y + 6]} stroke="#dc2626" strokeWidth={2.5} lineCap="round" />

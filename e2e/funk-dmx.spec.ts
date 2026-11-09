@@ -63,13 +63,33 @@ test('DMX per Funk: Vorlage sendet/empfängt, Sender-Universum, Empfänger wähl
   const label = await page.evaluate(() => (window.__steckplanStage!.findOne('.wireless') as unknown as { findOne: (s: string) => { text(): string } }).findOne('Text').text());
   expect(label).toContain('U2');
   await page.screenshot({ path: 'test-results/funk-signalfluss.png' });
+  // DMX-Eingang des Akku-Spots: rotes X, kein Kabel möglich
+  await expect.poll(() => page.evaluate(() => window.__steckplanStage?.find('.port-wireless').length ?? 0)).toBe(1);
+  const port = await page.evaluate(() => {
+    const stage = window.__steckplanStage!;
+    const node = stage.find('.port').find((n) => n.getAttr('deviceId') === 'Akku 1' && n.getAttr('portId') === 'in')!;
+    const r = node.getClientRect();
+    const b = stage.container().getBoundingClientRect();
+    return { x: b.left + r.x + r.width / 2, y: b.top + r.y + r.height / 2 };
+  });
+  await page.mouse.move(port.x, port.y);
+  await page.mouse.down();
+  await page.mouse.up();
+  await expect(page.getByText('bekommt DMX per Funk – am DMX-Eingang kann kein Kabel')).toBeVisible();
+  // ohne Sender wieder frei
+  await clickDevice(page, 'Akku 1');
+  await props.getByTestId('wireless-from').selectOption('');
+  await expect.poll(() => page.evaluate(() => window.__steckplanStage?.find('.port-wireless').length ?? 0)).toBe(0);
+  await props.getByTestId('wireless-from').selectOption({ label: 'Sender – Universum 2' });
+  await expect.poll(() => page.evaluate(() => window.__steckplanStage?.find('.port-wireless').length ?? 0)).toBe(1);
   // beim Sender: Liste der Empfänger
   await clickDevice(page, 'Sender');
   await expect(props.getByTestId('wireless-dmx')).toContainText('Empfänger: Akku 1');
   // Prüfung: Akku 1 ist in Universum 1 gepatcht, empfängt aber Universum 2
   await expect.poll(async () => page.evaluate(() => document.body.innerText)).toContain('empfängt per Funk aber Universum 2');
 
-  // DMX-Patch, Universum: nicht gepatchte Geräte oben, per Ziehen patchen und verschieben
+  // DMX-Patch, Universum: nicht gepatchte Geräte oben, per Ziehen patchen und verschieben (hohes Fenster: Ziehen ohne Scrollen)
+  await page.setViewportSize({ width: 1440, height: 1800 });
   await page.getByRole('tab', { name: 'Listen' }).click();
   await page.getByRole('tab', { name: 'DMX-Patch' }).click();
   await page.getByRole('radio', { name: 'Universum' }).click();
@@ -90,7 +110,29 @@ test('DMX per Funk: Vorlage sendet/empfängt, Sender-Universum, Empfänger wähl
   // innerhalb des Universums verschieben: PAR 1 an den Anfang
   await page.getByTestId('dmx-universe').first().locator('[data-device="PAR 1"]').dragTo(page.getByTestId('dmx-universe').first().locator('[data-testid=dmx-row][data-start="1"]'), { targetPosition: { x: 3, y: 5 } });
   await expect.poll(async () => (await project(page.request, id)).devices.find((x) => x.id === 'PAR 1')!.dmx?.address).toBe(1);
+  // mit echten Mausbewegungen (wie von Hand): PAR 1 innerhalb des Universums auf Kanal 65 schieben
+  {
+    const u = page.getByTestId('dmx-universe').first();
+    const seg = (await u.locator('[data-device="PAR 1"]').first().boundingBox())!;
+    const row = (await u.locator('[data-testid=dmx-row][data-start="65"]').boundingBox())!;
+    await page.mouse.move(seg.x + 4, seg.y + seg.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(seg.x + 20, seg.y + 20, { steps: 5 });
+    await page.mouse.move(row.x + 3, row.y + row.height / 2, { steps: 10 });
+    await expect(u.getByTestId('dmx-drop-preview')).toBeVisible();
+    await page.mouse.up();
+    await expect.poll(async () => (await project(page.request, id)).devices.find((x) => x.id === 'PAR 1')!.dmx?.address).toBe(65);
+  }
+  // Adresse auch per Eingabe im Detail ändern (nach dem Ablegen ist PAR 1 ausgewählt)
+  await expect(page.getByTestId('dmx-detail')).toContainText('PAR 1');
+  await page.getByTestId('dmx-detail-address').fill('101');
+  await page.getByTestId('dmx-detail-address').press('Enter');
+  await expect.poll(async () => (await project(page.request, id)).devices.find((x) => x.id === 'PAR 1')!.dmx?.address).toBe(101);
+  await page.getByTestId('dmx-detail-universe').fill('2');
+  await page.getByTestId('dmx-detail-universe').press('Enter');
+  await expect.poll(async () => (await project(page.request, id)).devices.find((x) => x.id === 'PAR 1')!.dmx).toEqual({ modeName: '4 Kanal', universe: 2, address: 101 });
+
   // zurückziehen nimmt das Gerät aus dem Patch
-  await page.getByTestId('dmx-universe').first().locator('[data-device="PAR 1"]').dragTo(page.getByTestId('dmx-unaddressed'));
+  await page.locator('[data-testid=dmx-universe] [data-device="PAR 1"]').first().dragTo(page.getByTestId('dmx-unaddressed'));
   await expect.poll(async () => (await project(page.request, id)).devices.find((x) => x.id === 'PAR 1')!.dmx).toBeUndefined();
 });
