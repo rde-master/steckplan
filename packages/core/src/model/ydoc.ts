@@ -29,6 +29,7 @@ export const Y_COLLECTIONS = {
   lightPlacements: ['lightPlacements'],
   lightTargets: ['lightTargets'],
   lightScenes: ['lightScenes'],
+  lightEvents: ['lightEvents'],
   sceneStates: ['sceneStates'],
   soundScenes: ['soundScenes'],
   gigs: ['gigs'],
@@ -39,7 +40,7 @@ export const Y_COLLECTIONS = {
 } as const satisfies Record<string, CollectionPath>;
 
 /** Bereiche des Dokuments, die der Zugang „Regie“ ändern darf */
-export const DIRECTION_ROOTS: ReadonlySet<string> = new Set(['showItems', 'showSections', 'showSettings', 'media', 'lightGrid', 'lightPlacements', 'lightTargets', 'lightScenes', 'sceneStates', 'soundScenes']);
+export const DIRECTION_ROOTS: ReadonlySet<string> = new Set(['showItems', 'showSections', 'showSettings', 'media', 'lightGrid', 'lightPlacements', 'lightTargets', 'lightScenes', 'lightEvents', 'sceneStates', 'soundScenes']);
 export type YCollectionName = keyof typeof Y_COLLECTIONS;
 
 type Json = Record<string, unknown>;

@@ -83,6 +83,8 @@ export function SceneTimeline({
   onMove,
   editable,
   tone,
+  events = [],
+  onEventMove,
 }: {
   scenes: SceneTimelineScene[];
   music: Playback | null;
@@ -96,6 +98,9 @@ export function SceneTimeline({
   onMove: (changes: { id: string; atSec: number }[]) => void;
   editable: boolean;
   tone: 'light' | 'sound';
+  /** Licht-Events: Marker über den Szenen (anklicken springt dorthin, ziehen verschiebt) */
+  events?: { id: string; atSec: number; note: string }[];
+  onEventMove?: (id: string, atSec: number) => void;
 }) {
   const time = usePlayerTime(music);
   const { duration } = usePlaybackState(music);
@@ -114,6 +119,8 @@ export function SceneTimeline({
   const pos = (sec: number) => ((sec - start) / span) * 100;
   const track = useRef<HTMLDivElement>(null);
   const [drag, setDrag] = useState<Drag | null>(null);
+  /** Event-Marker ziehen: Ausgang, Zeit beim Start, Sekunden je Pixel, aktuelle Zeit */
+  const [eventDrag, setEventDrag] = useState<{ id: string; x: number; orig: number; perPx: number; at: number; moved: boolean } | null>(null);
   /** zuletzt von Hand verschoben (dann eine Weile nicht mitlaufen) */
   const lastScroll = useRef(0);
 
@@ -236,6 +243,50 @@ export function SceneTimeline({
         data-span={span.toFixed(2)}
         data-total={total.toFixed(2)}
       >
+        {events.length > 0 && (
+          <div className="relative h-5 border-b border-slate-200 dark:border-slate-800" data-testid="scene-timeline-events">
+            {events.map((ev) => {
+              const at = eventDrag?.id === ev.id ? eventDrag.at : ev.atSec;
+              if (at < start || at > end) return null;
+              return (
+                <span
+                  key={ev.id}
+                  className={`absolute top-0.5 z-20 flex h-4 w-4 -translate-x-1/2 cursor-pointer items-center justify-center rounded-sm bg-amber-400 text-[10px] leading-none font-bold text-amber-950 ring-1 ring-amber-700/40 ${editable ? 'cursor-grab' : ''}`}
+                  style={{ left: `${pos(at)}%`, transform: 'translateX(-50%) rotate(45deg)' }}
+                  title={`${formatSceneTime(at)} · ${ev.note || '–'}`}
+                  data-testid="scene-event-marker"
+                  data-at={at}
+                  onPointerDown={(e) => {
+                    e.stopPropagation();
+                    if (e.button !== 0) return;
+                    e.currentTarget.setPointerCapture(e.pointerId);
+                    setEventDrag({ id: ev.id, x: e.clientX, orig: ev.atSec, perPx: span / track.current!.getBoundingClientRect().width, at: ev.atSec, moved: false });
+                  }}
+                  onPointerMove={(e) => {
+                    if (!eventDrag || !editable) return;
+                    const dx = e.clientX - eventDrag.x;
+                    if (!eventDrag.moved && Math.abs(dx) <= 3) return;
+                    setEventDrag({ ...eventDrag, at: ROUND(Math.min(total, Math.max(0, eventDrag.orig + dx * eventDrag.perPx))), moved: true });
+                  }}
+                  onPointerUp={() => {
+                    if (!eventDrag) return;
+                    if (eventDrag.moved && eventDrag.at !== eventDrag.orig) onEventMove?.(eventDrag.id, eventDrag.at);
+                    else if (!eventDrag.moved && music) seekAudio(music, ev.atSec);
+                    setEventDrag(null);
+                  }}
+                  onPointerCancel={() => setEventDrag(null)}
+                >
+                  <span style={{ transform: 'rotate(-45deg)' }}>!</span>
+                </span>
+              );
+            })}
+          </div>
+        )}
+        {/* Event-Linien durch die Szenen */}
+        {events.map((ev) => {
+          const at = eventDrag?.id === ev.id ? eventDrag.at : ev.atSec;
+          return at >= start && at <= end ? <div key={`l${ev.id}`} className="pointer-events-none absolute top-5 bottom-0 z-10 w-px border-l border-dashed border-amber-500" style={{ left: `${pos(at)}%` }} /> : null;
+        })}
         <div className="relative h-11">
           {timed.length === 0 && <p className="pointer-events-none absolute inset-0 flex items-center px-2 text-xs text-slate-500">{t.empty}</p>}
           {timed.map((s, i) => {

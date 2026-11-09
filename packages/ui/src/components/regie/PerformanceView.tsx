@@ -30,6 +30,7 @@ import {
   type RemoteCommand,
   type SyncClientState,
   isBreakLine,
+  itemLightEvents,
 } from '@steckplan/core';
 import type { ProjectData } from '../../lib/useProjectData';
 import { texts } from '../../texts';
@@ -45,6 +46,7 @@ import { setClickSettings, useClickSettings } from '../../lib/click';
 import { LeadTimeline } from './LeadTimeline';
 import { itemAudioSrc } from './Waveform';
 import { DeskCuePanel } from './DeskCuePanel';
+import { LightEventCountdown } from './LightEvents';
 import type * as Y from 'yjs';
 import { RichTextView } from './RichTextEditor';
 import { SceneProgress, type SceneMark } from './SceneProgress';
@@ -191,6 +193,7 @@ export function PerformanceView({
   const time = leadMusic ?? ownTime;
   const playing = leadCue ? !!leadCue.playing : !audio.paused;
   const numbers = itemNumbers(items);
+  const lightEvents = item ? itemLightEvents(data.lightEvents, item.id) : [];
   const number = item ? (numbers.get(item.id) ?? itemIndex + 1) : undefined;
   const choiceHolds = !!sceneChoice && !playing && Math.abs(time - choice.at) < 0.05;
   const timeScene = choiceHolds ? undefined : currentSceneId(scenes, plainLines, time);
@@ -761,6 +764,7 @@ export function PerformanceView({
             onSeek={(sec) => perform({ action: 'seek', value: sec })}
             waveSrc={itemAudioSrc(projectId, item)}
             audioOffset={item.audioOffsetSec ?? 0}
+            events={lightEvents}
             lightScenes={scenes.map((s, i) => ({ id: s.id, number: i + 1, name: s.name, at: sceneTime(s, plainLines), current: i === sceneIndex }))}
             soundScenes={soundScenes.map((s, i) => ({ id: s.id, number: i + 1, name: s.name, at: sceneTime(s, plainLines), current: i === soundIndex }))}
             onScene={(kind, s) => {
@@ -951,6 +955,7 @@ export function PerformanceView({
             ) : scenes.length > 0 ? (
               <>
                 <DeskCuePanel cues={sync.deskCues} />
+                <LightEventCountdown events={lightEvents} time={time} />
                 <SceneProgress current={lightMark(sceneIndex)} next={lightMark(sceneIndex + 1)} time={time} nextItemTitle={nextItem ? nextItem.title || texts.regie.untitled : undefined} testPrefix="performance" />
                 {lightNote && <p className="text-lg text-slate-200" data-testid="performance-scene-note">{lightNote}</p>}
                 {/* Bild: aktuelle Szene oder Vorschau auf die nächste (je Gerät gemerkt) */}
@@ -972,6 +977,7 @@ export function PerformanceView({
             ) : (
               <>
                 <DeskCuePanel cues={sync.deskCues} />
+                <LightEventCountdown events={lightEvents} time={time} />
                 <p className="text-slate-500">{nextItem ? t.nextItem(nextItem.title || texts.regie.untitled) : t.end}</p>
               </>
             )}

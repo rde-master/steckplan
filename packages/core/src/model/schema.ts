@@ -582,6 +582,15 @@ export const LightSceneSchema = z.object({
 });
 export type LightScene = z.infer<typeof LightSceneSchema>;
 
+/** Licht-Event: Zeitpunkt in einem Lied/Schauspiel, an dem etwas Besonderes passiert (vorerst nur eine Notiz) (seit 0.41) */
+export const LightEventSchema = z.object({
+  id,
+  itemId: id,
+  atSec: z.number().nonnegative(),
+  note: z.string().max(2000).default(''),
+});
+export type LightEvent = z.infer<typeof LightEventSchema>;
+
 /** Tonszene: wie eine Lichtszene (Name, Auslöser), dazu eine formatierte Notiz (HTML, beim Anzeigen bereinigt) */
 // ---------- Auftritte und Helfer (seit 0.28) ----------
 
@@ -797,6 +806,7 @@ export const ProjectSchema = z.object({
   lightTargets: z.array(LightTargetSchema).default([]),
   /** Lichtszenen und Werte je Gerät (seit Format 9) */
   lightScenes: z.array(LightSceneSchema).default([]),
+  lightEvents: z.array(LightEventSchema).default([]),
   sceneStates: z.array(FixtureStateSchema).default([]),
   /** Tonszenen (seit 0.25) */
   soundScenes: z.array(SoundSceneSchema).default([]),
