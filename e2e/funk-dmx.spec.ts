@@ -63,6 +63,25 @@ test('DMX per Funk: Vorlage sendet/empfängt, Sender-Universum, Empfänger wähl
   const label = await page.evaluate(() => (window.__steckplanStage!.findOne('.wireless') as unknown as { findOne: (s: string) => { text(): string } }).findOne('Text').text());
   expect(label).toContain('U2');
   await page.screenshot({ path: 'test-results/funk-signalfluss.png' });
+  // DMX-Eingang des Akku-Spots: rotes X, kein Kabel möglich
+  await expect.poll(() => page.evaluate(() => window.__steckplanStage?.find('.port-wireless').length ?? 0)).toBe(1);
+  const port = await page.evaluate(() => {
+    const stage = window.__steckplanStage!;
+    const node = stage.find('.port').find((n) => n.getAttr('deviceId') === 'Akku 1' && n.getAttr('portId') === 'in')!;
+    const r = node.getClientRect();
+    const b = stage.container().getBoundingClientRect();
+    return { x: b.left + r.x + r.width / 2, y: b.top + r.y + r.height / 2 };
+  });
+  await page.mouse.move(port.x, port.y);
+  await page.mouse.down();
+  await page.mouse.up();
+  await expect(page.getByText('bekommt DMX per Funk – am DMX-Eingang kann kein Kabel')).toBeVisible();
+  // ohne Sender wieder frei
+  await clickDevice(page, 'Akku 1');
+  await props.getByTestId('wireless-from').selectOption('');
+  await expect.poll(() => page.evaluate(() => window.__steckplanStage?.find('.port-wireless').length ?? 0)).toBe(0);
+  await props.getByTestId('wireless-from').selectOption({ label: 'Sender – Universum 2' });
+  await expect.poll(() => page.evaluate(() => window.__steckplanStage?.find('.port-wireless').length ?? 0)).toBe(1);
   // beim Sender: Liste der Empfänger
   await clickDevice(page, 'Sender');
   await expect(props.getByTestId('wireless-dmx')).toContainText('Empfänger: Akku 1');
