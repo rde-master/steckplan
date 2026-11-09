@@ -9,6 +9,72 @@ export function isDmxDevice(template: Template | undefined): boolean {
   return (template?.dmxModes?.length ?? 0) > 0;
 }
 
+// ---------- DMX per Funk ----------
+
+export function isWirelessSender(template: Template | undefined): boolean {
+  return template?.wirelessDmx?.send === true;
+}
+
+export function isWirelessReceiver(template: Template | undefined): boolean {
+  return template?.wirelessDmx?.receive === true;
+}
+
+export interface WirelessLink {
+  senderId: string;
+  receiverId: string;
+  /** gesendetes Universum (fehlt = beim Sender nicht eingestellt) */
+  universe: number | undefined;
+}
+
+/** Funkstrecken: je Empfänger mit gültigem Sender eine Verbindung Sender → Empfänger */
+export function wirelessLinks(project: Pick<Project, 'devices'>, templates: Map<string, Template>): WirelessLink[] {
+  const byId = new Map(project.devices.map((d) => [d.id, d]));
+  const links: WirelessLink[] = [];
+  for (const device of project.devices) {
+    const fromId = device.wirelessDmx?.fromId;
+    if (!fromId || !isWirelessReceiver(templates.get(device.templateId))) continue;
+    const sender = byId.get(fromId);
+    if (!sender || !isWirelessSender(templates.get(sender.templateId))) continue;
+    links.push({ senderId: sender.id, receiverId: device.id, universe: sender.wirelessDmx?.universe });
+  }
+  return links;
+}
+
+/** Prüfungen der Funkstrecken */
+export function checkWirelessDmx(project: Pick<Project, 'devices'>, templates: Map<string, Template>): Issue[] {
+  const issues: Issue[] = [];
+  const byId = new Map(project.devices.map((d) => [d.id, d]));
+  for (const device of project.devices) {
+    const template = templates.get(device.templateId);
+    if (isWirelessSender(template) && device.wirelessDmx?.universe === undefined) {
+      issues.push({ id: `wdmx-universe:${device.id}`, severity: 'warning', message: `„${device.label}“: Funk-Sender ohne Universum.`, objectIds: [device.id] });
+    }
+    if (!isWirelessReceiver(template)) continue;
+    const fromId = device.wirelessDmx?.fromId;
+    const sender = fromId ? byId.get(fromId) : undefined;
+    if (!fromId) {
+      // Empfangsboxen ohne Sender sind ein Hinweis; Scheinwerfer mit eingebautem Empfänger hängen evtl. am Kabel
+      if (!isDmxDevice(template)) issues.push({ id: `wdmx-nosender:${device.id}`, severity: 'warning', message: `„${device.label}“: Funk-Empfänger ohne Sender.`, objectIds: [device.id] });
+      continue;
+    }
+    if (!sender || !isWirelessSender(templates.get(sender.templateId))) {
+      issues.push({ id: `wdmx-sender:${device.id}`, severity: 'error', message: `„${device.label}“: der gewählte Funk-Sender gibt es nicht (mehr).`, objectIds: [device.id] });
+      continue;
+    }
+    // Scheinwerfer mit eingebautem Empfänger: Patch muss im gesendeten Universum liegen
+    const universe = sender.wirelessDmx?.universe;
+    if (device.dmx && universe !== undefined && device.dmx.universe !== universe) {
+      issues.push({
+        id: `wdmx-mismatch:${device.id}`,
+        severity: 'warning',
+        message: `„${device.label}“: gepatcht in Universum ${device.dmx.universe}, empfängt per Funk aber Universum ${universe} von „${sender.label}“.`,
+        objectIds: [device.id, sender.id],
+      });
+    }
+  }
+  return issues;
+}
+
 export function channelsOf(device: DeviceInstance, template: Template | undefined): number | undefined {
   if (!device.dmx || !template?.dmxModes) return undefined;
   return template.dmxModes.find((m) => m.name === device.dmx!.modeName)?.channels;
@@ -96,6 +162,12 @@ export function dmxChain(startId: string, project: Pick<Project, 'devices' | 'ca
     if (seen.has(deviceId)) return;
     seen.add(deviceId);
     order.push(deviceId);
+    // per Funk: Sender → alle gekoppelten Empfänger
+    if (isWirelessSender(template)) {
+      for (const d of project.devices) {
+        if (d.wirelessDmx?.fromId === deviceId && isWirelessReceiver(templates.get(d.templateId))) visit(d.id);
+      }
+    }
     for (const port of templatePorts(template)) {
       if ((port.role === 'out' || port.role === 'bi') && DMX_SIGNAL.test(port.signal)) {
         for (const cable of outgoing(deviceId, port.id)) {

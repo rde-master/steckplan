@@ -7,6 +7,8 @@ import {
   dmxChain,
   formatDmx,
   isDmxDevice,
+  isWirelessReceiver,
+  isWirelessSender,
   networkPorts,
   suggestIp,
   updateDevices,
@@ -74,6 +76,57 @@ export function DmxSection({ doc, origin, library, data, device, editable }: { d
         </Button>
       )}
       {message && <Banner tone="info">{message}</Banner>}
+    </section>
+  );
+}
+
+/** DMX per Funk: Sender – gesendetes Universum; Empfänger – Sender wählen (Pairing) */
+export function WirelessDmxSection({ doc, origin, library, data, device, editable }: { doc: Y.Doc; origin: object; library: Library | null; data: ProjectData; device: DeviceInstance; editable: boolean }) {
+  const templates = new Map((library?.templates ?? []).map((x) => [x.id, x]));
+  const template = templates.get(device.templateId);
+  const sender = isWirelessSender(template);
+  const receiver = isWirelessReceiver(template);
+  if (!sender && !receiver) return null;
+  const w = device.wirelessDmx ?? {};
+  const set = (patch: { universe?: number | undefined; fromId?: string | undefined }) => {
+    const next = { ...w, ...patch };
+    if (next.universe === undefined) delete next.universe;
+    if (!next.fromId) delete next.fromId;
+    updateDevices(doc, [{ id: device.id, patch: { wirelessDmx: Object.keys(next).length ? next : undefined } }], origin);
+  };
+  const senders = data.devices.filter((d) => d.id !== device.id && isWirelessSender(templates.get(d.templateId)));
+  const receivers = data.devices.filter((d) => d.wirelessDmx?.fromId === device.id && isWirelessReceiver(templates.get(d.templateId)));
+  return (
+    <section className="space-y-2 rounded-md border border-slate-200 p-2 dark:border-slate-700" aria-label={t.wireless} data-testid="wireless-dmx">
+      <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t.wireless}</div>
+      {sender && (
+        <>
+          <Field label={t.wirelessUniverse}>
+            <TextInput
+              type="number"
+              min={1}
+              value={w.universe ?? ''}
+              disabled={!editable}
+              onChange={(e) => set({ universe: e.target.value === '' ? undefined : Math.max(1, Math.round(Number(e.target.value) || 1)) })}
+              data-testid="wireless-universe"
+            />
+          </Field>
+          <p className="text-xs text-slate-500">{receivers.length ? t.wirelessReceivers(receivers.map((r) => r.label).join(', ')) : t.wirelessNoReceivers}</p>
+        </>
+      )}
+      {receiver && (
+        <Field label={t.wirelessFrom}>
+          <select className={selectClass} value={w.fromId ?? ''} disabled={!editable} onChange={(e) => set({ fromId: e.target.value || undefined })} data-testid="wireless-from">
+            <option value="">{t.wirelessNone}</option>
+            {senders.map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.label}
+                {d.wirelessDmx?.universe !== undefined ? ` – ${t.universe} ${d.wirelessDmx.universe}` : ''}
+              </option>
+            ))}
+          </select>
+        </Field>
+      )}
     </section>
   );
 }

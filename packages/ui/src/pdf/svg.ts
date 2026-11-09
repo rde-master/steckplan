@@ -1,7 +1,7 @@
 // Planzeichnungen als SVG aus den Daten (Vektor, kein Bildschirmfoto) – für den PDF-Export.
 import { backgroundScale, polylineLength, type Background, type CrossPageRef, type Library, type Shape } from '@steckplan/core';
 import { formatLength, type MulticoreRoute, type StageCable, type StageItem } from '../components/stageplan/model';
-import { anchorOf, ROLE_COLORS, type CableLine, type DeviceBox } from '../components/signalflow/model';
+import { anchorOf, edgePoint, ROLE_COLORS, WIRELESS_COLOR, type CableLine, type DeviceBox } from '../components/signalflow/model';
 
 export interface Rect {
   x: number;
@@ -194,6 +194,7 @@ export function signalFlowSvg(
   heightPt: number,
   groupFrames: { id: string; name: string; color: string; x: number; y: number; width: number; height: number }[] = [],
   pageRefs: CrossPageRef[] = [],
+  wireless: { senderId: string; receiverId: string; universe: number | undefined }[] = [],
 ): string {
   const out: string[] = [];
   // Verweise auf Kabel zu anderen Seiten (am Anschluss)
@@ -221,6 +222,16 @@ export function signalFlowSvg(
     const pts: string[] = [];
     for (let k = 0; k < l.points.length; k += 2) pts.push(`${n(l.points[k]!)},${n(l.points[k + 1]!)}`);
     out.push(`<polyline points="${pts.join(' ')}" ${style}/>`);
+  }
+  // DMX per Funk: gepunktet vom Sender zum Empfänger
+  for (const w of wireless) {
+    const from = byId.get(w.senderId);
+    const to = byId.get(w.receiverId);
+    if (!from || !to) continue;
+    const a = edgePoint(from, to);
+    const b = edgePoint(to, from);
+    out.push(`<line x1="${n(a.x)}" y1="${n(a.y)}" x2="${n(b.x)}" y2="${n(b.y)}" stroke="${WIRELESS_COLOR}" stroke-width="2" stroke-linecap="round" stroke-dasharray="0.5 6"/>`);
+    out.push(`<text x="${n((a.x + b.x) / 2)}" y="${n((a.y + b.y) / 2 - 5)}" font-size="10" font-weight="bold" fill="${WIRELESS_COLOR}" text-anchor="middle">((·))${w.universe !== undefined ? ` U${w.universe}` : ''}</text>`);
   }
   for (const b of boxes) {
     const g: string[] = [];

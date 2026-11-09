@@ -26,6 +26,7 @@ import {
   type Issue,
   type Library,
   type Template,
+  wirelessLinks,
 } from '@steckplan/core';
 import { CanvasThemeSwitch } from '../CanvasThemeSwitch';
 import { DeviceList } from '../DeviceList';
@@ -104,6 +105,8 @@ export function SignalFlowView({ doc, data, library, editable, undo }: { doc: Y.
   const lines = useMemo(() => buildCableLines(data.cables, boxes, library, issues, filter, cableStyle), [data.cables, boxes, library, issues, filter, cableStyle]);
   const occupied = useMemo(() => new Set(data.cables.flatMap((c) => [`${c.from.deviceId}/${c.from.portId}`, `${c.to.deviceId}/${c.to.portId}`])), [data.cables]);
   const templates = useMemo(() => new Map((library?.templates ?? []).map((t) => [t.id, t])), [library]);
+  // DMX per Funk: Sender → Empfänger
+  const wireless = useMemo(() => wirelessLinks(data, templates), [data, templates]);
 
   useEffect(() => {
     if (!message) return;
@@ -498,6 +501,7 @@ export function SignalFlowView({ doc, data, library, editable, undo }: { doc: Y.
             onResize={resize}
             onToggleDefect={toggleDefect}
             theme={display.canvasTheme}
+            wireless={wireless}
           />
           <Minimap boxes={boxes} viewport={viewport} />
           {message && (
