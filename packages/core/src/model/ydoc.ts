@@ -33,6 +33,7 @@ export const Y_COLLECTIONS = {
   soundScenes: ['soundScenes'],
   gigs: ['gigs'],
   helperSignups: ['helperSignups'],
+  trailerTrips: ['trailerTrips'],
   helperMessages: ['helperMessages'],
   handovers: ['handovers'],
 } as const satisfies Record<string, CollectionPath>;
