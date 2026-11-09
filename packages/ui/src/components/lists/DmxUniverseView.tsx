@@ -2,7 +2,7 @@
 // Überlappungen rot schraffiert, Auslastung und freie Bereiche. Klick auf ein Gerät zeigt Details.
 // Bearbeiten per Ziehen: Geräte innerhalb eines Universums bzw. in ein anderes verschieben; nicht gepatchte Geräte
 // stehen oben und werden von dort in den Patch gezogen (zurückziehen entfernt die Adresse); unten ein neues Universum.
-import { useState, type CSSProperties } from 'react';
+import { useRef, useState, type CSSProperties } from 'react';
 import { contrastText, DMX_CHANNELS, dmxUniverses, formatDmx, type DmxPatchRow, type DmxUniverseMap } from '@steckplan/core';
 import { useIsNarrow } from '../../lib/useProjectDoc';
 import { texts } from '../../texts';
@@ -78,33 +78,45 @@ export function DmxUniverseView({
   const universes = dmxUniverses(rows);
   const unaddressed = rows.filter((r) => r.universe === undefined || r.address === undefined || r.end === undefined);
   const [selected, setSelected] = useState<string | null>(null);
+  // Ziehen: die Logik kennt das Gerät sofort (Ref), die Darstellung ändert sich erst einen Takt später –
+  // ändert sich das gezogene Element direkt beim Start, bricht Chrome das Ziehen ab
+  const dragRef = useRef<DmxDrag | null>(null);
   const [drag, setDrag] = useState<DmxDrag | null>(null);
+  const start = (next: DmxDrag) => {
+    dragRef.current = next;
+    window.setTimeout(() => {
+      if (dragRef.current === next) setDrag(next);
+    }, 0);
+  };
   const [hover, setHover] = useState<{ universe: number; start: number } | null>(null);
   const canDrag = editable && !!onPatch;
   const end = () => {
+    dragRef.current = null;
     setDrag(null);
     setHover(null);
   };
   const dropAt = (universe: number, channel: number) => {
-    if (!drag || !onPatch) return;
-    onPatch(drag.id, { universe, address: dropAddress(channel, drag) });
-    setSelected(drag.id);
+    const current = dragRef.current;
+    if (!current || !onPatch) return;
+    onPatch(current.id, { universe, address: dropAddress(channel, current) });
+    setSelected(current.id);
     end();
   };
   const nextUniverse = Math.max(0, ...universes.map((u) => u.universe)) + 1;
-  const dragProps = { cols, drag: canDrag ? drag : null, hover, setHover, dropAt, startDrag: canDrag ? setDrag : null, endDrag: end };
+  const dragProps = { cols, drag: canDrag ? drag : null, dragRef, hover, setHover, dropAt, startDrag: canDrag ? start : null, endDrag: end };
   return (
     <div className="space-y-4" data-testid="dmx-universes">
-      {(unaddressed.length > 0 || (drag?.patched ?? false)) && (
+      {(unaddressed.length > 0 || canDrag) && (
         <section
           className={`rounded-lg border p-3 ${drag?.patched ? 'border-dashed border-sky-500 bg-sky-50 dark:bg-sky-950/40' : 'border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900'}`}
           data-testid="dmx-unaddressed"
           onDragOver={(e) => {
-            if (drag?.patched) e.preventDefault();
+            if (dragRef.current?.patched) e.preventDefault();
           }}
           onDrop={(e) => {
             e.preventDefault();
-            if (drag?.patched && onPatch) onPatch(drag.id, null);
+            const current = dragRef.current;
+            if (current?.patched && onPatch) onPatch(current.id, null);
             end();
           }}
         >
@@ -120,7 +132,7 @@ export function DmxUniverseView({
                 onDragStart={(e) => {
                   e.dataTransfer.setData('text/plain', r.id);
                   e.dataTransfer.effectAllowed = 'move';
-                  setDrag({ id: r.id, offset: 0, channels: channelsFor(r.id), patched: false });
+                  start({ id: r.id, offset: 0, channels: channelsFor(r.id), patched: false });
                 }}
                 onDragEnd={end}
                 className={`rounded-md border border-slate-300 bg-slate-50 px-2 py-1 text-xs dark:border-slate-600 dark:bg-slate-800 ${canDrag ? 'cursor-grab active:cursor-grabbing' : ''}`}
@@ -135,7 +147,7 @@ export function DmxUniverseView({
         </section>
       )}
       {universes.map((u) => (
-        <Universe key={u.universe} map={u} selected={selected} onSelect={(id) => setSelected(selected === id ? null : id)} {...dragProps} />
+        <Universe key={u.universe} map={u} selected={selected} onSelect={(id) => setSelected(selected === id ? null : id)} onMove={canDrag && onPatch ? (id, at) => onPatch(id, at) : undefined} {...dragProps} />
       ))}
       {canDrag && (
         <div
@@ -144,7 +156,7 @@ export function DmxUniverseView({
           onDragOver={(e) => e.preventDefault()}
           onDrop={(e) => {
             e.preventDefault();
-            if (drag) dropAt(nextUniverse, 1 + drag.offset);
+            if (dragRef.current) dropAt(nextUniverse, 1 + dragRef.current.offset);
           }}
         >
           {d.universeView.newUniverse(nextUniverse)}
@@ -156,7 +168,10 @@ export function DmxUniverseView({
 
 interface DragProps {
   cols: number;
+  /** für die Darstellung (einen Takt verzögert) */
   drag: DmxDrag | null;
+  /** für die Logik (sofort) */
+  dragRef: { current: DmxDrag | null };
   hover: { universe: number; start: number } | null;
   setHover: (h: { universe: number; start: number } | null) => void;
   dropAt: (universe: number, channel: number) => void;
@@ -164,7 +179,7 @@ interface DragProps {
   endDrag: () => void;
 }
 
-function Universe({ map, cols, selected, onSelect, drag, hover, setHover, dropAt, startDrag, endDrag }: { map: DmxUniverseMap; selected: string | null; onSelect: (id: string) => void } & DragProps) {
+function Universe({ map, cols, selected, onSelect, drag, dragRef, hover, setHover, dropAt, startDrag, endDrag, onMove }: { map: DmxUniverseMap; selected: string | null; onSelect: (id: string) => void; onMove?: ((id: string, at: { universe: number; address: number }) => void) | undefined } & DragProps) {
   const u = d.universeView;
   const percent = Math.round((map.used / DMX_CHANNELS) * 100);
   const lines = DMX_CHANNELS / cols;
@@ -220,11 +235,12 @@ function Universe({ map, cols, selected, onSelect, drag, hover, setHover, dropAt
               data-testid="dmx-row"
               data-start={r * cols + 1}
               onDragOver={(e) => {
-                if (!drag) return;
+                const current = dragRef.current;
+                if (!current) return;
                 e.preventDefault();
                 const rect = e.currentTarget.getBoundingClientRect();
                 const channel = r * cols + Math.min(cols - 1, Math.max(0, Math.floor(((e.clientX - rect.left) / rect.width) * cols))) + 1;
-                const start = dropAddress(channel, drag);
+                const start = dropAddress(channel, current);
                 if (hover?.universe !== map.universe || hover.start !== start) setHover({ universe: map.universe, start });
               }}
               onDrop={(e) => {
@@ -309,6 +325,44 @@ function Universe({ map, cols, selected, onSelect, drag, hover, setHover, dropAt
             {chosen.row.templateName} · {chosen.row.modeName} ({chosen.row.channels} {u.channels}) · {formatDmx(map.universe, chosen.start)}–{chosen.row.end}
             {chosen.row.carrier ? ` · ${chosen.row.carrier}` : ''}
           </div>
+          {onMove && (
+            <div className="mt-2 flex flex-wrap items-end gap-2" data-testid="dmx-detail-edit">
+              <label className="flex flex-col text-xs text-slate-500">
+                {u.universe}
+                <input
+                  key={`u${chosen.row.id}:${map.universe}`}
+                  type="number"
+                  min={1}
+                  defaultValue={map.universe}
+                  className="w-20 rounded-md border border-slate-300 bg-white px-2 py-1 text-sm text-slate-900 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+                  onBlur={(e) => {
+                    const v = Math.round(Number(e.target.value));
+                    if (v >= 1 && v !== map.universe) onMove(chosen.row.id, { universe: v, address: chosen.start });
+                  }}
+                  onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+                  data-testid="dmx-detail-universe"
+                />
+              </label>
+              <label className="flex flex-col text-xs text-slate-500">
+                {u.address}
+                <input
+                  key={`a${chosen.row.id}:${chosen.start}`}
+                  type="number"
+                  min={1}
+                  max={DMX_CHANNELS}
+                  defaultValue={chosen.start}
+                  className="w-20 rounded-md border border-slate-300 bg-white px-2 py-1 text-sm text-slate-900 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+                  onBlur={(e) => {
+                    const v = Math.round(Number(e.target.value));
+                    if (v >= 1 && v <= DMX_CHANNELS && v !== chosen.start) onMove(chosen.row.id, { universe: map.universe, address: v });
+                  }}
+                  onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+                  data-testid="dmx-detail-address"
+                />
+              </label>
+              <span className="text-xs text-slate-500">{u.editHint}</span>
+            </div>
+          )}
           {chosen.overflow > 0 && <div className="text-red-700 dark:text-red-400">{u.overflow(chosen.overflow)}</div>}
           {overlapsWith.length > 0 && <div className="text-red-700 dark:text-red-400">{u.overlapsWith(overlapsWith.map((s) => s.row.label).join(', '))}</div>}
         </div>

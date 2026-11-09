@@ -1185,6 +1185,8 @@ export const texts = {
       free: (ranges: string) => `größte freie Bereiche: ${ranges}`,
       full: 'Kein Kanal mehr frei.',
       dragHint: 'In ein Universum ziehen, um zu patchen',
+      address: 'Startadresse',
+      editHint: 'oder das Gerät im Raster an eine andere Stelle ziehen',
       dropToUnpatch: 'Hierher ziehen, um ein Gerät aus dem Patch zu nehmen',
       newUniverse: (n: number) => `Hier ablegen: neues Universum ${n}`,
       unaddressed: 'Ohne DMX-Adresse',
