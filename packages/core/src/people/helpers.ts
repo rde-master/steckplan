@@ -3,7 +3,7 @@
 // Lesezugang, z. B. nach dem QR-Code auf dem Etikett), wie die Häkchen der Packliste.
 import * as Y from 'yjs';
 import { newId } from '../model/project';
-import type { Gig, Handover, HelperMessage, HelperSignup, Person } from '../model/schema';
+import type { Gig, Handover, HelperMessage, HelperSignup, Person, TrailerTrip } from '../model/schema';
 import { comparePeople } from './people';
 
 function gigMap(doc: Y.Doc): Y.Map<Y.Map<unknown>> {
@@ -53,6 +53,7 @@ export function removeGig(doc: Y.Doc, id: string, origin: unknown): void {
   doc.transact(() => {
     gigMap(doc).delete(id);
     for (const [key, map] of [...signupMap(doc).entries()]) if (map.get('gigId') === id) signupMap(doc).delete(key);
+    for (const [key, map] of [...tripMap(doc).entries()]) if (map.get('gigId') === id) tripMap(doc).delete(key);
   }, origin);
 }
 
@@ -244,4 +245,65 @@ export function setHandover(doc: Y.Doc, personId: string, action: HandoverAction
     else setFields(map, { returnedAt: at, returnedBy: by });
   }, origin);
   return true;
+}
+
+// ---------- Anhänger-Fahrten je Auftritt ----------
+
+function tripMap(doc: Y.Doc): Y.Map<Y.Map<unknown>> {
+  return doc.getMap<Y.Map<unknown>>('trailerTrips');
+}
+
+/** Fahrten nach Abfahrt (ohne Zeit am Ende), dann Anhänger */
+export function readTrailerTrips(doc: Y.Doc): TrailerTrip[] {
+  return sortTrips(Object.values(tripMap(doc).toJSON() as Record<string, TrailerTrip>));
+}
+
+export function sortTrips(trips: TrailerTrip[]): TrailerTrip[] {
+  return [...trips].sort((a, b) => (a.time ?? '99:99').localeCompare(b.time ?? '99:99') || (a.trailerId ?? '').localeCompare(b.trailerId ?? '') || a.id.localeCompare(b.id));
+}
+
+export function addTrailerTrip(doc: Y.Doc, gigId: string, init: Partial<Omit<TrailerTrip, 'id' | 'gigId'>>, origin: unknown): string {
+  const id = newId();
+  doc.transact(() => {
+    const map = new Y.Map<unknown>();
+    tripMap(doc).set(id, map);
+    setFields(map, { ...init, id, gigId });
+  }, origin);
+  return id;
+}
+
+export function updateTrailerTrip(doc: Y.Doc, id: string, patch: Partial<Omit<TrailerTrip, 'id' | 'gigId'>>, origin: unknown): void {
+  const map = tripMap(doc).get(id);
+  if (map) doc.transact(() => setFields(map, patch), origin);
+}
+
+export function removeTrailerTrip(doc: Y.Doc, id: string, origin: unknown): void {
+  doc.transact(() => tripMap(doc).delete(id), origin);
+}
+
+/**
+ * Für alle genannten Anhänger, die bei diesem Auftritt noch keine Fahrt haben, eine Fahrt zum Auftrittsort anlegen.
+ * Gibt die Zahl der neuen Fahrten zurück.
+ */
+export function planTrailerTrips(doc: Y.Doc, gig: Pick<Gig, 'id' | 'location'>, trailerIds: string[], origin: unknown): number {
+  const planned = new Set(readTrailerTrips(doc).filter((t) => t.gigId === gig.id).map((t) => t.trailerId));
+  const missing = trailerIds.filter((id) => !planned.has(id));
+  doc.transact(() => {
+    for (const trailerId of missing) addTrailerTrip(doc, gig.id, { trailerId, ...(gig.location ? { to: gig.location } : {}) }, origin);
+  }, origin);
+  return missing.length;
+}
+
+/** Fahrten einer Person (als Fahrer), mit Auftritt, nach Datum und Abfahrt */
+export function personTrips(trips: TrailerTrip[], gigs: Gig[], personId: string): { trip: TrailerTrip; gig: Gig }[] {
+  const byId = new Map(gigs.map((g) => [g.id, g]));
+  return trips
+    .filter((t) => t.personId === personId && byId.has(t.gigId))
+    .map((trip) => ({ trip, gig: byId.get(trip.gigId)! }))
+    .sort((a, b) => compareGigs(a.gig, b.gig) || (a.trip.time ?? '99:99').localeCompare(b.trip.time ?? '99:99'));
+}
+
+/** Anhänger ohne Fahrer bzw. Fahrten ohne Anhänger – je Auftritt zur Übersicht */
+export function tripGaps(trips: TrailerTrip[]): { withoutDriver: number; withoutTrailer: number } {
+  return { withoutDriver: trips.filter((t) => !t.personId).length, withoutTrailer: trips.filter((t) => !t.trailerId).length };
 }

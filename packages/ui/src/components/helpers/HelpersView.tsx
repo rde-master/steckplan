@@ -16,10 +16,13 @@ import { ICON } from '../icons';
 import { Banner, Button } from '../ui';
 import { CountBadge, MessagesInbox, PersonMessages } from './HelperMessages';
 import { HandoverCard, HandoverOverview, ReceiptPrompt } from './Handover';
+import { MyTrips } from './MyTrips';
+import { TrailerPlanning } from './TrailerPlanning';
 
 const t = texts.helpers;
 const OVERVIEW = '__uebersicht';
 const MESSAGES = '__nachrichten';
+const TRAILERS = '__anhaenger';
 
 function readParam(): string | null {
   return new URLSearchParams(window.location.search).get('person');
@@ -86,11 +89,12 @@ function EditorHelpers({ projectId, doc, origin, userName, data, library, canSig
   const [chosen, setChosenState] = useState<string | null>(() => readParam() ?? OVERVIEW);
   const setChosen = (value: string | null) => {
     setChosenState(value);
-    writeParam(value === OVERVIEW || value === MESSAGES ? null : value);
+    writeParam(value === OVERVIEW || value === MESSAGES || value === TRAILERS ? null : value);
   };
   const person = data.people.find((p) => p.id === chosen);
   const showMessages = chosen === MESSAGES;
-  const showOverview = !showMessages && (chosen === OVERVIEW || !person);
+  const showTrailers = chosen === TRAILERS;
+  const showOverview = !showMessages && !showTrailers && (chosen === OVERVIEW || !person);
 
   return (
     <main className="min-h-0 flex-1 overflow-y-auto" data-testid="helpers-view">
@@ -112,9 +116,12 @@ function EditorHelpers({ projectId, doc, origin, userName, data, library, canSig
               ))}
             </select>
           </label>
-          {person && !showOverview && !showMessages && <CopyPersonLink projectId={projectId} person={person} />}
+          {person && !showOverview && !showMessages && !showTrailers && <CopyPersonLink projectId={projectId} person={person} />}
           <Button variant={showOverview ? 'primary' : 'secondary'} onClick={() => setChosen(OVERVIEW)}>
             {t.overview}
+          </Button>
+          <Button variant={showTrailers ? 'primary' : 'secondary'} onClick={() => setChosen(TRAILERS)} data-testid="helpers-trailers">
+            <Truck {...ICON} /> {t.trailers.button}
           </Button>
           <Button variant={showMessages ? 'primary' : 'secondary'} onClick={() => setChosen(MESSAGES)}>
             <MessageSquare {...ICON} /> {t.messagesButton}
@@ -122,7 +129,9 @@ function EditorHelpers({ projectId, doc, origin, userName, data, library, canSig
           </Button>
         </div>
 
-        {showMessages ? (
+        {showTrailers ? (
+          <TrailerPlanning doc={doc} origin={origin} data={data} library={library} />
+        ) : showMessages ? (
           <MessagesInbox projectId={projectId} doc={doc} origin={origin} userName={userName} messages={data.helperMessages} people={data.people} onOpen={(id) => setChosen(id)} />
         ) : showOverview ? (
           <>
@@ -200,6 +209,8 @@ function PersonPage({ projectId, person, data, library, canSignup }: { projectId
         )}
         <StageExcerpt data={data} library={library} deviceIds={entry.devices.map((d) => d.device.id)} />
       </section>
+
+      <MyTrips person={person} data={data} library={library} />
 
       <section className="space-y-3" aria-label={t.gigsTitle}>
         <h3 className="text-sm font-semibold tracking-wide text-slate-500 uppercase">{t.gigsTitle}</h3>
