@@ -9,6 +9,7 @@ import {
   curveCable,
   DEFAULT_DEVICE_COLOR,
   defectivePortIds,
+  wirelessBlockedPorts,
   isMulticore,
   routeCable,
   templatePorts,
@@ -57,6 +58,8 @@ export interface DeviceBox {
   portLevels: Map<string, PowerNote['level']>;
   /** defekte Anschlüsse (rotes X) */
   defects: Set<string>;
+  /** DMX-Eingänge, die per Funk versorgt werden (rotes X, nicht verbindbar) */
+  wirelessIn: Set<string>;
 }
 
 export interface CableLine {
@@ -146,7 +149,7 @@ export function buildBoxes(devices: DeviceInstance[], library: Library | null, s
     const unplaced = template?.kind === 'device' && !device.stagePlan;
     const dimmed = !deviceVisible(display.filter, device, template);
     const dmxLabel = device.dmx ? formatDmx(device.dmx.universe, device.dmx.address) : undefined;
-    boxes.push({ device, template, x: pos.x, y: pos.y, layout, extraHeader, fill, text: contrastText(fill), multicore, stageObject, unplaced, dimmed, labels, portLevels, ...(power ? { power } : {}), defects: defectivePortIds(device, template), ...(dmxLabel ? { dmxLabel } : {}), ...(person ? { person } : {}), ...(owner ? { owner } : {}) });
+    boxes.push({ device, template, x: pos.x, y: pos.y, layout, extraHeader, fill, text: contrastText(fill), multicore, stageObject, unplaced, dimmed, labels, portLevels, ...(power ? { power } : {}), defects: defectivePortIds(device, template), wirelessIn: wirelessBlockedPorts(device, template), ...(dmxLabel ? { dmxLabel } : {}), ...(person ? { person } : {}), ...(owner ? { owner } : {}) });
   });
   return boxes;
 }

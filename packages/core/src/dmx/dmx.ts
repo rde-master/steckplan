@@ -40,9 +40,26 @@ export function wirelessLinks(project: Pick<Project, 'devices'>, templates: Map<
   return links;
 }
 
+/**
+ * DMX-Eingänge, die gesperrt sind, weil das Gerät sein DMX per Funk bekommt (Empfänger mit gewähltem Sender):
+ * dort darf kein Kabel stecken.
+ */
+export function wirelessBlockedPorts(device: Pick<DeviceInstance, 'wirelessDmx'>, template: Template | undefined): Set<string> {
+  if (!device.wirelessDmx?.fromId || !isWirelessReceiver(template)) return new Set();
+  return new Set(templatePorts(template).filter((p) => (p.role === 'in' || p.role === 'bi') && DMX_SIGNAL.test(p.signal)).map((p) => p.id));
+}
+
 /** Prüfungen der Funkstrecken */
-export function checkWirelessDmx(project: Pick<Project, 'devices'>, templates: Map<string, Template>): Issue[] {
+export function checkWirelessDmx(project: Pick<Project, 'devices'> & Partial<Pick<Project, 'cables'>>, templates: Map<string, Template>): Issue[] {
   const issues: Issue[] = [];
+  // Kabel an einem DMX-Eingang, der per Funk versorgt wird
+  for (const cable of project.cables ?? []) {
+    for (const end of [cable.from, cable.to]) {
+      const device = project.devices.find((d) => d.id === end.deviceId);
+      if (!device || !wirelessBlockedPorts(device, templates.get(device.templateId)).has(end.portId)) continue;
+      issues.push({ id: `wdmx-cable:${device.id}:${end.portId}`, severity: 'warning', message: `„${device.label}“ bekommt DMX per Funk – am DMX-Eingang steckt trotzdem ein Kabel.`, objectIds: [device.id, cable.id] });
+    }
+  }
   const byId = new Map(project.devices.map((d) => [d.id, d]));
   for (const device of project.devices) {
     const template = templates.get(device.templateId);
