@@ -1,4 +1,4 @@
-// Regie → Lichtszenen: links die Lieder und Schauspielstücke, rechts die Szenen des gewählten Stücks,
+// Regie → Lichtszenen: links die Lieder, Schauspielstücke und Ansagen, rechts die Szenen des gewählten Eintrags,
 // unten der Player (Musik des Stücks, Szenen als Marken). Auf dem Handy erst die Liste, Antippen öffnet das Stück.
 import { ChevronLeft } from 'lucide-react';
 import { useState } from 'react';
@@ -20,7 +20,7 @@ const t = texts.light.scenesView;
 
 export function ScenesView({ projectId, doc, origin, data, library, editable }: { projectId: string; doc: Y.Doc; origin: object; data: ProjectData; library: Library | null; editable: boolean }) {
   const narrow = useIsNarrow(900);
-  const items = data.show.items.filter((i) => i.kind === 'song' || i.kind === 'play');
+  const items = data.show.items.filter((i) => i.kind === 'song' || i.kind === 'play' || i.kind === 'announcement');
   const [selectedId, setSelectedId] = useRegieSelection(projectId);
   const item = items.find((i) => i.id === selectedId) ?? (narrow ? undefined : items[0]);
   const [audio, setAudio] = useState<HTMLAudioElement | null>(null);

@@ -141,9 +141,9 @@ export const texts = {
       remove: 'Event löschen',
     },
     scenesView: {
-      items: 'Lieder und Schauspielstücke',
+      items: 'Lieder, Schauspiel und Ansagen',
       count: (n: number) => (n === 0 ? 'keine Szene' : n === 1 ? '1 Szene' : `${n} Szenen`),
-      empty: 'Noch keine Lieder oder Schauspielstücke im Ablauf.',
+      empty: 'Noch keine Lieder, Schauspielstücke oder Ansagen im Ablauf.',
       back: 'Zurück zur Liste',
       noAudio: 'Keine Audiodatei – im Ablauf hinzufügen.',
     },
