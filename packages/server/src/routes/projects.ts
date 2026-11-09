@@ -243,6 +243,18 @@ export function registerProjectRoutes(app: FastifyInstance, rooms: RoomManager, 
   });
 
   // Technik-Übergabe: Empfang / Rückgabe bestätigen (Helfer für sich selbst), zurücksetzen nur Bearbeiten
+  // OSC-Befehl der Regie jetzt senden (von Hand in der Vorstellung bzw. „Testen“ im Reiter OSC)
+  app.post<{ Params: { id: string; commandId: string } }>('/api/projects/:id/osc-commands/:commandId', async (request, reply) => {
+    const session = requireSession(request, reply, 'editShow');
+    if (!session) return reply;
+    const room = await messageRoom(request.params.id, reply);
+    if (!room) return reply;
+    const entry = room.sendOscCommand(request.params.commandId, session.name);
+    if (!entry) return reply.code(404).send({ error: 'Diesen OSC-Befehl gibt es nicht (mehr).' });
+    if (entry.error) return reply.code(409).send({ error: `Nicht gesendet: ${entry.error}`, entry });
+    return { entry };
+  });
+
   // Tempo des geführten Punkts jetzt erneut per OSC senden (Einstellung prüfen)
   app.post<{ Params: { id: string } }>('/api/projects/:id/osc-bpm', async (request, reply) => {
     if (!requireSession(request, reply, 'editShow')) return reply;

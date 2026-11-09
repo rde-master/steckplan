@@ -126,6 +126,7 @@ function setup(): { data: ProjectData; library: Library } {
     handovers: [],
     trailerTrips: [],
     lightEvents: [],
+    oscCommands: [],
   };
   return { data, library };
 }

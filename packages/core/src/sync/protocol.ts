@@ -22,6 +22,8 @@ export interface Cue {
   tc?: { at: number; playing: boolean };
   /** Abspielgeschwindigkeit (1 = Original): so schnell zählen Folgende und Art-Net weiter */
   rate?: number;
+  /** Führen: OSC-Befehle der Regie automatisch senden (Start des Eintrags, Szenen, Events) */
+  osc?: boolean;
 }
 
 /** Fernsteuerung der Vorstellung (OSC bzw. HTTP) */
@@ -98,7 +100,20 @@ export type ServerInfo =
   /** Fernsteuerung: ausführen soll die führende Vorstellung, führt niemand, jede nicht folgende */
   | { type: 'remote'; command: RemoteCommand }
   /** Lichtpult: zuletzt gelaufene Cues (neueste zuerst) */
-  | { type: 'deskCues'; cues: DeskCue[] };
+  | { type: 'deskCues'; cues: DeskCue[] }
+  /** zuletzt gesendete OSC-Befehle der Regie (neueste zuerst) */
+  | { type: 'oscLog'; entries: OscLogEntry[] };
+
+/** gesendeter (oder fehlgeschlagener) OSC-Befehl */
+export interface OscLogEntry {
+  at: string;
+  /** Auslöser, z. B. „Start: Lied 3“, „Szene: Intro“, „Event: Pyro“, „Von Hand“ */
+  source: string;
+  text: string;
+  target: string;
+  error?: string;
+}
+export const OSC_LOG_LENGTH = 15;
 
 export function encodeInfo(info: ServerInfo): Uint8Array {
   const encoder = encoding.createEncoder();
@@ -131,6 +146,7 @@ export function decodeCue(decoder: decoding.Decoder): Cue | null {
     ...(at !== undefined ? { at, playing: v.playing === true } : {}),
     ...(tcAt !== undefined ? { tc: { at: tcAt, playing: (v.tc as { playing?: unknown }).playing === true } } : {}),
     ...(typeof v.rate === 'number' && Number.isFinite(v.rate) && v.rate >= 0.25 && v.rate <= 4 && v.rate !== 1 ? { rate: v.rate } : {}),
+    ...(v.osc === true ? { osc: true } : {}),
   };
 }
 

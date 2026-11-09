@@ -1,5 +1,5 @@
 // Zugriff auf die REST-Schnittstelle des Servers.
-import type { Access, ChangeLogEntry, DeskCue, HealthInfo, Conflict, Library, MasterEntry, MasterKind, Project, Resolution, Template } from '@steckplan/core';
+import type { Access, ChangeLogEntry, DeskCue, OscLogEntry, HealthInfo, Conflict, Library, MasterEntry, MasterKind, Project, Resolution, Template } from '@steckplan/core';
 
 export class ApiError extends Error {
   constructor(
@@ -131,6 +131,7 @@ export const api = {
   getOsc: () => request<{ settings: OscSettings; status: OscStatus }>('GET', '/api/settings/osc'),
   disconnectConnection: (projectId: string, connectionId: string) => request<void>('POST', `/api/projects/${encodeURIComponent(projectId)}/connections/${encodeURIComponent(connectionId)}/disconnect`),
   getDeskCues: () => request<{ cues: DeskCue[] }>('GET', '/api/desk-cues'),
+  sendOscCommand: (projectId: string, commandId: string) => request<{ entry: OscLogEntry }>('POST', `/api/projects/${encodeURIComponent(projectId)}/osc-commands/${encodeURIComponent(commandId)}`),
   sendOscBpm: (projectId: string) => request<{ sent: string }>('POST', `/api/projects/${encodeURIComponent(projectId)}/osc-bpm`),
   sendDeskCue: (text: string) => request<{ cues: DeskCue[] }>('POST', '/api/desk-cues', { text }),
   remote: (action: string, value?: number) => request<{ rooms: number }>('POST', '/api/remote', value !== undefined ? { action, value } : { action }),
