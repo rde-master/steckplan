@@ -582,6 +582,28 @@ export const LightSceneSchema = z.object({
 });
 export type LightScene = z.infer<typeof LightSceneSchema>;
 
+/** OSC-Befehl (seit 0.42): ausgelöst beim Start eines Ablaufeintrags, bei einer Lichtszene, bei einem Licht-Event oder von Hand */
+export const OSC_TRIGGERS = ['item', 'scene', 'event', 'manual'] as const;
+export const OscCommandSchema = z.object({
+  id,
+  itemId: id,
+  trigger: z.enum(OSC_TRIGGERS),
+  /** Szene bzw. Event (bei trigger scene/event) */
+  refId: id.optional(),
+  order: z.number().default(0),
+  /** Beschriftung (v. a. für die Knöpfe der manuellen Befehle) */
+  label: z.string().max(200).optional(),
+  /** Adresse, z. B. „/cmd“ oder „/eos/cue/1/fire“ */
+  address: z.string().max(500).default(''),
+  /** Argumente als Text: Zahlen werden Zahlen, sonst Text; Text in Anführungszeichen darf Leerzeichen enthalten */
+  args: z.string().max(2000).optional(),
+  /** anderes Ziel als das Standard-Ziel */
+  host: z.string().max(200).optional(),
+  port: z.number().int().min(1).max(65535).optional(),
+});
+export type OscCommand = z.infer<typeof OscCommandSchema>;
+export type OscTrigger = (typeof OSC_TRIGGERS)[number];
+
 /** Licht-Event: Zeitpunkt in einem Lied/Schauspiel, an dem etwas Besonderes passiert (vorerst nur eine Notiz) (seit 0.41) */
 export const LightEventSchema = z.object({
   id,
@@ -751,6 +773,8 @@ export const ShowSettingsSchema = z.object({
   remainBlinkSec: z.number().int().min(0).max(REMAIN_MAX_BLINK).optional(),
   /** Timecode per Art-Net senden (vom Server, solange in der Vorstellung jemand führt) */
   artnet: z.object({ enabled: z.boolean().default(false), host: z.string().default('255.255.255.255') }).optional(),
+  /** OSC-Befehle (Reiter OSC): Standard-Ziel */
+  oscOut: z.object({ host: z.string().default(''), port: z.number().int().min(1).max(65535).default(8000) }).optional(),
   /** Aktuelles Tempo per OSC senden (vom Server, solange jemand führt), z. B. /cmd "Master 3.1 At BPM 120" */
   oscBpm: z
     .object({
@@ -807,6 +831,7 @@ export const ProjectSchema = z.object({
   /** Lichtszenen und Werte je Gerät (seit Format 9) */
   lightScenes: z.array(LightSceneSchema).default([]),
   lightEvents: z.array(LightEventSchema).default([]),
+  oscCommands: z.array(OscCommandSchema).default([]),
   sceneStates: z.array(FixtureStateSchema).default([]),
   /** Tonszenen (seit 0.25) */
   soundScenes: z.array(SoundSceneSchema).default([]),

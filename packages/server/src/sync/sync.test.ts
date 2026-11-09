@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import WebSocket from 'ws';
 import * as Y from 'yjs';
-import { addShowItem, createEmptyProject, readProjectFromYDoc, readShow, type SyncClient } from '@steckplan/core';
+import { addLightEvent, addOscCommand, addScene, addShowItem, createEmptyProject, readProjectFromYDoc, readShow, type SyncClient } from '@steckplan/core';
 import { isManagedStore } from '../storage/types';
 import { connect, login, startTestServer, waitFor, type TestServer } from '../test-utils';
 import { parseOsc } from '../osc/osc';
@@ -229,6 +229,51 @@ describe('Live-Sync', () => {
     regie.sendCue(null);
     await new Promise((r) => setTimeout(r, 100));
     expect((await server.app.inject({ method: 'POST', url: `/api/projects/${id}/osc-bpm`, headers: { cookie } })).statusCode).toBe(409);
+  });
+
+  it('OSC-Befehle der Regie: beim Führen mit „OSC senden“ Start, Szene und Event; von Hand per Route; ohne Schalter nichts', async () => {
+    const sent: { host: string; port: number; packet: Buffer }[] = [];
+    server = await startTestServer({ oscOut: { send: (p, host, port) => void sent.push({ host, port, packet: Buffer.from(p) }), close: () => undefined } });
+    if (!isManagedStore(server.store)) throw new Error();
+    const id = await server.store.create(createEmptyProject({ name: 'OSC' }));
+    const cookie = await login(server, 'direction', 'Regina');
+    const regie = track(connect(server, id, cookie));
+    await regie.whenSynced();
+    const doc = regie.doc;
+    const a = addShowItem(doc, 'song', null, { title: 'Erstes' });
+    const b = addShowItem(doc, 'song', null, { title: 'Zweites' });
+    const scene = addScene(doc, a, null, { name: 'Intro' });
+    const event = addLightEvent(doc, a, 0.4, 'Pyro', null);
+    doc.getMap('showSettings').set('oscOut', { host: '192.168.1.30', port: 9000 });
+    addOscCommand(doc, { itemId: a, trigger: 'item', address: '/a/start', args: '"Go Cue 1"' }, null);
+    addOscCommand(doc, { itemId: a, trigger: 'scene', refId: scene, address: '/a/scene' }, null);
+    addOscCommand(doc, { itemId: a, trigger: 'event', refId: event, address: '/a/event', args: '1' }, null);
+    const manual = addOscCommand(doc, { itemId: a, trigger: 'manual', label: 'Blackout', address: '/a/manual', host: '10.0.0.9', port: 7000 }, null);
+    const texts = () => sent.map((m) => { const msg = parseOsc(m.packet)[0]!; return [msg.address, ...msg.args].join(' '); });
+    // ohne „OSC senden“: nichts
+    regie.sendCue({ itemId: b, at: 0, playing: false });
+    await new Promise((r) => setTimeout(r, 150));
+    expect(sent).toHaveLength(0);
+    // mit Schalter: Wechsel zu A → Start und Szene, beim Abspielen nach 0,4 s das Event
+    regie.sendCue({ itemId: a, sceneId: scene, at: 0, playing: true, osc: true });
+    await waitFor(() => sent.length >= 2);
+    expect(texts().slice(0, 2)).toEqual(['/a/start Go Cue 1', '/a/scene']);
+    expect(sent[0]).toMatchObject({ host: '192.168.1.30', port: 9000 });
+    await waitFor(() => sent.length >= 3);
+    expect(texts()[2]).toBe('/a/event 1');
+    // gleiche Stelle erneut: nichts doppelt
+    regie.sendCue({ itemId: a, sceneId: scene, at: 1, playing: true, osc: true });
+    await new Promise((r) => setTimeout(r, 200));
+    expect(sent).toHaveLength(3);
+    // von Hand (eigenes Ziel)
+    const res = await server.app.inject({ method: 'POST', url: `/api/projects/${id}/osc-commands/${manual}`, headers: { cookie } });
+    expect(res.statusCode).toBe(200);
+    expect(sent.at(-1)).toMatchObject({ host: '10.0.0.9', port: 7000 });
+    expect(texts().at(-1)).toBe('/a/manual');
+    // Protokoll an die Clients
+    await waitFor(() => regie.state.oscLog.length === 4);
+    expect(regie.state.oscLog[0]).toMatchObject({ source: 'Von Hand (Regina): Blackout', text: '/a/manual', target: '10.0.0.9:7000' });
+    expect((await server.app.inject({ method: 'POST', url: `/api/projects/${id}/osc-commands/gibtsnicht`, headers: { cookie } })).statusCode).toBe(404);
   });
 
   it('Bearbeiter trennt ein verbundenes Gerät: kein automatisches Neuverbinden, nur auf Wunsch; Lesen/Regie dürfen nicht trennen', async () => {

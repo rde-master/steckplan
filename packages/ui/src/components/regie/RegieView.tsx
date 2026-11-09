@@ -53,6 +53,7 @@ import { useRegieSelection } from './regieSelection';
 import { formatSceneTime, parseSceneTime } from './ScenesSection';
 import { ScenesView } from './ScenesView';
 import { SoundView } from './SoundView';
+import { OscView } from './OscView';
 import { openPerformance } from '../../pages/PerformancePage';
 import { TextsView } from './TextsView';
 import { MediaSection, PlayerBar, seekAudio, TimecodePanel, usePlaybackState, usePlayerTime } from './SongMedia';
@@ -108,6 +109,8 @@ export function RegieView(
         <ScenesView projectId={props.projectId} doc={props.doc} origin={props.origin} data={props.data} library={props.library} editable={props.editable} />
       ) : area === 'sound' ? (
         <SoundView projectId={props.projectId} doc={props.doc} origin={props.origin} data={props.data} editable={props.editable} />
+      ) : area === 'osc' ? (
+        <OscView projectId={props.projectId} doc={props.doc} origin={props.origin} data={props.data} editable={props.editable} />
       ) : area === 'light' ? (
         <div className="min-h-0 flex-1 overflow-y-auto">
           <LightSetupView doc={props.doc} origin={props.origin} data={props.data} library={props.library} editable={props.editable} />
@@ -119,8 +122,8 @@ export function RegieView(
   );
 }
 
-type Area = 'show' | 'texts' | 'scenes' | 'sound' | 'light';
-const AREAS: Area[] = ['show', 'texts', 'scenes', 'sound', 'light'];
+type Area = 'show' | 'texts' | 'scenes' | 'sound' | 'osc' | 'light';
+const AREAS: Area[] = ['show', 'texts', 'scenes', 'sound', 'osc', 'light'];
 const AREA_KEY = 'steckplan.regieArea';
 function readArea(): Area {
   try {

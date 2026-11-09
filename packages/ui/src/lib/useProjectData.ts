@@ -55,6 +55,8 @@ import {
   type TrailerTrip,
   readLightEvents,
   type LightEvent,
+  readOscCommands,
+  type OscCommand,
 } from '@steckplan/core';
 
 export interface ProjectData {
@@ -88,6 +90,7 @@ export interface ProjectData {
   helperSignups: HelperSignup[];
   trailerTrips: TrailerTrip[];
   lightEvents: LightEvent[];
+  oscCommands: OscCommand[];
   helperMessages: HelperMessage[];
   handovers: Handover[];
 }
@@ -118,6 +121,7 @@ const EMPTY: ProjectData = {
   helperSignups: [],
   trailerTrips: [],
   lightEvents: [],
+  oscCommands: [],
   helperMessages: [],
   handovers: [],
 };
@@ -148,6 +152,7 @@ function read(doc: Y.Doc): ProjectData {
     helperSignups: readHelperSignups(doc),
     trailerTrips: readTrailerTrips(doc),
     lightEvents: readLightEvents(doc),
+    oscCommands: readOscCommands(doc),
     helperMessages: readHelperMessages(doc),
     handovers: readHandovers(doc),
     sceneStates: readSceneStates(doc),

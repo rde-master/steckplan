@@ -20,6 +20,11 @@ test('Lied-Farben: Grund- und Sekundärfarbe je Lied (bei den Lichtszenen), als 
   await fields.getByLabel('Grundfarbe', { exact: true }).fill('#dc2626');
   await fields.getByLabel('Sekundärfarbe', { exact: true }).fill('#eab308');
   await expect.poll(saved).toMatchObject({ primaryColor: '#dc2626', secondaryColor: '#eab308' });
+  // Farbpunkte auch in der Liste der Lichtszenen und im Kopf
+  const sceneItem = page.getByTestId('scenes-items').locator('li').first();
+  await expect(sceneItem.getByTestId('item-primary-color')).toHaveCSS('background-color', 'rgb(220, 38, 38)');
+  await expect(sceneItem.getByTestId('item-secondary-color')).toHaveCSS('background-color', 'rgb(234, 179, 8)');
+  await expect(page.getByTestId('scenes-detail').getByTestId('item-primary-color')).toBeVisible();
   // Punkte in der Ablaufliste
   await page.getByRole('radio', { name: 'Ablauf' }).click();
   const item = page.getByTestId('regie-item').first();

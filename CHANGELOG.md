@@ -7,6 +7,19 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.42.0] - 2026-11-09
+
+### Hinzugefügt
+
+- Regie, neuer Reiter „OSC“: OSC-Befehle je Ablaufeintrag – beim Start des Eintrags, je Lichtszene, je Licht-Event und eine Liste „Von Hand“; beliebig viele je Auslöser; Standard-Ziel (IP/Port), je Befehl ein eigenes Ziel möglich; „Testen“ sendet sofort
+- Führen-Bildschirm: Schalter „OSC senden“ (je Gerät) – automatisch beim Wechsel zum Eintrag, bei jeder Lichtszene und beim Erreichen von Licht-Events; Knöpfe für die Befehle „Von Hand“; Protokoll der zuletzt gesendeten Befehle
+- OSC-Befehle werden beim Duplizieren eines Eintrags und beim Regie-Export/-Import mitgenommen
+- Lichtszenen: Farbpunkte der Lieder (Grund- und Sekundärfarbe) in der Liste und im Kopf
+
+### Behoben
+
+- Lichtszenen auch für Ansagen
+
 ## [0.41.0] - 2026-11-09
 
 ### Hinzugefügt

@@ -1,4 +1,4 @@
-// Regie → Lichtszenen: links die Lieder und Schauspielstücke, rechts die Szenen des gewählten Stücks,
+// Regie → Lichtszenen: links die Lieder, Schauspielstücke und Ansagen, rechts die Szenen des gewählten Eintrags,
 // unten der Player (Musik des Stücks, Szenen als Marken). Auf dem Handy erst die Liste, Antippen öffnet das Stück.
 import { ChevronLeft } from 'lucide-react';
 import { useState } from 'react';
@@ -10,7 +10,7 @@ import type { ProjectData } from '../../lib/useProjectData';
 import { texts } from '../../texts';
 import { ICON } from '../icons';
 import { Button } from '../ui';
-import { ColorFields, ItemNumber, KIND_ICONS } from './RegieView';
+import { ColorFields, ItemColors, ItemNumber, KIND_ICONS } from './RegieView';
 import { useRegieSelection } from './regieSelection';
 import { itemAudioSrc } from './Waveform';
 import { ScenesSection } from './ScenesSection';
@@ -20,7 +20,7 @@ const t = texts.light.scenesView;
 
 export function ScenesView({ projectId, doc, origin, data, library, editable }: { projectId: string; doc: Y.Doc; origin: object; data: ProjectData; library: Library | null; editable: boolean }) {
   const narrow = useIsNarrow(900);
-  const items = data.show.items.filter((i) => i.kind === 'song' || i.kind === 'play');
+  const items = data.show.items.filter((i) => i.kind === 'song' || i.kind === 'play' || i.kind === 'announcement');
   const [selectedId, setSelectedId] = useRegieSelection(projectId);
   const item = items.find((i) => i.id === selectedId) ?? (narrow ? undefined : items[0]);
   const [audio, setAudio] = useState<HTMLAudioElement | null>(null);
@@ -47,6 +47,7 @@ export function ScenesView({ projectId, doc, origin, data, library, editable }: 
               <ItemNumber number={numbers.get(i.id)} />
               <Icon size={16} className="shrink-0 text-slate-500" aria-label={texts.regie.kinds[i.kind]} />
               <span className="min-w-0 flex-1 truncate font-medium">{i.title || texts.regie.untitled}</span>
+              <ItemColors item={i} />
               <span className="shrink-0 text-xs text-slate-500">{t.count(count)}</span>
             </button>
           </li>
@@ -67,6 +68,7 @@ export function ScenesView({ projectId, doc, origin, data, library, editable }: 
           </Button>
         )}
         <h2 className="min-w-0 flex-1 truncate text-lg font-semibold">{item.title || texts.regie.untitled}</h2>
+        <ItemColors item={item} size="lg" />
         {!hasAudio && (item.kind === 'song' || item.kind === 'play') && <span className="text-xs text-slate-500">{t.noAudio}</span>}
       </header>
       {/* Liedfarben: Orientierung für das Licht-Design */}

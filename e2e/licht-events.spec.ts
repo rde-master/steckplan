@@ -15,7 +15,7 @@ test('Lichtszenen: grüner Hinweis nach dem Einfügen; Licht-Events mit Notiz �
         devices: [{ id: 'PAR 1', templateId: par.id, layerId: 'l1', label: 'PAR 1' }],
         lightGrid: { cols: 1, rows: 1 },
         lightPlacements: [{ id: 'PAR 1', col: 0, row: 0 }],
-        show: { items: [{ id: 'a', order: 0, kind: 'song', title: 'Feuerlied', durationSec: 60 }], sections: [] },
+        show: { items: [{ id: 'a', order: 0, kind: 'song', title: 'Feuerlied', durationSec: 60 }, { id: 'b', order: 1, kind: 'announcement', title: 'Begrüßung' }], sections: [] },
         lightScenes: [
           { id: 's1', itemId: 'a', order: 0, name: 'Intro', atSec: 0 },
           { id: 's2', itemId: 'a', order: 1, name: 'Refrain', atSec: 20 },
@@ -29,6 +29,8 @@ test('Lichtszenen: grüner Hinweis nach dem Einfügen; Licht-Events mit Notiz �
   await page.goto(`/projekt/${id}?ansicht=regie`);
   await page.getByRole('radio', { name: 'Lichtszenen' }).click();
   const scenes = page.getByTestId('regie-scenes');
+  // auch Ansagen haben Lichtszenen
+  await expect(page.getByTestId('scenes-items')).toContainText('Begrüßung');
 
   // Werte kopieren und in die andere Szene einfügen → grüner Hinweis unten rechts, nach 3 s weg
   await scenes.getByTestId('scene-tab').first().click();
