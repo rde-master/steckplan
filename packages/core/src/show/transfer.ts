@@ -13,6 +13,7 @@ import {
   type FixtureState,
   type LightGrid,
   type LightPlacement,
+  type LightEvent,
   type LightScene,
   type LightTarget,
   type MediaRef,
@@ -27,6 +28,7 @@ import { VERSION } from '../version';
 import { itemNumbers, lyricsImages, readMedia, readShow } from './show';
 import { readLightTargets } from './light';
 import { readScenes, readSceneStates, stateId } from './scenes';
+import { readLightEvents } from './events';
 import { readSoundScenes } from './sound';
 
 /** Kennzeichen der Datei (Feld „format“) */
@@ -44,6 +46,7 @@ export interface RegieContent {
   lightPlacements: LightPlacement[];
   lightTargets: LightTarget[];
   lightScenes: LightScene[];
+  lightEvents: LightEvent[];
   sceneStates: FixtureState[];
   soundScenes: SoundScene[];
   /** Geräte und Personen der Quelle, auf die die Regie verweist (für die Zuordnung beim Import) */
@@ -76,6 +79,7 @@ export function exportRegie(doc: Y.Doc, projectName: string, now = new Date()): 
     lightPlacements: placements,
     lightTargets: readLightTargets(doc),
     lightScenes: readScenes(doc),
+    lightEvents: readLightEvents(doc),
     sceneStates: states.sort((a, b) => a.id.localeCompare(b.id)),
     soundScenes: readSoundScenes(doc),
     devices: readDevices(doc)
@@ -134,6 +138,7 @@ export function parseRegieFile(text: string): RegieContent {
     lightPlacements: file.lightPlacements,
     lightTargets: file.lightTargets,
     lightScenes: file.lightScenes,
+    lightEvents: file.lightEvents,
     sceneStates: file.sceneStates,
     soundScenes: file.soundScenes,
   });
@@ -148,6 +153,7 @@ export function parseRegieFile(text: string): RegieContent {
     lightPlacements: project.lightPlacements,
     lightTargets: project.lightTargets,
     lightScenes: project.lightScenes,
+    lightEvents: project.lightEvents,
     sceneStates: project.sceneStates,
     soundScenes: project.soundScenes,
   };
@@ -257,7 +263,7 @@ export function applyRegieImport(doc: Y.Doc, content: RegieContent, plan: RegieI
   doc.transact(() => {
     const existing = readShow(doc).items;
     if (!append) {
-      for (const name of ['showItems', 'showSections', 'lightScenes', 'sceneStates', 'soundScenes', 'lightTargets', 'lightPlacements', 'showSettings', 'lightGrid']) clear(doc, name);
+      for (const name of ['showItems', 'showSections', 'lightScenes', 'lightEvents', 'sceneStates', 'soundScenes', 'lightTargets', 'lightPlacements', 'showSettings', 'lightGrid']) clear(doc, name);
       const { lyricsBackground, ...settings } = content.showSettings;
       // nur Bilder, die mitgekommen sind
       const images = lyricsImages(lyricsBackground).filter((mediaId) => media.has(mediaId));
@@ -310,6 +316,7 @@ export function applyRegieImport(doc: Y.Doc, content: RegieContent, plan: RegieI
     for (const scene of content.lightScenes) {
       put(doc, 'lightScenes', remap(scene.id), { ...scene, itemId: remap(scene.itemId), lineId: scene.lineId ? remap(scene.lineId) : undefined });
     }
+    for (const event of content.lightEvents) put(doc, 'lightEvents', remap(event.id), { ...event, itemId: remap(event.itemId) });
     for (const state of content.sceneStates) {
       const deviceId = plan.deviceMap.get(state.deviceId);
       if (!deviceId) continue;

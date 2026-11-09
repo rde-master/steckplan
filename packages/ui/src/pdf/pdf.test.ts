@@ -125,6 +125,7 @@ function setup(): { data: ProjectData; library: Library } {
     helperMessages: [],
     handovers: [],
     trailerTrips: [],
+    lightEvents: [],
   };
   return { data, library };
 }

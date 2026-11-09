@@ -24,16 +24,20 @@ import {
   type Library,
   type ShowItem,
   type TimedLine,
+  itemLightEvents,
+  updateLightEvent,
 } from '@steckplan/core';
 import type { ProjectData } from '../../lib/useProjectData';
 import { texts } from '../../texts';
 import { ICON } from '../icons';
-import { Button } from '../ui';
+import { Button, Toast } from '../ui';
+import { useToast } from '../../lib/useToast';
 import { FixturePanel } from './FixturePanel';
 import { MOD_KEY, setSceneClip, useSceneClip } from './sceneClipboard';
 import { SceneCopyDialog } from './SceneCopyDialog';
 import { SceneGrid } from './SceneGrid';
 import { SceneTimeline } from './SceneTimeline';
+import { LightEventsEditor } from './LightEvents';
 
 const t = texts.light.scenes;
 
@@ -87,6 +91,7 @@ export function ScenesSection({
   const lights = useMemo(() => lightDevices(data.devices, templates), [data.devices, templates]);
   const layout = gridLayout(lights, data.lightPlacements, data.lightGrid);
   const scenes = itemScenes(data.lightScenes, item.id);
+  const events = itemLightEvents(data.lightEvents, item.id);
   const plainLines = lines.map((l) => l.line);
   const current = currentSceneId(scenes, plainLines, time);
   const [chosen, setChosen] = useState<string | null>(null);
@@ -131,10 +136,11 @@ export function ScenesSection({
     setSceneClip({ name: scene.name || '–', values: sceneValues(data.sceneStates, scene.id) });
     say(t.copied(scene.name || '–'));
   };
+  const [toast, showToast] = useToast();
   const paste = () => {
     if (!scene || !clip || !editable) return;
     replaceSceneValues(doc, clip.values, [scene.id], origin);
-    say(t.pasted);
+    showToast(t.pastedInto(clip.name, scene.name || '–'));
   };
   const selectedIds = selectedDevices.map((d) => d.id);
   const keyAction = (e: KeyboardEvent): boolean => {
@@ -256,8 +262,11 @@ export function ScenesSection({
           }}
           onMove={(changes) => doc.transact(() => changes.forEach((c) => updateScene(doc, c.id, { atSec: c.atSec }, origin)), origin)}
           editable={editable}
+          events={events}
+          onEventMove={(id, atSec) => updateLightEvent(doc, id, { atSec }, origin)}
         />
       )}
+      <LightEventsEditor doc={doc} origin={origin} itemId={item.id} events={events} audio={audio} editable={editable} />
 
       {scenes.length === 0 ? (
         <p className="text-sm text-slate-500">{t.none}</p>
@@ -418,6 +427,7 @@ export function ScenesSection({
           )}
         </>
       )}
+      <Toast message={toast} />
       {copyOpen && scene && (
         <SceneCopyDialog
           source={scene}
@@ -427,7 +437,7 @@ export function ScenesSection({
           onSubmit={(ids) => {
             copySceneTo(doc, scene.id, ids, origin);
             setCopyOpen(false);
-            say(t.copyDialog.done(ids.length));
+            showToast(t.copyDialog.done(ids.length));
           }}
         />
       )}
