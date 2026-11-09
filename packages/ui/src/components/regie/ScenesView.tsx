@@ -10,7 +10,7 @@ import type { ProjectData } from '../../lib/useProjectData';
 import { texts } from '../../texts';
 import { ICON } from '../icons';
 import { Button } from '../ui';
-import { ColorFields, ItemNumber, KIND_ICONS } from './RegieView';
+import { ColorFields, ItemColors, ItemNumber, KIND_ICONS } from './RegieView';
 import { useRegieSelection } from './regieSelection';
 import { itemAudioSrc } from './Waveform';
 import { ScenesSection } from './ScenesSection';
@@ -47,6 +47,7 @@ export function ScenesView({ projectId, doc, origin, data, library, editable }: 
               <ItemNumber number={numbers.get(i.id)} />
               <Icon size={16} className="shrink-0 text-slate-500" aria-label={texts.regie.kinds[i.kind]} />
               <span className="min-w-0 flex-1 truncate font-medium">{i.title || texts.regie.untitled}</span>
+              <ItemColors item={i} />
               <span className="shrink-0 text-xs text-slate-500">{t.count(count)}</span>
             </button>
           </li>
@@ -67,6 +68,7 @@ export function ScenesView({ projectId, doc, origin, data, library, editable }: 
           </Button>
         )}
         <h2 className="min-w-0 flex-1 truncate text-lg font-semibold">{item.title || texts.regie.untitled}</h2>
+        <ItemColors item={item} size="lg" />
         {!hasAudio && (item.kind === 'song' || item.kind === 'play') && <span className="text-xs text-slate-500">{t.noAudio}</span>}
       </header>
       {/* Liedfarben: Orientierung für das Licht-Design */}
