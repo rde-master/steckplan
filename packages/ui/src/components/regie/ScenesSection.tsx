@@ -431,7 +431,7 @@ export function ScenesSection({
       {copyOpen && scene && (
         <SceneCopyDialog
           source={scene}
-          items={data.show.items.filter((i) => i.kind === 'song' || i.kind === 'play')}
+          items={data.show.items.filter((i) => i.kind === 'song' || i.kind === 'play' || i.kind === 'announcement')}
           scenes={data.lightScenes}
           onClose={() => setCopyOpen(false)}
           onSubmit={(ids) => {
