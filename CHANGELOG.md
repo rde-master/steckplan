@@ -16,6 +16,7 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 ### Hinzugefügt
 
 - DMX-Patch (Universum): Universum und Startadresse eines angeklickten Geräts auch direkt eingeben (z. B. auf dem Tablet)
+- DMX per Funk: der DMX-Eingang eines Geräts, das sein DMX per Funk bekommt, ist im Signalfluss (und PDF) mit einem roten X markiert und lässt sich nicht verkabeln; steckt dort schon ein Kabel, meldet die Prüfung das
 
 ## [0.39.0] - 2026-11-09
 
