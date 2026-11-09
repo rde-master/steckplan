@@ -37,6 +37,11 @@ import { Button } from '../ui';
 import { openLyricsWindow, useCueClock, useLocalCueSender, type ReceivedCue } from './LyricsWindow';
 import { ItemColors, ItemNumber, KIND_ICONS } from './RegieView';
 import { BeatPanel } from './BeatPanel';
+import { Apc40Settings } from './Apc40Settings';
+import { APC40_CONTROLS, type Apc40Input } from '../../lib/midi/apc40';
+import { ledFor, useMidiMapping, type MidiAction, type PerformanceLedState } from '../../lib/midi/mapping';
+import { midiSupported, useApc40 } from '../../lib/midi/useApc40';
+import { setClickSettings, useClickSettings } from '../../lib/click';
 import { LeadTimeline } from './LeadTimeline';
 import { itemAudioSrc } from './Waveform';
 import { DeskCuePanel } from './DeskCuePanel';
@@ -390,6 +395,73 @@ export function PerformanceView({
   });
   useEffect(() => onRemote((command) => remoteRef.current(command)), [onRemote]);
 
+  // APC40 (MIDI): Tasten lösen die belegten Aktionen aus, die LEDs zeigen den Zustand (je Gerät belegt).
+  // Beim Folgen wirkt nur „Führen übernehmen“; mit offenen Einstellungen wählt eine gedrückte Taste sie dort aus.
+  const midiMapping = useMidiMapping();
+  const clickSettings = useClickSettings();
+  const [midiOpen, setMidiOpen] = useState(false);
+  const [midiSelected, setMidiSelected] = useState<string | null>(null);
+  const ledState: PerformanceLedState = {
+    playing,
+    currentNumber: item ? numbers.get(item.id) : undefined,
+    nextNumber: nextItem ? numbers.get(nextItem.id) : undefined,
+    numbers: new Set(numbers.values()),
+    hasPrevItem: itemIndex > 0,
+    hasNextItem: !!nextItem,
+    hasPrevScene: sceneIndex > 0,
+    hasNextScene: sceneIndex < scenes.length - 1,
+    click: clickSettings.click,
+    preroll: clickSettings.preroll,
+    leading: mode === 'lead',
+    hasTempo: tempo.gridBpm !== undefined,
+  };
+  const midiLeds = Object.fromEntries(APC40_CONTROLS.map((c) => [c.id, ledFor(midiMapping[c.id], ledState)]));
+  const showNote = (text: string) => {
+    setRemoteNote(text);
+    window.clearTimeout(noteTimer.current);
+    noteTimer.current = window.setTimeout(() => setRemoteNote(''), 2000);
+  };
+  const runMidi = (a: MidiAction) => {
+    switch (a.action) {
+      case 'none':
+        return;
+      case 'beatBack':
+      case 'beatForward':
+        stepBeat(a.action === 'beatForward' ? 1 : -1);
+        break;
+      case 'click':
+        setClickSettings({ click: !clickSettings.click });
+        break;
+      case 'preroll':
+        setClickSettings({ preroll: !clickSettings.preroll });
+        break;
+      case 'lead':
+        if (!canLead) return;
+        takeOver();
+        choose('lead');
+        break;
+      default:
+        perform({ action: a.action, ...(a.value !== undefined ? { value: a.value } : {}) });
+    }
+    showNote(texts.regie.midi.remote(`${texts.regie.midi.actions[a.action]}${a.value !== undefined ? ` ${String(a.value).replace('.', ',')}` : ''}`));
+  };
+  const onMidi = (input: Apc40Input) => {
+    if (input.kind === 'encoder') {
+      // Cue Level: fein spulen (0,1 s je Raste)
+      if (!following && !midiOpen) perform({ action: input.delta > 0 ? 'forward' : 'back', value: Math.round(Math.abs(input.delta)) / 10 });
+      return;
+    }
+    if (!input.pressed) return;
+    if (midiOpen) {
+      setMidiSelected(input.id);
+      return;
+    }
+    const a = midiMapping[input.id];
+    if (!a || (following && a.action !== 'lead')) return;
+    runMidi(a);
+  };
+  const midi = useApc40(midiSupported(), midiLeds, onMidi);
+
   // Tastenkürzel (Übersicht: Knopf im Kopf bzw. „?“). Bedienen beim Folgen übernimmt bewusst (wie die Pfeiltasten).
   // Esc schließt Liedliste bzw. Übersicht – die Vorstellung ist ein eigener Tab (schließen mit ✕)
   const [keysOpen, setKeysOpen] = useState(false);
@@ -531,6 +603,23 @@ export function PerformanceView({
             </span>
           )}
         </div>
+        {midiSupported() && (
+          <Button variant="ghost" className="px-2 text-sm" title={texts.regie.midi.title} onClick={() => setMidiOpen(true)} data-testid="apc40-open">
+            <span className={`h-2 w-2 rounded-full ${midi.status === 'connected' ? 'bg-emerald-500' : 'bg-slate-500'}`} aria-hidden />
+            {texts.regie.midi.button}
+          </Button>
+        )}
+        {midiOpen && (
+          <Apc40Settings
+            status={midi.status}
+            port={midi.port}
+            selected={midiSelected}
+            onSelect={setMidiSelected}
+            leds={midiLeds}
+            ledState={ledState}
+            onClose={() => setMidiOpen(false)}
+          />
+        )}
         <div className="relative">
           <Button variant="ghost" className="px-2 text-sm" aria-expanded={keysOpen} aria-label={t.keys} title={`${t.keys} (?)`} onClick={() => setKeysOpen(!keysOpen)}>
             <Keyboard size={18} aria-hidden />
