@@ -90,6 +90,7 @@ export function LeadTimeline({
   onScene,
   waveSrc,
   audioOffset = 0,
+  events = [],
 }: {
   duration: number;
   lines: TimedLine[];
@@ -108,6 +109,8 @@ export function LeadTimeline({
   waveSrc?: string;
   /** die Datei beginnt bei diesem Zeitpunkt */
   audioOffset?: number;
+  /** Licht-Events: Marker über den Szenen */
+  events?: { id: string; atSec: number; note: string }[];
 }) {
   useFrame(playing);
   const wave = useWaveformSettings();
@@ -259,6 +262,22 @@ export function LeadTimeline({
           data-start={start.toFixed(2)}
           data-span={span.toFixed(2)}
         >
+          {/* Licht-Events: Raute mit Notiz, Linie durch den ganzen Zeitstrahl */}
+          {events.length > 0 && (
+            <div className="relative h-6 border-b border-slate-800 bg-slate-950/80" aria-label={t.events} data-testid="lead-events">
+              {events.map((ev) =>
+                ev.atSec >= start && ev.atSec <= end ? (
+                  <div key={ev.id} className="pointer-events-none absolute top-0.5 flex -translate-x-[0.4rem] items-center gap-1 whitespace-nowrap" style={{ left: pct(ev.atSec) }} title={`${formatSceneTime(ev.atSec)} · ${ev.note}`} data-testid="lead-event">
+                    <span className="block h-3 w-3 rotate-45 rounded-sm bg-amber-400 ring-1 ring-amber-200/60" aria-hidden />
+                    <span className="max-w-40 truncate text-[11px] font-semibold text-amber-300">{ev.note || '!'}</span>
+                  </div>
+                ) : null,
+              )}
+            </div>
+          )}
+          {events.map((ev) =>
+            ev.atSec >= start && ev.atSec <= end ? <div key={`l${ev.id}`} className="pointer-events-none absolute top-6 bottom-0 z-[5] w-px border-l border-dashed border-amber-400/70" style={{ left: pct(ev.atSec) }} /> : null,
+          )}
           {/* Szenen oben */}
           <div className="border-b border-slate-800 bg-slate-950/60">
             <SceneRow scenes={lightScenes} total={total} pos={pos} label={t.sides.light} color="bg-amber-600" testId="lead-light-scenes" />

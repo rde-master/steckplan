@@ -53,6 +53,8 @@ import {
   type SoundScene,
   readTrailerTrips,
   type TrailerTrip,
+  readLightEvents,
+  type LightEvent,
 } from '@steckplan/core';
 
 export interface ProjectData {
@@ -85,6 +87,7 @@ export interface ProjectData {
   gigs: Gig[];
   helperSignups: HelperSignup[];
   trailerTrips: TrailerTrip[];
+  lightEvents: LightEvent[];
   helperMessages: HelperMessage[];
   handovers: Handover[];
 }
@@ -114,6 +117,7 @@ const EMPTY: ProjectData = {
   gigs: [],
   helperSignups: [],
   trailerTrips: [],
+  lightEvents: [],
   helperMessages: [],
   handovers: [],
 };
@@ -143,6 +147,7 @@ function read(doc: Y.Doc): ProjectData {
     gigs: readGigs(doc),
     helperSignups: readHelperSignups(doc),
     trailerTrips: readTrailerTrips(doc),
+    lightEvents: readLightEvents(doc),
     helperMessages: readHelperMessages(doc),
     handovers: readHandovers(doc),
     sceneStates: readSceneStates(doc),

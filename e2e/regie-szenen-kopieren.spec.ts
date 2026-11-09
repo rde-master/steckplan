@@ -107,7 +107,7 @@ test('Lichtszenen: Gerätearten wählen, Tastenkürzel, in andere Szenen kopiere
   await dialog.getByLabel('Zweites Stück: alle Szenen').check();
   await dialog.getByRole('button', { name: 'In 3 Szenen kopieren' }).click();
   await expect(dialog).toBeHidden();
-  await expect(scenes.getByRole('status')).toContainText('In 3 Szenen kopiert');
+  await expect(page.getByTestId('toast')).toContainText('In 3 Szenen kopiert');
   const states = async () => (await (await page.request.get(`/api/projects/${id}/download`)).json()).sceneStates as { sceneId: string; deviceId: string; dimmer?: number }[];
   const summary = (all: { sceneId: string; deviceId: string; dimmer?: number }[], scene: string) =>
     all
@@ -128,7 +128,7 @@ test('Lichtszenen: Gerätearten wählen, Tastenkürzel, in andere Szenen kopiere
   await expect(fixture('MH 1')).toContainText('–');
   await page.keyboard.press('ArrowLeft');
   await page.keyboard.press('Control+c');
-  await expect(scenes.getByRole('status')).toContainText('Werte aus „Anfang“ kopiert');
+  await expect(scenes.getByRole('status').filter({ hasText: 'Werte aus „Anfang“ kopiert' })).toHaveCount(1);
   await page.getByTestId('scenes-items').getByRole('button', { name: /Zweites Stück/ }).click();
   await scenes.getByTestId('scene-tab').nth(1).click();
   await fixture('MH 1').click();
@@ -136,5 +136,7 @@ test('Lichtszenen: Gerätearten wählen, Tastenkürzel, in andere Szenen kopiere
   await expect(fixture('MH 1')).toContainText('30 %');
   await page.keyboard.press('Control+v');
   await expect(fixture('MH 1')).toContainText('70 %');
+  // grüner Hinweis unten rechts (auch beim Einfügen per Tastenkürzel)
+  await expect(page.getByTestId('toast')).toContainText('Inhalt aus „Anfang“ eingefügt');
   await expect(scenes.getByRole('button', { name: 'Einfügen' })).toHaveAttribute('title', /Anfang/);
 });
