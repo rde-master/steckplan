@@ -7,6 +7,16 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.39.1] - 2026-11-09
+
+### Behoben
+
+- DMX-Patch (Universum): Geräte lassen sich wieder innerhalb eines Universums und in ein anderes ziehen (Chrome/Desktop-App brach das Ziehen beim Greifen ab); der Bereich „Ohne DMX-Adresse“ steht beim Bearbeiten immer oben, damit das Raster beim Ziehen nicht springt
+
+### Hinzugefügt
+
+- DMX-Patch (Universum): Universum und Startadresse eines angeklickten Geräts auch direkt eingeben (z. B. auf dem Tablet)
+
 ## [0.39.0] - 2026-11-09
 
 ### Hinzugefügt
