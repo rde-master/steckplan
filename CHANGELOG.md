@@ -7,6 +7,13 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.40.0] - 2026-11-09
+
+### Hinzugefügt
+
+- Anhänger-Planung (Helfer → „Anhänger“, Bearbeiten): je Auftritt die Fahrten – Anhänger, Fahrer, von, nach (vorbelegt mit dem Auftrittsort), Abfahrt, Notiz; mehrere Fahrten je Auftritt; „Alle Anhänger einplanen“ für die im Projekt genutzten Anhänger; wer sich für „Anhänger hin/weiter“ gemeldet hat, steht in der Fahrerauswahl oben (🚚); Hinweis auf Fahrten ohne Fahrer
+- Persönliche Helfer-Seite: „Deine Anhänger-Fahrten“ mit Datum, Abfahrt, Anhänger und Strecke
+
 ## [0.39.1] - 2026-11-09
 
 ### Behoben
