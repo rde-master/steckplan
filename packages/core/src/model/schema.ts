@@ -621,6 +621,21 @@ export const HelperSignupSchema = z.object({
 });
 export type HelperSignup = z.infer<typeof HelperSignupSchema>;
 
+/** Anhänger-Fahrt zu einem Auftritt: welcher Anhänger, wer fährt, von wo nach wo, Abfahrt (seit 0.40) */
+export const TrailerTripSchema = z.object({
+  id,
+  gigId: id,
+  trailerId: id.optional(),
+  /** Fahrer (Person im Projekt) */
+  personId: id.optional(),
+  from: z.string().max(200).optional(),
+  to: z.string().max(200).optional(),
+  /** Abfahrt „HH:MM“ (am Tag des Auftritts) */
+  time: timeText.optional(),
+  note: z.string().max(1000).optional(),
+});
+export type TrailerTrip = z.infer<typeof TrailerTripSchema>;
+
 /** Nachricht eines Helfers an die Technik (keine Antwort); readAt = von Bearbeiten gelesen */
 export const HelperMessageSchema = z.object({
   id,
@@ -788,6 +803,7 @@ export const ProjectSchema = z.object({
   /** Auftritte und Helfer-Anmeldungen (seit 0.28) */
   gigs: z.array(GigSchema).default([]),
   helperSignups: z.array(HelperSignupSchema).default([]),
+  trailerTrips: z.array(TrailerTripSchema).default([]),
   helperMessages: z.array(HelperMessageSchema).default([]),
   handovers: z.array(HandoverSchema).default([]),
   network: z

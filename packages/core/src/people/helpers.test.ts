@@ -97,3 +97,33 @@ describe('Technik-Übergabe', () => {
     expect(readHandovers(doc)).toEqual([]);
   });
 });
+
+import { addTrailerTrip, personTrips, planTrailerTrips, readTrailerTrips, removeTrailerTrip, tripGaps, updateTrailerTrip } from '../index';
+
+describe('Anhänger-Fahrten je Auftritt', () => {
+  it('planen, Fahrer zuordnen, eigene Fahrten, beim Löschen des Auftritts mit weg', () => {
+    const doc = new Y.Doc();
+    const a = addGig(doc, { title: 'Stadtfest', date: '2026-07-04', location: 'Marktplatz' }, null);
+    const b = addGig(doc, { title: 'Kirche', date: '2026-05-01', location: 'St. Peter' }, null);
+    // für zwei Anhänger je eine Fahrt zum Auftrittsort; doppelt planen legt nichts nach
+    expect(planTrailerTrips(doc, { id: a, location: 'Marktplatz' }, ['t1', 't2'], null)).toBe(2);
+    expect(planTrailerTrips(doc, { id: a, location: 'Marktplatz' }, ['t1', 't2'], null)).toBe(0);
+    const trips = readTrailerTrips(doc).filter((t) => t.gigId === a);
+    expect(trips.map((t) => [t.trailerId, t.to])).toEqual([
+      ['t1', 'Marktplatz'],
+      ['t2', 'Marktplatz'],
+    ]);
+    expect(tripGaps(trips)).toEqual({ withoutDriver: 2, withoutTrailer: 0 });
+    updateTrailerTrip(doc, trips[0]!.id, { personId: 'anna', from: 'Lager', time: '13:30' }, null);
+    const other = addTrailerTrip(doc, b, { trailerId: 't1', personId: 'anna', to: 'St. Peter', time: '17:00' }, null);
+    const gigs = readGigs(doc);
+    // Anna: zuerst Kirche (Mai), dann Stadtfest (Juli)
+    expect(personTrips(readTrailerTrips(doc), gigs, 'anna').map((x) => `${x.gig.title}:${x.trip.from ?? ''}→${x.trip.to}`)).toEqual(['Kirche:→St. Peter', 'Stadtfest:Lager→Marktplatz']);
+    // Felder leeren entfernt sie
+    updateTrailerTrip(doc, trips[0]!.id, { from: '' }, null);
+    expect(readTrailerTrips(doc).find((t) => t.id === trips[0]!.id)!.from).toBeUndefined();
+    removeTrailerTrip(doc, other, null);
+    removeGig(doc, a, null);
+    expect(readTrailerTrips(doc)).toEqual([]);
+  });
+});
