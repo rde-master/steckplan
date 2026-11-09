@@ -7,6 +7,19 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.41.0] - 2026-11-09
+
+### Hinzugefügt
+
+- Licht-Events: besondere Momente in einem Lied/Schauspiel (Zeitpunkt + Notiz, z. B. Pyro) – in den Lichtszenen anlegen („+ Event“ an der aktuellen Stelle), Zeit und Notiz bearbeiten, löschen
+- Licht-Events als Marker in der Szenen-Zeitleiste (anklicken springt, ziehen verschiebt) und im Führen-Zeitstrahl (mit Notiz)
+- Vorstellung, Bereich Licht (Frei und Folgen): „Nächste Licht-Events“ mit eigenem Countdown, kurz davor blinkend, beim Event „jetzt“
+- Licht-Events werden beim Duplizieren eines Lieds mitkopiert und beim Regie-Export/-Import mitgenommen
+
+### Geändert
+
+- Lichtszenen: nach dem Einfügen von Werten bzw. „Kopieren nach …“ erscheint unten rechts ein grüner Hinweis für 3 Sekunden
+
 ## [0.40.0] - 2026-11-09
 
 ### Hinzugefügt
