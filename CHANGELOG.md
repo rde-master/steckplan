@@ -7,6 +7,15 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.39.0] - 2026-11-09
+
+### Hinzugefügt
+
+- DMX per Funk: Gerätevorlagen können DMX per Funk senden bzw. empfangen (Empfangsbox oder Scheinwerfer mit eingebautem Empfänger); es wird immer das ganze Universum übertragen
+- Signalfluss: beim Sender das gesendete Universum, beim Empfänger den Sender wählen; gepunktete Linie vom Sender zum Empfänger mit Universum (auch im PDF); Auto-Adressierung folgt der Funkstrecke
+- Prüfungen: Funk-Sender ohne Universum, Empfangsbox ohne Sender, fehlender Sender, Scheinwerfer in einem anderen Universum gepatcht als gefunkt
+- DMX-Patch (Universum): Geräte per Ziehen verschieben (auch in ein anderes oder ein neues Universum), nicht gepatchte Geräte stehen oben und werden von dort in den Patch gezogen, zurückziehen nimmt sie aus dem Patch; Vorschau beim Ziehen
+
 ## [0.38.0] - 2026-11-09
 
 ### Hinzugefügt

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Cable, DeviceInstance, Template } from '../model/schema';
-import { autoAddress, buildDmxPatch, checkDmx, dmxChain, dmxUniverses, formatDmx, type DmxPatchRow } from './dmx';
+import { autoAddress, buildDmxPatch, checkDmx, checkWirelessDmx, dmxChain, dmxUniverses, formatDmx, wirelessLinks, type DmxPatchRow } from './dmx';
 
 const T0 = '2026-01-01T00:00:00.000Z';
 const dmxPorts = [
@@ -86,5 +86,38 @@ describe('DMX-Universum als Übersicht', () => {
       { start: 1, end: 100 },
       { start: 105, end: 512 },
     ]);
+  });
+});
+
+describe('DMX per Funk', () => {
+  const tx: Template = { id: 'tx', kind: 'device', version: 1, updatedAt: T0, name: 'Funk-Sender', ports: [{ id: 'in', label: 'DMX In', connector: 'XLR 5', direction: 'in', signal: 'DMX' }], wirelessDmx: { send: true } };
+  const rx: Template = { id: 'rx', kind: 'device', version: 1, updatedAt: T0, name: 'Funk-Empfänger', ports: [{ id: 'out', label: 'DMX Out', connector: 'XLR 5', direction: 'out', signal: 'DMX' }], wirelessDmx: { receive: true } };
+  const akku: Template = { ...spot, id: 'akku', name: 'Akku-Spot', wirelessDmx: { receive: true } };
+  const all = new Map([...templates, [tx.id, tx], [rx.id, rx], [akku.id, akku]]);
+  const devices: DeviceInstance[] = [
+    dev('pult', 'desk'),
+    { ...dev('sender', 'tx'), wirelessDmx: { universe: 2 } },
+    { ...dev('box', 'rx'), wirelessDmx: { fromId: 'sender' } },
+    dev('s1', 'spot', { modeName: '16ch', universe: 2, address: 1 }),
+    { ...dev('a1', 'akku', { modeName: '8ch', universe: 2, address: 17 }), wirelessDmx: { fromId: 'sender' } },
+    { ...dev('a2', 'akku', { modeName: '8ch', universe: 3, address: 1 }), wirelessDmx: { fromId: 'sender' } },
+    { ...dev('a3', 'akku', { modeName: '8ch', universe: 2, address: 30 }), wirelessDmx: { fromId: 'weg' } },
+    dev('box2', 'rx'),
+    dev('sender2', 'tx'),
+  ];
+  const cables = [cable('pult', 'u1', 'sender', 'in'), cable('box', 'out', 's1', 'in')];
+
+  it('Strecken Sender → Empfänger mit dem gesendeten Universum', () => {
+    expect(wirelessLinks({ devices }, all)).toEqual([
+      { senderId: 'sender', receiverId: 'box', universe: 2 },
+      { senderId: 'sender', receiverId: 'a1', universe: 2 },
+      { senderId: 'sender', receiverId: 'a2', universe: 2 },
+    ]);
+  });
+  it('Kette läuft über die Funkstrecke weiter (auch zu Scheinwerfern mit eingebautem Empfänger)', () => {
+    expect(dmxChain('pult', { devices, cables }, all)).toEqual(['pult', 'sender', 'box', 's1', 'a1', 'a2']);
+  });
+  it('Prüfungen: Sender ohne Universum, Empfänger ohne/mit fehlendem Sender, falsches Universum', () => {
+    expect(checkWirelessDmx({ devices }, all).map((i) => i.id).sort()).toEqual(['wdmx-mismatch:a2', 'wdmx-nosender:box2', 'wdmx-sender:a3', 'wdmx-universe:sender2']);
   });
 });

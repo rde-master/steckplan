@@ -10,7 +10,7 @@ import { useLongPress } from '../../lib/useLongPress';
 import { useEdgeScroll } from '../../lib/useEdgeScroll';
 import { DIMMED_OPACITY } from '../../lib/display';
 import { useCanvasDark, type CanvasTheme } from '../../lib/useDarkMode';
-import { anchorOf, bounds, ROLE_COLORS, type CableLine, type DeviceBox } from './model';
+import { anchorOf, bounds, edgePoint, ROLE_COLORS, WIRELESS_COLOR, type CableLine, type DeviceBox } from './model';
 
 export interface PortRef {
   deviceId: string;
@@ -39,6 +39,8 @@ export interface CanvasProps {
   theme?: CanvasTheme;
   /** Rechtsklick auf einen Anschluss: als defekt markieren / Markierung entfernen */
   onToggleDefect?: (deviceId: string, portId: string) => void;
+  /** DMX per Funk: Strecken Sender → Empfänger (gepunktet gezeichnet, nur wenn beide auf dieser Seite) */
+  wireless?: { senderId: string; receiverId: string; universe: number | undefined }[];
   /** Kasten am Griff rechts unten größer/kleiner ziehen; undefined = automatische Größe */
   onResize?: (id: string, size: { width: number; height: number } | undefined, final: boolean) => void;
 }
@@ -55,6 +57,7 @@ export interface GroupFrame {
 }
 
 const GRID = 10;
+
 /** Strom: Farbe bei hoher Auslastung (ab 80 %) bzw. Überlast; sonst Textfarbe des Kastens */
 const POWER_COLORS: Record<string, string | undefined> = { ok: undefined, high: '#b45309', over: '#dc2626' };
 /** schraffierter Griff rechts unten zum Ändern der Größe */
@@ -69,7 +72,7 @@ declare global {
   }
 }
 
-export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onConnect, onReconnect, onDropTemplate, onInvalidConnection, showDmx = false, groups = [], pageRefs = [], onPageRef, onResize, onToggleDefect, theme }: CanvasProps) {
+export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onConnect, onReconnect, onDropTemplate, onInvalidConnection, showDmx = false, groups = [], pageRefs = [], onPageRef, onResize, onToggleDefect, theme, wireless = [] }: CanvasProps) {
   const container = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
   const [size, setSize] = useState({ width: 800, height: 600 });
@@ -509,6 +512,22 @@ export function SignalFlowCanvas({ boxes, lines, editable, occupied, onMove, onC
                   select({ cables: [line.cable.id] });
                 }}
               />
+            );
+          })}
+
+          {/* DMX per Funk: gepunktete Linie vom Sender zum Empfänger, in der Mitte das Universum */}
+          {wireless.map((link) => {
+            const from = boxById.get(link.senderId);
+            const to = boxById.get(link.receiverId);
+            if (!from || !to) return null;
+            const a = edgePoint(from, to);
+            const b = edgePoint(to, from);
+            const label = link.universe !== undefined ? `((·)) U${link.universe}` : '((·))';
+            return (
+              <Group key={`${link.senderId}-${link.receiverId}`} name="wireless" id={`wireless-${link.senderId}-${link.receiverId}`} listening={false}>
+                <Line points={[a.x, a.y, b.x, b.y]} stroke={WIRELESS_COLOR} strokeWidth={2.5} dash={[1, 7]} lineCap="round" />
+                <Text text={label} x={(a.x + b.x) / 2 - 30} y={(a.y + b.y) / 2 - 16} width={60} align="center" fontSize={11} fontStyle="bold" fill={WIRELESS_COLOR} />
+              </Group>
             );
           })}
 

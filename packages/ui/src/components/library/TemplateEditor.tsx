@@ -50,6 +50,12 @@ function portId(): string {
   return `p-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+/** leere Funk-Angaben entfernen */
+function wireless(value: { send?: boolean | undefined; receive?: boolean | undefined }): { send?: boolean; receive?: boolean } | undefined {
+  const out = { ...(value.send ? { send: true } : {}), ...(value.receive ? { receive: true } : {}) };
+  return Object.keys(out).length ? out : undefined;
+}
+
 export function TemplateEditor({
   library,
   draft: initial,
@@ -510,6 +516,30 @@ export function TemplateEditor({
               </div>
             ))}
             {!disabled && <Button onClick={() => set({ dmxModes: [...dmxModes, { name: '', channels: 1 }] })}><Plus {...ICON} /> {t.addDmxMode}</Button>}
+          </section>
+
+          {/* DMX per Funk: das ganze Universum wird übertragen; im Projekt: Sender – Universum, Empfänger – Sender */}
+          <section className="space-y-1" data-testid="template-wireless-dmx">
+            <h3 className="text-sm font-semibold">{t.wirelessDmx}</h3>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={draft.wirelessDmx?.send === true}
+                disabled={disabled}
+                onChange={(e) => set({ wirelessDmx: wireless({ ...draft.wirelessDmx, send: e.target.checked || undefined }) })}
+              />
+              {t.wirelessSend}
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={draft.wirelessDmx?.receive === true}
+                disabled={disabled}
+                onChange={(e) => set({ wirelessDmx: wireless({ ...draft.wirelessDmx, receive: e.target.checked || undefined }) })}
+              />
+              {t.wirelessReceive}
+            </label>
+            <p className="text-xs text-slate-500">{t.wirelessHint}</p>
           </section>
 
           <div className="grid gap-3 sm:grid-cols-3">

@@ -64,7 +64,7 @@ export function ListsView(props: { projectId: string; data: ProjectData; library
         ) : list === 'changes' ? (
           <ChangeLogView projectId={props.projectId} />
         ) : list === 'dmx' ? (
-          <DmxPatchView data={props.data} library={props.library} />
+          <DmxPatchView data={props.data} library={props.library} doc={props.doc} origin={props.origin} editable={props.editable} />
         ) : (
           <NetworkListView data={props.data} library={props.library} />
         )}
