@@ -60,7 +60,20 @@ describe('APC40: Belegung und LEDs', () => {
     hasTempo: true,
     hideText: false,
     hideBackground: true,
+    beat: 1,
+    beatsPerBar: 3,
   };
+  it('Metronom: untere Matrixreihe = Schlag 1–8; laufender Schlag leuchtet (die „1“ rot), außerhalb des Takts aus', () => {
+    const m = defaultMapping();
+    expect(m[clipId(0, 4)]).toEqual({ action: 'beat', value: 1 });
+    expect(m[clipId(7, 4)]).toEqual({ action: 'beat', value: 8 });
+    expect(m[clipId(7, 3)]).toEqual({ action: 'item', value: 32 });
+    expect(ledFor({ action: 'beat', value: 1 }, state)).toBe('red');
+    expect(ledFor({ action: 'beat', value: 2 }, state)).toBe('off');
+    expect(ledFor({ action: 'beat', value: 2 }, { ...state, beat: 2 })).toBe('green');
+    expect(ledFor({ action: 'beat', value: 4 }, { ...state, beat: 4 })).toBe('off');
+    expect(ledFor({ action: 'beat', value: 1 }, { ...state, beat: undefined })).toBe('off');
+  });
   it('Textfenster: Text/Hintergrund eingeblendet grün, ausgeblendet rot blinkend', () => {
     expect(ledFor({ action: 'lyricsText' }, state)).toBe('green');
     expect(ledFor({ action: 'lyricsBackground' }, state)).toBe('redBlink');
@@ -68,7 +81,7 @@ describe('APC40: Belegung und LEDs', () => {
   it('Matrix = Ablaufpunkte: aktuell grün (blinkend beim Abspielen), nächster rot, übrige gelb, leer aus', () => {
     const m = defaultMapping();
     expect(m[clipId(0, 0)]).toEqual({ action: 'item', value: 1 });
-    expect(m[clipId(7, 4)]).toEqual({ action: 'item', value: 40 });
+    expect(m[clipId(7, 3)]).toEqual({ action: 'item', value: 32 });
     expect(ledFor(m[clipId(1, 0)], state)).toBe('green');
     expect(ledFor(m[clipId(1, 0)], { ...state, playing: true })).toBe('greenBlink');
     expect(ledFor(m[clipId(2, 0)], state)).toBe('red');

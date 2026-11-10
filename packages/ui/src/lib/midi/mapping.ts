@@ -1,6 +1,7 @@
 // Belegung des APC40 für die Vorstellung (Führen): welche Taste welche Aktion auslöst, und wie ihre LED leuchtet.
 // Je Gerät gespeichert (der Controller hängt an diesem Rechner). Vorbelegung: die Clip-Matrix sind die Ablaufpunkte
-// 1–40 (aktuell grün, beim Abspielen blinkend; nächster rot; übrige gelb), Transport, Szenen, Tap und Schlag.
+// 1–32 (aktuell grün, beim Abspielen blinkend; nächster rot; übrige gelb), darunter das Metronom (Schlag 1–8: blinkt
+// im Takt, Druck springt im laufenden Takt auf diesen Schlag), Transport, Szenen, Tap und Schlag.
 import { useSyncExternalStore } from 'react';
 import { APC40_CONTROLS, clipId, CLIP_ROWS, COLUMNS, type LedState } from './apc40';
 
@@ -25,6 +26,7 @@ export const MIDI_ACTIONS = [
   'lead',
   'lyricsText',
   'lyricsBackground',
+  'beat',
 ] as const;
 export type MidiActionName = (typeof MIDI_ACTIONS)[number];
 
@@ -41,12 +43,14 @@ export const ACTION_VALUE: Partial<Record<MidiActionName, { min: number; max: nu
   back: { min: 0.1, max: 60, step: 0.1, default: 5 },
   forward: { min: 0.1, max: 60, step: 0.1, default: 5 },
   item: { min: 1, max: 999, step: 1, default: 1 },
+  beat: { min: 1, max: 16, step: 1, default: 1 },
 };
 
 export function defaultMapping(): MidiMapping {
   const m: MidiMapping = {};
-  // Matrix: Ablaufpunkte 1–40 zeilenweise (oben links = 1)
-  for (let row = 0; row < CLIP_ROWS; row++) for (let col = 0; col < COLUMNS; col++) m[clipId(col, row)] = { action: 'item', value: row * COLUMNS + col + 1 };
+  // Matrix: Ablaufpunkte 1–32 zeilenweise (oben links = 1); untere Reihe: Metronom (Schlag 1–8)
+  for (let row = 0; row < CLIP_ROWS - 1; row++) for (let col = 0; col < COLUMNS; col++) m[clipId(col, row)] = { action: 'item', value: row * COLUMNS + col + 1 };
+  for (let col = 0; col < COLUMNS; col++) m[clipId(col, CLIP_ROWS - 1)] = { action: 'beat', value: col + 1 };
   Object.assign(m, {
     play: { action: 'toggle' },
     stop: { action: 'stop' },
@@ -155,6 +159,9 @@ export interface PerformanceLedState {
   /** Textfenster: Text bzw. Hintergrund ausgeblendet */
   hideText: boolean;
   hideBackground: boolean;
+  /** Metronom: aktueller Schlag im Takt (1 …) und Schläge je Takt; ohne Tempo undefined */
+  beat?: number;
+  beatsPerBar?: number;
 }
 
 /** LED einer belegten Taste: zeigt Zustand bzw. Verfügbarkeit der Aktion */
@@ -195,6 +202,12 @@ export function ledFor(action: MidiAction | undefined, s: PerformanceLedState): 
       return s.preroll ? 'red' : 'off';
     case 'lead':
       return s.leading ? 'green' : 'yellowBlink';
+    case 'beat': {
+      // Metronom: der laufende Schlag leuchtet (die „1“ rot, sonst grün); Schläge außerhalb des Takts aus
+      const n = action.value;
+      if (n === undefined || s.beat === undefined || n > (s.beatsPerBar ?? 4)) return 'off';
+      return n === s.beat ? (n === 1 ? 'red' : 'green') : 'off';
+    }
     case 'lyricsText':
       return s.hideText ? 'redBlink' : 'green';
     case 'lyricsBackground':

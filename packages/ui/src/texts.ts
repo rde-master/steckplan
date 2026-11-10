@@ -702,6 +702,7 @@ export const texts = {
         lead: 'Führen übernehmen',
         lyricsText: 'Textfenster: Text aus/ein',
         lyricsBackground: 'Textfenster: Hintergrund aus/ein',
+        beat: 'Metronom: Schlag Nr. … (springen)',
       },
       short: {
         none: '',
@@ -724,6 +725,7 @@ export const texts = {
         lead: 'Führen',
         lyricsText: 'Text',
         lyricsBackground: 'Bild',
+        beat: '♩',
       },
       remote: (label: string) => `APC40: ${label}`,
     },
