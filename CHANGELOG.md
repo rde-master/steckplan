@@ -7,6 +7,18 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.43.0] - 2026-11-10
+
+### Hinzugefügt
+
+- Regie → Texte → Bearbeiten: je Abschnitt Anzeige der Zeilen und Zeichen
+- Unter jedem Abschnitt: „Hier neuer Abschnitt“ und „Hier einfügen (Kopie)“ – fügt direkt darunter ein (auch in einem anderen Eintrag); Rollen werden über den Namen zugeordnet, Zeitpunkte nicht übernommen
+- Grüner Hinweis unten rechts nach dem Kopieren und nach dem Einfügen
+
+### Geändert
+
+- „Kopieren“ am Abschnitt merkt sich den Abschnitt nur (fügt nicht mehr sofort eine Kopie ein)
+
 ## [0.42.0] - 2026-11-09
 
 ### Hinzugefügt
