@@ -58,7 +58,13 @@ describe('APC40: Belegung und LEDs', () => {
     preroll: true,
     leading: false,
     hasTempo: true,
+    hideText: false,
+    hideBackground: true,
   };
+  it('Textfenster: Text/Hintergrund eingeblendet grün, ausgeblendet rot blinkend', () => {
+    expect(ledFor({ action: 'lyricsText' }, state)).toBe('green');
+    expect(ledFor({ action: 'lyricsBackground' }, state)).toBe('redBlink');
+  });
   it('Matrix = Ablaufpunkte: aktuell grün (blinkend beim Abspielen), nächster rot, übrige gelb, leer aus', () => {
     const m = defaultMapping();
     expect(m[clipId(0, 0)]).toEqual({ action: 'item', value: 1 });

@@ -78,6 +78,9 @@ export function LyricsPage({ id }: { id: string }) {
   const activeBackground = sectionImage ?? slides[slide];
   const fadeMs = Math.round((standard?.fadeSec ?? FADE_SEC_DEFAULT) * 1000);
   // alle Bilder übereinander (vorgeladen), sichtbar nur das aktive – weich überblendet
+  // beim Führen ausgeblendet: Hintergrund (schwarz) bzw. Text – weich
+  const backgroundOff = cue?.hideBackground === true;
+  const textOff = cue?.hideText === true;
   const layers = [...new Set([...slides, ...sections.map((s) => s.backgroundMediaId)].filter((x): x is string => !!x))];
 
   return (
@@ -86,13 +89,13 @@ export function LyricsPage({ id }: { id: string }) {
         <div
           key={mediaId}
           className="absolute inset-0 bg-cover bg-center transition-opacity ease-in-out"
-          style={{ backgroundImage: `url("${api.mediaUrl(id, mediaId)}")`, opacity: mediaId === activeBackground ? 1 : 0, transitionDuration: `${sectionImage ? 700 : fadeMs}ms` }}
-          data-testid={mediaId === activeBackground ? 'lyrics-background' : undefined}
+          style={{ backgroundImage: `url("${api.mediaUrl(id, mediaId)}")`, opacity: mediaId === activeBackground && !backgroundOff ? 1 : 0, transitionDuration: `${backgroundOff || sectionImage ? 700 : fadeMs}ms` }}
+          data-testid={mediaId === activeBackground && !backgroundOff ? 'lyrics-background' : undefined}
           data-media={mediaId}
         />
       ))}
-      {activeBackground && <div className="absolute inset-0 bg-black" style={{ opacity: dim }} />}
-      <div className="relative h-full">
+      {activeBackground && !backgroundOff && <div className="absolute inset-0 bg-black" style={{ opacity: dim }} />}
+      <div className={`relative h-full transition-opacity duration-700 ${textOff && !message ? 'opacity-0' : 'opacity-100'}`} data-testid={textOff && !message ? 'lyrics-text-off' : undefined}>
       {message ? (
         <div className="flex h-full flex-col items-center justify-center gap-4 p-8 text-center text-[3vw] text-slate-500">
           <p>{message}</p>

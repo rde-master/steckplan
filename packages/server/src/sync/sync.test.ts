@@ -139,6 +139,10 @@ describe('Live-Sync', () => {
     regie.sendCue({ itemId: 'song', sceneId: 's3', at: -5, playing: true });
     await waitFor(() => reader.state.lead?.at === undefined);
     expect(reader.state.lead).toMatchObject({ sceneId: 's3' });
+    // Textfenster: Text/Hintergrund ausgeblendet geht mit (nur true)
+    regie.sendCue({ itemId: 'song', hideText: true, hideBackground: 'ja' as never });
+    await waitFor(() => reader.state.lead?.hideText === true);
+    expect(reader.state.lead?.hideBackground).toBeUndefined();
 
     // führende Person geht → niemand führt
     regie.destroy();
