@@ -27,6 +27,7 @@ const LED_CLASS: Record<LedState, string> = {
 export function actionShort(a: MidiAction | undefined): string {
   if (!a || a.action === 'none') return '';
   if (a.action === 'item') return `#${a.value ?? ''}`;
+  if (a.action === 'beat') return `♩${a.value ?? ''}`;
   if (a.action === 'back' || a.action === 'forward') return `${a.action === 'back' ? '−' : '+'}${String(a.value ?? '').replace('.', ',')}s`;
   return t.short[a.action];
 }

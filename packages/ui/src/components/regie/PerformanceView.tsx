@@ -11,6 +11,8 @@ import {
   tapTempo,
   itemTempo,
   beatStep,
+  beatAt,
+  beatInBar,
   updateShowItem,
   type Tap,
   currentLineId,
@@ -422,6 +424,8 @@ export function PerformanceView({
   const clickSettings = useClickSettings();
   const [midiOpen, setMidiOpen] = useState(false);
   const [midiSelected, setMidiSelected] = useState<string | null>(null);
+  // Metronom auf dem APC40: laufender Schlag (neu gezeichnet nur beim Wechsel des Schlags)
+  const beatCount = useBeatCount(() => audio.currentTime, tempo.gridBpm, beats, tempo.offset ?? 0, playing);
   const ledState: PerformanceLedState = {
     playing,
     currentNumber: item ? numbers.get(item.id) : undefined,
@@ -437,6 +441,7 @@ export function PerformanceView({
     hasTempo: tempo.gridBpm !== undefined,
     hideText,
     hideBackground,
+    ...(tempo.gridBpm !== undefined && beatCount !== null ? { beat: beatCount, beatsPerBar: beats } : {}),
   };
   const midiLeds = Object.fromEntries(APC40_CONTROLS.map((c) => [c.id, ledFor(midiMapping[c.id], ledState)]));
   const showNote = (text: string) => {
@@ -465,6 +470,11 @@ export function PerformanceView({
         break;
       case 'lyricsText':
         setHideText(!hideText);
+        break;
+      case 'beat':
+        // Metronom: im laufenden Takt auf diesen Schlag springen
+        if (following || tempo.gridBpm === undefined || a.value === undefined || a.value > beats) return;
+        perform({ action: 'seek', value: beatInBar(audio.currentTime, tempo.gridBpm, beats, tempo.offset ?? 0, a.value) });
         break;
       case 'lyricsBackground':
         setHideBackground(!hideBackground);
@@ -1218,4 +1228,29 @@ function ToolsShowButton({ onShow, watchPlayers }: { onShow: () => void; watchPl
       <span className="lg:[writing-mode:vertical-rl]">{pairing ? t.toolsPairing(pairing) : t.toolsShort}</span>
     </button>
   );
+}
+
+/** Laufender Schlag im Takt (1 …); läuft die Wiedergabe, je Bild geprüft – geändert wird nur beim Wechsel */
+function useBeatCount(getTime: () => number, bpm: number | undefined, beats: number, offset: number, running: boolean): number | null {
+  const [, setTick] = useState(0);
+  const last = useRef<number | null>(null);
+  const timeRef = useRef(getTime);
+  useEffect(() => {
+    timeRef.current = getTime;
+  });
+  useEffect(() => {
+    if (!running || !bpm) return;
+    let frame = 0;
+    const loop = () => {
+      const count = beatAt(timeRef.current(), bpm, beats, offset).count;
+      if (count !== last.current) {
+        last.current = count;
+        setTick((n) => n + 1);
+      }
+      frame = requestAnimationFrame(loop);
+    };
+    frame = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(frame);
+  }, [running, bpm, beats, offset]);
+  return bpm ? beatAt(getTime(), bpm, beats, offset).count : null;
 }

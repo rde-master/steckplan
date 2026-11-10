@@ -96,19 +96,21 @@ test('APC40: Modus 2, Ablaufpunkte farbig in der Matrix, Tasten steuern die Vors
   await settings.getByTestId('apc40-action').selectOption('next');
   await expect(settings.locator('[data-testid=apc-key][data-id="tap"]')).toHaveText('Eintr. +');
   // Klick im Bild wählt eine Taste, Wert einstellbar
-  await settings.locator('[data-testid=apc-key][data-id="clip:7:4"]').click();
-  await expect(settings.getByTestId('apc40-selected')).toHaveText('Clip 8/5');
+  await settings.locator('[data-testid=apc-key][data-id="clip:7:3"]').click();
+  await expect(settings.getByTestId('apc40-selected')).toHaveText('Clip 8/4');
   await settings.getByTestId('apc40-value').fill('3');
-  await expect(settings.locator('[data-testid=apc-key][data-id="clip:7:4"]')).toHaveText('#3');
+  await expect(settings.locator('[data-testid=apc-key][data-id="clip:7:3"]')).toHaveText('#3');
+  // untere Reihe: Metronom
+  await expect(settings.locator('[data-testid=apc-key][data-id="clip:0:4"]')).toHaveText('♩1');
   await show.getByRole('button', { name: 'Fertig' }).click();
   await expect(title).toContainText('Erstes');
 
-  // neue Belegung wirkt: Tap = Eintrag weiter; Clip 8/5 = Ablaufpunkt 3 (gelb, bzw. rot als übernächster nicht)
+  // neue Belegung wirkt: Tap = Eintrag weiter; Clip 8/4 = Ablaufpunkt 3 (gelb, bzw. rot als übernächster nicht)
   await press(show, 0, 0x63);
   await expect(title).toContainText('Zweites');
-  await press(show, 7, 0x39);
+  await press(show, 7, 0x38);
   await expect(title).toContainText('Drittes');
-  await expect.poll(() => led(show, 0x97, 0x39)).toBe(1);
+  await expect.poll(() => led(show, 0x97, 0x38)).toBe(1);
 
   // Cue Level dreht fein: 0,1 s je Raste vor
   const tc = perf.getByTestId('timecode').first();
@@ -123,3 +125,41 @@ test('APC40: Modus 2, Ablaufpunkte farbig in der Matrix, Tasten steuern die Vors
 
 /** Tasten im Bild: 40 Clip, 5 Szenen, 8 Clip-Stopp + Stop All, 8 Track + Master, 3 × 8 Spur-Tasten, 4 Pan/Send, 8 Device, 3 Transport, 4 Bank, Shift, Tap, 2 Nudge */
 const APC_KEYS = 40 + 5 + 9 + 9 + 24 + 4 + 8 + 3 + 4 + 2 + 2;
+
+test('APC40: Metronom in der unteren Matrixreihe – Schlag leuchtet im Takt (die „1“ rot), Druck springt auf den Schlag', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await loginAs(page, 'edit', 'Ralf');
+  const { id } = await (
+    await page.request.post('/api/projects/upload', {
+      data: {
+        schemaVersion: 9,
+        id: 'apc40-metronom',
+        meta: { name: 'Metronom' },
+        layers: [{ id: 'l1', name: 'Bühne', order: 0 }],
+        show: { items: [{ id: 'a', order: 0, kind: 'song', title: 'Im Takt', number: 1, durationSec: 60, bpm: 120, timeSignature: '3/4' }], sections: [] },
+      },
+    })
+  ).json();
+  await page.goto(`/projekt/${id}?ansicht=regie`);
+  const show = await openPerformance(page);
+  const perf = show.getByTestId('performance');
+  await expect(perf.getByTestId('apc40-open')).toBeVisible();
+  const ROW5 = 0x39;
+  // Stand 0:00 = Schlag 1 (rot); 3/4: Tasten 4–8 aus
+  await expect.poll(() => led(show, 0x90, ROW5)).toBe(3);
+  await expect.poll(() => led(show, 0x91, ROW5)).toBe(0);
+  await expect.poll(() => led(show, 0x93, ROW5)).toBe(0);
+  // Taste 3 → Schlag 3 des Takts (120 BPM: 1,0 s), leuchtet grün
+  await press(show, 2, ROW5);
+  await expect(perf.getByTestId('timecode')).toContainText('00:00:01:00');
+  await expect.poll(() => led(show, 0x92, ROW5)).toBe(1);
+  await expect.poll(() => led(show, 0x90, ROW5)).toBe(0);
+  // Taste 4 gibt es im 3/4-Takt nicht: nichts passiert
+  await press(show, 3, ROW5);
+  await expect(perf.getByTestId('timecode')).toContainText('00:00:01:00');
+  // beim Abspielen wandert das Licht mit
+  await press(show, 0, 0x5b);
+  await expect.poll(() => led(show, 0x90, ROW5), { timeout: 3000 }).toBe(3);
+  await expect.poll(() => led(show, 0x91, ROW5), { timeout: 3000 }).toBe(1);
+  await press(show, 0, 0x5b);
+});

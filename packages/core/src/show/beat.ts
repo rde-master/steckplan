@@ -45,6 +45,13 @@ export function beatStep(t: number, bpm: number, offset: number, dir: 1 | -1): n
   return Math.max(0, Math.round((offset + index * len) * 1000) / 1000);
 }
 
+/** Zeit von Schlag n (1 … beats) im Takt, in dem t liegt – zum Springen auf einen Schlag (nie vor 0) */
+export function beatInBar(t: number, bpm: number, beats: number, offset: number, n: number): number {
+  const { bar } = beatAt(t, bpm, beats, offset);
+  const index = (bar - 1) * beats + (Math.min(beats, Math.max(1, Math.round(n))) - 1);
+  return Math.max(0, Math.round((offset + (index * 60) / bpm) * 1000) / 1000);
+}
+
 export interface Tap {
   /** Zeitpunkt des Tippens (Sekunden, monoton – z. B. performance.now() / 1000) */
   wall: number;
