@@ -5,6 +5,9 @@ import { can } from '../model/access';
 import { createEmptyProject } from '../model/project';
 import { createYDocFromProject, DIRECTION_ROOTS, readProjectFromYDoc, updateTouchesOnly } from '../model/ydoc';
 import {
+  pasteSection,
+  sectionChars,
+  sectionClip,
   isBreakLine,
   applyRoleColors,
   roleColorTargets,
@@ -498,5 +501,44 @@ describe('Leerzeile (Zwischenspiel)', () => {
     expect(lines.map((l) => l.text)).toEqual(['Erste', '', 'Zweite']);
     expect(lines.map((l) => isBreakLine(l))).toEqual([false, true, false]);
     expect(isBreakLine({ text: '', direction: true })).toBe(false);
+  });
+});
+
+describe('Abschnitt kopieren und einfügen', () => {
+  it('Kopie an der gewählten Stelle, neue Kennungen, ohne Zeiten; Rollen werden im Ziel zugeordnet bzw. angelegt', () => {
+    const doc = createYDocFromProject(createEmptyProject({ name: 'K' }));
+    const play = addShowItem(doc, 'play', null, { title: 'Akt 1', roles: [{ id: 'r1', name: 'Hexe' }] });
+    const other = addShowItem(doc, 'play', null, { title: 'Akt 2', roles: [{ id: 'r9', name: 'hexe' }] });
+    const song = addShowItem(doc, 'song', null, { title: 'Lied' });
+    const a = addSection(doc, play, 'scene', 'Auftritt 1', null, [
+      { id: 'z1', text: 'Wer da?', roleId: 'r1', atSec: 3, translation: 'Who?' },
+      { id: 'z2', text: 'Ich', roleId: 'r1' },
+    ]);
+    const b = addSection(doc, play, 'scene', 'Auftritt 2', null, []);
+    const read = () => readShow(doc);
+    const clip = sectionClip(read().sections.find((s) => s.id === a)!, read().items.find((i) => i.id === play));
+    expect(sectionChars(clip.lines)).toBe(10);
+    // zwischen Auftritt 1 und 2 einfügen
+    const pasted = pasteSection(doc, play, clip, a, null)!;
+    expect(itemSections(read().sections, play).map((s) => s.id)).toEqual([a, pasted, b]);
+    const copy = read().sections.find((s) => s.id === pasted)!;
+    expect(copy.label).toBe('Auftritt 1');
+    expect(copy.lines.map((l) => [l.text, l.roleId, l.atSec, l.translation])).toEqual([
+      ['Wer da?', 'r1', undefined, 'Who?'],
+      ['Ich', 'r1', undefined, undefined],
+    ]);
+    expect(copy.lines.some((l) => l.id === 'z1')).toBe(false);
+    // anderes Stück: Rolle über den Namen
+    const inOther = pasteSection(doc, other, clip, undefined, null)!;
+    expect(read().sections.find((s) => s.id === inOther)!.lines[0]!.roleId).toBe('r9');
+    // Lied (keine Rollen): Rolle entfällt, Text bleibt
+    const inSong = pasteSection(doc, song, clip, undefined, null)!;
+    expect(read().sections.find((s) => s.id === inSong)!.lines.map((l) => l.roleId)).toEqual([undefined, undefined]);
+    // Stück ohne die Rolle: wird angelegt
+    const third = addShowItem(doc, 'play', null, { title: 'Akt 3' });
+    const inThird = pasteSection(doc, third, clip, undefined, null)!;
+    const roles = read().items.find((i) => i.id === third)!.roles!;
+    expect(roles.map((r) => r.name)).toEqual(['Hexe']);
+    expect(read().sections.find((s) => s.id === inThird)!.lines[0]!.roleId).toBe(roles[0]!.id);
   });
 });

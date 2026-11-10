@@ -1,16 +1,18 @@
 // Texte eines Ablauf-Eintrags: je Abschnitt Art, Bezeichnung und ein Textfeld (jede Zeile = eine Textzeile).
 // Beim Tippen bleibt der Text im Feld so, wie er getippt wird; ins Dokument geht die zerlegte Fassung
 // (Zeilen mit stabilen Kennungen, beim Schauspiel Rollen). Erst nach dem Verlassen zeigt das Feld wieder den Stand aus dem Dokument.
-import { ArrowDown, ArrowUp, Copy, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, ClipboardPaste, Copy, Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import type * as Y from 'yjs';
 import {
   addSection,
-  duplicateSection,
   moveSection,
   nextSectionLabel,
+  pasteSection,
   removeSection,
   SECTION_KINDS,
+  sectionChars,
+  sectionClip,
   sectionToText,
   sectionTranslationText,
   setSectionText,
@@ -23,7 +25,9 @@ import {
 } from '@steckplan/core';
 import { texts } from '../../texts';
 import { ICON } from '../icons';
-import { Button } from '../ui';
+import { Button, Toast } from '../ui';
+import { useToast } from '../../lib/useToast';
+import { setSectionClip, useSectionClip } from './sectionClipboard';
 import { SectionBackground } from './SectionBackground';
 
 const t = texts.regie;
@@ -53,6 +57,8 @@ export function SectionsEditor({
   const hasTranslation = sections.some((s) => s.lines.some((l) => l.translation));
   const [showTranslation, setShowTranslation] = useState(false);
   const translating = hasTranslation || showTranslation;
+  const clip = useSectionClip();
+  const [toast, showToast] = useToast();
   return (
     <div className="space-y-3">
       {sections.length > 0 && (
@@ -91,7 +97,9 @@ export function SectionsEditor({
               disabled={!editable}
               onChange={(e) => updateSection(doc, section.id, { label: e.target.value }, origin)}
             />
-            <span className="text-xs text-slate-500">{t.lines(section.lines.length)}</span>
+            <span className="text-xs text-slate-500 tabular-nums" data-testid="section-stats">
+              {t.sectionStats(section.lines.length, sectionChars(section.lines))}
+            </span>
             {editable && (
               <span className="flex">
                 <Button variant="ghost" className="min-h-8 px-1.5" aria-label={`${t.up}: ${section.label}`} disabled={index === 0} onClick={() => moveSection(doc, section.id, -1, origin)}>
@@ -100,7 +108,16 @@ export function SectionsEditor({
                 <Button variant="ghost" className="min-h-8 px-1.5" aria-label={`${t.down}: ${section.label}`} disabled={index === sections.length - 1} onClick={() => moveSection(doc, section.id, 1, origin)}>
                   <ArrowDown {...ICON} />
                 </Button>
-                <Button variant="ghost" className="min-h-8 px-1.5" aria-label={`${t.duplicate}: ${section.label}`} onClick={() => duplicateSection(doc, section.id, origin)}>
+                <Button
+                  variant="ghost"
+                  className="min-h-8 px-1.5"
+                  aria-label={`${t.duplicate}: ${section.label}`}
+                  title={t.copySectionHint}
+                  onClick={() => {
+                    setSectionClip(sectionClip(section, item));
+                    showToast(t.sectionCopied(section.label || t.sectionKinds[section.kind]));
+                  }}
+                >
                   <Copy {...ICON} />
                 </Button>
                 <Button variant="ghost" className="min-h-8 px-1.5" aria-label={`${t.remove}: ${section.label}`} onClick={() => removeSection(doc, section.id, origin)}>
@@ -118,8 +135,31 @@ export function SectionsEditor({
             <SectionText doc={doc} origin={origin} section={section} item={item} editable={editable} />
           )}
           <SectionBackground projectId={projectId} doc={doc} origin={origin} section={section} sections={sections} settings={settings} editable={editable} />
+          {/* unter jedem Abschnitt: hier einen neuen bzw. die kopierte Kopie einfügen */}
+          {editable && (
+            <div className="mt-1.5 flex flex-wrap gap-1.5 border-t border-dashed border-slate-200 pt-1.5 dark:border-slate-700">
+              <Button variant="ghost" className="min-h-8 text-xs" onClick={() => addSection(doc, item.id, defaultKind, nextSectionLabel(defaultKind, sections), origin, [], section.id)} data-testid="section-add-here">
+                <Plus {...ICON} /> {t.addSectionHere}
+              </Button>
+              <Button
+                variant="ghost"
+                className="min-h-8 text-xs"
+                disabled={!clip}
+                title={clip ? t.pasteSectionHint(clip.label || t.sectionKinds[clip.kind]) : t.pasteSectionEmpty}
+                onClick={() => {
+                  if (!clip) return;
+                  pasteSection(doc, item.id, clip, section.id, origin);
+                  showToast(t.sectionPasted(clip.label || t.sectionKinds[clip.kind]));
+                }}
+                data-testid="section-paste-here"
+              >
+                <ClipboardPaste {...ICON} /> {t.pasteSectionHere}
+              </Button>
+            </div>
+          )}
         </div>
       ))}
+      <Toast message={toast} />
       {editable && (
         <Button variant="secondary" className="text-xs" onClick={() => addSection(doc, item.id, defaultKind, nextSectionLabel(defaultKind, sections), origin)}>
           {t.addSection}
