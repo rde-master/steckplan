@@ -138,6 +138,11 @@ export function parseSectionText(text: string, previous: TextLine[], roles: Show
   };
   const rawLines = text.replace(/\r\n?/g, '\n').split('\n');
   while (rawLines.length && !rawLines[rawLines.length - 1]!.trim()) rawLines.pop();
+  // Textfeld leer: eine schon gesetzte Leerzeile (Zeit vom Mitschreiben) bleibt erhalten
+  if (rawLines.length === 0) {
+    const kept = previous.find((l) => isBreakLine(l) && l.atSec !== undefined);
+    return { lines: kept ? [kept] : [], roles };
+  }
   let speaker: string | undefined;
   const parsed: ParsedLine[] = rawLines.map((raw) => {
     const line = raw.trimEnd();
@@ -897,7 +902,16 @@ export interface TimedLine {
 
 /** Alle Zeilen eines Eintrags in Reihenfolge (über die Abschnitte). */
 export function itemLines(sections: TextSection[], itemId: string): TimedLine[] {
-  return itemSections(sections, itemId).flatMap((s) => s.lines.map((line) => ({ sectionId: s.id, sectionLabel: s.label, line })));
+  return itemSections(sections, itemId).flatMap((s) => (s.lines.length ? s.lines : [emptySectionLine(s.id)]).map((line) => ({ sectionId: s.id, sectionLabel: s.label, line })));
+}
+
+/**
+ * Leerer Abschnitt (Textfeld ohne Text): zählt wie eine Leerzeile (Zwischenspiel) – beim Mitschreiben bekommt er eine
+ * Zeit, im Textfenster wird nichts hervorgehoben. Die Kennung hängt am Abschnitt; beim Setzen der Zeit wird die Zeile
+ * mit genau dieser Kennung angelegt.
+ */
+export function emptySectionLine(sectionId: string): TextLine {
+  return { id: `leer-${sectionId}`, text: '' };
 }
 
 /** Versatz, um den die Textzeiten verschoben werden (nur wenn „Versatz gilt auch für den Text“) */
@@ -947,7 +961,10 @@ export function nextLineToRecord(lines: TimedLine[], t: number, afterId?: string
 export function setLineTime(doc: Y.Doc, sectionId: string, lineId: string, atSec: number | undefined, origin: unknown): void {
   const section = readShow(doc).sections.find((s) => s.id === sectionId);
   if (!section) return;
-  const lines = section.lines.map((l) => {
+  if (section.lines.length === 0 && atSec === undefined) return;
+  // leerer Abschnitt: die Leerzeile erst jetzt anlegen
+  const base = section.lines.length === 0 && lineId === emptySectionLine(sectionId).id ? [emptySectionLine(sectionId)] : section.lines;
+  const lines = base.map((l) => {
     if (l.id !== lineId) return l;
     const { atSec: _old, ...rest } = l;
     return atSec === undefined ? rest : { ...rest, atSec: Math.max(0, Math.round(atSec * 10) / 10) };
