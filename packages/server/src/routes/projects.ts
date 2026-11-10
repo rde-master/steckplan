@@ -23,7 +23,7 @@ import type { UsageTracker } from '../library/usage-tracker';
 import { isManagedStore, ProjectNotFoundError } from '../storage/types';
 import type { RoomManager } from '../sync/rooms';
 import type { MediaStore } from '../storage/media-store';
-import { zipStream, type ZipEntry } from '../storage/zip-stream';
+import { zipSize, zipStream, type ZipEntry } from '../storage/zip-stream';
 
 export const UPLOAD_LIMIT_BYTES = 50 * 1024 * 1024;
 
@@ -105,12 +105,17 @@ export function registerProjectRoutes(app: FastifyInstance, rooms: RoomManager, 
       const entries: ZipEntry[] = [{ name: fileName, data: new TextEncoder().encode(serializeProject(project)) }];
       for (const ref of project.media) {
         const file = await media.open(request.params.id, ref.id);
-        if (file) entries.push({ name: `medien/${ref.id}`, path: file.path });
+        if (file) entries.push({ name: `medien/${ref.id}`, path: file.path, size: file.size });
       }
+      // Größe vorab angeben und Zwischenpuffern im Reverse Proxy abschalten (nginx): sonst brechen große Downloads ab
+      const size = zipSize(entries);
+      if (size !== undefined) reply.header('Content-Length', size);
       return reply
         .header('Content-Type', 'application/zip')
         .header('Content-Disposition', contentDisposition(`${fileName}.zip`))
-        .send(zipStream(entries));
+        .header('X-Accel-Buffering', 'no')
+        .header('Cache-Control', 'no-store')
+        .send(zipStream(entries, size));
     }
     return reply
       .header('Content-Type', 'application/json; charset=utf-8')
