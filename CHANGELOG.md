@@ -7,6 +7,12 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.45.1] - 2026-11-10
+
+### Behoben
+
+- Release: Die Installer (Steckplan und Steckplan Player für Windows und macOS) werden wieder an das Release angehängt – bei 0.45.0 fehlten sie. Inhalt wie 0.45.0.
+
 ## [0.45.0] - 2026-11-10
 
 ### Hinzugefügt
