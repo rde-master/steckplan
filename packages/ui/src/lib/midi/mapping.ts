@@ -23,6 +23,8 @@ export const MIDI_ACTIONS = [
   'click',
   'preroll',
   'lead',
+  'lyricsText',
+  'lyricsBackground',
 ] as const;
 export type MidiActionName = (typeof MIDI_ACTIONS)[number];
 
@@ -150,6 +152,9 @@ export interface PerformanceLedState {
   preroll: boolean;
   leading: boolean;
   hasTempo: boolean;
+  /** Textfenster: Text bzw. Hintergrund ausgeblendet */
+  hideText: boolean;
+  hideBackground: boolean;
 }
 
 /** LED einer belegten Taste: zeigt Zustand bzw. Verfügbarkeit der Aktion */
@@ -190,6 +195,10 @@ export function ledFor(action: MidiAction | undefined, s: PerformanceLedState): 
       return s.preroll ? 'red' : 'off';
     case 'lead':
       return s.leading ? 'green' : 'yellowBlink';
+    case 'lyricsText':
+      return s.hideText ? 'redBlink' : 'green';
+    case 'lyricsBackground':
+      return s.hideBackground ? 'redBlink' : 'green';
     case 'back':
     case 'forward':
       return 'yellow';

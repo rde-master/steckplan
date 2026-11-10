@@ -1,6 +1,6 @@
 // Vorstellung (Regie, M11e): Vollbild, dunkel. Aktueller Eintrag mit mitlaufendem Text, aktuelle und nächste Lichtszene,
 // Player, große Knöpfe und Pfeiltasten. „Führen“ sendet die Stelle an alle, „Folgen“ springt mit (nicht gespeichert).
-import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Keyboard, ListMusic, Monitor, Radio, UserRound, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, EyeOff, Image as ImageIcon, Keyboard, ListMusic, Monitor, Radio, Type, UserRound, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   addTap,
@@ -216,9 +216,12 @@ export function PerformanceView({
     setOscAutoState(on);
     writeOscAuto(on);
   };
-  const cueState = useRef({ mode, itemId, sceneId, audio, tc, sendCue, localCue, oscAuto });
+  // Textfenster: Text bzw. Hintergrund aus-/einblenden (beim Führen, geht mit der Stelle an alle Textfenster)
+  const [hideText, setHideText] = useState(false);
+  const [hideBackground, setHideBackground] = useState(false);
+  const cueState = useRef({ mode, itemId, sceneId, audio, tc, sendCue, localCue, oscAuto, hideText, hideBackground });
   useEffect(() => {
-    cueState.current = { mode, itemId, sceneId, audio, tc, sendCue, localCue, oscAuto };
+    cueState.current = { mode, itemId, sceneId, audio, tc, sendCue, localCue, oscAuto, hideText, hideBackground };
   });
   useEffect(() => {
     const send = () => {
@@ -232,6 +235,8 @@ export function PerformanceView({
         playing: !c.audio.paused,
         tc: { at: c.tc.currentTime, playing: !c.tc.paused },
         ...(c.oscAuto ? { osc: true } : {}),
+        ...(c.hideText ? { hideText: true } : {}),
+        ...(c.hideBackground ? { hideBackground: true } : {}),
         ...(c.tc.playbackRate !== 1 ? { rate: c.tc.playbackRate } : {}),
       };
       c.localCue(cue);
@@ -248,7 +253,7 @@ export function PerformanceView({
       for (const source of sources) for (const e of events) source.removeEventListener(e, send);
       window.clearInterval(timer);
     };
-  }, [mode, itemId, sceneId, audio, tc, oscAuto]);
+  }, [mode, itemId, sceneId, audio, tc, oscAuto, hideText, hideBackground]);
   // beim Verlassen nicht weiter führen
   const leading = useRef(false);
   useEffect(() => {
@@ -426,6 +431,8 @@ export function PerformanceView({
     preroll: clickSettings.preroll,
     leading: mode === 'lead',
     hasTempo: tempo.gridBpm !== undefined,
+    hideText,
+    hideBackground,
   };
   const midiLeds = Object.fromEntries(APC40_CONTROLS.map((c) => [c.id, ledFor(midiMapping[c.id], ledState)]));
   const showNote = (text: string) => {
@@ -451,6 +458,12 @@ export function PerformanceView({
         if (!canLead) return;
         takeOver();
         choose('lead');
+        break;
+      case 'lyricsText':
+        setHideText(!hideText);
+        break;
+      case 'lyricsBackground':
+        setHideBackground(!hideBackground);
         break;
       default:
         perform({ action: a.action, ...(a.value !== undefined ? { value: a.value } : {}) });
@@ -800,6 +813,7 @@ export function PerformanceView({
               )}
             </div>
             <div className="flex w-72 flex-col gap-3">
+              <LyricsControl hideText={hideText} hideBackground={hideBackground} onText={setHideText} onBackground={setHideBackground} />
               <DeskCuePanel cues={sync.deskCues} />
               <OscLeadPanel projectId={projectId} auto={oscAuto} onAuto={setOscAuto} manual={triggerCommands(data.oscCommands, item.id, 'manual')} log={sync.oscLog} />
             </div>
@@ -1087,5 +1101,36 @@ function NavButton({ label, onClick, disabled, children }: { label: string; onCl
       {children}
       <span>{label}</span>
     </button>
+  );
+}
+
+/** Führen: Text und Hintergrund im Textfenster aus- bzw. einblenden */
+function LyricsControl({ hideText, hideBackground, onText, onBackground }: { hideText: boolean; hideBackground: boolean; onText: (hide: boolean) => void; onBackground: (hide: boolean) => void }) {
+  const t = texts.regie.performance;
+  const toggle = (label: string, hidden: boolean, set: (hide: boolean) => void, Icon: typeof Type, testId: string) => (
+    <button
+      type="button"
+      onClick={() => set(!hidden)}
+      aria-pressed={!hidden}
+      className={`flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg border px-2 py-1 text-sm font-semibold active:scale-95 ${hidden ? 'border-red-500 bg-red-500/15 text-red-200' : 'border-emerald-600 bg-emerald-500/10 text-emerald-200'}`}
+      title={t.lyricsControlHint}
+      data-testid={testId}
+      data-hidden={hidden || undefined}
+    >
+      {hidden ? <EyeOff size={18} className="shrink-0" aria-hidden /> : <Icon size={18} className="shrink-0" aria-hidden />}
+      <span className="flex flex-col items-start leading-tight">
+        <span>{label}</span>
+        <span className="text-xs font-normal opacity-80">{hidden ? t.lyricsHiddenState : t.lyricsShown}</span>
+      </span>
+    </button>
+  );
+  return (
+    <section className="space-y-2 rounded-xl border border-slate-700 bg-slate-900 p-3" aria-label={t.lyricsControl} data-testid="lyrics-control">
+      <span className="text-xs font-semibold tracking-wide text-slate-400 uppercase">{t.lyricsControl}</span>
+      <div className="flex gap-2">
+        {toggle(t.lyricsText, hideText, onText, Type, 'lyrics-toggle-text')}
+        {toggle(t.lyricsBackground, hideBackground, onBackground, ImageIcon, 'lyrics-toggle-background')}
+      </div>
+    </section>
   );
 }
