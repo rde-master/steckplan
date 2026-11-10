@@ -34,6 +34,7 @@ import {
   triggerCommands,
 } from '@steckplan/core';
 import type { ProjectData } from '../../lib/useProjectData';
+import { api } from '../../lib/api';
 import { texts } from '../../texts';
 import { Button } from '../ui';
 import { openLyricsWindow, useCueClock, useLocalCueSender, type ReceivedCue } from './LyricsWindow';
@@ -315,6 +316,8 @@ export function PerformanceView({
   // beim Abspielen auch die Lage der „1“ (der erste Tap); mit jedem weiteren vollen Takt erneut. Gespeichert im Lied.
   const [textHidden, setTextHidden] = useHidden('steckplan.performanceTextHidden');
   const [sideHidden, setSideHidden] = useHidden('steckplan.performanceSideHidden');
+  // Führen: Einstellungen rechts (Textfenster, Player, Lichtpult, OSC) einklappbar, je Gerät gemerkt
+  const [toolsHidden, setToolsHidden] = useHidden('steckplan.leadToolsHidden');
   const [tapState, setTapState] = useState<{ itemId: string; taps: Tap[] } | null>(null);
   const taps = tapState && tapState.itemId === item?.id ? tapState.taps : [];
   const beats = parseTimeSignature(item?.timeSignature).beats;
@@ -747,8 +750,10 @@ export function PerformanceView({
         <p className="m-auto text-slate-400">{t.empty}</p>
       ) : leadLayout ? (
         // Führen: ohne Licht/Ton – Text klein (vorige, aktuelle, nächste), Zeitstrahl, Tap und Timecode groß
-        <main className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 py-4" data-testid="lead-view">
-          <section className="space-y-1" aria-label={texts.regie.text} data-testid="lead-text">
+        // links die Bedienung (passt ohne Scrollen), rechts eine feste Spalte mit Textfenster, Player, Lichtpult und OSC
+        <main className={`grid min-h-0 flex-1 gap-5 overflow-y-auto px-6 py-4 lg:overflow-hidden ${toolsHidden ? 'lg:grid-cols-[minmax(0,1fr)_2.75rem]' : 'lg:grid-cols-[minmax(0,1fr)_19rem]'}`} data-testid="lead-view">
+          <div className="flex min-h-0 flex-col gap-3" data-testid="lead-main">
+          <section className="shrink-0 space-y-1" aria-label={texts.regie.text} data-testid="lead-text">
             {lines.length === 0 ? (
               <p className="text-slate-500">{texts.regie.noText}</p>
             ) : (
@@ -796,7 +801,9 @@ export function PerformanceView({
               if (kind === 'light') pick(s.id, s.at ?? audio.currentTime);
             }}
           />
-          <div className="flex flex-wrap items-center justify-center gap-x-12 gap-y-4">
+          {/* Tempo und Timecode: nehmen den freien Platz, mittig */}
+          <FitBox className="min-h-0 flex-1" testId="lead-center">
+          <div className="flex w-max items-center justify-center gap-x-8 2xl:gap-x-12">
             {(item.kind === 'song' || tempo.bpm !== undefined) && (
               <BeatPanel big bpm={tempo.gridBpm} displayBpm={tempo.bpm} rate={tempo.rate} manual={tempo.manual} standardBpm={item.bpm} onReset={resetTempo} onBeatStep={stepBeat} signature={item.timeSignature} offset={tempo.offset} getTime={() => audio.currentTime} playing={playing} onTap={doTap} tap={taps.length ? tapProgress(taps, beats) : null} />
             )}
@@ -813,16 +820,11 @@ export function PerformanceView({
                 </span>
               )}
             </div>
-            <div className="flex w-72 flex-col gap-3">
-              <LyricsControl hideText={hideText} hideBackground={hideBackground} onText={setHideText} onBackground={setHideBackground} />
-              {canLead && <PlayersPanel />}
-              <DeskCuePanel cues={sync.deskCues} />
-              <OscLeadPanel projectId={projectId} auto={oscAuto} onAuto={setOscAuto} manual={triggerCommands(data.oscCommands, item.id, 'manual')} log={sync.oscLog} />
-            </div>
           </div>
+          </FitBox>
           {/* nur zur Orientierung beim Weiterschalten: welche Szene dran ist und welche als Nächstes kommt */}
           {scene && (
-            <p className="text-center text-sm text-slate-400" data-testid="lead-scene">
+            <p className="shrink-0 text-center text-sm text-slate-400" data-testid="lead-scene">
               {texts.light.scenes.title}: <span className="font-semibold text-slate-200" data-testid="performance-scene">{sceneIndex + 1}. {scene.name || '–'}</span>
               {scenes[sceneIndex + 1] && (
                 <span className="ml-3">
@@ -831,7 +833,7 @@ export function PerformanceView({
               )}
             </p>
           )}
-          <div className="mx-auto grid w-full max-w-4xl grid-cols-4 gap-3">
+          <div className="mx-auto grid w-full max-w-4xl shrink-0 grid-cols-4 gap-3">
             <NavButton label={t.prevItem} onClick={() => goItem(-1)} disabled={itemIndex <= 0}>
               <ChevronsLeft size={30} aria-hidden />
             </NavButton>
@@ -845,6 +847,20 @@ export function PerformanceView({
               <ChevronsRight size={30} aria-hidden />
             </NavButton>
           </div>
+          </div>
+          {toolsHidden ? (
+            <ToolsShowButton onShow={() => setToolsHidden(false)} watchPlayers={canLead} />
+          ) : (
+          <aside className="flex min-h-0 flex-col gap-3 lg:overflow-y-auto" data-testid="lead-side">
+            <button type="button" onClick={() => setToolsHidden(true)} title={t.hideToolsTitle} className="flex shrink-0 items-center justify-end gap-1 self-end rounded-md px-2 py-1 text-xs text-slate-400 hover:bg-slate-800" data-testid="lead-side-hide">
+              {t.hideTools} <ChevronsRight size={16} aria-hidden />
+            </button>
+            <LyricsControl hideText={hideText} hideBackground={hideBackground} onText={setHideText} onBackground={setHideBackground} />
+            {canLead && <PlayersPanel />}
+            <DeskCuePanel cues={sync.deskCues} />
+            <OscLeadPanel projectId={projectId} auto={oscAuto} onAuto={setOscAuto} manual={triggerCommands(data.oscCommands, item.id, 'manual')} log={sync.oscLog} />
+          </aside>
+          )}
         </main>
       ) : (
         <main className={`grid min-h-0 flex-1 gap-4 overflow-y-auto py-4 pr-6 pl-4 lg:overflow-hidden ${textHidden && sideHidden ? 'lg:grid-cols-[2.75rem_2.75rem]' : textHidden ? 'lg:grid-cols-[2.75rem_minmax(0,1fr)]' : sideHidden ? 'lg:grid-cols-[minmax(0,1fr)_2.75rem]' : 'lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]'}`}>
@@ -1134,5 +1150,72 @@ function LyricsControl({ hideText, hideBackground, onText, onBackground }: { hid
         {toggle(t.lyricsBackground, hideBackground, onBackground, ImageIcon, 'lyrics-toggle-background')}
       </div>
     </section>
+  );
+}
+
+/**
+ * Inhalt so groß wie möglich, aber nie größer als der Platz: wird verkleinert (nicht umgebrochen), damit im Führen
+ * nichts überlappt und nichts gescrollt werden muss – auf großen Bildschirmen in voller Größe.
+ */
+function FitBox({ children, className = '', testId }: { children: ReactNode; className?: string; testId?: string }) {
+  const outer = useRef<HTMLDivElement>(null);
+  const inner = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(1);
+  useEffect(() => {
+    const o = outer.current;
+    const i = inner.current;
+    if (!o || !i) return;
+    const fit = () => {
+      // offsetWidth/-Height ohne Transformation = natürliche Größe
+      const s = Math.min(1, o.clientWidth / Math.max(1, i.offsetWidth), o.clientHeight / Math.max(1, i.offsetHeight));
+      setScale(Number.isFinite(s) && s > 0 ? s : 1);
+    };
+    fit();
+    const observer = new ResizeObserver(fit);
+    observer.observe(o);
+    observer.observe(i);
+    return () => observer.disconnect();
+  }, []);
+  return (
+    <div ref={outer} className={`relative overflow-hidden ${className}`} data-testid={testId} data-scale={scale.toFixed(2)}>
+      <div ref={inner} className="absolute top-1/2 left-1/2 w-max" style={{ transform: `translate(-50%, -50%) scale(${scale})` }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+/** Eingeklappte Einstellungen im Führen: schmale Leiste; wartet ein Player auf „Zulassen“, wird das angezeigt */
+function ToolsShowButton({ onShow, watchPlayers }: { onShow: () => void; watchPlayers: boolean }) {
+  const t = texts.regie.performance;
+  const [pairing, setPairing] = useState(0);
+  useEffect(() => {
+    if (!watchPlayers) return;
+    let alive = true;
+    const poll = () =>
+      void api
+        .players()
+        .then((o) => alive && setPairing(o.pairing.length))
+        .catch(() => undefined);
+    poll();
+    const timer = window.setInterval(poll, 3000);
+    return () => {
+      alive = false;
+      window.clearInterval(timer);
+    };
+  }, [watchPlayers]);
+  return (
+    <button
+      type="button"
+      onClick={onShow}
+      title={pairing ? t.toolsPairing(pairing) : t.showTools}
+      aria-label={t.showTools}
+      className={`flex items-center justify-center gap-2 rounded-md border py-2 text-sm hover:bg-slate-800 lg:flex-col lg:justify-start lg:py-4 ${pairing ? 'border-amber-500 text-amber-200' : 'border-slate-700 text-slate-300'}`}
+      data-testid="lead-side-show"
+    >
+      <ChevronsLeft size={20} aria-hidden />
+      {pairing > 0 && <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-amber-400" data-testid="lead-side-pairing" aria-hidden />}
+      <span className="lg:[writing-mode:vertical-rl]">{pairing ? t.toolsPairing(pairing) : t.toolsShort}</span>
+    </button>
   );
 }

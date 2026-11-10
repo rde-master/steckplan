@@ -290,13 +290,13 @@ export function TimecodePanel({
   const duration = own.duration;
   const remaining = Number.isFinite(duration) ? Math.max(0, duration - time) : undefined;
   const button = huge
-    ? 'flex min-h-16 min-w-16 items-center justify-center rounded-xl border border-slate-700 bg-slate-900 px-3 text-xl font-semibold tabular-nums text-slate-100 hover:bg-slate-800 active:scale-95'
+    ? 'flex min-h-12 min-w-12 items-center justify-center rounded-xl border border-slate-700 bg-slate-900 px-2.5 text-lg font-semibold tabular-nums text-slate-100 hover:bg-slate-800 active:scale-95 2xl:min-h-16 2xl:min-w-16 2xl:px-3 2xl:text-xl'
     : `rounded tabular-nums text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 ${large ? 'min-h-9 min-w-9 px-2 py-1.5 text-sm' : 'px-1.5 py-1 text-xs'}`;
-  const icon = huge ? 34 : large ? 20 : 16;
+  const icon = huge ? 28 : large ? 20 : 16;
   return (
-    <div className={`flex shrink-0 flex-col gap-1 ${huge ? 'items-center gap-3' : 'items-end'}`} data-testid="timecode-panel">
+    <div className={`flex flex-col gap-1 ${huge ? 'min-w-0 items-center gap-3' : 'shrink-0 items-end'}`} data-testid="timecode-panel">
       <div className={`flex flex-wrap items-center gap-0.5 ${huge ? 'justify-center gap-2' : 'justify-end'} ${follow ? 'hidden' : ''}`}>
-        <label className={`mr-1 flex items-center gap-1 text-slate-600 dark:text-slate-300 ${huge ? 'text-base' : large ? 'text-sm' : 'text-xs'}`} title={t.tcSyncHint}>
+        <label className={`mr-1 flex items-center gap-1 text-slate-600 dark:text-slate-300 ${huge ? 'w-full justify-center text-base 2xl:w-auto' : large ? 'text-sm' : 'text-xs'}`} title={t.tcSyncHint}>
           <input type="checkbox" checked={sync} onChange={(e) => setTimecodeSync(e.target.checked)} />
           {t.tcSync}
         </label>
@@ -317,9 +317,9 @@ export function TimecodePanel({
           </button>
         ))}
       </div>
-      <TimecodeClock time={time} className={huge ? 'px-6 py-3 text-5xl sm:text-7xl' : large ? 'px-4 py-2 text-3xl sm:text-5xl' : ''} />
+      <TimecodeClock time={time} className={huge ? 'px-5 py-2.5 text-5xl 2xl:px-6 2xl:py-3 2xl:text-7xl' : large ? 'px-4 py-2 text-3xl sm:text-5xl' : ''} />
       {remaining !== undefined && (
-        <span className={`font-mono font-bold tabular-nums text-red-500 ${huge ? 'text-2xl sm:text-4xl' : large ? 'text-xl sm:text-3xl' : 'text-base'}`} title={t.tcRemaining} data-testid="timecode-remaining">
+        <span className={`font-mono font-bold tabular-nums text-red-500 ${huge ? 'text-3xl 2xl:text-4xl' : large ? 'text-xl sm:text-3xl' : 'text-base'}`} title={t.tcRemaining} data-testid="timecode-remaining">
           −{formatTimecode(remaining)}
         </span>
       )}
