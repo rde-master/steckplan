@@ -93,6 +93,9 @@ describe('Medien', () => {
     const zip = await server.app.inject({ method: 'GET', url: `/api/projects/${id}/download?medien=1`, headers: { cookie: edit } });
     expect(zip.headers['content-type']).toBe('application/zip');
     expect(zip.headers['content-disposition']).toContain('Medien.steckplan.zip');
+    // feste Größe und kein Zwischenpuffern im Reverse Proxy (große Downloads)
+    expect(Number(zip.headers['content-length'])).toBe(zip.rawPayload.length);
+    expect(zip.headers['x-accel-buffering']).toBe('no');
     const files = unzipSync(new Uint8Array(zip.rawPayload));
     expect(Object.keys(files).sort()).toEqual(['Medien.steckplan', `medien/${info.id}`]);
     expect(Buffer.from(files[`medien/${info.id}`]!).equals(data)).toBe(true);

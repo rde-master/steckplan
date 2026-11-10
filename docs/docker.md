@@ -137,6 +137,19 @@ Die Daten im Volume bleiben dabei erhalten. Vorher eine Sicherung des Volumes an
 
 Für Zugriff außerhalb des eigenen Netzes den Container **nur hinter einem Reverse-Proxy mit HTTPS** betreiben, damit Passwörter nicht unverschlüsselt übertragen werden – am einfachsten mit [`docker-compose.https.yml`](../apps/docker/docker-compose.https.yml) (Caddy). Andere Proxys (Traefik, nginx) gehen genauso; wichtig sind die Weiterleitung von WebSockets (für die Live-Verbindung) und `STECKPLAN_TRUST_PROXY=true`.
 
+Große Medien (Audio, Videos) gehen in Teilen zu je 4 MB hoch und als Datenstrom herunter („Mit Medien herunterladen“).
+Bei **nginx** bzw. **Nginx Proxy Manager** daher in der Proxy-Konfiguration (NPM: Reiter „Advanced“) eintragen:
+
+```nginx
+client_max_body_size 16m;   # Teile beim Hochladen
+proxy_buffering off;        # Downloads nicht zwischenspeichern (bricht sonst bei großen Dateien ab)
+proxy_read_timeout 600s;
+proxy_send_timeout 600s;
+```
+
+Steckplan sendet bei großen Downloads selbst `X-Accel-Buffering: no` und die Größe vorab; die Einstellungen oben
+helfen zusätzlich bei älteren oder anders eingestellten Proxys.
+
 ## Desktop-App mit dem Server verbinden
 
 Unter **Einstellungen** (nur mit Bearbeiten-Zugang) einen Desktop-Zugangsschlüssel erzeugen und in der Desktop-App unter „Mit Server verbinden …“ zusammen mit der Adresse des Servers eintragen.
