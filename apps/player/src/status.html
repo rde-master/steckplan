@@ -2,7 +2,7 @@
 <html lang="de">
   <head>
     <meta charset="utf-8" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'" />
     <title>Steckplan Player</title>
     <style>
       :root {
@@ -35,10 +35,13 @@
       input { font: inherit; font-size: 1.4vw; color: var(--text); background: #0f172a; border: 1px solid #334155; border-radius: 0.6vw; padding: 0.8vh 1vw; width: 22vw; }
       .error { color: var(--bad); font-size: 1.5vw; }
       .ok { color: var(--ok); }
+      .brand { position: fixed; top: 4vh; left: 0; right: 0; display: flex; align-items: center; justify-content: center; gap: 1.2vw; font-size: 2.2vw; font-weight: 600; color: var(--muted); }
+      .brand img { width: 4.5vw; height: 4.5vw; }
       footer { position: fixed; bottom: 2vh; left: 0; right: 0; text-align: center; font-size: 1vw; color: var(--faint); }
     </style>
   </head>
   <body>
+    <div class="brand" data-testid="player-logo"><img src="logo.png" alt="" />Steckplan Player</div>
     <main id="screen" data-testid="player-status"></main>
     <footer id="footer"></footer>
     <script>

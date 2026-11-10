@@ -64,6 +64,7 @@ export function PlayerPage() {
       ))}
       {!shown && (
         <div className="flex h-full flex-col items-center justify-center gap-4 text-center" data-testid="player-ready">
+          <img src="/icon.png" alt="" className="mb-[2vh] h-[14vw] w-[14vw] drop-shadow-[0_0_3vw_rgb(56_189_248/0.25)]" data-testid="player-logo" />
           <div className="flex items-center gap-4 text-[5vw] font-semibold text-emerald-400">
             <span className="inline-block h-[3vw] w-[3vw] rounded-full bg-emerald-500 shadow-[0_0_2vw_rgb(16_185_129/0.7)]" aria-hidden />
             {error ? t.notReady : t.ready}
