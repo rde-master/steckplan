@@ -93,3 +93,23 @@ describe('Player: Zwischenspeicher', () => {
     expect(cache.get('p3', 'b')).toBeUndefined();
   });
 });
+
+describe('Player: Netzwerk', () => {
+  it('IP-Adressen ohne „dieser Rechner“ und 169.254; WLAN-Name aus den Bordmitteln', async () => {
+    const { localAddresses, parseMacWifi, parseMacWifiDevice, parseNetsh, parseNmcli } = await import('./network');
+    expect(
+      localAddresses({
+        WLAN: [{ address: '192.168.1.23', netmask: '255.255.255.0', family: 'IPv4', internal: false, mac: '', cidr: null }],
+        Ethernet: [{ address: '169.254.3.4', netmask: '255.255.0.0', family: 'IPv4', internal: false, mac: '', cidr: null }],
+        lo: [{ address: '127.0.0.1', netmask: '255.0.0.0', family: 'IPv4', internal: true, mac: '', cidr: null }],
+      }),
+    ).toEqual([{ name: 'WLAN', address: '192.168.1.23' }]);
+    expect(parseNetsh('    Name                   : WLAN\r\n    BSSID                  : aa:bb\r\n    SSID                   : Bühne 5G\r\n    Status                 : Verbunden\r\n')).toBe('Bühne 5G');
+    expect(parseNetsh('Es ist keine drahtlose Schnittstelle vorhanden.')).toBeUndefined();
+    expect(parseMacWifi('Current Wi-Fi Network: Halle\n')).toBe('Halle');
+    expect(parseMacWifi('  SSID : Saal\n')).toBe('Saal');
+    expect(parseMacWifi('  SSID : <redacted>\n')).toBeUndefined();
+    expect(parseMacWifiDevice('Hardware Port: Ethernet\nDevice: en1\n\nHardware Port: Wi-Fi\nDevice: en0\n')).toBe('en0');
+    expect(parseNmcli('no:Nachbar\nyes:Technik\\:Netz\n')).toBe('Technik:Netz');
+  });
+});

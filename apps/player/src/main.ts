@@ -9,6 +9,7 @@ import { PLAYER_COOKIE, PLAYER_HEARTBEAT_MS, VERSION, type PlayerCatalog, type P
 import { MediaCache } from './cache';
 import { ConfigStore } from './config';
 import { DiscoveryClient, parseAddress, type FoundServer } from './discovery';
+import { networkInfo, type NetworkInfo } from './network';
 
 const MEDIA_SCHEME = 'steckplan-media';
 protocol.registerSchemesAsPrivileged([{ scheme: MEDIA_SCHEME, privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true, bypassCSP: true, corsEnabled: true } }]);
@@ -422,6 +423,18 @@ if (!app.requestSingleInstanceLock()) {
     });
     ipcMain.handle('player:manual', (_e, address: unknown) => (typeof address === 'string' ? player.manual(address) : undefined));
     ipcMain.handle('player:retry', () => player.start());
+
+    // Netzwerk (verbunden?, IP, WLAN) für Statusseite und „Bereit“ – alle 10 s, bei Änderung an die Seite
+    let network: NetworkInfo = { connected: false, addresses: [] };
+    ipcMain.handle('player:network', () => network);
+    const updateNetwork = async () => {
+      const next = await networkInfo().catch(() => network);
+      if (JSON.stringify(next) === JSON.stringify(network)) return;
+      network = next;
+      if (!win.isDestroyed()) win.webContents.send('player:network', network);
+    };
+    await updateNetwork();
+    setInterval(() => void updateNetwork(), 10_000);
 
     // Tasten: beenden, Vollbild, neu synchronisieren, andere Steuersoftware wählen
     win.webContents.on('before-input-event', (event, input) => {
