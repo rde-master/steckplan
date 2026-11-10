@@ -1,9 +1,9 @@
 // Textfenster als eigene Seite: zentrierter Text, fünf Zeilen, Vollbild per Antippen.
 // Folgt der Person, die in der Vorstellung führt; im selben Browser auch der eigenen Vorstellung.
 import { useEffect, useState } from 'react';
-import { currentLineId, FADE_SEC_DEFAULT, itemTimedLines, itemSections, lyricsImages, lyricsRange, sectionBackground, SLIDE_SEC_DEFAULT, slideIndex } from '@steckplan/core';
+import { currentLineId, effectiveBackground, itemTimedLines, itemSections, lyricsRange, sectionBackground } from '@steckplan/core';
+import { LyricsBackgroundView } from '../components/regie/LyricsBackgroundView';
 import { LyricsDisplay, useCueClock, useLocalCue, type ReceivedCue } from '../components/regie/LyricsWindow';
-import { api } from '../lib/api';
 import { useProjectData } from '../lib/useProjectData';
 import { useProjectDoc } from '../lib/useProjectDoc';
 import { texts } from '../texts';
@@ -27,18 +27,13 @@ function useFullscreen(): boolean {
   return on;
 }
 
-/** Aktuelles Bild der Diashow (wechselt nach der Standzeit) */
-function useSlide(count: number, slideSec: number): number {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    if (count <= 1) return;
-    const timer = window.setInterval(() => setNow(Date.now()), 250);
-    return () => window.clearInterval(timer);
-  }, [count]);
-  return slideIndex(now, count, slideSec);
+/** Im Steckplan Player: mehrere Textfenster vorgeladen, sichtbar nur das, in dem geführt wird */
+export interface PlayerEmbedding {
+  visible: boolean;
+  onLead: (projectId: string, leading: boolean) => void;
 }
 
-export function LyricsPage({ id }: { id: string }) {
+export function LyricsPage({ id, player }: { id: string; player?: PlayerEmbedding }) {
   const project = useProjectDoc(id);
   const data = useProjectData(project?.doc);
   const state = project?.state;
@@ -47,6 +42,11 @@ export function LyricsPage({ id }: { id: string }) {
   const cue: ReceivedCue | null = lead ? { ...lead, receivedAt: state?.leadReceivedAt ?? 0 } : local;
   const time = useCueClock(cue);
   const fullscreen = useFullscreen();
+  const onLead = player?.onLead;
+  const leading = lead !== null;
+  useEffect(() => {
+    onLead?.(id, leading);
+  }, [onLead, id, leading]);
 
   const item = cue ? data.show.items.find((i) => i.id === cue.itemId) : undefined;
   const lines = item ? itemTimedLines(data.show.sections, item) : [];
@@ -57,44 +57,36 @@ export function LyricsPage({ id }: { id: string }) {
   const roleNames = new Map((item?.roles ?? []).map((r) => [r.id, r.name]));
   const roleColors = new Map((item?.roles ?? []).flatMap((r) => (r.color ? [[r.id, r.color] as const] : [])));
 
+  const visible = player ? player.visible : true;
   useEffect(() => {
-    document.title = title ? `${t.title} – ${title}` : t.title;
-  }, [title]);
+    if (visible) document.title = title ? `${t.title} – ${title}` : t.title;
+  }, [title, visible]);
 
   const status = state?.status;
   const message = status === 'kicked' ? (state?.notice ?? texts.project.kicked) : status === 'unauthorized' || status === 'notFound' ? t.noAccess : !item ? (lead || local ? t.waiting : t.nobodyLeads) : null;
 
   // Ende des Punkts erreicht (Dauer) → Text ausblenden, sofern nicht abgeschaltet
   const ended = !!item && item.lyricsHideAtEnd !== false && item.durationSec !== undefined && time !== undefined && time >= item.durationSec - 0.05;
-  // Hintergrund nach dem Abschnitt der aktuellen (bzw. vor dem Start: der ersten) Zeile; sonst Standardbild
-  const standard = data.showSettings.lyricsBackground;
-  const dim = standard?.dim ?? 0.5;
+  // Hintergrund: Bild des aktuellen Abschnitts (bzw. vor dem Start: des ersten), sonst der des Eintrags bzw. der Standard
   const sections = item ? itemSections(data.show.sections, item.id) : [];
   const sectionId = (lines.find((l) => l.line.id === current) ?? lines[0])?.sectionId;
-  // Standard-Hintergrund: ein Bild oder eine Diashow (nach der Wanduhr, auf allen Geräten gleich)
-  const slides = lyricsImages(standard);
-  const slide = useSlide(slides.length, standard?.slideSec ?? SLIDE_SEC_DEFAULT);
   const sectionImage = sectionBackground(sections, sectionId, undefined);
-  const activeBackground = sectionImage ?? slides[slide];
-  const fadeMs = Math.round((standard?.fadeSec ?? FADE_SEC_DEFAULT) * 1000);
-  // alle Bilder übereinander (vorgeladen), sichtbar nur das aktive – weich überblendet
+  const { background, own } = effectiveBackground(data.showSettings, item);
   // beim Führen ausgeblendet: Hintergrund (schwarz) bzw. Text – weich
   const backgroundOff = cue?.hideBackground === true;
   const textOff = cue?.hideText === true;
-  const layers = [...new Set([...slides, ...sections.map((s) => s.backgroundMediaId)].filter((x): x is string => !!x))];
 
+  // im Player: unsichtbare Fenster halten nur die Verbindung (Texte aktuell), zeigen aber nichts
+  if (!visible) return null;
   return (
-    <div className="dark fixed inset-0 cursor-pointer overflow-hidden bg-slate-950 text-slate-100 select-none" onClick={toggleFullscreen} title={t.fullscreenHint} data-testid="lyrics-page">
-      {layers.map((mediaId) => (
-        <div
-          key={mediaId}
-          className="absolute inset-0 bg-cover bg-center transition-opacity ease-in-out"
-          style={{ backgroundImage: `url("${api.mediaUrl(id, mediaId)}")`, opacity: mediaId === activeBackground && !backgroundOff ? 1 : 0, transitionDuration: `${backgroundOff || sectionImage ? 700 : fadeMs}ms` }}
-          data-testid={mediaId === activeBackground && !backgroundOff ? 'lyrics-background' : undefined}
-          data-media={mediaId}
-        />
-      ))}
-      {activeBackground && !backgroundOff && <div className="absolute inset-0 bg-black" style={{ opacity: dim }} />}
+    <div
+      className={`dark fixed inset-0 overflow-hidden bg-slate-950 text-slate-100 select-none ${player ? 'cursor-none' : 'cursor-pointer'}`}
+      onClick={player ? undefined : toggleFullscreen}
+      title={player ? undefined : t.fullscreenHint}
+      data-testid="lyrics-page"
+    >
+      {/* eigener Hintergrund des Eintrags beginnt mit dem Eintrag neu */}
+      <LyricsBackgroundView key={own ? `item-${item?.id}` : 'standard'} projectId={id} media={data.media} background={background} own={own} sectionImage={sectionImage} off={backgroundOff} />
       <div className={`relative h-full transition-opacity duration-700 ${textOff && !message ? 'opacity-0' : 'opacity-100'}`} data-testid={textOff && !message ? 'lyrics-text-off' : undefined}>
       {message ? (
         <div className="flex h-full flex-col items-center justify-center gap-4 p-8 text-center text-[3vw] text-slate-500">
@@ -130,7 +122,7 @@ export function LyricsPage({ id }: { id: string }) {
         </div>
       )}
       </div>
-      {!fullscreen && <div className="pointer-events-none absolute right-0 bottom-2 left-0 text-center text-sm text-slate-500">{t.fullscreenHint}</div>}
+      {!fullscreen && !player && <div className="pointer-events-none absolute right-0 bottom-2 left-0 text-center text-sm text-slate-500">{t.fullscreenHint}</div>}
     </div>
   );
 }

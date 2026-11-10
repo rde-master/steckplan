@@ -29,6 +29,10 @@ import { udpOscOut, type OscOut } from './osc/bpm-out';
 import { OscListener, OscSettingsStore } from './osc/listener';
 import { DeskCueStore } from './osc/desk-cues';
 import { registerRemoteRoutes } from './routes/remote';
+import { registerPlayerRoutes } from './routes/players';
+import type { PlayerStore } from './auth/players';
+import { DiscoveryResponder } from './discovery';
+import { playerSessionId } from './auth/plugin';
 
 export interface ServerOptions {
   /** Betriebsart: eingebettet in der Desktop-App oder eigenständig (Docker). */
@@ -69,6 +73,10 @@ export interface ServerOptions {
   changeLogWindowMs?: number;
   /** Abstand der Lebenszeichen (Ping) auf WebSocket-Verbindungen; 0 = aus. Standard 25 s */
   keepAliveMs?: number;
+  /** Steckplan Player: gekoppelte Geräte (ohne: keine Player) */
+  players?: PlayerStore;
+  /** Suche für Player (UDP): HTTP-Port, den Player erreichen (null = gerade nicht antworten); ohne: keine Suche */
+  discovery?: { port: () => number | null; udpPort?: number };
 }
 
 export interface ConnectedPerson {
@@ -88,6 +96,8 @@ export interface SteckplanServer {
   connectedPeople(): ConnectedPerson[];
   /** Sitzungen beenden und Verbindungen trennen (z. B. „Trennen“ oder Weboberfläche beendet). */
   endSessions(predicate: (session: Session) => boolean, reason: string): number;
+  /** Suche für Player (läuft, wenn eingerichtet) */
+  discovery: DiscoveryResponder | null;
 }
 
 export async function createServer(options: ServerOptions): Promise<SteckplanServer> {
@@ -148,7 +158,22 @@ export async function createServer(options: ServerOptions): Promise<SteckplanSer
   );
   await osc.apply(oscSettings.settings);
 
+  // Suche für Player (UDP)
+  const discovery =
+    options.players && options.discovery
+      ? new DiscoveryResponder({
+          serverId: () => options.players!.serverId,
+          mode: options.mode,
+          port: options.discovery.port,
+          ...(options.discovery.udpPort !== undefined ? { udpPort: options.discovery.udpPort } : {}),
+          log: { warn: (msg) => app.log.warn(msg) },
+        })
+      : null;
+  await discovery?.start();
+
   app.addHook('onClose', async () => {
+    await discovery?.close();
+    await options.players?.flush();
     await osc.close();
     events.closeAll();
     await rooms.closeAll('Server wird beendet');
@@ -164,6 +189,7 @@ export async function createServer(options: ServerOptions): Promise<SteckplanSer
     passwords: options.passwords,
     rateLimiter: options.rateLimiter,
     ...(options.desktopKeys ? { desktopKeys: options.desktopKeys } : {}),
+    ...(options.players ? { players: options.players } : {}),
     onLogout: (session) => {
       rooms.disconnectSession(session.id);
       events.disconnectSession(session.id);
@@ -219,6 +245,23 @@ export async function createServer(options: ServerOptions): Promise<SteckplanSer
       },
     });
   }
+  if (options.players) {
+    registerPlayerRoutes(app, {
+      players: options.players,
+      store: options.store,
+      mode: options.mode,
+      project: async (id) => {
+        const room = rooms.peek(id);
+        return room ? room.currentProject() : options.store.load(id);
+      },
+      leadingProjectId: () => rooms.leadingProjectId(),
+      discoverable: () => discovery?.active ?? false,
+      disconnect: (playerId) => {
+        rooms.disconnectSession(playerSessionId(playerId), 'Der Player wurde entfernt.');
+        events.disconnectSession(playerSessionId(playerId));
+      },
+    });
+  }
   registerLibraryRoutes(app, { library: options.library, usage: options.usage });
   if (options.desktopKeys) {
     registerSettingsRoutes(app, {
@@ -269,5 +312,5 @@ export async function createServer(options: ServerOptions): Promise<SteckplanSer
     return removed.length;
   }
 
-  return { app, rooms, events, connectedPeople, endSessions };
+  return { app, rooms, events, connectedPeople, endSessions, discovery };
 }

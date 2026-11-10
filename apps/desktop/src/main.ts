@@ -217,6 +217,8 @@ if (!app.requestSingleInstanceLock()) {
         uiDir: join(__dirname, 'ui'),
         userName: settings.name,
         passwords: () => webAccess?.passwords() ?? null,
+        networkPort: () => webAccess?.networkPort ?? null,
+        ...(process.env.STECKPLAN_DISCOVERY_PORT ? { discoveryPort: Number(process.env.STECKPLAN_DISCOVERY_PORT) } : {}),
       });
       webAccess = new WebAccess(server, settings);
     } catch (error) {

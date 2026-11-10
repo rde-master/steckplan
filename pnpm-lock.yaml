@@ -66,6 +66,21 @@ importers:
         specifier: ^9.0.0
         version: 9.0.0(jiti@2.7.0)(postcss@8.5.32)(tsx@4.23.15)(typescript@6.0.3)
 
+  apps/player:
+    devDependencies:
+      '@steckplan/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      electron:
+        specifier: ^45.2.1
+        version: 45.2.1
+      electron-builder:
+        specifier: ^26.18.0
+        version: 26.18.0(electron-builder-squirrel-windows@26.18.0)
+      tsup:
+        specifier: ^9.0.0
+        version: 9.0.0(jiti@2.7.0)(postcss@8.5.32)(tsx@4.23.15)(typescript@6.0.3)
+
   packages/core:
     dependencies:
       lib0:

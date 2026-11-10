@@ -8,7 +8,7 @@ import { writeFileAtomic } from '../storage/fs-utils';
 export const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const TOUCH_INTERVAL_MS = 60 * 60 * 1000;
 
-export type SessionVia = 'desktop' | 'browser' | 'desktopKey';
+export type SessionVia = 'desktop' | 'browser' | 'desktopKey' | 'player';
 
 export interface Session {
   id: string;

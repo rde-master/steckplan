@@ -394,8 +394,8 @@ export function updateShowItem(doc: Y.Doc, id: string, patch: Partial<Omit<ShowI
 export function removeShowItem(doc: Y.Doc, id: string, origin: unknown): void {
   doc.transact(() => {
     pinItemNumbers(doc);
+    const backgrounds = new Set<string>(lyricsImages(readShow(doc).items.find((i) => i.id === id)?.lyricsBackground));
     itemsMap(doc).delete(id);
-    const backgrounds = new Set<string>();
     for (const s of readShow(doc).sections) {
       if (s.itemId !== id) continue;
       if (s.backgroundMediaId) backgrounds.add(s.backgroundMediaId);
@@ -458,36 +458,50 @@ export function updateShowSettings(doc: Y.Doc, patch: Partial<ShowSettings>, ori
   doc.transact(() => setFields(doc.getMap('showSettings'), patch), origin);
 }
 
-/**
- * Hintergrundbild des Textfensters setzen (Verweis im Projekt, damit die Datei erhalten bleibt) bzw. entfernen (null).
- * Ein ersetztes oder entferntes Bild verliert seinen Verweis, wenn es sonst nirgends verwendet wird.
- */
-export function setLyricsBackground(doc: Y.Doc, ref: MediaRef | null, origin: unknown, dim = 0.5): void {
-  doc.transact(() => {
-    const settings = doc.getMap('showSettings');
-    const media = doc.getMap<Y.Map<unknown>>('media');
-    const old = (settings.get('lyricsBackground') as { mediaId?: string } | undefined)?.mediaId;
-    if (ref) {
-      if (!media.has(ref.id)) {
-        const map = new Y.Map<unknown>();
-        media.set(ref.id, map);
-        setFields(map, { ...ref });
-      }
-      const current = settings.get('lyricsBackground') as LyricsBackground | undefined;
-      settings.set('lyricsBackground', { ...current, mediaId: ref.id, dim });
-    } else settings.delete('lyricsBackground');
-    if (old && old !== ref?.id && !mediaInUse(doc, old)) media.delete(old);
-  }, origin);
-}
-
-/** Abdunkeln des Hintergrundbilds ändern (0–1) */
-// ---------- Diashow im Textfenster ----------
+// ---------- Hintergrund des Textfensters: Bilder und Videos (Standard bzw. je Eintrag) ----------
 
 export type LyricsBackground = NonNullable<ShowSettings['lyricsBackground']>;
 export const SLIDE_SEC_DEFAULT = 8;
 export const FADE_SEC_DEFAULT = 1.5;
 
-/** Alle Bilder des Standard-Hintergrunds in Reihenfolge (eins = Einzelbild, mehrere = Diashow) */
+/** Ohne itemId: der Standard-Hintergrund (Regie-Einstellungen); mit: der eigene Hintergrund dieses Eintrags */
+function readBackground(doc: Y.Doc, itemId?: string): LyricsBackground | undefined {
+  if (itemId) return itemsMap(doc).get(itemId)?.get('lyricsBackground') as LyricsBackground | undefined;
+  return doc.getMap('showSettings').get('lyricsBackground') as LyricsBackground | undefined;
+}
+
+function storeBackground(doc: Y.Doc, bg: LyricsBackground | undefined, itemId?: string): void {
+  const map = itemId ? itemsMap(doc).get(itemId) : doc.getMap('showSettings');
+  if (!map) return;
+  if (bg) map.set('lyricsBackground', bg);
+  else map.delete('lyricsBackground');
+}
+
+function registerMedia(doc: Y.Doc, ref: MediaRef): void {
+  const media = doc.getMap<Y.Map<unknown>>('media');
+  if (media.has(ref.id)) return;
+  const map = new Y.Map<unknown>();
+  media.set(ref.id, map);
+  setFields(map, { ...ref });
+}
+
+/**
+ * Hintergrund des Textfensters setzen (Verweis im Projekt, damit die Datei erhalten bleibt) bzw. entfernen (null).
+ * Eine ersetzte oder entfernte Datei verliert ihren Verweis, wenn sie sonst nirgends verwendet wird.
+ */
+export function setLyricsBackground(doc: Y.Doc, ref: MediaRef | null, origin: unknown, dim = 0.5, itemId?: string): void {
+  doc.transact(() => {
+    const current = readBackground(doc, itemId);
+    const old = current?.mediaId;
+    if (ref) {
+      registerMedia(doc, ref);
+      storeBackground(doc, { ...current, mediaId: ref.id, dim }, itemId);
+    } else storeBackground(doc, undefined, itemId);
+    if (old && old !== ref?.id && !mediaInUse(doc, old)) doc.getMap('media').delete(old);
+  }, origin);
+}
+
+/** Alle Bilder/Videos eines Hintergrunds in Reihenfolge (eins = Einzelbild bzw. -video, mehrere = Diashow/Liste) */
 export function lyricsImages(bg: Pick<LyricsBackground, 'mediaId' | 'slides'> | undefined): string[] {
   return bg ? [bg.mediaId, ...(bg.slides ?? []).filter((id) => id !== bg.mediaId)] : [];
 }
@@ -498,66 +512,86 @@ export function slideIndex(nowMs: number, count: number, slideSec = SLIDE_SEC_DE
   return Math.floor(nowMs / 1000 / Math.max(1, slideSec)) % count;
 }
 
-function writeImages(doc: Y.Doc, images: string[], patch: Partial<LyricsBackground> = {}): void {
-  const settings = doc.getMap('showSettings');
-  const current = settings.get('lyricsBackground') as LyricsBackground | undefined;
+/** Ist die Datei ein Video (nach dem MIME-Typ bzw. der Endung)? */
+export function isVideoMedia(ref: Pick<MediaRef, 'mime' | 'name'> | undefined): boolean {
+  if (!ref) return false;
+  if (ref.mime) return ref.mime.startsWith('video/');
+  return /\.(mp4|m4v|webm|mov|mkv|ogv)$/i.test(ref.name);
+}
+
+/** Welcher Hintergrund gilt für einen Eintrag: sein eigener, sonst der Standard */
+export function effectiveBackground(settings: Pick<ShowSettings, 'lyricsBackground'> | undefined, item: Pick<ShowItem, 'lyricsBackground'> | undefined): { background: LyricsBackground | undefined; own: boolean } {
+  if (item?.lyricsBackground) return { background: item.lyricsBackground, own: true };
+  return { background: settings?.lyricsBackground, own: false };
+}
+
+/** Nur Dateien behalten, die es gibt (Import); ohne übrige Datei kein Hintergrund */
+export function keepBackgroundMedia(bg: LyricsBackground | undefined, has: (mediaId: string) => boolean): LyricsBackground | undefined {
+  if (!bg) return undefined;
+  const [first, ...rest] = lyricsImages(bg).filter(has);
+  if (!first) return undefined;
+  const { slides: _slides, ...base } = bg;
+  return { ...base, mediaId: first, ...(rest.length ? { slides: rest } : {}) };
+}
+
+function writeImages(doc: Y.Doc, images: string[], patch: Partial<LyricsBackground> = {}, itemId?: string): void {
+  const current = readBackground(doc, itemId);
   if (images.length === 0) {
-    settings.delete('lyricsBackground');
+    storeBackground(doc, undefined, itemId);
     return;
   }
   const [first, ...rest] = images;
   const { slides: _s, ...base } = { dim: 0.5, ...current, ...patch };
-  settings.set('lyricsBackground', { ...base, mediaId: first!, ...(rest.length ? { slides: rest } : {}) });
+  const defined = Object.fromEntries(Object.entries(base).filter(([, v]) => v !== undefined)) as Omit<LyricsBackground, 'mediaId' | 'slides'>;
+  storeBackground(doc, { ...defined, mediaId: first!, ...(rest.length ? { slides: rest } : {}) }, itemId);
 }
 
-/** Bild an die Diashow anhängen (ohne Hintergrund: wird das erste Bild) */
-export function addLyricsSlide(doc: Y.Doc, ref: MediaRef, origin: unknown): void {
+/** Bild/Video anhängen (ohne Hintergrund: wird das erste) */
+export function addLyricsSlide(doc: Y.Doc, ref: MediaRef, origin: unknown, itemId?: string): void {
   doc.transact(() => {
-    const media = doc.getMap<Y.Map<unknown>>('media');
-    if (!media.has(ref.id)) {
-      const map = new Y.Map<unknown>();
-      media.set(ref.id, map);
-      setFields(map, { ...ref });
-    }
-    const images = lyricsImages(doc.getMap('showSettings').get('lyricsBackground') as LyricsBackground | undefined);
-    if (!images.includes(ref.id)) writeImages(doc, [...images, ref.id]);
+    registerMedia(doc, ref);
+    const images = lyricsImages(readBackground(doc, itemId));
+    if (!images.includes(ref.id)) writeImages(doc, [...images, ref.id], {}, itemId);
   }, origin);
 }
 
-/** Bild aus der Diashow entfernen (das nächste rückt nach); nicht mehr verwendete Datei verliert ihren Verweis */
-export function removeLyricsSlide(doc: Y.Doc, mediaId: string, origin: unknown): void {
+/** Bild/Video entfernen (das nächste rückt nach); nicht mehr verwendete Datei verliert ihren Verweis */
+export function removeLyricsSlide(doc: Y.Doc, mediaId: string, origin: unknown, itemId?: string): void {
   doc.transact(() => {
-    const images = lyricsImages(doc.getMap('showSettings').get('lyricsBackground') as LyricsBackground | undefined);
+    const images = lyricsImages(readBackground(doc, itemId));
     writeImages(
       doc,
       images.filter((id) => id !== mediaId),
+      {},
+      itemId,
     );
     if (!mediaInUse(doc, mediaId)) doc.getMap('media').delete(mediaId);
   }, origin);
 }
 
-/** Bild in der Diashow nach vorn (-1) bzw. hinten (1) */
-export function moveLyricsSlide(doc: Y.Doc, mediaId: string, delta: -1 | 1, origin: unknown): void {
-  const images = lyricsImages(doc.getMap('showSettings').get('lyricsBackground') as LyricsBackground | undefined);
+/** Bild/Video nach vorn (-1) bzw. hinten (1) */
+export function moveLyricsSlide(doc: Y.Doc, mediaId: string, delta: -1 | 1, origin: unknown, itemId?: string): void {
+  const images = lyricsImages(readBackground(doc, itemId));
   const i = images.indexOf(mediaId);
   const j = i + delta;
   if (i < 0 || j < 0 || j >= images.length) return;
   [images[i], images[j]] = [images[j]!, images[i]!];
-  doc.transact(() => writeImages(doc, images), origin);
+  doc.transact(() => writeImages(doc, images, {}, itemId), origin);
 }
 
-/** Standzeit je Bild und Überblendung (Sekunden) */
-export function setLyricsSlideTiming(doc: Y.Doc, patch: { slideSec?: number; fadeSec?: number }, origin: unknown): void {
-  const images = lyricsImages(doc.getMap('showSettings').get('lyricsBackground') as LyricsBackground | undefined);
+/** Standzeit je Bild, Überblendung (Sekunden) und Ablauf (Schleife / einmalig) */
+export function setLyricsSlideTiming(doc: Y.Doc, patch: { slideSec?: number; fadeSec?: number; loop?: boolean }, origin: unknown, itemId?: string): void {
+  const images = lyricsImages(readBackground(doc, itemId));
   if (images.length === 0) return;
-  doc.transact(() => writeImages(doc, images, patch), origin);
+  // Schleife ist Standard: nur „einmalig“ wird gespeichert
+  const clean = 'loop' in patch ? { ...patch, loop: patch.loop === false ? false : undefined } : patch;
+  doc.transact(() => writeImages(doc, images, clean, itemId), origin);
 }
 
-export function setLyricsBackgroundDim(doc: Y.Doc, dim: number, origin: unknown): void {
-  const settings = doc.getMap('showSettings');
-  const current = settings.get('lyricsBackground') as { mediaId: string; dim: number } | undefined;
+export function setLyricsBackgroundDim(doc: Y.Doc, dim: number, origin: unknown, itemId?: string): void {
+  const current = readBackground(doc, itemId);
   if (!current) return;
-  doc.transact(() => settings.set('lyricsBackground', { ...current, dim: Math.min(1, Math.max(0, dim)) }), origin);
+  doc.transact(() => storeBackground(doc, { ...current, dim: Math.min(1, Math.max(0, dim)) }, itemId), origin);
 }
 
 /** Neuer Abschnitt am Ende des Eintrags bzw. nach afterId. */
@@ -687,11 +721,12 @@ function copySectionBackground(doc: Y.Doc, from: TextSection, toId: string, orig
 
 // ---------- Hintergrundbilder der Abschnitte (Textfenster) ----------
 
-/** Wird die Datei noch verwendet (Audio an einem Eintrag, Standard-Hintergrund, Hintergrund eines Abschnitts)? */
+/** Wird die Datei noch verwendet (Audio an einem Eintrag, Standard-Hintergrund, Hintergrund eines Eintrags bzw. Abschnitts)? */
 export function mediaInUse(doc: Y.Doc, mediaId: string): boolean {
   const { items, sections } = readShow(doc);
   if (items.some((i) => i.media?.some((m) => m.mediaId === mediaId))) return true;
   if (lyricsImages(doc.getMap('showSettings').get('lyricsBackground') as LyricsBackground | undefined).includes(mediaId)) return true;
+  if (items.some((i) => lyricsImages(i.lyricsBackground).includes(mediaId))) return true;
   return sections.some((s) => s.backgroundMediaId === mediaId);
 }
 

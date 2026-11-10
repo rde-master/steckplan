@@ -74,6 +74,9 @@ docker compose start
 | `STECKPLAN_DIRECTION_PASSWORD` | nein | – | Regie-Passwort: Regie (Ablauf, Texte) bearbeiten, alles andere nur lesen, keine Häkchen. Ohne = kein Regie-Zugang. Muss sich von den anderen Passwörtern unterscheiden |
 | `PORT` | nein | `8080` | Port im Container |
 | `TZ` | nein | UTC | Zeitzone, z. B. `Europe/Berlin` |
+| `STECKPLAN_DISCOVERY` | nein | an | Suche für den Steckplan Player (UDP); `aus` schaltet sie ab |
+| `STECKPLAN_DISCOVERY_PORT` | nein | `41234` | UDP-Port der Suche |
+| `STECKPLAN_PUBLIC_PORT` | nein | `PORT` | Port, unter dem Player die Oberfläche erreichen (bei Portweiterleitung, z. B. `8080`) |
 | `STECKPLAN_TRUST_PROXY` | nein | `false` | `true` nur hinter einem Reverse-Proxy: dann werden `X-Forwarded-For`/`-Proto` ausgewertet (richtige IP für die Begrenzung von Fehlversuchen, sichere Cookies bei HTTPS) |
 
 Ohne die beiden Passwörter startet der Container nicht und meldet, was fehlt.
@@ -137,3 +140,16 @@ Für Zugriff außerhalb des eigenen Netzes den Container **nur hinter einem Reve
 ## Desktop-App mit dem Server verbinden
 
 Unter **Einstellungen** (nur mit Bearbeiten-Zugang) einen Desktop-Zugangsschlüssel erzeugen und in der Desktop-App unter „Mit Server verbinden …“ zusammen mit der Adresse des Servers eintragen.
+
+## Steckplan Player
+
+Der **Steckplan Player** (eigener Installer für Windows und macOS im Release) zeigt das Textfenster im Vollbild auf
+einem Rechner am Bildschirm oder Beamer. Er trägt sich in den Autostart ein, sucht die Steuersoftware im Netz,
+koppelt sich einmal (Code im Führen-Bildschirm unter „Player“ zulassen) und lädt beim Start alle Texte, Bilder und
+Videos des Textfensters. Danach zeigt er „Bereit“ bzw. das Textfenster des Projekts, in dem gerade geführt wird.
+
+Die Suche läuft per UDP-Rundruf (Port 41234). In einem Docker-Container mit Portweiterleitung kommt der Rundruf
+meist nicht an – dann entweder `network_mode: host` verwenden oder am Player die Adresse von Hand eingeben
+(z. B. `192.168.1.20:8080`); der Player merkt sie sich. Steht der Port im Container nicht unter derselben Nummer
+zur Verfügung, `STECKPLAN_PUBLIC_PORT` setzen.
+
