@@ -1,48 +1,20 @@
 // Regie-Einstellungen: Restzeit im Player (rot/blinkend ab …), Textfenster (Zeilen, Hintergrundbild aus dem Medienspeicher).
-import { ArrowLeft, ArrowRight, ImagePlus, ImageUp, Trash2 } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import type * as Y from 'yjs';
-import { addLyricsSlide, bpmCommand, FADE_SEC_DEFAULT, isArtNetHost, lyricsImages, moveLyricsSlide, removeLyricsSlide, setLyricsSlideTiming, SLIDE_SEC_DEFAULT, OSC_BPM_DEFAULTS, LYRICS_MAX_AFTER, LYRICS_MAX_BEFORE, lyricsRange, REMAIN_MAX_BLINK, REMAIN_MAX_WARN, remainRange, setLyricsBackground, setLyricsBackgroundDim, updateShowSettings, type MediaRef, type ShowSettings } from '@steckplan/core';
+import { bpmCommand, isArtNetHost, OSC_BPM_DEFAULTS, LYRICS_MAX_AFTER, LYRICS_MAX_BEFORE, lyricsRange, REMAIN_MAX_BLINK, REMAIN_MAX_WARN, remainRange, updateShowSettings, type MediaRef, type ShowSettings } from '@steckplan/core';
 import { api, errorMessage } from '../../lib/api';
-import { uploadMedia } from '../../lib/mediaUpload';
-import { useSession } from '../../lib/session';
 import { texts } from '../../texts';
-import { ICON } from '../icons';
-import { Banner, Button, Modal } from '../ui';
+import { Button, Modal } from '../ui';
 import { LYRICS_ACTIVE_BG, LYRICS_ACTIVE_COLOR } from './LyricsWindow';
+import { BackgroundEditor } from './BackgroundEditor';
 
 const t = texts.regie.lyricsPage;
 
-export function LyricsSettings({ projectId, doc, origin, settings, onClose }: { projectId: string; doc: Y.Doc; origin: object; settings: ShowSettings; onClose: () => void }) {
-  const input = useRef<HTMLInputElement>(null);
-  const by = useSession((s) => s.session?.name ?? '');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const background = settings.lyricsBackground;
+export function LyricsSettings({ projectId, doc, origin, settings, media, onClose }: { projectId: string; doc: Y.Doc; origin: object; settings: ShowSettings; media: MediaRef[]; onClose: () => void }) {
   const range = lyricsRange(settings);
   const remain = remainRange(settings);
   const seconds = (value: string, max: number) => Math.min(max, Math.max(0, Math.round(Number(value) || 0)));
   const selectClass = 'rounded-md border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-800';
-
-  // „Anderes Bild“ ersetzt das erste, „hinzufügen“ hängt an (Diashow)
-  const mode = useRef<'replace' | 'add'>('replace');
-  const images = lyricsImages(background);
-  const upload = async (files: File[]) => {
-    setBusy(true);
-    setError(null);
-    try {
-      for (const file of files) {
-        const info = await uploadMedia(projectId, file);
-        const ref: MediaRef = { id: info.id, name: file.name, mime: file.type, sizeBytes: info.sizeBytes, sha256: info.sha256, addedAt: new Date().toISOString(), addedBy: by };
-        if (mode.current === 'add') addLyricsSlide(doc, ref, origin);
-        else setLyricsBackground(doc, ref, origin, background?.dim ?? 0.5);
-      }
-    } catch (e) {
-      setError(errorMessage(e));
-    } finally {
-      setBusy(false);
-    }
-  };
 
   return (
     <Modal title={t.settings} onClose={onClose} footer={<Button onClick={onClose}>{t.close}</Button>}>
@@ -169,123 +141,7 @@ export function LyricsSettings({ projectId, doc, origin, settings, onClose }: { 
         )}
         <h4 className="pt-2 text-xs font-semibold text-slate-500 uppercase">{t.background}</h4>
         <p className="text-xs text-slate-500">{t.backgroundHint}</p>
-        {error && <Banner tone="error">{error}</Banner>}
-        {background ? (
-          <div className="relative aspect-video overflow-hidden rounded-md border border-slate-200 bg-slate-950 dark:border-slate-700">
-            <img src={api.mediaUrl(projectId, background.mediaId)} alt={t.background} className="absolute inset-0 h-full w-full object-cover" />
-            <div className="absolute inset-0 bg-black" style={{ opacity: background.dim }} />
-            <span className="absolute inset-0 flex items-center justify-center text-2xl font-semibold text-white">Aa</span>
-          </div>
-        ) : (
-          <p className="text-sm text-slate-500">{t.noImage}</p>
-        )}
-        {images.length > 1 && (
-          <ol className="grid grid-cols-3 gap-2 sm:grid-cols-4" aria-label={t.slides} data-testid="lyrics-slides">
-            {images.map((mediaId, i) => (
-              <li key={mediaId} className="space-y-1" data-testid="lyrics-slide">
-                <img src={api.mediaUrl(projectId, mediaId)} alt={t.slide(i + 1)} className="aspect-video w-full rounded border border-slate-200 object-cover dark:border-slate-700" />
-                <div className="flex items-center justify-center gap-0.5">
-                  <Button variant="ghost" className="min-h-7 px-1" aria-label={t.slideEarlier(i + 1)} title={t.slideEarlier(i + 1)} disabled={i === 0} onClick={() => moveLyricsSlide(doc, mediaId, -1, origin)}>
-                    <ArrowLeft size={14} aria-hidden />
-                  </Button>
-                  <span className="w-5 text-center text-xs tabular-nums">{i + 1}</span>
-                  <Button variant="ghost" className="min-h-7 px-1" aria-label={t.slideLater(i + 1)} title={t.slideLater(i + 1)} disabled={i === images.length - 1} onClick={() => moveLyricsSlide(doc, mediaId, 1, origin)}>
-                    <ArrowRight size={14} aria-hidden />
-                  </Button>
-                  <Button variant="ghost" className="min-h-7 px-1" aria-label={t.slideRemove(i + 1)} title={t.slideRemove(i + 1)} onClick={() => removeLyricsSlide(doc, mediaId, origin)}>
-                    <Trash2 size={14} aria-hidden />
-                  </Button>
-                </div>
-              </li>
-            ))}
-          </ol>
-        )}
-        {images.length > 1 && background && (
-          <div className="flex flex-wrap items-center gap-4 text-sm" data-testid="lyrics-slide-timing">
-            <label className="flex items-center gap-2">
-              {t.slideSec}
-              <input
-                type="number"
-                min={1}
-                max={600}
-                className={`${selectClass} w-20`}
-                value={background.slideSec ?? SLIDE_SEC_DEFAULT}
-                onChange={(e) => {
-                  const v = Number(e.target.value);
-                  if (v >= 1 && v <= 600) setLyricsSlideTiming(doc, { slideSec: v }, origin);
-                }}
-              />
-              s
-            </label>
-            <label className="flex items-center gap-2">
-              {t.fadeSec}
-              <input
-                type="number"
-                min={0}
-                max={30}
-                step={0.5}
-                className={`${selectClass} w-20`}
-                value={background.fadeSec ?? FADE_SEC_DEFAULT}
-                onChange={(e) => {
-                  const v = Number(e.target.value);
-                  if (v >= 0 && v <= 30) setLyricsSlideTiming(doc, { fadeSec: v }, origin);
-                }}
-              />
-              s
-            </label>
-          </div>
-        )}
-        <div className="flex flex-wrap items-center gap-2">
-          <input
-            ref={input}
-            type="file"
-            accept="image/*"
-            multiple
-            className="hidden"
-            aria-label={t.chooseImage}
-            onChange={(e) => {
-              const files = [...(e.target.files ?? [])];
-              e.target.value = '';
-              if (files.length) void upload(mode.current === 'replace' ? files.slice(0, 1) : files);
-            }}
-          />
-          <Button
-            variant="secondary"
-            disabled={busy}
-            onClick={() => {
-              mode.current = background ? 'replace' : 'add';
-              input.current?.click();
-            }}
-          >
-            <ImageUp {...ICON} /> {busy ? t.uploading : background ? t.replaceImage : t.chooseImage}
-          </Button>
-          {background && (
-            <Button
-              variant="secondary"
-              disabled={busy}
-              title={t.addSlideHint}
-              onClick={() => {
-                mode.current = 'add';
-                input.current?.click();
-              }}
-              data-testid="lyrics-add-slide"
-            >
-              <ImagePlus {...ICON} /> {t.addSlide}
-            </Button>
-          )}
-          {background && (
-            <Button variant="ghost" disabled={busy} onClick={() => doc.transact(() => images.forEach((mediaId) => removeLyricsSlide(doc, mediaId, origin)), origin)}>
-              <Trash2 {...ICON} /> {images.length > 1 ? t.removeAll : t.removeImage}
-            </Button>
-          )}
-        </div>
-        {background && (
-          <label className="flex items-center gap-2 text-sm">
-            {t.dim}
-            <input type="range" min={0} max={0.9} step={0.05} value={background.dim} onChange={(e) => setLyricsBackgroundDim(doc, Number(e.target.value), origin)} className="flex-1 accent-sky-600" />
-            <span className="w-10 text-right tabular-nums">{Math.round(background.dim * 100)} %</span>
-          </label>
-        )}
+        <BackgroundEditor projectId={projectId} doc={doc} origin={origin} background={settings.lyricsBackground} media={media} />
       </div>
     </Modal>
   );

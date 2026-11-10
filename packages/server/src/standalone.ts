@@ -13,6 +13,7 @@ import { VersionStore } from './storage/version-store';
 import { MediaStore } from './storage/media-store';
 import { LabelQrStore } from './auth/label-qr';
 import { OscSettingsStore } from './osc/listener';
+import { PlayerStore } from './auth/players';
 
 const TRASH_PURGE_INTERVAL_MS = 12 * 60 * 60 * 1000;
 
@@ -41,6 +42,8 @@ async function main(): Promise<void> {
   await sessions.load((salt) => passwordFingerprint(passwords, salt));
   const desktopKeys = new DesktopKeyStore({ file: join(config.dataDir, 'desktop-keys.json') });
   await desktopKeys.load();
+  const players = new PlayerStore({ file: join(config.dataDir, 'players.json') });
+  await players.load();
   const library = new LibraryStore(join(config.dataDir, 'library.json'));
   await library.load();
   const usage = new UsageTracker(join(config.dataDir, 'usage.json'));
@@ -60,6 +63,8 @@ async function main(): Promise<void> {
     media,
     labelQr,
     osc,
+    players,
+    ...(config.discovery ? { discovery: { port: () => config.publicPort ?? config.port, ...(config.discoveryPort ? { udpPort: config.discoveryPort } : {}) } } : {}),
     uiDir: config.uiDir,
     logger: true,
     trustProxy: config.trustProxy,

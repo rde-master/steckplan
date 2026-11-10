@@ -117,7 +117,7 @@ test('Textfenster: Diashow mit mehreren Bildern, Standzeit und Überblendung', a
   await page.goto(`/projekt/${id}?ansicht=regie`);
   await page.getByRole('button', { name: 'Regie-Einstellungen' }).click();
   const setup = page.getByTestId('lyrics-settings');
-  const input = setup.locator('input[type=file][accept="image/*"]');
+  const input = setup.locator('input[type=file][accept="image/*,video/*"]');
   await input.setInputFiles({ name: 'rot.png', mimeType: 'image/png', buffer: png(255, 0, 0) });
   await expect(setup.getByRole('img', { name: 'Hintergrundbild' })).toBeVisible();
   // weitere Bilder: Diashow

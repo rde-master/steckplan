@@ -1,5 +1,11 @@
 // Zugriff auf die REST-Schnittstelle des Servers.
-import type { Access, ChangeLogEntry, DeskCue, OscLogEntry, HealthInfo, Conflict, Library, MasterEntry, MasterKind, Project, Resolution, Template } from '@steckplan/core';
+import type { Access, ChangeLogEntry, DeskCue, OscLogEntry, PlayerCatalog, PlayersOverview, HealthInfo, Conflict, Library, MasterEntry, MasterKind, Project, Resolution, Template } from '@steckplan/core';
+
+/** Im Steckplan Player gesetzt (Preload): Schema für Medien aus dem Zwischenspeicher */
+export function playerMediaScheme(): string | undefined {
+  const player = (globalThis as { steckplanPlayer?: { mediaScheme?: unknown } }).steckplanPlayer;
+  return typeof player?.mediaScheme === 'string' ? player.mediaScheme : undefined;
+}
 
 export class ApiError extends Error {
   constructor(
@@ -61,7 +67,7 @@ export interface MediaFileInfo {
 export interface SessionInfo {
   name: string;
   access: Access;
-  via: 'desktop' | 'browser' | 'desktopKey';
+  via: 'desktop' | 'browser' | 'desktopKey' | 'player';
   /** QR-Code vom Etikett einer Person: diese Person (trägt sich nur selbst als Helfer ein) */
   personId?: string;
 }
@@ -142,7 +148,16 @@ export const api = {
   getShare: (projectId: string) => request<{ token: string; createdAt: string }>('GET', `/api/projects/${encodeURIComponent(projectId)}/share`),
   ensureShare: (projectId: string, renew = false) => request<{ token: string; createdAt: string }>('POST', `/api/projects/${encodeURIComponent(projectId)}/share`, { renew }),
   downloadUrl: (id: string, withMedia = false) => `/api/projects/${encodeURIComponent(id)}/download${withMedia ? '?medien=1' : ''}`,
-  mediaUrl: (projectId: string, mediaId: string) => `/api/projects/${encodeURIComponent(projectId)}/media/${encodeURIComponent(mediaId)}`,
+  // im Steckplan Player: Medien aus dem eigenen Zwischenspeicher (beim Start geladen)
+  mediaUrl: (projectId: string, mediaId: string) =>
+    playerMediaScheme() ? `${playerMediaScheme()}://media/${encodeURIComponent(projectId)}/${encodeURIComponent(mediaId)}` : `/api/projects/${encodeURIComponent(projectId)}/media/${encodeURIComponent(mediaId)}`,
+  players: () => request<PlayersOverview>('GET', '/api/players'),
+  approvePlayer: (requestId: string) => request<{ id: string; name: string }>('POST', `/api/players/pairing/${encodeURIComponent(requestId)}/approve`),
+  rejectPlayer: (requestId: string) => request<{ ok: true }>('POST', `/api/players/pairing/${encodeURIComponent(requestId)}/reject`),
+  resyncPlayer: (id?: string) => request<{ ok: true }>('POST', id ? `/api/players/${encodeURIComponent(id)}/resync` : '/api/players/resync'),
+  removePlayer: (id: string) => request<{ ok: true }>('DELETE', `/api/players/${encodeURIComponent(id)}`),
+  playerState: () => request<{ leadProjectId: string | null }>('GET', '/api/player/state'),
+  playerCatalog: () => request<PlayerCatalog>('GET', '/api/player/catalog'),
   startMediaUpload: (projectId: string, size: number, mediaId?: string) =>
     request<{ uploadId: string; mediaId: string; size: number; received: number; complete?: MediaFileInfo }>('POST', `/api/projects/${encodeURIComponent(projectId)}/media/uploads`, { size, ...(mediaId ? { mediaId } : {}) }),
   mediaUploadStatus: (projectId: string, uploadId: string) =>

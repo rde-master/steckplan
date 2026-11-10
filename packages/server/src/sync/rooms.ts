@@ -116,6 +116,16 @@ export class RoomManager {
     return targets.length;
   }
 
+  /** Projekt, in dem gerade geführt wird (bei mehreren: wo zuletzt jemand das Führen übernommen hat) */
+  leadingProjectId(): string | null {
+    let best: { id: string; since: number } | null = null;
+    for (const [id, room] of this.rooms) {
+      const since = room.leadStartedAt;
+      if (since !== null && (!best || since >= best.since)) best = { id, since };
+    }
+    return best?.id ?? null;
+  }
+
   /** Lichtpult-Cues an alle geöffneten Projekte */
   deskCues(cues: DeskCue[]): void {
     for (const room of this.rooms.values()) room.deskCues(cues);

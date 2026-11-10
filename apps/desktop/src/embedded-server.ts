@@ -6,6 +6,7 @@ import {
   LabelQrStore,
   OscSettingsStore,
   LibraryStore,
+  PlayerStore,
   LocalFileStore,
   mediaDirFor,
   MediaStore,
@@ -31,6 +32,10 @@ export async function startEmbeddedServer(options: {
   userName: string;
   /** Passwörter der Weboberfläche (null = keine Anmeldung möglich) */
   passwords: () => PasswordChecker | null;
+  /** Port der Weboberfläche im Netz – darauf antwortet die Suche für Player (null = Weboberfläche aus) */
+  networkPort: () => number | null;
+  /** UDP-Port der Suche (Tests) */
+  discoveryPort?: number;
 }): Promise<EmbeddedServer> {
   const store = new LocalFileStore(options.userName);
   // Medien liegen im Ordner neben der Datei („Fest.medien“)
@@ -47,6 +52,8 @@ export async function startEmbeddedServer(options: {
   await library.load();
   const usage = new UsageTracker(join(options.userDataDir, 'usage.json'));
   await usage.load();
+  const players = new PlayerStore({ file: join(options.userDataDir, 'players.json') });
+  await players.load();
   const server = await createServer({
     mode: 'desktop',
     uiDir: options.uiDir,
@@ -59,6 +66,8 @@ export async function startEmbeddedServer(options: {
     media,
     labelQr,
     osc,
+    players,
+    discovery: { port: options.networkPort, ...(options.discoveryPort ? { udpPort: options.discoveryPort } : {}) },
   });
   const { token } = sessions.create(options.userName || 'Desktop', 'local', 'desktop', { persistent: false, expires: false });
   await server.app.listen({ host: '127.0.0.1', port: 0 });

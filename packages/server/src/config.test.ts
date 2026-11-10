@@ -14,7 +14,16 @@ describe('readStandaloneConfig', () => {
       readPassword: 'lesen',
       directionPassword: undefined,
       trustProxy: false,
+      discovery: true,
+      discoveryPort: undefined,
+      publicPort: undefined,
     });
+  });
+
+  it('Suche für Player: abschaltbar, eigener UDP-Port, öffentlicher Port (Docker-Weiterleitung)', () => {
+    expect(readStandaloneConfig({ ...valid, STECKPLAN_DISCOVERY: 'aus' }).discovery).toBe(false);
+    expect(readStandaloneConfig({ ...valid, STECKPLAN_DISCOVERY_PORT: '41300', STECKPLAN_PUBLIC_PORT: '80' })).toMatchObject({ discovery: true, discoveryPort: 41300, publicPort: 80 });
+    expect(() => readStandaloneConfig({ ...valid, STECKPLAN_PUBLIC_PORT: 'x' })).toThrow(/STECKPLAN_PUBLIC_PORT/);
   });
 
   it('Regie-Passwort ist optional und muss sich unterscheiden', () => {

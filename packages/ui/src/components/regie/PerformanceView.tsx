@@ -47,6 +47,7 @@ import { setClickSettings, useClickSettings } from '../../lib/click';
 import { LeadTimeline } from './LeadTimeline';
 import { itemAudioSrc } from './Waveform';
 import { DeskCuePanel } from './DeskCuePanel';
+import { PlayersPanel } from './PlayersPanel';
 import { OscLeadPanel, readOscAuto, writeOscAuto } from './OscLeadPanel';
 import { LightEventCountdown } from './LightEvents';
 import type * as Y from 'yjs';
@@ -814,6 +815,7 @@ export function PerformanceView({
             </div>
             <div className="flex w-72 flex-col gap-3">
               <LyricsControl hideText={hideText} hideBackground={hideBackground} onText={setHideText} onBackground={setHideBackground} />
+              {canLead && <PlayersPanel />}
               <DeskCuePanel cues={sync.deskCues} />
               <OscLeadPanel projectId={projectId} auto={oscAuto} onAuto={setOscAuto} manual={triggerCommands(data.oscCommands, item.id, 'manual')} log={sync.oscLog} />
             </div>

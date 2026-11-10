@@ -35,11 +35,15 @@ jobs:
           - name: macOS
             os: macos-latest
             builder: --mac
-            files: apps/desktop/release/*.dmg
+            files: |
+              apps/desktop/release/*.dmg
+              apps/player/release/*.dmg
           - name: Windows
             os: windows-latest
             builder: --win
-            files: apps/desktop/release/*.exe
+            files: |
+              apps/desktop/release/*.exe
+              apps/player/release/*.exe
     runs-on: ${{ matrix.os }}
     env:
       CSC_IDENTITY_AUTO_DISCOVERY: 'false'
@@ -69,6 +73,8 @@ jobs:
         run: node scripts/ci/install-electron.mjs
       - name: Installer bauen (mit Wiederholung)
         run: node scripts/ci/retry.mjs 3 pnpm --filter @steckplan/desktop exec electron-builder ${{ matrix.builder }}
+      - name: Installer Player bauen (mit Wiederholung)
+        run: node scripts/ci/retry.mjs 3 pnpm --filter @steckplan/player exec electron-builder ${{ matrix.builder }}
       - uses: actions/upload-artifact@v7
         with:
           name: installer-${{ matrix.name }}
