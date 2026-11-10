@@ -7,6 +7,21 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.46.0] - 2026-11-10
+
+### Hinzugefügt
+
+- Steckplan Player: auf allen Bildschirmen (Suche, Koppeln, Laden, Bereit) die Netzwerk-Anzeige – verbunden ja/nein, IP-Adresse je Anschluss und Name des WLANs
+- APC40: Metronom in der unteren Matrixreihe (Schlag 1–8) – der laufende Schlag leuchtet im Takt (die „1“ rot, sonst grün), ein Druck springt im laufenden Takt auf diesen Schlag; Aktion „Metronom: Schlag“ frei belegbar (Ablaufpunkte in der Matrix jetzt 1–32)
+
+### Geändert
+
+- Führen-Bildschirm aufgeräumt: Bedienung links (passt sich dem Platz an – auch bei 1280×720 ohne Scrollen und ohne Überlappen), Textfenster/Player/Lichtpult/OSC rechts in einer festen Spalte; diese ist einklappbar (je Gerät gemerkt) und zeigt eingeklappt an, wenn ein Player auf „Zulassen“ wartet
+
+### Behoben
+
+- „Mit Medien herunterladen“ brach hinter einem Reverse Proxy (z. B. Nginx Proxy Manager) bei größeren Dateien ab: Größe wird jetzt vorab angegeben und Zwischenpuffern abgeschaltet; Hinweise für nginx in der Docker-Anleitung
+
 ## [0.45.1] - 2026-11-10
 
 ### Behoben

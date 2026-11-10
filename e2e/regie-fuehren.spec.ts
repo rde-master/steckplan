@@ -45,7 +45,8 @@ test('Führen-Ansicht: ohne Licht/Ton, Text klein (vorige/aktuelle/nächste), Ze
   await expect(lead.getByTestId('beat-tap')).toBeVisible();
   await expect(lead.getByTestId('timecode-panel').getByTestId('timecode')).toBeVisible();
   const startBox = (await lead.getByRole('button', { name: 'Timecode starten' }).boundingBox())!;
-  expect(startBox.height).toBeGreaterThanOrEqual(60);
+  // groß genug zum Tippen (passt sich dem Platz an, ab 44 px)
+  expect(startBox.height).toBeGreaterThanOrEqual(44);
   await expect(lead.getByRole('button', { name: 'Szene weiter' })).toBeVisible();
   await expect(perf.getByTestId('regie-player')).toBeVisible();
 

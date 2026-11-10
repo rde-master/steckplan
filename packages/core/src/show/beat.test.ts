@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addTap, beatStep, bpmCommand, itemTempo, beatAt, parseTimeSignature, tapProgress, tapTempo, TAP_RESET_SEC, type Tap } from './beat';
+import { addTap, beatInBar, beatStep, bpmCommand, itemTempo, beatAt, parseTimeSignature, tapProgress, tapTempo, TAP_RESET_SEC, type Tap } from './beat';
 
 describe('Tempo und Takt', () => {
   it('Taktart lesen', () => {
@@ -72,5 +72,18 @@ describe('Schlag vor/zurück', () => {
     expect(beatStep(1.21, 120, 0.2, -1)).toBe(0.7);
     // nie vor 0
     expect(beatStep(0.1, 120, 0.2, -1)).toBe(0);
+  });
+});
+
+describe('Metronom: auf einen Schlag im Takt springen', () => {
+  it('Schlag n des laufenden Takts (mit Lage der „1“), nie vor 0', () => {
+    // 120 BPM, 4/4: Takt 2 beginnt bei 2 s
+    expect(beatInBar(2.7, 120, 4, 0, 1)).toBe(2);
+    expect(beatInBar(2.7, 120, 4, 0, 3)).toBe(3);
+    expect(beatInBar(0.1, 120, 3, 0, 3)).toBe(1);
+    // „1“ bei 0,2 s
+    expect(beatInBar(1.0, 120, 4, 0.2, 2)).toBe(0.7);
+    // vor der ersten „1“: nie vor 0
+    expect(beatInBar(0.1, 120, 4, 0.2, 1)).toBe(0);
   });
 });

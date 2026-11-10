@@ -1,2 +1,2 @@
 // Automatisch erzeugt von scripts/sync-version.mjs – nicht von Hand ändern.
-export const VERSION = '0.45.1';
+export const VERSION = '0.46.0';
