@@ -502,6 +502,29 @@ describe('Leerzeile (Zwischenspiel)', () => {
     expect(lines.map((l) => isBreakLine(l))).toEqual([false, true, false]);
     expect(isBreakLine({ text: '', direction: true })).toBe(false);
   });
+  it('leerer Abschnitt zählt als Leerzeile: beim Mitschreiben eine Zeit setzen, bleibt bei leerem Textfeld erhalten', () => {
+    const doc = createYDocFromProject(createEmptyProject({ name: 'L' }));
+    const song = addShowItem(doc, 'song', null, { title: 'Lied' });
+    const a = addSection(doc, song, 'verse', 'Strophe', null, [{ id: 'x1', text: 'Hallo' }]);
+    const b = addSection(doc, song, 'other', 'Solo', null, []);
+    let lines = itemLines(readShow(doc).sections, song);
+    expect(lines.map((l) => [l.sectionId, l.line.text])).toEqual([[a, 'Hallo'], [b, '']]);
+    expect(isBreakLine(lines[1]!.line)).toBe(true);
+    setLineTime(doc, b, lines[1]!.line.id, 12.34, null);
+    const solo = () => readShow(doc).sections.find((s) => s.id === b)!;
+    expect(solo().lines).toEqual([{ id: lines[1]!.line.id, text: '', atSec: 12.3 }]);
+    lines = itemLines(readShow(doc).sections, song);
+    expect(lines[1]!.line.atSec).toBe(12.3);
+    // Textfeld leer gespeichert: Zeit bleibt; Text eingetragen: normale Zeile
+    setSectionText(doc, b, '', null);
+    expect(solo().lines).toHaveLength(1);
+    setSectionText(doc, b, 'Gitarre', null);
+    expect(solo().lines.map((l) => l.text)).toEqual(['Gitarre']);
+    // Zeit löschen auf einem leeren Abschnitt legt nichts an
+    const c = addSection(doc, song, 'other', 'Pause', null, []);
+    setLineTime(doc, c, 'leer-' + c, undefined, null);
+    expect(readShow(doc).sections.find((s) => s.id === c)!.lines).toEqual([]);
+  });
 });
 
 describe('Abschnitt kopieren und einfügen', () => {
