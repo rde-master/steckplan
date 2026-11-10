@@ -57,9 +57,26 @@ test('Regie: Ablauf, Texte, Rollen; Regie-Zugang bearbeitet nur die Regie', asyn
   await page.getByRole('dialog').getByRole('button', { name: 'Einfügen' }).click();
   await expect(textDetail.getByTestId('regie-section')).toHaveCount(2);
   await expect(textDetail.getByLabel('Text Refrain')).toHaveValue('La la la\nLa la la');
+  // Anzeige je Abschnitt: Zeilen und Zeichen
+  const sections = textDetail.getByTestId('regie-section');
+  await expect(sections.nth(1).getByTestId('section-stats')).toHaveText('2 Zeilen · 16 Zeichen');
+  // „Kopieren“ merkt nur (noch nichts eingefügt), grüner Hinweis
+  await expect(sections.first().getByTestId('section-paste-here')).toBeDisabled();
   await textDetail.getByRole('button', { name: 'Kopieren: Refrain' }).click();
-  await expect(textDetail.getByTestId('regie-section')).toHaveCount(3);
+  await expect(page.getByTestId('toast')).toContainText('Abschnitt „Refrain“ kopiert');
+  await expect(sections).toHaveCount(2);
+  // unter Strophe 1 einfügen → Kopie steht zwischen Strophe 1 und Refrain
+  await sections.first().getByTestId('section-paste-here').click();
+  await expect(page.getByTestId('toast')).toContainText('Kopie von „Refrain“ eingefügt');
+  await expect(sections).toHaveCount(3);
+  await expect(sections.nth(1).getByLabel('Text Refrain')).toHaveValue('La la la\nLa la la');
   await expect(textItems).toContainText('6 Zeilen');
+  // hier einen neuen, leeren Abschnitt (nach der Kopie)
+  await sections.nth(1).getByTestId('section-add-here').click();
+  await expect(sections).toHaveCount(4);
+  await expect(sections.nth(2).getByTestId('section-stats')).toHaveText('0 Zeilen · 0 Zeichen');
+  await sections.nth(2).getByRole('button', { name: /^Löschen/ }).click();
+  await expect(sections).toHaveCount(3);
 
   // Schauspiel im Ablauf anlegen, Text und Rollen im Bereich „Texte“
   await area('Ablauf');

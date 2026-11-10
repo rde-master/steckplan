@@ -602,6 +602,71 @@ export function moveSection(doc: Y.Doc, id: string, delta: -1 | 1, origin: unkno
 }
 
 /** Abschnitt kopieren (z. B. Refrain wiederholen), direkt dahinter. */
+// ---------- Abschnitt kopieren und an anderer Stelle einfügen ----------
+
+/** Kopie eines Abschnitts (Zwischenablage) – unabhängig vom Dokument, auch in andere Einträge einfügbar */
+export interface SectionClip {
+  kind: SectionKind;
+  label: string;
+  lines: TextLine[];
+  /** Rollen, die in den Zeilen vorkommen (zum Zuordnen beim Einfügen) */
+  roles: ShowRole[];
+  backgroundMediaId?: string;
+  backgroundInherit?: boolean;
+}
+
+export function sectionClip(section: TextSection, item: Pick<ShowItem, 'roles'> | undefined): SectionClip {
+  const used = new Set(section.lines.map((l) => l.roleId).filter(Boolean));
+  return {
+    kind: section.kind,
+    label: section.label,
+    lines: section.lines.map((l) => ({ ...l })),
+    roles: (item?.roles ?? []).filter((r) => used.has(r.id)),
+    ...(section.backgroundMediaId ? { backgroundMediaId: section.backgroundMediaId } : {}),
+    ...(section.backgroundInherit !== undefined ? { backgroundInherit: section.backgroundInherit } : {}),
+  };
+}
+
+/** Zeichen eines Abschnitts (ohne Zeilenumbrüche) */
+export function sectionChars(lines: Pick<TextLine, 'text'>[]): number {
+  return lines.reduce((n, l) => n + l.text.length, 0);
+}
+
+/**
+ * Kopie nach afterId (bzw. am Ende) in einen Eintrag einfügen: neue Zeilen-Kennungen, ohne Zeitpunkte (die gehören
+ * zur Stelle des Originals). Rollen: gleiche Kennung bzw. gleicher Name im Ziel, sonst (Schauspiel) neu angelegt.
+ */
+export function pasteSection(doc: Y.Doc, itemId: string, clip: SectionClip, afterId: string | undefined, origin: unknown): string | undefined {
+  const item = readShow(doc).items.find((i) => i.id === itemId);
+  if (!item) return undefined;
+  let id: string | undefined;
+  doc.transact(() => {
+    const roles = [...(item.roles ?? [])];
+    const roleMap = new Map<string, string>();
+    for (const r of clip.roles) {
+      const found = roles.find((x) => x.id === r.id) ?? roles.find((x) => x.name.trim().toLocaleLowerCase('de') === r.name.trim().toLocaleLowerCase('de'));
+      if (found) roleMap.set(r.id, found.id);
+      else if (item.kind === 'play') {
+        const created = { id: newId(), name: r.name };
+        roles.push(created);
+        roleMap.set(r.id, created.id);
+      }
+    }
+    if (roles.length !== (item.roles ?? []).length) itemsMap(doc).get(itemId)?.set('roles', roles);
+    const lines = clip.lines.map((l): TextLine => {
+      const { atSec: _at, roleId, ...rest } = l;
+      const mapped = roleId ? roleMap.get(roleId) : undefined;
+      return { ...rest, id: newId(), ...(mapped ? { roleId: mapped } : {}) };
+    });
+    id = addSection(doc, itemId, clip.kind, clip.label, origin, lines, afterId);
+    const media = doc.getMap('media');
+    const map = sectionsMap(doc).get(id);
+    if (map && clip.backgroundMediaId && media.has(clip.backgroundMediaId)) map.set('backgroundMediaId', clip.backgroundMediaId);
+    if (map && clip.backgroundInherit !== undefined) map.set('backgroundInherit', clip.backgroundInherit);
+  }, origin);
+  return id;
+}
+
 export function duplicateSection(doc: Y.Doc, id: string, origin: unknown): string | undefined {
   const section = readShow(doc).sections.find((s) => s.id === id);
   if (!section) return undefined;
