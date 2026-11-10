@@ -125,6 +125,10 @@ jobs:
           path: installer
           pattern: installer-*
           merge-multiple: true
+      - name: Installer vorhanden?
+        run: |
+          find installer -type f
+          test "$(find installer -type f \( -name '*.exe' -o -name '*.dmg' \) | wc -l)" -ge 4
       - name: Release-Notizen aus CHANGELOG
         run: |
           awk -v v="${{ needs.verify.outputs.version }}" '
@@ -143,4 +147,8 @@ jobs:
         with:
           name: Steckplan ${{ needs.verify.outputs.version }}
           body_path: notes.md
-          files: installer/*
+          # Installer liegen in Unterordnern (desktop/release, player/release)
+          fail_on_unmatched_files: true
+          files: |
+            installer/**/*.exe
+            installer/**/*.dmg
