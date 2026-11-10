@@ -47,6 +47,7 @@ test('Player: sucht die Steuersoftware, Code im Führen-Bildschirm zulassen, lä
     await expect(status).toHaveAttribute('data-screen', /searching|connecting|pairing/);
     const code = win.getByTestId('pairing-code');
     await expect(code).toHaveText(/^\d{4}$/, { timeout: 20_000 });
+    await expect(win.getByTestId('player-logo').locator('img')).toHaveJSProperty('naturalWidth', 256);
     await win.screenshot({ path: 'test-results/player-koppeln.png' });
 
     // Führen-Bildschirm: Anfrage mit demselben Code zulassen
@@ -87,6 +88,7 @@ test('Player: sucht die Steuersoftware, Code im Führen-Bildschirm zulassen, lä
     await perf.getByRole('radio', { name: 'Frei' }).click();
     await expect(win.getByTestId('player-ready')).toBeVisible({ timeout: 10_000 });
     await expect(win.getByTestId('player-ready')).toContainText('Bereit');
+    await expect(win.getByTestId('player-ready').getByTestId('player-logo')).toHaveJSProperty('naturalWidth', 256);
     await win.screenshot({ path: 'test-results/player-bereit.png' });
 
     // neu synchronisieren aus dem Führen-Bildschirm
