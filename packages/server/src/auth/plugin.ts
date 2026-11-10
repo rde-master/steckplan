@@ -3,8 +3,9 @@
 // Name aus den Einstellungen der Desktop-App im Header X-Steckplan-Name (URL-kodiert).
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import fastifyCookie from '@fastify/cookie';
-import { can, type Permission } from '@steckplan/core';
+import { can, PLAYER_COOKIE, type Permission } from '@steckplan/core';
 import type { DesktopKeyStore } from './desktop-keys';
+import type { PlayerStore } from './players';
 import type { PasswordChecker } from './passwords';
 import { LoginRateLimiter } from './rate-limit';
 import { normalizeName, SESSION_TTL_MS, type Session, type SessionStore } from './sessions';
@@ -38,6 +39,13 @@ export interface AuthOptions {
   onLogout?: (session: Session) => void;
   /** Desktop-Zugangsschlüssel (nur Docker-Server) */
   desktopKeys?: DesktopKeyStore;
+  /** Gekoppelte Player (Zugang per Cookie mit ihrem Schlüssel, nur lesen) */
+  players?: PlayerStore;
+}
+
+/** Sitzungs-id aller Verbindungen eines Players (Entfernen trennt sie). */
+export function playerSessionId(playerId: string): string {
+  return `player:${playerId}`;
 }
 
 function nameFromHeader(value: string | string[] | undefined): string | null {
@@ -90,6 +98,21 @@ export async function registerAuth(app: FastifyInstance, options: AuthOptions): 
     const session = sessions.get(token);
     request.session = session ?? null;
     request.sessionToken = session && token ? token : null;
+    // Player: eigener Schlüssel im Cookie – nur lesen
+    if (!session && options.players) {
+      const player = options.players.verify(request.cookies[PLAYER_COOKIE]);
+      if (player) {
+        request.session = { id: playerSessionId(player.id), name: player.name, access: 'read', via: 'player', createdAt: player.pairedAt, lastSeenAt: new Date().toISOString() };
+      }
+    }
+  });
+
+  // Player: nur lesen (Oberfläche, Projekte, Medien) und Lebenszeichen
+  app.addHook('onRequest', async (request, reply) => {
+    if (request.session?.via !== 'player') return;
+    if (request.method === 'GET' || request.method === 'HEAD') return;
+    if (request.method === 'POST' && request.url.split('?')[0] === '/api/player/heartbeat') return;
+    return reply.code(403).send({ error: 'Ein Player darf nur lesen.' });
   });
 
   // Sitzung per QR-Code (nur ein Projekt): nur lesen, nur dieses Projekt

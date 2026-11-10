@@ -1,0 +1,25 @@
+{
+  "name": "@steckplan/player",
+  "version": "0.45.0",
+  "productName": "Steckplan Player",
+  "private": true,
+  "description": "Steckplan Player – Textfenster im Vollbild auf einem eigenen Rechner, lädt Texte und Medien von der Steuersoftware",
+  "license": "GPL-3.0-only",
+  "author": "rde-master <info@rde-master.de>",
+  "homepage": "https://github.com/rde-master/steckplan",
+  "main": "dist/main.cjs",
+  "scripts": {
+    "build": "tsup && node scripts/copy-static.mjs",
+    "start": "electron .",
+    "dist": "pnpm run build && electron-builder",
+    "smoke": "node scripts/smoke.mjs",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@steckplan/core": "workspace:*",
+    "electron": "^45.2.1",
+    "electron-builder": "^26.18.0",
+    "tsup": "^9.0.0"
+  }
+}

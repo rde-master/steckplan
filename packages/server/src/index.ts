@@ -8,3 +8,4 @@ export * from './library';
 export * from './events/event-hub';
 export { qrCodeSvg } from './qr';
 export { OscSettingsStore, type OscSettings, type OscStatus } from './osc/listener';
+export { DiscoveryResponder, type DiscoveryOptions } from './discovery';

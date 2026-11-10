@@ -23,6 +23,11 @@ Signalfluss, maßstäblicher Bühnenplan, Kabel mit Längen, DMX, Netzwerk/WLAN,
 
 Stabile Versionen erscheinen unter [Releases](https://github.com/rde-master/steckplan/releases).
 
+Dort gibt es außerdem den **Steckplan Player** (`Steckplan-Player-…`): ein eigenes Programm für den Rechner am
+Bildschirm bzw. Beamer. Er startet automatisch im Vollbild, sucht die Steuersoftware im Netz (Desktop-App mit
+laufender Weboberfläche oder Server), koppelt sich per Code (im Führen-Bildschirm unter „Player“ zulassen), lädt
+beim Start Texte, Bilder und Videos und zeigt dann das Textfenster der laufenden Vorstellung.
+
 **Test-Builds** aus dem Branch `develop`:
 
 - **Desktop:** unter [Actions → CI](https://github.com/rde-master/steckplan/actions/workflows/ci.yml) den neuesten Lauf auf `develop` öffnen und unten bei *Artifacts* `.dmg` (macOS) bzw. `.exe` (Windows) herunterladen

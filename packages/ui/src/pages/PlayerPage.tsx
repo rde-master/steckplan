@@ -1,0 +1,79 @@
+// Steckplan Player (/player): alle Projekte mit Texten sind beim Start verbunden (Texte geladen, bleiben aktuell);
+// sichtbar ist das Textfenster des Projekts, in dem gerade geführt wird. Führt niemand: „Bereit“.
+import { useCallback, useEffect, useState } from 'react';
+import type { PlayerCatalog } from '@steckplan/core';
+import { api } from '../lib/api';
+import { useSession } from '../lib/session';
+import { texts } from '../texts';
+import { LyricsPage } from './LyricsPage';
+
+const t = texts.player;
+/** Wer führt, falls ein Projekt nicht vorgeladen ist (neu angelegt) */
+const STATE_POLL_MS = 2000;
+
+export function PlayerPage() {
+  const name = useSession((s) => s.session?.name ?? '');
+  const [catalog, setCatalog] = useState<PlayerCatalog | null>(null);
+  const [error, setError] = useState(false);
+  const [serverLead, setServerLead] = useState<string | null>(null);
+  // je Projekt: führt dort jemand? (live aus der Verbindung des Textfensters)
+  const [leading, setLeading] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    let alive = true;
+    api
+      .playerCatalog()
+      .then((c) => alive && setCatalog(c))
+      .catch(() => alive && setError(true));
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let alive = true;
+    const poll = () =>
+      void api
+        .playerState()
+        .then((s) => alive && setServerLead(s.leadProjectId))
+        .catch(() => undefined);
+    poll();
+    const timer = window.setInterval(poll, STATE_POLL_MS);
+    return () => {
+      alive = false;
+      window.clearInterval(timer);
+    };
+  }, []);
+
+  useEffect(() => {
+    document.title = t.title;
+  }, []);
+
+  const onLead = useCallback((projectId: string, lead: boolean) => setLeading((current) => (current[projectId] === lead ? current : { ...current, [projectId]: lead })), []);
+
+  const ids = catalog?.projects.map((p) => p.id) ?? [];
+  if (serverLead && !ids.includes(serverLead)) ids.push(serverLead);
+  // live gemeldet geht vor; sonst laut Server
+  const shown = ids.find((id) => leading[id]) ?? (serverLead && leading[serverLead] !== false ? serverLead : null);
+  const media = catalog?.projects.reduce((n, p) => n + p.media.length, 0) ?? 0;
+
+  return (
+    <div className="dark fixed inset-0 cursor-none overflow-hidden bg-black text-slate-100 select-none" data-testid="player-page">
+      {ids.map((id) => (
+        <LyricsPage key={id} id={id} player={{ visible: id === shown, onLead }} />
+      ))}
+      {!shown && (
+        <div className="flex h-full flex-col items-center justify-center gap-4 text-center" data-testid="player-ready">
+          <img src="/icon.png" alt="" className="mb-[2vh] h-[14vw] w-[14vw] drop-shadow-[0_0_3vw_rgb(56_189_248/0.25)]" data-testid="player-logo" />
+          <div className="flex items-center gap-4 text-[5vw] font-semibold text-emerald-400">
+            <span className="inline-block h-[3vw] w-[3vw] rounded-full bg-emerald-500 shadow-[0_0_2vw_rgb(16_185_129/0.7)]" aria-hidden />
+            {error ? t.notReady : t.ready}
+          </div>
+          <p className="text-[1.6vw] text-slate-400">{catalog ? t.loaded(catalog.projects.length, media) : error ? t.catalogError : t.loading}</p>
+          <p className="text-[1.3vw] text-slate-500">{t.waiting}</p>
+          {name && <p className="absolute bottom-[3vh] text-[1.1vw] text-slate-600">{name}</p>}
+        </div>
+      )}
+    </div>
+  );
+}

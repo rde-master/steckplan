@@ -67,6 +67,11 @@ export class WebAccess {
     return this.listener !== null;
   }
 
+  /** Port der Weboberfläche (für die Suche der Player); null = aus */
+  get networkPort(): number | null {
+    return this.listener?.port ?? null;
+  }
+
   status(): WebAccessStatus {
     const interfaces = listAddresses();
     const saved = this.settings.webAccess.address;

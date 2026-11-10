@@ -31,6 +31,7 @@ export type Route =
   | { page: 'library'; section: string }
   | { page: 'settings' }
   | { page: 'osc' }
+  | { page: 'player' }
   | { page: 'notFound' };
 
 export function matchRoute(pathWithQuery: string): Route {
@@ -45,6 +46,7 @@ export function matchRoute(pathWithQuery: string): Route {
   }
   if (path === '/einstellungen') return { page: 'settings' };
   if (path === '/osc') return { page: 'osc' };
+  if (path === '/player' || path === '/player/') return { page: 'player' };
   const performance = /^\/projekt\/([^/]+)\/vorstellung\/?$/.exec(path);
   if (performance) return { page: 'performance', id: decodeURIComponent(performance[1]!) };
   const lyrics = /^\/projekt\/([^/]+)\/text\/?$/.exec(path);

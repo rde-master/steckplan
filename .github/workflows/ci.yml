@@ -48,6 +48,8 @@ jobs:
         run: node scripts/ci/install-electron.mjs
       - name: Smoke-Test Desktop (Linux, Xvfb)
         run: xvfb-run -a pnpm --filter @steckplan/desktop smoke
+      - name: Smoke-Test Player (Linux, Xvfb)
+        run: xvfb-run -a pnpm --filter @steckplan/player smoke
       - name: Playwright-Browser installieren
         run: pnpm exec playwright install --with-deps chromium
       - name: E2E-Tests (Browser, Handy, Desktop)
@@ -72,11 +74,15 @@ jobs:
           - name: macOS
             os: macos-latest
             builder: --mac
-            files: apps/desktop/release/*.dmg
+            files: |
+              apps/desktop/release/*.dmg
+              apps/player/release/*.dmg
           - name: Windows
             os: windows-latest
             builder: --win
-            files: apps/desktop/release/*.exe
+            files: |
+              apps/desktop/release/*.exe
+              apps/player/release/*.exe
     runs-on: ${{ matrix.os }}
     env:
       CSC_IDENTITY_AUTO_DISCOVERY: 'false'
@@ -105,12 +111,16 @@ jobs:
         run: node scripts/ci/install-electron.mjs
       - name: Smoke-Test Desktop
         run: pnpm --filter @steckplan/desktop smoke
+      - name: Smoke-Test Player
+        run: pnpm --filter @steckplan/player smoke
       - name: Playwright-Browser installieren (Handy-Seite im Desktop-Test)
         run: pnpm exec playwright install chromium --only-shell
       - name: E2E-Test Desktop
         run: pnpm exec playwright test --project electron
       - name: Installer bauen
         run: node scripts/ci/retry.mjs 3 pnpm --filter @steckplan/desktop exec electron-builder ${{ matrix.builder }}
+      - name: Installer Player bauen
+        run: node scripts/ci/retry.mjs 3 pnpm --filter @steckplan/player exec electron-builder ${{ matrix.builder }}
       - uses: actions/upload-artifact@v7
         with:
           name: steckplan-${{ matrix.name }}-${{ github.sha }}

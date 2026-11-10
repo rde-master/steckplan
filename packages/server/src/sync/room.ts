@@ -494,6 +494,7 @@ export class Room {
 
   private lead: LeadInfo | null = null;
   private leadAt = 0;
+  private leadSince = 0;
 
   /** Eine Verbindung trennen (durch einen Bearbeiter); sie verbindet sich nicht von selbst neu. false = nicht gefunden */
   disconnectConnection(connectionId: string, by: string): boolean {
@@ -509,12 +510,18 @@ export class Room {
     return this.lead !== null;
   }
 
+  /** Seit wann jemand führt (ms) – null = niemand */
+  get leadStartedAt(): number | null {
+    return this.lead ? this.leadSince : null;
+  }
+
   /** Fernsteuerung (OSC/HTTP) an alle Verbindungen; ausführen soll die führende bzw. jede nicht folgende Vorstellung */
   remote(command: RemoteCommand): void {
     this.broadcast(encodeInfo({ type: 'remote', command }));
   }
 
   private setLead(lead: LeadInfo | null): void {
+    if (lead && !this.lead) this.leadSince = Date.now();
     this.lead = lead;
     this.leadAt = Date.now();
     this.broadcast(encodeInfo({ type: 'lead', lead }));

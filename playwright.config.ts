@@ -12,6 +12,7 @@ export const E2E = {
   editPassword: 'e2e-bearbeiten',
   readPassword: 'e2e-lesen',
   directionPassword: 'e2e-regie',
+  discoveryPort: 41_299,
 };
 
 export default defineConfig({
@@ -44,6 +45,8 @@ export default defineConfig({
       STECKPLAN_EDIT_PASSWORD: E2E.editPassword,
       STECKPLAN_READ_PASSWORD: E2E.readPassword,
       STECKPLAN_DIRECTION_PASSWORD: E2E.directionPassword,
+      // Suche für den Steckplan Player (eigener UDP-Port, damit eine laufende Steckplan-Installation nicht stört)
+      STECKPLAN_DISCOVERY_PORT: String(E2E.discoveryPort),
     },
   },
 });

@@ -40,6 +40,8 @@ import {
   type ShowItemKind,
   type ShowSettings,
   itemTempo,
+  isVideoMedia,
+  lyricsImages,
 } from '@steckplan/core';
 import { useIsNarrow } from '../../lib/useProjectDoc';
 import type { ProjectData } from '../../lib/useProjectData';
@@ -60,6 +62,7 @@ import { MediaSection, PlayerBar, seekAudio, TimecodePanel, usePlaybackState, us
 import { Transport, usePointPlayback } from '../../lib/transport';
 import { lyricsUrl, openLyricsWindow } from './LyricsWindow';
 import { LyricsSettings } from './LyricsSettings';
+import { BackgroundEditor } from './BackgroundEditor';
 import { RegieTransferButtons } from './RegieTransfer';
 
 const t = texts.regie;
@@ -98,7 +101,7 @@ export function RegieView(
         </div>
         <div className="flex-1" />
         <RegieTransferButtons doc={props.doc} origin={props.origin} editable={props.editable} />
-        <LyricsButtons projectId={props.projectId} doc={props.doc} origin={props.origin} settings={props.data.showSettings} editable={props.editable} />
+        <LyricsButtons projectId={props.projectId} doc={props.doc} origin={props.origin} settings={props.data.showSettings} media={props.data.media} editable={props.editable} />
         <Button variant="secondary" className="shrink-0 text-sm" title={t.performance.openTitle} aria-label={t.performance.open} onClick={() => openPerformance(props.projectId)} disabled={props.data.show.items.length === 0}>
           <Clapperboard {...ICON} /> <span className="hidden sm:inline">{t.performance.open}</span>
         </Button>
@@ -425,6 +428,14 @@ function ItemDetail({
         )}
       </div>
 
+      {/* eigener Hintergrund im Textfenster (Bilder/Videos) – nur aufgeklappt geladen */}
+      {item.lyricsVisible !== false && (
+        <LazyCollapsible label={t.itemBackground} preview={itemBackgroundPreview(item, data.media)} testId="regie-item-background">
+          <p className="mb-2 text-xs text-slate-500">{t.itemBackgroundHint}</p>
+          <BackgroundEditor projectId={projectId} doc={doc} origin={origin} background={item.lyricsBackground} media={data.media} itemId={item.id} editable={editable} />
+        </LazyCollapsible>
+      )}
+
       {/* eingeklappt; die Zeile zeigt, was eingetragen ist */}
       <Collapsible
         label={t.fields.people}
@@ -695,6 +706,29 @@ function DurationField({ value, editable, onChange }: { value: number | undefine
 }
 
 /** Aufklappbarer Abschnitt (startet geschlossen); zu sehen sind Bezeichnung und eine kurze Vorschau */
+/** Wie Collapsible, der Inhalt entsteht aber erst beim Aufklappen (z. B. mit Dateiauswahl und Vorschau-Videos) */
+function LazyCollapsible({ label, preview, testId, children }: { label: string; preview: string; testId: string; children: ReactNode }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <details className="group rounded-md border border-slate-200 dark:border-slate-700" data-testid={testId} onToggle={(e) => setOpen((e.currentTarget as HTMLDetailsElement).open)}>
+      <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-sm select-none [&::-webkit-details-marker]:hidden">
+        <ChevronRight size={16} className="shrink-0 text-slate-400 transition-transform group-open:rotate-90" aria-hidden />
+        <span className="shrink-0 font-medium text-slate-700 dark:text-slate-200">{label}</span>
+        <span className="min-w-0 truncate text-slate-500 group-open:hidden">{preview}</span>
+      </summary>
+      {open && <div className="border-t border-slate-200 px-3 py-3 dark:border-slate-700">{children}</div>}
+    </details>
+  );
+}
+
+/** Kurzbeschreibung des eigenen Hintergrunds eines Eintrags */
+function itemBackgroundPreview(item: ShowItem, media: MediaRef[]): string {
+  const ids = lyricsImages(item.lyricsBackground);
+  if (ids.length === 0) return texts.regie.itemBackgroundStandard;
+  const videos = ids.filter((id) => isVideoMedia(media.find((m) => m.id === id))).length;
+  return texts.regie.itemBackgroundSummary(ids.length - videos, videos, item.lyricsBackground?.loop !== false);
+}
+
 function Collapsible({ label, preview, testId, children }: { label: string; preview: string; testId: string; children: ReactNode }) {
   return (
     <details className="group rounded-md border border-slate-200 dark:border-slate-700" data-testid={testId}>
@@ -740,7 +774,7 @@ function PeoplePicker({ people, selected, editable, onChange }: { people: Person
 
 
 /** Textfenster öffnen bzw. den Link dazu kopieren (für andere Geräte) */
-function LyricsButtons({ projectId, doc, origin, settings, editable }: { projectId: string; doc: Y.Doc; origin: object; settings: ShowSettings; editable: boolean }) {
+function LyricsButtons({ projectId, doc, origin, settings, media, editable }: { projectId: string; doc: Y.Doc; origin: object; settings: ShowSettings; media: MediaRef[]; editable: boolean }) {
   const [copied, setCopied] = useState(false);
   const [setup, setSetup] = useState(false);
   return (
@@ -768,7 +802,7 @@ function LyricsButtons({ projectId, doc, origin, settings, editable }: { project
           <Settings2 {...ICON} />
         </Button>
       )}
-      {setup && <LyricsSettings projectId={projectId} doc={doc} origin={origin} settings={settings} onClose={() => setSetup(false)} />}
+      {setup && <LyricsSettings projectId={projectId} doc={doc} origin={origin} settings={settings} media={media} onClose={() => setSetup(false)} />}
     </span>
   );
 }

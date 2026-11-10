@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'" />
+    <title>Steckplan Player</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #000;
+        --text: #e2e8f0;
+        --muted: #94a3b8;
+        --faint: #475569;
+        --accent: #38bdf8;
+        --ok: #34d399;
+        --warn: #fbbf24;
+        --bad: #f87171;
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; overflow: hidden; user-select: none; }
+      main { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2.5vh; text-align: center; padding: 4vw; }
+      h1 { margin: 0; font-size: 4.5vw; font-weight: 600; }
+      p { margin: 0; }
+      .sub { font-size: 1.7vw; color: var(--muted); }
+      .hint { font-size: 1.2vw; color: var(--faint); }
+      .code { font-family: ui-monospace, monospace; font-size: 11vw; font-weight: 700; letter-spacing: 0.25em; padding-left: 0.25em; color: #fff; }
+      .pulse { width: 3vw; height: 3vw; border-radius: 50%; background: var(--accent); animation: pulse 1.6s ease-in-out infinite; }
+      @keyframes pulse { 0%, 100% { opacity: 0.25; transform: scale(0.8); } 50% { opacity: 1; transform: scale(1.1); } }
+      .bar { width: 50vw; height: 1.2vh; border-radius: 1vh; background: #1e293b; overflow: hidden; }
+      .bar > div { height: 100%; background: var(--accent); transition: width 0.3s; }
+      ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 1vh; }
+      button { font: inherit; font-size: 1.5vw; color: var(--text); background: #0f172a; border: 1px solid #334155; border-radius: 0.8vw; padding: 1vh 2vw; cursor: pointer; }
+      button:hover { border-color: var(--accent); }
+      form { display: flex; gap: 1vw; align-items: center; }
+      input { font: inherit; font-size: 1.4vw; color: var(--text); background: #0f172a; border: 1px solid #334155; border-radius: 0.6vw; padding: 0.8vh 1vw; width: 22vw; }
+      .error { color: var(--bad); font-size: 1.5vw; }
+      .ok { color: var(--ok); }
+      .brand { position: fixed; top: 4vh; left: 0; right: 0; display: flex; align-items: center; justify-content: center; gap: 1.2vw; font-size: 2.2vw; font-weight: 600; color: var(--muted); }
+      .brand img { width: 4.5vw; height: 4.5vw; }
+      footer { position: fixed; bottom: 2vh; left: 0; right: 0; text-align: center; font-size: 1vw; color: var(--faint); }
+    </style>
+  </head>
+  <body>
+    <div class="brand" data-testid="player-logo"><img src="logo.png" alt="" />Steckplan Player</div>
+    <main id="screen" data-testid="player-status"></main>
+    <footer id="footer"></footer>
+    <script>
+      const screen = document.getElementById('screen');
+      const footer = document.getElementById('footer');
+      const el = (tag, attrs = {}, ...children) => {
+        const node = document.createElement(tag);
+        for (const [k, v] of Object.entries(attrs)) {
+          if (k === 'onclick' || k === 'onsubmit') node[k] = v;
+          else node.setAttribute(k, v);
+        }
+        for (const c of children) if (c !== null && c !== undefined) node.append(c);
+        return node;
+      };
+      const bytes = (n) => (n < 1048576 ? `${Math.round(n / 1024)} KB` : n < 1073741824 ? `${(n / 1048576).toFixed(n < 10485760 ? 1 : 0).replace('.', ',')} MB` : `${(n / 1073741824).toFixed(1).replace('.', ',')} GB`);
+      const serverLabel = (s) => `${s.name || s.host} (${s.host}:${s.port})`;
+
+      function manualForm(error) {
+        const input = el('input', { placeholder: 'Adresse, z. B. 192.168.1.20:8080', 'aria-label': 'Adresse der Steuersoftware', 'data-testid': 'manual-address' });
+        const form = el('form', { onsubmit: (e) => { e.preventDefault(); if (input.value.trim()) window.steckplanPlayer.manual(input.value.trim()); } }, input, el('button', { type: 'submit' }, 'Verbinden'));
+        return el('div', {}, form, error ? el('p', { class: 'error' }, error) : null);
+      }
+
+      function render(state) {
+        screen.replaceChildren();
+        screen.dataset.screen = state.screen;
+        footer.textContent = `${state.device} · Steckplan Player ${state.version} · Strg+Umschalt+Q beenden · F11 Vollbild · Strg+Umschalt+S andere Steuersoftware`;
+        if (state.screen === 'searching') {
+          screen.append(el('div', { class: 'pulse' }), el('h1', {}, 'Suche Steuersoftware …'), el('p', { class: 'sub' }, 'Steckplan (Desktop mit laufender Weboberfläche oder Server) im Netz'));
+          if (state.found.length > 1 && state.choose) {
+            screen.append(el('p', { class: 'sub' }, 'Mehrere gefunden – bitte wählen:'), el('ul', {}, ...state.found.map((s) => el('li', {}, el('button', { onclick: () => window.steckplanPlayer.choose(s.id), 'data-testid': 'found-server' }, serverLabel(s))))));
+          } else if (state.found.length) {
+            screen.append(el('p', { class: 'sub ok' }, `Gefunden: ${serverLabel(state.found[0])}`));
+          }
+          screen.append(el('p', { class: 'hint' }, 'Wird nichts gefunden: Adresse von Hand eingeben'), manualForm(state.error));
+        } else if (state.screen === 'connecting') {
+          screen.append(el('div', { class: 'pulse' }), el('h1', {}, 'Verbinde …'), el('p', { class: 'sub' }, serverLabel(state.server)));
+        } else if (state.screen === 'pairing') {
+          screen.append(
+            el('p', { class: 'sub' }, `Gefunden: ${serverLabel(state.server)}`),
+            el('h1', {}, 'Player koppeln'),
+            el('div', { class: 'code', 'data-testid': 'pairing-code' }, state.code),
+            el('p', { class: 'sub' }, 'Im Führen-Bildschirm der Vorstellung unter „Player“ diesen Code bestätigen („Zulassen“).'),
+            el('p', { class: 'hint' }, `Name dieses Players: ${state.device}`),
+          );
+        } else if (state.screen === 'syncing') {
+          const share = state.bytesTotal > 0 ? state.bytesDone / state.bytesTotal : state.total > 0 ? state.done / state.total : 1;
+          const bar = el('div', { class: 'bar' }, el('div', { style: `width:${Math.round(share * 100)}%` }));
+          screen.append(
+            el('div', { class: 'pulse' }),
+            el('h1', {}, state.phase === 'texts' ? 'Lade Texte …' : 'Lade Medien …'),
+            el('p', { class: 'sub', 'data-testid': 'sync-progress' }, state.phase === 'texts' ? serverLabel(state.server) : `${state.done} von ${state.total} Dateien · ${bytes(state.bytesDone)} von ${bytes(state.bytesTotal)}`),
+            bar,
+            state.current ? el('p', { class: 'hint' }, state.current) : null,
+          );
+        } else if (state.screen === 'error') {
+          screen.append(el('h1', { class: 'error' }, 'Problem'), el('p', { class: 'sub', 'data-testid': 'player-error' }, state.message), el('p', { class: 'hint' }, 'Neuer Versuch in wenigen Sekunden …'), el('button', { onclick: () => window.steckplanPlayer.retry() }, 'Jetzt erneut versuchen'));
+        }
+      }
+      window.steckplanPlayer.onState(render);
+    </script>
+  </body>
+</html>

@@ -7,6 +7,20 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.45.0] - 2026-11-10
+
+### Hinzugefügt
+
+- **Steckplan Player** – neues eigenes Programm (Installer für Windows und macOS) für den Rechner am Bildschirm/Beamer:
+  - trägt sich in den Autostart ein und startet im Vollbild (Bildschirm bleibt an)
+  - sucht die Steuersoftware selbst im Netz (Desktop-App mit laufender Weboberfläche oder Server) und zeigt die Suche an; Adresse notfalls von Hand
+  - einmal koppeln: Code am Player, im Führen-Bildschirm „Zulassen“; danach verbindet er sich von selbst (nur lesen)
+  - lädt beim Start Texte sowie alle Bilder und Videos des Textfensters und zeigt dann „Bereit“; Medien kommen danach aus dem eigenen Speicher
+  - zeigt das Textfenster des Projekts, in dem gerade geführt wird; Logo auf Suche-, Kopplungs-, Lade- und Bereit-Bildschirm
+- Führen-Bildschirm: Bereich „Player“ mit Stand je Player (bereit / lädt / nicht verbunden, Medien), neu synchronisieren (einzeln oder alle), Kopplungen zulassen/ablehnen, Player entfernen
+- Textfenster: Videos als Hintergrund – mehrere hintereinander (Bilder mit Standzeit, Videos bis zum Ende), „In Schleife“ oder „Einmalig“; als Standard (Regie-Einstellungen) und neu als eigener Hintergrund je Eintrag
+- Docker: Suche für Player (UDP 41234), abschaltbar mit `STECKPLAN_DISCOVERY`, `STECKPLAN_DISCOVERY_PORT`, `STECKPLAN_PUBLIC_PORT`
+
 ## [0.44.0] - 2026-11-10
 
 ### Hinzugefügt

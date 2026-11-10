@@ -378,7 +378,7 @@ export const ChangeLogEntrySchema = z.object({
   at: isoDate,
   by: z.string(),
   access: AccessSchema,
-  via: z.enum(['desktop', 'browser', 'desktopKey']),
+  via: z.enum(['desktop', 'browser', 'desktopKey', 'player']),
   action: z.string(),
   objectIds: z.array(id).default([]),
 });
@@ -463,6 +463,21 @@ export type MediaRef = z.infer<typeof MediaRefSchema>;
 export const ItemMediaSchema = z.object({ mediaId: id, label: z.string().default(''), isDefault: z.boolean().optional() });
 export type ItemMedia = z.infer<typeof ItemMediaSchema>;
 
+/**
+ * Hintergrund des Textfensters (Standard bzw. je Eintrag): Bilder und Videos aus dem Medienspeicher, abgedunkelt um dim.
+ * Mehrere = Diashow bzw. Video-Liste: Bilder stehen slideSec Sekunden, Videos laufen bis zum Ende; Überblendung fadeSec.
+ */
+export const LyricsBackgroundSchema = z.object({
+  mediaId: id,
+  dim: z.number().min(0).max(1).default(0.5),
+  /** weitere Bilder/Videos nach dem ersten */
+  slides: z.array(id).optional(),
+  slideSec: z.number().min(1).max(600).optional(),
+  fadeSec: z.number().min(0).max(30).optional(),
+  /** false = einmalig (bleibt beim letzten stehen); sonst in Schleife */
+  loop: z.boolean().optional(),
+});
+
 /** Eintrag im Ablauf: Lied, Schauspiel, Pause, Ansage */
 export const ShowItemSchema = z.object({
   id,
@@ -486,6 +501,8 @@ export const ShowItemSchema = z.object({
   lyricsHideAtEnd: z.boolean().optional(),
   /** Textfenster: Darstellung für diesen Punkt (sonst die allgemeine aus den Regie-Einstellungen) */
   lyricsMode: z.enum(['lines', 'block']).optional(),
+  /** Textfenster: eigener Hintergrund (Bilder/Videos) für diesen Punkt statt des Standards */
+  lyricsBackground: LyricsBackgroundSchema.optional(),
   /**
    * Versatz des Audios (Sekunden): positiv = die Musik setzt bei dieser Zeit des Punkts (Timecode) ein;
    * negativ = der Punkt beginnt bei dieser Stelle der Datei (−12 → 0:00 des Punkts ist 0:12 der Datei)
@@ -744,16 +761,7 @@ export const ShowSettingsSchema = z.object({
   /** Beginn des Ablaufs „HH:MM“ */
   startTime: z.string().optional(),
   /** Hintergrundbild des Textfensters (Datei im Medienspeicher), abgedunkelt um dim (0–1) */
-  lyricsBackground: z
-    .object({
-      mediaId: id,
-      dim: z.number().min(0).max(1).default(0.5),
-      /** Diashow: weitere Bilder nach dem ersten, Standzeit je Bild und Überblendung (Sekunden) */
-      slides: z.array(id).optional(),
-      slideSec: z.number().min(1).max(600).optional(),
-      fadeSec: z.number().min(0).max(30).optional(),
-    })
-    .optional(),
+  lyricsBackground: LyricsBackgroundSchema.optional(),
   /** Textfenster: Zeilen vor bzw. nach der aktuellen (Standard 1 und 3) */
   lyricsBefore: z.number().int().min(0).max(LYRICS_MAX_BEFORE).optional(),
   lyricsAfter: z.number().int().min(0).max(LYRICS_MAX_AFTER).optional(),

@@ -12,6 +12,7 @@ import { ProjectListPage } from './pages/ProjectListPage';
 import { LyricsPage } from './pages/LyricsPage';
 import { PerformancePage } from './pages/PerformancePage';
 import { OscPage } from './pages/OscPage';
+import { PlayerPage } from './pages/PlayerPage';
 import { ProjectPage } from './pages/ProjectPage';
 import { SettingsPage } from './pages/SettingsPage';
 
@@ -70,6 +71,8 @@ export function App() {
       return <LibraryPage section={route.section} />;
     case 'osc':
       return <OscPage />;
+    case 'player':
+      return <PlayerPage />;
     case 'settings':
       return <SettingsPage />;
     default:
