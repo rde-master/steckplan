@@ -10,6 +10,13 @@ contextBridge.exposeInMainWorld('steckplanPlayer', {
     void ipcRenderer.invoke('player:state').then(callback);
     return () => ipcRenderer.removeListener('player:state', listener);
   },
+  /** Netzwerk des Rechners: { connected, addresses: [{ name, address }], wifi? } */
+  onNetwork: (callback: (network: unknown) => void) => {
+    const listener = (_event: unknown, network: unknown) => callback(network);
+    ipcRenderer.on('player:network', listener);
+    void ipcRenderer.invoke('player:network').then(callback);
+    return () => ipcRenderer.removeListener('player:network', listener);
+  },
   choose: (serverId: string) => ipcRenderer.invoke('player:choose', serverId),
   manual: (address: string) => ipcRenderer.invoke('player:manual', address),
   retry: () => ipcRenderer.invoke('player:retry'),

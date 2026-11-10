@@ -1942,6 +1942,9 @@ export const texts = {
     catalogError: 'Texte konnten nicht geladen werden – im Führen-Bildschirm „Neu synchronisieren“ wählen.',
     loaded: (projects: number, media: number) => `${projects} ${projects === 1 ? 'Projekt' : 'Projekte'} mit Texten · ${media} ${media === 1 ? 'Bild/Video' : 'Bilder/Videos'} geladen`,
     waiting: 'Das Textfenster erscheint, sobald in der Vorstellung jemand „Führen“ wählt.',
+    networkConnected: 'Netzwerk verbunden',
+    networkNone: 'Kein Netzwerk',
+    wifi: 'WLAN',
   },
   players: {
     title: 'Player',
