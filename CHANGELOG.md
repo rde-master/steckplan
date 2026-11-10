@@ -7,6 +7,17 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.44.0] - 2026-11-10
+
+### Hinzugefügt
+
+- Führen: Knöpfe „Text“ und „Hintergrund“ – blenden im Textfenster (auf allen Geräten) den Text bzw. das Hintergrundbild/die Diashow weich aus und wieder ein; auch als APC40-Aktionen belegbar (LED grün = eingeblendet, rot blinkend = ausgeblendet)
+- Regie → Texte: ein Abschnitt ohne Text zählt als Leerzeile (Zwischenspiel) – er kommt beim Mitschreiben und bekommt eine Zeit, im Textfenster wird nichts hervorgehoben
+
+### Behoben
+
+- Mitschreiben: „Nächste Zeile“ war gesperrt, wenn die nächste Zeile eine Leerzeile war
+
 ## [0.43.0] - 2026-11-10
 
 ### Hinzugefügt

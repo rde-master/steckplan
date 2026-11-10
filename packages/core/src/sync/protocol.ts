@@ -24,6 +24,10 @@ export interface Cue {
   rate?: number;
   /** Führen: OSC-Befehle der Regie automatisch senden (Start des Eintrags, Szenen, Events) */
   osc?: boolean;
+  /** Führen: Text im Textfenster ausgeblendet */
+  hideText?: boolean;
+  /** Führen: Hintergrund im Textfenster ausgeblendet (schwarz) */
+  hideBackground?: boolean;
 }
 
 /** Fernsteuerung der Vorstellung (OSC bzw. HTTP) */
@@ -147,6 +151,8 @@ export function decodeCue(decoder: decoding.Decoder): Cue | null {
     ...(tcAt !== undefined ? { tc: { at: tcAt, playing: (v.tc as { playing?: unknown }).playing === true } } : {}),
     ...(typeof v.rate === 'number' && Number.isFinite(v.rate) && v.rate >= 0.25 && v.rate <= 4 && v.rate !== 1 ? { rate: v.rate } : {}),
     ...(v.osc === true ? { osc: true } : {}),
+    ...(v.hideText === true ? { hideText: true } : {}),
+    ...(v.hideBackground === true ? { hideBackground: true } : {}),
   };
 }
 

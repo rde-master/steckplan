@@ -19,6 +19,7 @@ import {
   personName,
   sceneTime,
   setLineTime,
+  isBreakLine,
   updateShowItem,
   type Person,
   newId,
@@ -86,6 +87,11 @@ export function TextsView({ projectId, doc, origin, data, editable }: { projectI
   );
 }
 
+/** Beschriftung von „Nächste Zeile“: Leerzeile als „Zwischenspiel“ (sonst wäre der Knopf gesperrt) */
+function nextLabel(text: string, direction: boolean): string {
+  return isBreakLine({ text, direction }) ? texts.regie.breakLine : text;
+}
+
 function TextDetail({ projectId, doc, origin, data, item, editable, onBack }: { projectId: string; doc: Y.Doc; origin: object; data: ProjectData; item: ShowItem; editable: boolean; onBack: (() => void) | undefined }) {
   const sections = itemSections(data.show.sections, item.id);
   const [pasting, setPasting] = useState(false);
@@ -107,6 +113,7 @@ function TextDetail({ projectId, doc, origin, data, item, editable, onBack }: { 
     return () => music.removeEventListener('seeked', reset);
   }, [music]);
   const next = nextLineToRecord(lines, time, recorded);
+  const nextText = next === undefined ? undefined : nextLabel(next.line.text, next.line.direction === true);
   const recordNext = useCallback(() => {
     // genaue Position im Moment des Drückens (die angezeigte Zeit läuft etwas hinterher)
     const at = music.currentTime;
@@ -177,7 +184,7 @@ function TextDetail({ projectId, doc, origin, data, item, editable, onBack }: { 
         time={time}
         recording={mode === 'record' && editable}
         onNextLine={recordNext}
-        nextLineText={next?.line.text}
+        nextLineText={nextText}
         onClearTimes={() => {
           if (window.confirm(t.clearTimesConfirm)) clearLineTimes(doc, item.id, origin);
         }}
