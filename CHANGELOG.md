@@ -11,6 +11,9 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 - Fehlerseite: Stürzt eine Ansicht ab oder lässt sich ein Teil der Oberfläche nicht laden, erscheint eine Meldung mit „Neu laden“ und „Zur Startseite“ statt eines weißen Bildschirms. Textfenster und Player (am Beamer) bleiben dunkel und laden nach wenigen Sekunden von selbst neu
 
+- Hinweis auf neue Versionen: Steckplan (Startseite, mit „Zum Download“) und der Steckplan Player (Statusseiten und „Bereit“) sehen beim Start einmal bei GitHub nach, ob es eine neuere Version gibt – installiert wird nichts von selbst, es werden keine Daten übermittelt; abschaltbar mit `STECKPLAN_UPDATE_CHECK=aus`
+- Player: lädt die Oberfläche von selbst neu, wenn die Steuersoftware aktualisiert wurde (nicht, solange das Textfenster gezeigt wird); ein Player-Programm, das älter ist als die Steuersoftware, ist im Führen-Bildschirm als „veraltet“ markiert
+
 ### Geändert
 
 - Flüssiger beim Abspielen: Führen, Vorstellung, Regie (Ablauf, Texte, Lichtszenen, Ton) und Textfenster rechnen nicht mehr bei jedem Bild die ganze Ansicht neu. Neu gezeichnet wird nur, wenn sich etwas ändert (Zeile, Szene, Start/Pause); Uhr, Balken, Abspielstrich und Takt-Kreis aktualisieren sich als kleine Bausteine. Auch die Zeitleisten (Führen, Lichtszenen, Ton, Mitschreiben, Versatz) bleiben beim Abspielen stehen – nur der Abspielstrich läuft; die Zählzeiten im Führen-Zeitstrahl sind eine Zeichnung statt hunderter Einzelteile. Spürbar auf schwächeren Rechnern, Tablets und am Player (weniger Last, weniger Lüfter)

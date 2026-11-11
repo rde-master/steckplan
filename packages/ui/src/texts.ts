@@ -1552,6 +1552,8 @@ export const texts = {
     yourName: 'Dein Name',
     nameSaved: 'Name gespeichert.',
     library: 'Bibliothek',
+    updateAvailable: (version: string) => `Steckplan ${version} ist verfügbar.`,
+    updateOpen: 'Zum Download',
   },
   webAccess: {
     title: 'Weboberfläche (QR & Handy)',
@@ -1955,6 +1957,7 @@ export const texts = {
     networkConnected: 'Netzwerk verbunden',
     networkNone: 'Kein Netzwerk',
     wifi: 'WLAN',
+    updateAvailable: (version: string) => `Steckplan Player ${version} ist verfügbar – Download: github.com/rde-master/steckplan/releases`,
   },
   players: {
     title: 'Player',
@@ -1973,5 +1976,7 @@ export const texts = {
     phases: { ready: 'bereit', syncing: 'synchronisiert', error: 'Fehler' } as Record<string, string>,
     media: (done: number, total: number) => `Medien ${done}/${total}`,
     lastSeen: (time: string) => `zuletzt ${time}`,
+    outdated: 'veraltet',
+    outdatedHint: (version: string) => `Dieser Player ist älter als die Steuersoftware (${version}) – bitte den Steckplan Player dort aktualisieren.`,
   },
 } as const;
