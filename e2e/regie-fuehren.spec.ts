@@ -40,6 +40,8 @@ test('Führen-Ansicht: ohne Licht/Ton, Text klein (vorige/aktuelle/nächste), Ze
   // Zeitstrahl über 20 s: 120 BPM 4/4 → alle 2 s ein Takt (11 Taktstriche), Textblöcke
   const timeline = lead.getByTestId('lead-timeline');
   await expect(timeline.getByTestId('lead-bar-line')).toHaveCount(11);
+  // Zählzeiten (alle 0,5 s) als eine Zeichnung
+  await expect(timeline.getByTestId('lead-beat-ticks')).toHaveAttribute('data-count', '41');
   await expect(timeline).toContainText('Fünf');
   // groß: Tap und Timecode, Szenen-/Eintrag-Knöpfe; Audio klein unten
   await expect(lead.getByTestId('beat-tap')).toBeVisible();

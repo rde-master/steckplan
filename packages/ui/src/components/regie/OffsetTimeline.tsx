@@ -8,7 +8,7 @@ import { texts } from '../../texts';
 import { ICON } from '../icons';
 import { Button } from '../ui';
 import { formatSceneTime } from './ScenesSection';
-import { Playhead } from './Playhead';
+import { Playhead, PLAYHEAD_RED } from './Playhead';
 import { TimelineScrollbar } from './TimelineScrollbar';
 import { usePlayerTime, type TimeSource } from '../../lib/playerTime';
 import { Waveform } from './Waveform';
@@ -33,7 +33,7 @@ function OffsetPlayhead({ source, from, span }: { source: TimeSource | null; fro
   const time = usePlayerTime(source);
   const position = (time - from) / span;
   if (position < 0 || position > 1) return null;
-  return <Playhead position={position} width={2} image="linear-gradient(rgb(239 68 68), rgb(239 68 68))" testId="offset-playhead" />;
+  return <Playhead at={{ fraction: position }} width={2} image={PLAYHEAD_RED} testId="offset-playhead" />;
 }
 
 export function OffsetTimeline({
