@@ -20,6 +20,11 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 - Schneller geladen: Die Oberfläche kommt in Teilen – Anmeldung, Textfenster, Player und Vorstellung laden nur noch, was sie brauchen (der Editor mit Zeichenflächen und Listen kommt erst mit dem Projekt, der Export erst beim Öffnen). Der Server liefert die Dateien komprimiert aus und der Browser merkt sie sich dauerhaft; erneutes Öffnen (z. B. Textfenster, Vorstellung) fragt nur noch die Startseite ab
 - Bearbeiten großer Projekte: Nach einer Änderung wird nur der geänderte Bereich neu eingelesen (z. B. beim Mitschreiben von Textzeiten nicht mehr Geräte, Kabel und Lichtwerte)
 - Nach einem Update des Servers lädt eine noch offene Seite von selbst neu, wenn sie einen Teil der alten Version nicht mehr findet
+- Bibliotheken aktualisiert (u. a. Electron 45.3, Fastify 5.12.8, Vite 8.3.8, pdf.js 6.5)
+
+### Sicherheit
+
+- Der Server schickt Schutz-Header mit: Dateien werden nicht anders gedeutet als angegeben, die Oberfläche lässt sich nicht in fremde Seiten einbetten, und Adressen (z. B. der Lese-Schlüssel der Etiketten) werden nicht an fremde Seiten weitergegeben
 
 ## [0.46.0] - 2026-11-10
 

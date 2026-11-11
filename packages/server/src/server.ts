@@ -108,6 +108,15 @@ export async function createServer(options: ServerOptions): Promise<SteckplanSer
     trustProxy: options.trustProxy ?? false,
   });
 
+  // Schutz-Header für alle Antworten: Dateien nicht anders deuten als angegeben, die Oberfläche nicht in fremde
+  // Seiten einbetten (Klick-Fallen), Adressen (z. B. Lese-Schlüssel der Etiketten) nicht an fremde Seiten weitergeben
+  app.addHook('onSend', async (_request, reply) => {
+    void reply.header('X-Content-Type-Options', 'nosniff');
+    void reply.header('X-Frame-Options', 'SAMEORIGIN');
+    void reply.header('Content-Security-Policy', "frame-ancestors 'self'");
+    void reply.header('Referrer-Policy', 'same-origin');
+  });
+
   // Lichtpult: zuletzt gelaufene Cues (OSC /steckplan/cue bzw. HTTP), an alle geöffneten Projekte
   const deskCues = new DeskCueStore();
   const rooms = new RoomManager({
