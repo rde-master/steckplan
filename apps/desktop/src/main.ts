@@ -1,6 +1,7 @@
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { app, BrowserWindow, dialog, ipcMain, safeStorage, session } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, safeStorage, session, shell } from 'electron';
+import { checkForUpdate, VERSION, type UpdateInfo } from '@steckplan/core';
 import { normalizeName, SESSION_COOKIE } from '@steckplan/server';
 import { startEmbeddedServer, type EmbeddedServer } from './embedded-server';
 import { buildMenu } from './menu';
@@ -15,6 +16,9 @@ const isDev = !app.isPackaged;
 
 // Für Tests: eigener App-Datenordner
 if (process.env.STECKPLAN_USER_DATA) app.setPath('userData', process.env.STECKPLAN_USER_DATA);
+
+/** Neuere Version, falls beim Start eine gefunden wurde (Hinweis auf der Startseite) */
+let update: UpdateInfo | null = null;
 
 /** Dateien, die vor dem Start (macOS „open-file“) oder vor Eingabe des Namens geöffnet werden sollen */
 const pendingFiles: string[] = [];
@@ -105,6 +109,9 @@ function registerIpc(): void {
     return openFile(path);
   });
   ipcMain.handle('recent:list', () => settings.recent());
+  ipcMain.handle('update:get', () => update);
+  // geöffnet wird nur die geprüfte Download-Seite (siehe parseLatestRelease)
+  ipcMain.handle('update:open', () => (update ? shell.openExternal(update.url) : undefined));
   ipcMain.handle('project:copyAsNew', (event, projectId: unknown) => {
     if (typeof projectId !== 'string') return;
     return projects.copyAsNew(projectId, BrowserWindow.fromWebContents(event.sender) ?? undefined);
@@ -278,6 +285,16 @@ if (!app.requestSingleInstanceLock()) {
     }
     if (pendingFiles.length && settings.name) await openPendingFiles();
     if (windows.projectCount === 0) windows.showStart();
+
+    // Hinweis auf eine neue Version: einmal beim Start bei GitHub nachsehen (nur die installierte App; abschaltbar
+    // mit STECKPLAN_UPDATE_CHECK=aus, für Tests eine eigene Adresse). Ohne Netz passiert nichts.
+    const updateUrl = process.env.STECKPLAN_UPDATE_URL;
+    if ((app.isPackaged || updateUrl) && process.env.STECKPLAN_UPDATE_CHECK !== 'aus') {
+      void checkForUpdate(VERSION, fetch, updateUrl ? { url: updateUrl } : {}).then((info) => {
+        update = info;
+        if (info) broadcast('update:available');
+      });
+    }
 
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) windows.showStart();

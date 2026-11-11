@@ -41,11 +41,13 @@
       .net b { color: var(--text); font-weight: 600; }
       .net .dot { display: inline-block; width: 0.8vw; height: 0.8vw; border-radius: 50%; margin-right: 0.5vw; vertical-align: middle; }
       footer { position: fixed; bottom: 2vh; left: 0; right: 0; text-align: center; font-size: 1vw; color: var(--faint); }
+      .update { position: fixed; bottom: 9.5vh; left: 0; right: 0; text-align: center; font-size: 1.25vw; color: var(--accent); }
     </style>
   </head>
   <body>
     <div class="brand" data-testid="player-logo"><img src="logo.png" alt="" />Steckplan Player</div>
     <main id="screen" data-testid="player-status"></main>
+    <div class="update" id="update" data-testid="player-update" hidden></div>
     <div class="net" id="network" data-testid="player-network"></div>
     <footer id="footer"></footer>
     <script>
@@ -121,6 +123,13 @@
         network.append(el('span', { 'data-testid': 'network-state' }, dot, el('b', {}, 'Netzwerk verbunden')));
         if (n.wifi) network.append(el('span', { 'data-testid': 'network-wifi' }, 'WLAN: ', el('b', {}, n.wifi)));
         for (const a of n.addresses) network.append(el('span', { 'data-testid': 'network-address' }, `IP ${a.name}: `, el('b', {}, a.address)));
+      });
+
+      // Hinweis auf eine neuere Version des Players
+      const update = document.getElementById('update');
+      window.steckplanPlayer.onUpdate((u) => {
+        update.hidden = !u;
+        update.textContent = u ? `Steckplan Player ${u.version} ist verfügbar – Download: github.com/rde-master/steckplan/releases` : '';
       });
     </script>
   </body>

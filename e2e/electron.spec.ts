@@ -1,5 +1,7 @@
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { createServer } from 'node:http';
 import { createRequire } from 'node:module';
+import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { _electron as electron, expect, test } from '@playwright/test';
@@ -270,5 +272,34 @@ test('Desktop: Projekt mit Medien (.steckplan.zip) öffnen – fragt den Speiche
     expect(status).toBe(200);
   } finally {
     await app.close();
+  }
+});
+
+test('Desktop: Hinweis auf eine neue Version auf der Startseite, „Zum Download“ öffnet die Download-Seite', async () => {
+  // statt GitHub antwortet ein eigener kleiner Server mit einer „neueren“ Veröffentlichung
+  const release = { tag_name: 'v99.0.0', html_url: 'https://github.com/rde-master/steckplan/releases/tag/v99.0.0' };
+  const fake = createServer((_req, res) => res.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify(release)));
+  await new Promise<void>((resolve) => fake.listen(0, '127.0.0.1', resolve));
+  const userData = tempDir('steckplan-userdata-');
+  const env = { ...process.env, STECKPLAN_USER_DATA: userData, STECKPLAN_UPDATE_URL: `http://127.0.0.1:${(fake.address() as AddressInfo).port}/latest` } as Record<string, string>;
+  delete env.ELECTRON_RUN_AS_NODE;
+  const app = await electron.launch({ executablePath: electronPath, args: [...(process.platform === 'linux' ? ['--no-sandbox'] : []), appDir], env });
+  try {
+    const start = await app.firstWindow();
+    await start.getByLabel('Dein Name').fill('Ralf Desktop');
+    await start.getByRole('button', { name: 'Weiter' }).click();
+    const hint = start.getByTestId('update-available');
+    await expect(hint).toContainText('Steckplan 99.0.0 ist verfügbar.', { timeout: 15_000 });
+    // der Browser wird im Test nicht wirklich geöffnet: Adresse abfangen
+    await app.evaluate(({ shell }) => {
+      shell.openExternal = (async (url: string) => {
+        (globalThis as { openedUrl?: string }).openedUrl = url;
+      }) as never;
+    });
+    await hint.getByRole('button', { name: 'Zum Download' }).click();
+    await expect.poll(() => app.evaluate(() => (globalThis as { openedUrl?: string }).openedUrl)).toBe(release.html_url);
+  } finally {
+    await app.close();
+    fake.close();
   }
 });

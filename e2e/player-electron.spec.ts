@@ -1,5 +1,7 @@
 import { mkdtempSync, rmSync } from 'node:fs';
+import { createServer } from 'node:http';
 import { createRequire } from 'node:module';
+import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { _electron as electron, expect, test } from '@playwright/test';
@@ -36,8 +38,11 @@ test('Player: sucht die Steuersoftware, Code im Führen-Bildschirm zulassen, lä
   await uploadMediaFile(page, id, 'bild', png);
   const players = async () => (await (await page.request.get('/api/players')).json()) as PlayersOverview;
 
+  // Hinweis auf eine neue Player-Version: statt GitHub antwortet ein eigener kleiner Server
+  const fake = createServer((_req, res) => res.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify({ tag_name: 'v99.0.0', html_url: 'https://github.com/rde-master/steckplan/releases/tag/v99.0.0' })));
+  await new Promise<void>((resolve) => fake.listen(0, '127.0.0.1', resolve));
   const userData = mkdtempSync(join(tmpdir(), 'steckplan-player-'));
-  const env = { ...process.env, STECKPLAN_PLAYER_USER_DATA: userData, STECKPLAN_DISCOVERY_PORT: String(E2E.discoveryPort), STECKPLAN_PLAYER_WINDOWED: '1', STECKPLAN_PLAYER_NAME: 'Beamer Saal' } as Record<string, string>;
+  const env = { ...process.env, STECKPLAN_UPDATE_URL: `http://127.0.0.1:${(fake.address() as AddressInfo).port}/latest`, STECKPLAN_PLAYER_USER_DATA: userData, STECKPLAN_DISCOVERY_PORT: String(E2E.discoveryPort), STECKPLAN_PLAYER_WINDOWED: '1', STECKPLAN_PLAYER_NAME: 'Beamer Saal' } as Record<string, string>;
   delete env.ELECTRON_RUN_AS_NODE;
   const app = await electron.launch({ executablePath: electronPath, args: [...(process.platform === 'linux' ? ['--no-sandbox'] : []), appDir], env });
   try {
@@ -50,6 +55,7 @@ test('Player: sucht die Steuersoftware, Code im Führen-Bildschirm zulassen, lä
     await expect(win.getByTestId('player-logo').locator('img')).toHaveJSProperty('naturalWidth', 256);
     // Netzwerk des Rechners: verbunden und IP-Adresse(n)
     await expect(win.getByTestId('player-network').getByTestId('network-state')).toBeVisible();
+    await expect(win.getByTestId('player-update')).toContainText('Steckplan Player 99.0.0 ist verfügbar');
     await win.screenshot({ path: 'test-results/player-koppeln.png' });
 
     // Führen-Bildschirm: Anfrage mit demselben Code zulassen
@@ -71,6 +77,8 @@ test('Player: sucht die Steuersoftware, Code im Führen-Bildschirm zulassen, lä
     const me = (await players()).players.find((p) => p.name === 'Beamer Saal')!;
     expect(me.report?.mediaDone).toBe(me.report?.mediaTotal);
     expect(me.report?.mediaTotal).toBeGreaterThanOrEqual(1);
+    // gleiche Version wie die Steuersoftware: kein Hinweis „veraltet“
+    await expect(row.getByTestId('player-outdated')).toHaveCount(0);
 
     // geführt wird in diesem Projekt: Textfenster mit Bild aus dem Zwischenspeicher
     await expect(win.getByTestId('lyrics-active-line')).toContainText('Willkommen im Saal', { timeout: 15_000 });
@@ -92,6 +100,7 @@ test('Player: sucht die Steuersoftware, Code im Führen-Bildschirm zulassen, lä
     await expect(win.getByTestId('player-ready')).toContainText('Bereit');
     await expect(win.getByTestId('player-ready').getByTestId('player-logo')).toHaveJSProperty('naturalWidth', 256);
     await expect(win.getByTestId('player-ready').getByTestId('player-network')).toContainText(/Netzwerk verbunden|Kein Netzwerk/);
+    await expect(win.getByTestId('player-ready').getByTestId('player-update')).toContainText('Steckplan Player 99.0.0 ist verfügbar');
     await win.screenshot({ path: 'test-results/player-bereit.png' });
 
     // neu synchronisieren aus dem Führen-Bildschirm
@@ -103,6 +112,7 @@ test('Player: sucht die Steuersoftware, Code im Führen-Bildschirm zulassen, lä
     await expect(row).toHaveAttribute('data-phase', 'ready');
   } finally {
     await app.close();
+    fake.close();
     rmSync(userData, { recursive: true, force: true, maxRetries: 3 });
   }
 });

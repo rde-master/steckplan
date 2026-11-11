@@ -2,7 +2,7 @@
 // (Code am Player-Bildschirm), neu synchronisieren (einzeln oder alle) und Player entfernen.
 import { Check, MonitorPlay, RefreshCw, Trash2, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { formatBytes, type PlayersOverview, type PlayerStatus } from '@steckplan/core';
+import { formatBytes, isNewerVersion, VERSION, type PlayersOverview, type PlayerStatus } from '@steckplan/core';
 import { api, errorMessage } from '../../lib/api';
 import { texts } from '../../texts';
 
@@ -131,6 +131,11 @@ export function PlayersPanel({ className = '' }: { className?: string }) {
                   {p.online && r && r.bytesTotal > 0 && r.phase === 'syncing' && <span>{`${formatBytes(r.bytesDone)} / ${formatBytes(r.bytesTotal)}`}</span>}
                   {!p.online && p.lastSeen && <span>{t.lastSeen(clock(p.lastSeen))}</span>}
                   {r?.version && <span className="text-slate-500">v{r.version}</span>}
+                  {r?.version && isNewerVersion(VERSION, r.version) && (
+                    <span className="font-semibold text-amber-400" title={t.outdatedHint(VERSION)} data-testid="player-outdated">
+                      {t.outdated}
+                    </span>
+                  )}
                 </p>
                 {p.online && r?.error && <p className="pl-4 text-xs text-red-400">{r.error}</p>}
               </li>

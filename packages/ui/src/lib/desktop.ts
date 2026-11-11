@@ -62,6 +62,14 @@ export interface ServersBridge {
   onChanged(callback: () => void): () => void;
 }
 
+/** Hinweis auf eine neue Version (siehe apps/desktop/src/main.ts) */
+export interface UpdateBridge {
+  get(): Promise<{ version: string; url: string } | null>;
+  /** Download-Seite im Browser öffnen */
+  open(): Promise<void>;
+  onAvailable(callback: () => void): () => void;
+}
+
 export interface DesktopBridge {
   platform: string;
   getSettings(): Promise<DesktopSettings>;
@@ -74,6 +82,8 @@ export interface DesktopBridge {
   copyAsNew(projectId: string): Promise<void>;
   webAccess: WebAccessBridge;
   servers: ServersBridge;
+  /** fehlt in älteren Desktop-Versionen (Oberfläche von einem neueren Server) */
+  update?: UpdateBridge;
   /** Lokales Projekt auf einen Server hochladen; öffnet es dort im Server-Fenster */
   uploadToServer(projectId: string, serverId: string): Promise<string>;
   onRecentChanged(callback: () => void): () => void;

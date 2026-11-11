@@ -156,7 +156,7 @@ export const api = {
   rejectPlayer: (requestId: string) => request<{ ok: true }>('POST', `/api/players/pairing/${encodeURIComponent(requestId)}/reject`),
   resyncPlayer: (id?: string) => request<{ ok: true }>('POST', id ? `/api/players/${encodeURIComponent(id)}/resync` : '/api/players/resync'),
   removePlayer: (id: string) => request<{ ok: true }>('DELETE', `/api/players/${encodeURIComponent(id)}`),
-  playerState: () => request<{ leadProjectId: string | null }>('GET', '/api/player/state'),
+  playerState: () => request<{ leadProjectId: string | null; version?: string }>('GET', '/api/player/state'),
   playerCatalog: () => request<PlayerCatalog>('GET', '/api/player/catalog'),
   startMediaUpload: (projectId: string, size: number, mediaId?: string) =>
     request<{ uploadId: string; mediaId: string; size: number; received: number; complete?: MediaFileInfo }>('POST', `/api/projects/${encodeURIComponent(projectId)}/media/uploads`, { size, ...(mediaId ? { mediaId } : {}) }),

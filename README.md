@@ -28,6 +28,12 @@ Bildschirm bzw. Beamer. Er startet automatisch im Vollbild, sucht die Steuersoft
 laufender Weboberfläche oder Server), koppelt sich per Code (im Führen-Bildschirm unter „Player“ zulassen), lädt
 beim Start Texte, Bilder und Videos und zeigt dann das Textfenster der laufenden Vorstellung.
 
+**Neue Versionen:** Steckplan und der Steckplan Player sehen beim Start einmal bei GitHub nach, ob es eine neuere
+Version gibt, und zeigen dann einen Hinweis mit dem Weg zum Download (installiert wird nichts von selbst; es werden
+keine Daten übermittelt). Abschalten: Umgebungsvariable `STECKPLAN_UPDATE_CHECK=aus`. Wird die Steuersoftware
+aktualisiert, lädt ein verbundener Player die neue Oberfläche von selbst; ein älteres Player-Programm ist im
+Führen-Bildschirm als „veraltet“ markiert.
+
 **Test-Builds** aus dem Branch `develop`:
 
 - **Desktop:** unter [Actions → CI](https://github.com/rde-master/steckplan/actions/workflows/ci.yml) den neuesten Lauf auf `develop` öffnen und unten bei *Artifacts* `.dmg` (macOS) bzw. `.exe` (Windows) herunterladen
