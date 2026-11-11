@@ -92,6 +92,17 @@ describe('createServer', () => {
     expect(res.statusCode).toBe(404);
   });
 
+  it('Schutz-Header auf allen Antworten (Oberfläche, Dateien, API, Fehler)', async () => {
+    server = await startTestServer({ uiDir: makeUiDir() });
+    for (const url of ['/', '/app.js', '/api/health', '/api/gibtsnicht', '/api/projects']) {
+      const res = await server.app.inject({ method: 'GET', url });
+      expect(res.headers['x-content-type-options'], url).toBe('nosniff');
+      expect(res.headers['x-frame-options'], url).toBe('SAMEORIGIN');
+      expect(res.headers['content-security-policy'], url).toBe("frame-ancestors 'self'");
+      expect(res.headers['referrer-policy'], url).toBe('same-origin');
+    }
+  });
+
   it('funktioniert ohne UI-Ordner (nur API)', async () => {
     server = await startTestServer({ uiDir: '/gibt/es/nicht' });
     expect((await server.app.inject({ method: 'GET', url: '/' })).statusCode).toBe(404);
