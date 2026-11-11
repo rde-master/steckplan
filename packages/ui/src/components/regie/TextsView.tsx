@@ -37,7 +37,8 @@ import { usePointPlayback } from '../../lib/transport';
 import { SectionsEditor } from './SectionsEditor';
 import { LyricsTimeline } from './LyricsTimeline';
 import { itemAudioSrc } from './Waveform';
-import { LyricsView, PlayerBar, seekAudio, TimecodePanel, usePlayerTime, useRecordKey } from './SongMedia';
+import { LyricsView, PlayerBar, seekAudio, TimecodePanel, useRecordKey } from './SongMedia';
+import { usePlayerValue } from '../../lib/playerTime';
 
 const t = texts.regie;
 const tv = texts.regie.textsView;
@@ -97,7 +98,6 @@ function TextDetail({ projectId, doc, origin, data, item, editable, onBack }: { 
   const [pasting, setPasting] = useState(false);
   const [audio, setAudio] = useState<HTMLAudioElement | null>(null);
   const { tc, music, sync } = usePointPlayback(item.id, item.durationSec, audio, item.audioOffsetSec, itemTempo(item).rate);
-  const time = usePlayerTime(music);
   // Audio (Lied oder Tonaufnahme des Schauspiels): Mitlesen und Mitschreiben
   const hasAudio = (item.kind === 'song' || item.kind === 'play') && (item.media?.length ?? 0) > 0;
   const [textMode, setTextMode] = useState<'edit' | 'read' | 'record'>('edit');
@@ -112,7 +112,9 @@ function TextDetail({ projectId, doc, origin, data, item, editable, onBack }: { 
     music.addEventListener('seeked', reset);
     return () => music.removeEventListener('seeked', reset);
   }, [music]);
-  const next = nextLineToRecord(lines, time, recorded);
+  // neu gezeichnet nur, wenn eine andere Zeile dran ist (nicht je Bild)
+  const nextId = usePlayerValue(music, (time) => nextLineToRecord(lines, time, recorded)?.line.id);
+  const next = nextId === undefined ? undefined : lines.find((l) => l.line.id === nextId);
   const nextText = next === undefined ? undefined : nextLabel(next.line.text, next.line.direction === true);
   const recordNext = useCallback(() => {
     // genaue Position im Moment des Drückens (die angezeigte Zeit läuft etwas hinterher)
@@ -163,11 +165,11 @@ function TextDetail({ projectId, doc, origin, data, item, editable, onBack }: { 
           </div>
           {(item.kind === 'song' || item.kind === 'play') && !hasAudio && <p className="text-xs text-slate-500">{tv.noAudio}</p>}
           {mode === 'record' && <p className="text-xs text-slate-500">{t.recordHint}</p>}
-          {mode === 'record' && <LyricsTimeline doc={doc} origin={origin} lines={lines} time={time} duration={music.duration} timeOffset={offset} editable={editable} onSeek={(sec) => seekAudio(music, sec)} waveSrc={itemAudioSrc(projectId, item)} audioOffset={item.audioOffsetSec ?? 0} />}
+          {mode === 'record' && <LyricsTimeline doc={doc} origin={origin} lines={lines} source={music} duration={music.duration} timeOffset={offset} editable={editable} onSeek={(sec) => seekAudio(music, sec)} waveSrc={itemAudioSrc(projectId, item)} audioOffset={item.audioOffsetSec ?? 0} />}
           {mode === 'edit' ? (
             <SectionsEditor projectId={projectId} doc={doc} origin={origin} item={item} sections={sections} settings={data.showSettings} editable={editable} />
           ) : (
-            <LyricsView doc={doc} origin={origin} lines={lines} time={time} timeOffset={offset} recording={mode === 'record'} editable={editable} onSeek={(sec) => seekAudio(music, sec)} />
+            <LyricsView doc={doc} origin={origin} lines={lines} source={music} timeOffset={offset} recording={mode === 'record'} editable={editable} onSeek={(sec) => seekAudio(music, sec)} />
           )}
         </section>
       </article>
@@ -181,7 +183,6 @@ function TextDetail({ projectId, doc, origin, data, item, editable, onBack }: { 
         media={data.media}
         playback={music}
         setAudio={setAudio}
-        time={time}
         recording={mode === 'record' && editable}
         onNextLine={recordNext}
         nextLineText={nextText}

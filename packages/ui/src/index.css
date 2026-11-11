@@ -27,6 +27,25 @@ body {
   }
 }
 
+/* Takt-Anzeige: Zählzeit leuchtet zu Beginn jedes Schlags kurz auf (Dauer: ein Drittel des Schlags) */
+@keyframes steckplan-beat {
+  from {
+    transform: scale(1.18);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+@keyframes steckplan-beat-dot {
+  from {
+    transform: scale(1.333);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
 /* Formatierter Text (Tonszenen): Überschriften, Listen und Absätze trotz Tailwind-Grundstil sichtbar */
 .rich-text h3 {
   margin: 0.6em 0 0.3em;

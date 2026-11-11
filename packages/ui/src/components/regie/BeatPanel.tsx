@@ -27,14 +27,6 @@ function point(c: number, fraction: number, radius: number): { x: number; y: num
   return { x: c + Math.cos(a) * radius, y: c + Math.sin(a) * radius };
 }
 
-/** Bogen von oben (0) bis fraction (0 … 1) */
-function arc(c: number, fraction: number, radius: number): string {
-  if (fraction <= 0) return '';
-  const end = point(c, Math.min(fraction, 0.9999), radius);
-  const large = fraction > 0.5 ? 1 : 0;
-  return `M ${c} ${c - radius} A ${radius} ${radius} 0 ${large} 1 ${end.x.toFixed(2)} ${end.y.toFixed(2)}`;
-}
-
 export function BeatPanel({
   bpm,
   signature,
@@ -88,7 +80,8 @@ export function BeatPanel({
   const tapping = !!tap && tap.count > 0;
   return (
     <div className={`flex shrink-0 items-center ${big ? 'gap-5' : 'gap-3'}`} data-testid="beat-panel">
-      <div className="relative" style={{ width: SIZE, height: SIZE }}>
+      {/* eigene Ebene: je Bild wird nur dieser Kreis neu gemalt */}
+      <div className="relative will-change-transform" style={{ width: SIZE, height: SIZE }}>
         <svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`} aria-hidden>
           <defs>
             <radialGradient id="beat-glow">
@@ -96,10 +89,25 @@ export function BeatPanel({
               <stop offset="100%" stopColor="#38bdf8" stopOpacity="0" />
             </radialGradient>
           </defs>
-          <circle cx={C} cy={C} r={R + 8} fill="url(#beat-glow)" opacity={0.4 + pulse * 0.6} />
+          {/* fillOpacity statt opacity: nur neu gemalt, keine eigene Ebene */}
+          <circle cx={C} cy={C} r={R + 8} fill="url(#beat-glow)" fillOpacity={0.4 + pulse * 0.6} />
           <circle cx={C} cy={C} r={R} fill="none" stroke="#1e293b" strokeWidth={big ? 9 : 6} />
-          {/* umlaufender Bogen: Fortschritt im Takt */}
-          {pos && <path d={arc(C, pos.barPhase, R)} fill="none" stroke={pos.count === 1 ? '#f59e0b' : '#38bdf8'} strokeWidth={big ? 9 : 6} strokeLinecap="round" opacity={0.85} />}
+          {/* umlaufender Bogen (Fortschritt im Takt): ein voller Kreis, von dem nur ein Stück gezeichnet wird – die Form
+              bleibt gleich, je Bild wird nur neu gemalt (strokeOpacity statt opacity: keine eigene Ebene) */}
+          {pos && pos.barPhase > 0 && (
+            <circle
+              cx={C}
+              cy={C}
+              r={R}
+              fill="none"
+              stroke={pos.count === 1 ? '#f59e0b' : '#38bdf8'}
+              strokeWidth={big ? 9 : 6}
+              strokeLinecap="round"
+              strokeOpacity={0.85}
+              strokeDasharray={`${(2 * Math.PI * R * Math.min(pos.barPhase, 0.9999)).toFixed(2)} ${(2 * Math.PI * R).toFixed(2)}`}
+              transform={`rotate(-90 ${C} ${C})`}
+            />
+          )}
           {/* je Zählzeit ein Punkt; der aktuelle groß und hell, die „1“ bernsteinfarben */}
           {Array.from({ length: beats }, (_, i) => {
             const p = point(C, i / beats, R);
@@ -107,10 +115,12 @@ export function BeatPanel({
             const color = i === 0 ? '#f59e0b' : '#38bdf8';
             return (
               <circle
-                key={i}
+                // Aufleuchten des aktuellen Punkts als CSS-Animation (je Schlag neu gestartet), nicht je Bild berechnet
+                key={active && playing ? `${i}:${pos.bar}` : i}
+                style={active && playing && bpm ? { transformBox: 'fill-box', transformOrigin: 'center', animation: `steckplan-beat-dot ${(20 / bpm).toFixed(3)}s linear` } : undefined}
                 cx={p.x}
                 cy={p.y}
-                r={(active ? 9 + pulse * 3 : 5) * dot}
+                r={(active ? 9 : 5) * dot}
                 fill={active ? color : '#0f172a'}
                 stroke={color}
                 strokeWidth={active ? 0 : 2}
@@ -121,9 +131,11 @@ export function BeatPanel({
           })}
         </svg>
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+          {/* Aufleuchten je Schlag als CSS-Animation (läuft im Browser ohne Rechnen je Bild); neuer Schlag = neuer Start */}
           <span
+            key={pos && playing ? `${pos.bar}:${pos.count}` : 'still'}
             className={`${big ? 'text-8xl' : 'text-5xl'} leading-none font-black tabular-nums ${pos?.count === 1 ? 'text-amber-400' : 'text-sky-300'}`}
-            style={{ transform: `scale(${1 + pulse * 0.18})` }}
+            style={pos && playing && bpm ? { animation: `steckplan-beat ${(20 / bpm).toFixed(3)}s linear` } : undefined}
             data-testid="beat-count"
           >
             {tapping ? tap.count : (pos?.count ?? '–')}

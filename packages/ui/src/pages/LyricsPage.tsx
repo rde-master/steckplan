@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react';
 import { currentLineId, effectiveBackground, itemTimedLines, itemSections, lyricsRange, sectionBackground } from '@steckplan/core';
 import { LyricsBackgroundView } from '../components/regie/LyricsBackgroundView';
-import { LyricsDisplay, useCueClock, useLocalCue, type ReceivedCue } from '../components/regie/LyricsWindow';
+import { LyricsDisplay, useCueSource, useLocalCue, type ReceivedCue } from '../components/regie/LyricsWindow';
+import { usePlayerValue } from '../lib/playerTime';
 import { useProjectData } from '../lib/useProjectData';
 import { useProjectDoc } from '../lib/useProjectDoc';
 import { texts } from '../texts';
@@ -40,7 +41,9 @@ export function LyricsPage({ id, player }: { id: string; player?: PlayerEmbeddin
   const local = useLocalCue(id);
   const lead = state?.lead ?? null;
   const cue: ReceivedCue | null = lead ? { ...lead, receivedAt: state?.leadReceivedAt ?? 0 } : local;
-  const time = useCueClock(cue);
+  // Uhr der Stelle: geprüft wird je Bild, neu gezeichnet nur beim Wechsel der Zeile bzw. am Ende
+  const clock = useCueSource(cue);
+  const hasTime = cue?.at !== undefined;
   const fullscreen = useFullscreen();
   const onLead = player?.onLead;
   const leading = lead !== null;
@@ -51,7 +54,8 @@ export function LyricsPage({ id, player }: { id: string; player?: PlayerEmbeddin
   const item = cue ? data.show.items.find((i) => i.id === cue.itemId) : undefined;
   const lines = item ? itemTimedLines(data.show.sections, item) : [];
   const scene = cue?.sceneId ? data.lightScenes.find((s) => s.id === cue.sceneId) : undefined;
-  const current = time !== undefined ? currentLineId(lines, time) : scene?.lineId;
+  const lineByTime = usePlayerValue(clock, (time) => currentLineId(lines, time));
+  const current = hasTime ? lineByTime : scene?.lineId;
   const title = item?.title || (item ? texts.regie.untitled : '');
   const showTitle = data.showSettings.lyricsShowTitle !== false;
   const roleNames = new Map((item?.roles ?? []).map((r) => [r.id, r.name]));
@@ -66,7 +70,9 @@ export function LyricsPage({ id, player }: { id: string; player?: PlayerEmbeddin
   const message = status === 'kicked' ? (state?.notice ?? texts.project.kicked) : status === 'unauthorized' || status === 'notFound' ? t.noAccess : !item ? (lead || local ? t.waiting : t.nobodyLeads) : null;
 
   // Ende des Punkts erreicht (Dauer) → Text ausblenden, sofern nicht abgeschaltet
-  const ended = !!item && item.lyricsHideAtEnd !== false && item.durationSec !== undefined && time !== undefined && time >= item.durationSec - 0.05;
+  const durationSec = item?.durationSec;
+  const pastEnd = usePlayerValue(clock, (time) => durationSec !== undefined && time >= durationSec - 0.05);
+  const ended = !!item && item.lyricsHideAtEnd !== false && hasTime && pastEnd;
   // Hintergrund: Bild des aktuellen Abschnitts (bzw. vor dem Start: des ersten), sonst der des Eintrags bzw. der Standard
   const sections = item ? itemSections(data.show.sections, item.id) : [];
   const sectionId = (lines.find((l) => l.line.id === current) ?? lines[0])?.sectionId;

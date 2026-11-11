@@ -39,7 +39,7 @@ import type { ProjectData } from '../../lib/useProjectData';
 import { api } from '../../lib/api';
 import { texts } from '../../texts';
 import { Button } from '../ui';
-import { openLyricsWindow, useCueClock, useLocalCueSender, type ReceivedCue } from './LyricsWindow';
+import { openLyricsWindow, useCueSource, useLocalCueSender, type ReceivedCue } from './LyricsWindow';
 import { ItemColors, ItemNumber, KIND_ICONS } from './RegieView';
 import { BeatPanel } from './BeatPanel';
 import { Apc40Settings } from './Apc40Settings';
@@ -59,8 +59,9 @@ import { SceneProgress, type SceneMark } from './SceneProgress';
 import { hasRichText } from '../../lib/richText';
 import { SceneGrid } from './SceneGrid';
 import { formatSceneTime } from './ScenesSection';
-import { BreakMark, PlayerBar, seekAudio, TimecodePanel, usePlayerTime } from './SongMedia';
+import { BreakMark, PlayerBar, seekAudio, TimecodePanel } from './SongMedia';
 import { usePointPlayback, type Playback } from '../../lib/transport';
+import { usePlayerTime, usePlayerValue, usePlaying, type TimeSource } from '../../lib/playerTime';
 
 const t = texts.regie.performance;
 
@@ -193,22 +194,28 @@ export function PerformanceView({
   const { tc, music: audio, sync: withMusic } = usePointPlayback(item?.id, item?.durationSec, audioEl, item?.audioOffsetSec, tempo.rate);
   // Folgen: Zeit der führenden Vorstellung (Abspielposition + seit Empfang vergangene Zeit) – ohne eigenen Ton
   const leadCue: ReceivedCue | null = following && lead ? { ...lead, receivedAt: sync.leadReceivedAt ?? 0 } : null;
-  const leadMusic = useCueClock(leadCue);
-  const leadTc = useCueClock(leadCue?.tc ? { itemId: leadCue.itemId, at: leadCue.tc.at, playing: leadCue.tc.playing, receivedAt: leadCue.receivedAt } : leadCue);
-  const ownTime = usePlayerTime(audio);
-  const time = leadMusic ?? ownTime;
-  const playing = leadCue ? !!leadCue.playing : !audio.paused;
+  const leadClock = useCueSource(leadCue);
+  const leadTcClock = useCueSource(leadCue?.tc ? { at: leadCue.tc.at, playing: leadCue.tc.playing, receivedAt: leadCue.receivedAt } : leadCue);
+  // Zeitquelle für Text, Szenen und Anzeigen. Diese Ansicht rechnet nicht je Bild neu: Sie fragt nur ab, was sich
+  // selten ändert (Zeile, Szene, läuft/steht); Uhr, Balken und Abspielstrich aktualisieren sich in kleinen Bausteinen.
+  const clock: TimeSource = leadCue && leadCue.at !== undefined ? leadClock : audio;
+  const ownPlaying = usePlaying(audio);
+  const playing = leadCue ? !!leadCue.playing : ownPlaying;
   const numbers = itemNumbers(items);
   const lightEvents = item ? itemLightEvents(data.lightEvents, item.id) : [];
   const number = item ? (numbers.get(item.id) ?? itemIndex + 1) : undefined;
-  const choiceHolds = !!sceneChoice && !playing && Math.abs(time - choice.at) < 0.05;
-  const timeScene = choiceHolds ? undefined : currentSceneId(scenes, plainLines, time);
+  const timeScene = usePlayerValue(clock, (time) => {
+    const choiceHolds = !!sceneChoice && !playing && Math.abs(time - choice.at) < 0.05;
+    return choiceHolds ? undefined : currentSceneId(scenes, plainLines, time);
+  });
   const sceneId = following ? lead.sceneId : (timeScene ?? (scenes.some((s) => s.id === sceneChoice) ? sceneChoice : scenes[0]?.id) ?? undefined);
   const sceneIndex = scenes.findIndex((s) => s.id === sceneId);
   const scene = scenes[sceneIndex];
   const nextItem = items[itemIndex + 1];
   // mit Audio die Abspielposition (auch angehalten, z. B. nach dem Spulen), sonst die Zeile der Szene
-  const currentLine = playing || time > 0 ? currentLineId(lines, time) : scene?.lineId;
+  const timed = usePlayerValue(clock, (time) => playing || time > 0);
+  const lineByTime = usePlayerValue(clock, (time) => currentLineId(lines, time));
+  const currentLine = timed ? lineByTime : scene?.lineId;
 
   // Stelle mit Abspielposition senden: beim Führen an alle (Server), immer an Textfenster im selben Browser.
   // Bei Eintrag/Szene, Start, Pause, Spulen und alle zwei Sekunden während der Wiedergabe.
@@ -584,7 +591,7 @@ export function PerformanceView({
   const lightMark = (i: number): SceneMark | undefined => (scenes[i] ? { number: i + 1, name: scenes[i]!.name, at: sceneTime(scenes[i]!, plainLines) } : undefined);
   const lightNote = sceneIndex >= 0 ? stickyNote(scenes, sceneIndex) : undefined;
   const soundScenes = item ? itemSoundScenes(data.soundScenes, item.id) : [];
-  const soundCurrent = currentSceneId(soundScenes, plainLines, time);
+  const soundCurrent = usePlayerValue(clock, (time) => currentSceneId(soundScenes, plainLines, time));
   const soundIndex = soundScenes.length ? Math.max(0, soundScenes.findIndex((s) => s.id === soundCurrent)) : -1;
   const soundMark = (i: number): SceneMark | undefined => (soundScenes[i] ? { number: i + 1, name: soundScenes[i]!.name, at: sceneTime(soundScenes[i]!, plainLines) } : undefined);
   const soundNote = soundIndex >= 0 ? stickyNote(soundScenes, soundIndex, hasRichText) : undefined;
@@ -597,23 +604,15 @@ export function PerformanceView({
   const nextIndex = lines.findIndex((l, i) => i > currentIndex && l.line.atSec !== undefined);
   const nextAt = nextIndex >= 0 ? lines[nextIndex]!.line.atSec! : undefined;
   const startAt = currentIndex >= 0 ? (lines[currentIndex]!.line.atSec ?? 0) : 0;
-  const progress = audio && nextAt !== undefined && nextAt > startAt ? Math.min(1, Math.max(0, (time - startAt) / (nextAt - startAt))) : undefined;
+  const hasProgress = nextAt !== undefined && nextAt > startAt;
   // Führen: eigene Oberfläche (ohne Licht/Ton, Zeitstrahl, Tap und Timecode groß)
   const leadLayout = mode === 'lead';
   const lastLineAt = lines.reduce((m, l) => Math.max(m, l.line.atSec ?? 0), 0);
   const timelineLength = Number.isFinite(tc.duration) && tc.duration > 0 ? tc.duration : (item?.durationSec ?? Math.max(60, lastLineAt + 10));
-  const progressBar = (i: number): { color: string; width: number; testId: string } | null => {
-    if (progress === undefined) return null;
-    if (i === currentIndex) return { color: 'bg-emerald-500', width: progress, testId: 'line-progress-current' };
-    if (i === nextIndex) return { color: 'bg-red-500', width: 1 - progress, testId: 'line-progress-next' };
-    return null;
-  };
-  const timeLabel = (i: number, atSec: number | undefined): { text: string; countdown: boolean } | null => {
-    if (atSec === undefined) return null;
-    const ahead = i - currentIndex;
-    if (audio && ahead >= 1 && ahead <= 5 && atSec > time) return { text: t.countdown(atSec - time), countdown: true };
-    return { text: formatSceneTime(atSec), countdown: false };
-  };
+  /** Balken über der aktuellen (grün) bzw. nächsten Zeile (rot) */
+  const progressBar = (i: number) => (hasProgress && (i === currentIndex || i === nextIndex) ? <LineBar source={clock} kind={i === currentIndex ? 'current' : 'next'} startAt={startAt} nextAt={nextAt} /> : null);
+  /** Countdown nur für die nächsten fünf Zeilen */
+  const counts = (i: number) => i - currentIndex >= 1 && i - currentIndex <= 5;
 
   return (
     <div className="dark fixed inset-0 z-50 flex flex-col bg-slate-950 text-slate-100" role="dialog" aria-label={t.title} data-testid="performance">
@@ -772,15 +771,11 @@ export function PerformanceView({
                 .map((i) => {
                   const { line } = lines[i]!;
                   const isCurrent = i === currentIndex;
-                  const bar = progressBar(i);
-                  const at = timeLabel(i, line.atSec);
                   return (
                     <div key={line.id} data-current={isCurrent || undefined} data-testid="lead-line">
-                      <div className="mb-0.5 ml-[4.5rem] h-1 overflow-hidden rounded-full">
-                        {bar && <div className={`h-full rounded-full ${bar.color}`} style={{ width: `${bar.width * 100}%` }} data-testid={bar.testId} />}
-                      </div>
+                      <div className="mb-0.5 ml-[4.5rem] h-1 overflow-hidden rounded-full">{progressBar(i)}</div>
                       <div className="flex items-baseline gap-2">
-                        <span className={`w-16 shrink-0 text-right text-xs tabular-nums ${at?.countdown ? 'font-semibold text-amber-400' : 'text-slate-500'}`}>{at?.text ?? ''}</span>
+                        <LineTime source={clock} atSec={line.atSec} countdown={counts(i)} small />
                         <p className={`min-w-0 flex-1 truncate rounded px-2 py-0.5 ${isCurrent ? 'bg-sky-900 text-lg font-semibold text-white' : 'text-base text-slate-400'} ${line.direction ? 'italic' : ''}`}>
                           {line.direction ? `(${line.text})` : isBreakLine(line) ? <BreakMark /> : line.text}
                         </p>
@@ -797,8 +792,7 @@ export function PerformanceView({
             bpm={tempo.gridBpm}
             signature={item.timeSignature}
             offset={tempo.offset}
-            getTime={() => audio.currentTime}
-            playing={playing}
+            source={audio}
             onSeek={(sec) => perform({ action: 'seek', value: sec })}
             waveSrc={itemAudioSrc(projectId, item)}
             audioOffset={item.audioOffsetSec ?? 0}
@@ -903,22 +897,13 @@ export function PerformanceView({
                   const header = i === 0 || lines[i - 1]!.sectionId !== sectionId ? sectionLabel : null;
                   const isCurrent = line.id === currentLine;
                   const speaker = line.roleId && (i === 0 || lines[i - 1]!.line.roleId !== line.roleId || lines[i - 1]!.line.direction) ? roleNames.get(line.roleId) : undefined;
-                  const at = timeLabel(i, line.atSec);
-                  const bar = progressBar(i);
                   return (
                     <li key={line.id} ref={(el) => void (el ? lineRefs.current.set(line.id, el) : lineRefs.current.delete(line.id))} data-current={isCurrent || undefined}>
                       {header !== null && <div className="mt-4 mb-1 text-xs font-semibold tracking-wide text-slate-500 uppercase">{header}</div>}
                       {/* kleiner Balken oben am Rand (nur hier, nicht im Textfenster) */}
-                      <div className="mt-2.5 mb-0.5 ml-[4.5rem] h-1 overflow-hidden rounded-full">
-                        {bar && <div className={`h-full rounded-full ${bar.color}`} style={{ width: `${bar.width * 100}%` }} data-testid={bar.testId} data-progress={bar.width.toFixed(2)} />}
-                      </div>
+                      <div className="mt-2.5 mb-0.5 ml-[4.5rem] h-1 overflow-hidden rounded-full">{progressBar(i)}</div>
                       <div className="flex items-baseline gap-2">
-                        <span
-                          className={`w-16 shrink-0 text-right text-sm tabular-nums ${at?.countdown ? 'font-semibold text-amber-400' : 'text-slate-500'}`}
-                          data-testid={at?.countdown ? 'line-countdown' : 'line-time'}
-                        >
-                          {at?.text ?? ''}
-                        </span>
+                        <LineTime source={clock} atSec={line.atSec} countdown={counts(i)} />
                         <p className={`min-w-0 flex-1 rounded-md px-2 py-1 leading-snug transition-colors ${isCurrent ? 'bg-sky-900 text-2xl font-semibold text-white' : 'text-xl text-slate-200'} ${line.direction ? 'italic text-slate-400' : ''}`}>
                           {speaker && (
                             <span className={`mr-2 font-semibold ${roleColors.get(line.roleId!) ? '' : 'text-sky-300'}`} style={roleColors.get(line.roleId!) ? { color: roleColors.get(line.roleId!) } : undefined} data-testid="performance-speaker">
@@ -967,7 +952,7 @@ export function PerformanceView({
             {side === 'sound' ? (
               <>
                 {soundScenes.length > 0 && (
-                  <SceneProgress current={soundMark(soundIndex)} next={soundMark(soundIndex + 1)} time={time} nextItemTitle={nextItem ? nextItem.title || texts.regie.untitled : undefined} testPrefix="sound" />
+                  <SceneProgress current={soundMark(soundIndex)} next={soundMark(soundIndex + 1)} source={clock} nextItemTitle={nextItem ? nextItem.title || texts.regie.untitled : undefined} testPrefix="sound" />
                 )}
                 {soundNote ? (
                   <RichTextView html={soundNote} className="rounded-lg bg-white p-4 text-xl text-slate-900" />
@@ -1009,8 +994,8 @@ export function PerformanceView({
             ) : scenes.length > 0 ? (
               <>
                 <DeskCuePanel cues={sync.deskCues} />
-                <LightEventCountdown events={lightEvents} time={time} />
-                <SceneProgress current={lightMark(sceneIndex)} next={lightMark(sceneIndex + 1)} time={time} nextItemTitle={nextItem ? nextItem.title || texts.regie.untitled : undefined} testPrefix="performance" />
+                <LightEventCountdown events={lightEvents} source={clock} />
+                <SceneProgress current={lightMark(sceneIndex)} next={lightMark(sceneIndex + 1)} source={clock} nextItemTitle={nextItem ? nextItem.title || texts.regie.untitled : undefined} testPrefix="performance" />
                 {lightNote && <p className="text-lg text-slate-200" data-testid="performance-scene-note">{lightNote}</p>}
                 {/* Bild: aktuelle Szene oder Vorschau auf die nächste (je Gerät gemerkt) */}
                 <div className="flex flex-wrap items-center gap-2">
@@ -1031,7 +1016,7 @@ export function PerformanceView({
             ) : (
               <>
                 <DeskCuePanel cues={sync.deskCues} />
-                <LightEventCountdown events={lightEvents} time={time} />
+                <LightEventCountdown events={lightEvents} source={clock} />
                 <p className="text-slate-500">{nextItem ? t.nextItem(nextItem.title || texts.regie.untitled) : t.end}</p>
               </>
             )}
@@ -1052,7 +1037,7 @@ export function PerformanceView({
             {...(!following && resetTempo ? { onReset: () => (takeOver(), resetTempo()) } : {})}
             signature={item.timeSignature}
             offset={tempo.offset}
-            getTime={following ? () => time : () => audio.currentTime}
+            getTime={() => clock.currentTime}
             playing={playing}
             {...(!following ? { onTap: () => (takeOver(), doTap()) } : {})}
             tap={taps.length ? tapProgress(taps, beats) : null}
@@ -1071,7 +1056,6 @@ export function PerformanceView({
               media={data.media}
               playback={audio}
               setAudio={setAudioEl}
-              time={time}
               recording={false}
               onNextLine={() => undefined}
               nextLineText={undefined}
@@ -1103,7 +1087,7 @@ export function PerformanceView({
         {/* Timecode unten rechts: gelaufene Zeit des Punkts, läuft mit dem Transport (Führen: groß in der Mitte) */}
         {item && !leadLayout && (
           <div className="flex shrink-0 flex-col items-end gap-1">
-            <TimecodePanel tc={tc} sync={withMusic} large follow={leadCue && leadTc !== undefined ? { time: leadTc, playing: !!(leadCue.tc?.playing ?? leadCue.playing) } : undefined} />
+            <TimecodePanel tc={tc} sync={withMusic} large follow={leadCue && (leadCue.tc || leadCue.at !== undefined) ? leadTcClock : undefined} />
             {data.showSettings.artnet?.enabled && (
               <span className={`text-xs ${iLead ? 'text-emerald-400' : 'text-amber-400'}`} data-testid="artnet-state">
                 {iLead ? t.artnetSending(data.showSettings.artnet.host) : t.artnetLeadHint}
@@ -1113,6 +1097,30 @@ export function PerformanceView({
         )}
       </footer>
     </div>
+  );
+}
+
+/** Füllung eines Balkens in der Textfarbe (Breite über background-size) */
+const FILL = 'linear-gradient(currentColor, currentColor)';
+
+/** Fortschritt bis zur nächsten Zeile: grün über der aktuellen (füllt sich), rot über der nächsten (läuft ab) */
+function LineBar({ source, kind, startAt, nextAt }: { source: TimeSource; kind: 'current' | 'next'; startAt: number; nextAt: number }) {
+  const time = usePlayerTime(source);
+  const progress = Math.min(1, Math.max(0, (time - startAt) / (nextAt - startAt)));
+  const width = kind === 'current' ? progress : 1 - progress;
+  // als Hintergrund auf eigener Ebene gezeichnet: je Bild ändert sich nur die Füllung – kein neues Layout, und der
+  // Browser malt nur diese kleine Ebene neu. Nicht ganz deckend (/99): bei deckenden Flächen, deren Größe sich
+  // ändert, teilt Chromium die ganze Seite je Bild neu in Ebenen auf (gemessen: teurer als alles andere).
+  return <div className={`h-full w-full bg-no-repeat will-change-transform ${kind === 'current' ? 'text-emerald-500/99' : 'text-red-500/99'}`} style={{ backgroundImage: FILL, backgroundSize: `${width * 100}% 100%` }} data-testid={`line-progress-${kind}`} data-progress={width.toFixed(2)} />;
+}
+
+/** Zeit einer Zeile; bei den nächsten Zeilen läuft stattdessen der Countdown (neu gezeichnet je Zehntelsekunde) */
+function LineTime({ source, atSec, countdown, small = false }: { source: TimeSource; atSec: number | undefined; countdown: boolean; small?: boolean }) {
+  const remaining = usePlayerValue(countdown ? source : null, (time) => (countdown && atSec !== undefined && atSec > time ? texts.regie.performance.countdown(atSec - time) : null));
+  return (
+    <span className={`w-16 shrink-0 text-right tabular-nums ${small ? 'text-xs' : 'text-sm'} ${remaining !== null ? 'font-semibold text-amber-400' : 'text-slate-500'}`} data-testid={small ? undefined : remaining !== null ? 'line-countdown' : 'line-time'}>
+      {remaining ?? (atSec !== undefined ? formatSceneTime(atSec) : '')}
+    </span>
   );
 }
 

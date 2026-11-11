@@ -14,7 +14,7 @@ import { ColorFields, ItemColors, ItemNumber, KIND_ICONS } from './RegieView';
 import { useRegieSelection } from './regieSelection';
 import { itemAudioSrc } from './Waveform';
 import { ScenesSection } from './ScenesSection';
-import { PlayerBar, TimecodePanel, usePlayerTime } from './SongMedia';
+import { PlayerBar, TimecodePanel } from './SongMedia';
 
 const t = texts.light.scenesView;
 
@@ -25,7 +25,6 @@ export function ScenesView({ projectId, doc, origin, data, library, editable }: 
   const item = items.find((i) => i.id === selectedId) ?? (narrow ? undefined : items[0]);
   const [audio, setAudio] = useState<HTMLAudioElement | null>(null);
   const { tc, music, sync } = usePointPlayback(item?.id, item?.durationSec, audio, item?.audioOffsetSec, itemTempo(item ?? {}).rate);
-  const time = usePlayerTime(music);
   const numbers = itemNumbers(data.show.items);
 
   if (items.length === 0) return <p className="mx-auto max-w-2xl p-6 text-sm text-slate-500" data-testid="scenes-view">{t.empty}</p>;
@@ -78,7 +77,7 @@ export function ScenesView({ projectId, doc, origin, data, library, editable }: 
         </div>
       )}
       {/* eigene Schlüssel je Kind: gleiche Schlüssel bei Geschwistern ließen beim Wechsel des Stücks die alten Szenen stehen */}
-      <ScenesSection waveSrc={waveSrc} key={`scenes-${item.id}`} doc={doc} origin={origin} item={item} data={data} library={library} lines={lines} time={time} audio={music} editable={editable} />
+      <ScenesSection waveSrc={waveSrc} key={`scenes-${item.id}`} doc={doc} origin={origin} item={item} data={data} library={library} lines={lines} audio={music} editable={editable} />
       {(
         <PlayerBar
           record={editable ? { doc, origin } : undefined}
@@ -90,7 +89,6 @@ export function ScenesView({ projectId, doc, origin, data, library, editable }: 
           playback={music}
           setAudio={setAudio}
           aside={<TimecodePanel tc={tc} sync={sync} />}
-          time={time}
           recording={false}
           onNextLine={() => undefined}
           nextLineText={undefined}
