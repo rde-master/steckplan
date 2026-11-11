@@ -15,6 +15,14 @@ export const texts = {
     retry: 'Erneut versuchen',
     unknownError: 'Unbekannter Fehler',
   },
+  errorScreen: {
+    title: 'Da ist etwas schiefgegangen',
+    hint: 'Die Seite konnte nicht angezeigt werden. Deine Daten sind gespeichert – „Neu laden“ öffnet die Seite wieder an derselben Stelle.',
+    reload: 'Neu laden',
+    home: 'Zur Startseite',
+    details: 'Technische Angabe',
+    displayReloading: 'Fehler in der Anzeige – lädt gleich neu …',
+  },
   login: {
     title: 'Anmelden',
     name: 'Dein Name',

@@ -7,6 +7,10 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+### Hinzugefügt
+
+- Fehlerseite: Stürzt eine Ansicht ab oder lässt sich ein Teil der Oberfläche nicht laden, erscheint eine Meldung mit „Neu laden“ und „Zur Startseite“ statt eines weißen Bildschirms. Textfenster und Player (am Beamer) bleiben dunkel und laden nach wenigen Sekunden von selbst neu
+
 ### Geändert
 
 - Flüssiger beim Abspielen: Führen, Vorstellung, Regie (Ablauf, Texte, Lichtszenen, Ton) und Textfenster rechnen nicht mehr bei jedem Bild die ganze Ansicht neu. Neu gezeichnet wird nur, wenn sich etwas ändert (Zeile, Szene, Start/Pause); Uhr, Balken, Abspielstrich und Takt-Kreis aktualisieren sich als kleine Bausteine. Spürbar auf schwächeren Rechnern, Tablets und am Player (weniger Last, weniger Lüfter)
