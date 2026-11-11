@@ -1,7 +1,7 @@
 // Steckplan Player (/player): alle Projekte mit Texten sind beim Start verbunden (Texte geladen, bleiben aktuell);
 // sichtbar ist das Textfenster des Projekts, in dem gerade geführt wird. Führt niemand: „Bereit“.
 import { useCallback, useEffect, useState } from 'react';
-import type { PlayerCatalog } from '@steckplan/core';
+import { VERSION, type PlayerCatalog } from '@steckplan/core';
 import { api } from '../lib/api';
 import { useSession } from '../lib/session';
 import { texts } from '../texts';
@@ -24,12 +24,34 @@ function usePlayerNetwork(): PlayerNetwork | null {
   }, []);
   return network;
 }
+/** Neuere Version des Players (nur im Steckplan Player; fehlt in älteren Playern) */
+function usePlayerUpdate(): string | null {
+  const [version, setVersion] = useState<string | null>(null);
+  useEffect(() => {
+    const player = (globalThis as { steckplanPlayer?: { onUpdate?: (cb: (u: { version?: unknown } | null) => void) => () => void } }).steckplanPlayer;
+    return player?.onUpdate?.((u) => setVersion(u && typeof u.version === 'string' ? u.version : null));
+  }, []);
+  return version;
+}
+
 /** Wer führt, falls ein Projekt nicht vorgeladen ist (neu angelegt) */
 const STATE_POLL_MS = 2000;
+const VERSION_RELOAD_KEY = 'steckplan.versionReloadAt';
+
+/**
+ * Wurde die Steuersoftware aktualisiert, läuft hier noch die alte Oberfläche: neu laden – aber nur, solange nichts
+ * gezeigt wird (nicht mitten in der Vorstellung) und höchstens einmal je Minute (keine Schleife).
+ */
+export function shouldReloadForVersion(serverVersion: string | undefined, ownVersion: string, showing: boolean, lastReloadAt: number, now: number): boolean {
+  if (!serverVersion || serverVersion === ownVersion || showing) return false;
+  return now - lastReloadAt >= 60_000;
+}
 
 export function PlayerPage() {
   const name = useSession((s) => s.session?.name ?? '');
   const network = usePlayerNetwork();
+  const update = usePlayerUpdate();
+  const [serverVersion, setServerVersion] = useState<string | undefined>(undefined);
   const [catalog, setCatalog] = useState<PlayerCatalog | null>(null);
   const [error, setError] = useState(false);
   const [serverLead, setServerLead] = useState<string | null>(null);
@@ -52,7 +74,11 @@ export function PlayerPage() {
     const poll = () =>
       void api
         .playerState()
-        .then((s) => alive && setServerLead(s.leadProjectId))
+        .then((s) => {
+          if (!alive) return;
+          setServerLead(s.leadProjectId);
+          setServerVersion(s.version);
+        })
         .catch(() => undefined);
     poll();
     const timer = window.setInterval(poll, STATE_POLL_MS);
@@ -73,6 +99,19 @@ export function PlayerPage() {
   // live gemeldet geht vor; sonst laut Server
   const shown = ids.find((id) => leading[id]) ?? (serverLead && leading[serverLead] !== false ? serverLead : null);
   const media = catalog?.projects.reduce((n, p) => n + p.media.length, 0) ?? 0;
+
+  const showing = shown !== null;
+  useEffect(() => {
+    try {
+      const last = Number(sessionStorage.getItem(VERSION_RELOAD_KEY)) || 0;
+      if (!shouldReloadForVersion(serverVersion, VERSION, showing, last, Date.now())) return;
+      sessionStorage.setItem(VERSION_RELOAD_KEY, String(Date.now()));
+    } catch {
+      // ohne Speicher kein Neuladen (sonst droht eine Schleife)
+      return;
+    }
+    window.location.reload();
+  }, [serverVersion, showing]);
 
   return (
     <div className="dark fixed inset-0 cursor-none overflow-hidden bg-black text-slate-100 select-none" data-testid="player-page">
@@ -105,6 +144,11 @@ export function PlayerPage() {
                     IP {a.name}: <b className="font-semibold text-slate-200">{a.address}</b>
                   </span>
                 ))}
+              </p>
+            )}
+            {update && (
+              <p className="text-[1.25vw] text-sky-400" data-testid="player-update">
+                {t.updateAvailable(update)}
               </p>
             )}
             {name && <p className="text-[1.1vw] text-slate-600">{name}</p>}

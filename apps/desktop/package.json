@@ -1,6 +1,6 @@
 {
   "name": "@steckplan/desktop",
-  "version": "0.46.0",
+  "version": "0.47.0",
   "productName": "Steckplan",
   "private": true,
   "description": "Steckplan – Planung von Licht-, Ton- und Netzwerktechnik für Veranstaltungen",
@@ -21,9 +21,9 @@
     "@steckplan/core": "workspace:*",
     "@steckplan/server": "workspace:*",
     "@steckplan/ui": "workspace:*",
-    "electron": "^45.2.1",
+    "electron": "^45.3.0",
     "electron-builder": "^26.18.0",
-    "fastify": "^5.12.7",
+    "fastify": "^5.12.8",
     "tsup": "^9.0.0"
   }
 }

@@ -4,6 +4,7 @@ import { Crosshair, Plus, Trash2 } from 'lucide-react';
 import type * as Y from 'yjs';
 import { addLightEvent, removeLightEvent, updateLightEvent, upcomingLightEvents, type LightEvent } from '@steckplan/core';
 import type { Playback } from '../../lib/transport';
+import { usePlayerTime, type TimeSource } from '../../lib/playerTime';
 import { texts } from '../../texts';
 import { ICON } from '../icons';
 import { Button } from '../ui';
@@ -68,7 +69,9 @@ function countdown(sec: number): string {
 }
 
 /** Vorstellung (Licht): die nächsten Events mit eigenem Countdown – kurz davor gelb blinkend, erreicht „jetzt“ */
-export function LightEventCountdown({ events, time }: { events: LightEvent[]; time: number }) {
+export function LightEventCountdown({ events, source }: { events: LightEvent[]; source: TimeSource | null }) {
+  // aktualisiert sich selbst (Anzeige in Zehntelsekunden)
+  const time = usePlayerTime(source, 0.05);
   const next = upcomingLightEvents(events, time).slice(0, 3);
   if (next.length === 0) return null;
   const tp = texts.regie.performance;

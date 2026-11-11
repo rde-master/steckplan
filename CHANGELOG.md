@@ -7,6 +7,27 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.47.0] - 2026-11-11
+
+### Hinzugefügt
+
+- Fehlerseite: Stürzt eine Ansicht ab oder lässt sich ein Teil der Oberfläche nicht laden, erscheint eine Meldung mit „Neu laden“ und „Zur Startseite“ statt eines weißen Bildschirms. Textfenster und Player (am Beamer) bleiben dunkel und laden nach wenigen Sekunden von selbst neu
+
+- Hinweis auf neue Versionen: Steckplan (Startseite, mit „Zum Download“) und der Steckplan Player (Statusseiten und „Bereit“) sehen beim Start einmal bei GitHub nach, ob es eine neuere Version gibt – installiert wird nichts von selbst, es werden keine Daten übermittelt; abschaltbar mit `STECKPLAN_UPDATE_CHECK=aus`
+- Player: lädt die Oberfläche von selbst neu, wenn die Steuersoftware aktualisiert wurde (nicht, solange das Textfenster gezeigt wird); ein Player-Programm, das älter ist als die Steuersoftware, ist im Führen-Bildschirm als „veraltet“ markiert
+
+### Geändert
+
+- Flüssiger beim Abspielen: Führen, Vorstellung, Regie (Ablauf, Texte, Lichtszenen, Ton) und Textfenster rechnen nicht mehr bei jedem Bild die ganze Ansicht neu. Neu gezeichnet wird nur, wenn sich etwas ändert (Zeile, Szene, Start/Pause); Uhr, Balken, Abspielstrich und Takt-Kreis aktualisieren sich als kleine Bausteine. Auch die Zeitleisten (Führen, Lichtszenen, Ton, Mitschreiben, Versatz) bleiben beim Abspielen stehen – nur der Abspielstrich läuft; die Zählzeiten im Führen-Zeitstrahl sind eine Zeichnung statt hunderter Einzelteile. Spürbar auf schwächeren Rechnern, Tablets und am Player (weniger Last, weniger Lüfter)
+- Schneller geladen: Die Oberfläche kommt in Teilen – Anmeldung, Textfenster, Player und Vorstellung laden nur noch, was sie brauchen (der Editor mit Zeichenflächen und Listen kommt erst mit dem Projekt, der Export erst beim Öffnen). Der Server liefert die Dateien komprimiert aus und der Browser merkt sie sich dauerhaft; erneutes Öffnen (z. B. Textfenster, Vorstellung) fragt nur noch die Startseite ab
+- Bearbeiten großer Projekte: Nach einer Änderung wird nur der geänderte Bereich neu eingelesen (z. B. beim Mitschreiben von Textzeiten nicht mehr Geräte, Kabel und Lichtwerte)
+- Nach einem Update des Servers lädt eine noch offene Seite von selbst neu, wenn sie einen Teil der alten Version nicht mehr findet
+- Bibliotheken aktualisiert (u. a. Electron 45.3, Fastify 5.12.8, Vite 8.3.8, pdf.js 6.5)
+
+### Sicherheit
+
+- Der Server schickt Schutz-Header mit: Dateien werden nicht anders gedeutet als angegeben, die Oberfläche lässt sich nicht in fremde Seiten einbetten, und Adressen (z. B. der Lese-Schlüssel der Etiketten) werden nicht an fremde Seiten weitergegeben
+
 ## [0.46.0] - 2026-11-10
 
 ### Hinzugefügt

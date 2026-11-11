@@ -108,6 +108,15 @@ export async function createServer(options: ServerOptions): Promise<SteckplanSer
     trustProxy: options.trustProxy ?? false,
   });
 
+  // Schutz-Header für alle Antworten: Dateien nicht anders deuten als angegeben, die Oberfläche nicht in fremde
+  // Seiten einbetten (Klick-Fallen), Adressen (z. B. Lese-Schlüssel der Etiketten) nicht an fremde Seiten weitergeben
+  app.addHook('onSend', async (_request, reply) => {
+    void reply.header('X-Content-Type-Options', 'nosniff');
+    void reply.header('X-Frame-Options', 'SAMEORIGIN');
+    void reply.header('Content-Security-Policy', "frame-ancestors 'self'");
+    void reply.header('Referrer-Policy', 'same-origin');
+  });
+
   // Lichtpult: zuletzt gelaufene Cues (OSC /steckplan/cue bzw. HTTP), an alle geöffneten Projekte
   const deskCues = new DeskCueStore();
   const rooms = new RoomManager({
@@ -277,12 +286,24 @@ export async function createServer(options: ServerOptions): Promise<SteckplanSer
   const uiDir = options.uiDir;
   const hasUi = uiDir !== undefined && existsSync(join(uiDir, 'index.html'));
   if (hasUi) {
-    await app.register(fastifyStatic, { root: uiDir, wildcard: false });
+    await app.register(fastifyStatic, {
+      root: uiDir,
+      wildcard: false,
+      // beim Bauen der Oberfläche vorab komprimierte Dateien (.br/.gz) ausliefern, wenn der Browser sie annimmt
+      preCompressed: true,
+      // Dateien unter /assets tragen ihren Inhalt im Namen: nie wieder nachfragen. Alles andere (index.html) wird
+      // bei jedem Aufruf geprüft – so kommt nach einem Update sofort die neue Version.
+      setHeaders: (reply, path) => {
+        if (isHashedAsset(path)) void reply.header('Cache-Control', 'public, max-age=31536000, immutable');
+      },
+    });
   }
 
   // Unbekannte Pfade: API → 404 als JSON; sonst index.html (Single-Page-App).
+  // Fehlende Dateien unter /assets bleiben 404 (nach einem Update gibt es die der alten Version nicht mehr –
+  // die Oberfläche lädt dann neu; index.html unter diesem Namen wäre falsch).
   app.setNotFoundHandler((request, reply) => {
-    if (hasUi && request.method === 'GET' && !request.url.startsWith('/api/')) {
+    if (hasUi && request.method === 'GET' && !request.url.startsWith('/api/') && !request.url.startsWith('/assets/')) {
       return reply.type('text/html').sendFile('index.html');
     }
     return reply.code(404).send({ error: 'Nicht gefunden' });
@@ -313,4 +334,9 @@ export async function createServer(options: ServerOptions): Promise<SteckplanSer
   }
 
   return { app, rooms, events, connectedPeople, endSessions, discovery };
+}
+
+/** Datei aus dem Ordner „assets“ der Oberfläche (Name mit Prüfsumme, auch vorab komprimiert) */
+export function isHashedAsset(path: string): boolean {
+  return /[\\/]assets[\\/][^\\/]+$/.test(path);
 }

@@ -8,6 +8,8 @@ import { setLineTime, type TimedLine } from '@steckplan/core';
 import { texts } from '../../texts';
 import { ICON } from '../icons';
 import { Button } from '../ui';
+import { usePlayerTime, type TimeSource } from '../../lib/playerTime';
+import { Playhead, PLAYHEAD_RED } from './Playhead';
 import { Waveform, WaveformControls, useWaveformSettings } from './Waveform';
 
 const t = texts.regie.media;
@@ -37,11 +39,17 @@ interface Drag {
   moved: boolean;
 }
 
+/** Abspielposition (läuft je Bild, ohne die Leiste neu zu zeichnen); keine eigene Ebene – die Leiste ist sehr breit */
+function LyricsPlayhead({ source, pps }: { source: TimeSource | null; pps: number }) {
+  const time = usePlayerTime(source);
+  return <Playhead at={{ px: time * pps }} width={2} image={PLAYHEAD_RED} testId="timeline-playhead" className="z-20" layer={false} />;
+}
+
 export function LyricsTimeline({
   doc,
   origin,
   lines,
-  time,
+  source,
   duration,
   timeOffset,
   editable,
@@ -52,7 +60,8 @@ export function LyricsTimeline({
   doc: Y.Doc;
   origin: object;
   lines: TimedLine[];
-  time: number;
+  /** Abspielzeit (die Leiste aktualisiert sich selbst) */
+  source: TimeSource | null;
   /** Länge der Leiste (Sekunden) */
   duration: number;
   /** angezeigte Zeiten sind um diesen Versatz verschoben (gespeichert wird ohne) */
@@ -64,6 +73,8 @@ export function LyricsTimeline({
   /** die Datei beginnt bei diesem Zeitpunkt */
   audioOffset?: number;
 }) {
+  // für das Mitrollen genügt ein grober Takt (4-mal je Sekunde) – nur der Abspielstrich läuft je Bild
+  const time = usePlayerTime(source, 0.25);
   const wave = useWaveformSettings();
   // sichtbarer Ausschnitt (für die Wellenform)
   const [visible, setVisible] = useState({ left: 0, width: 0 });
@@ -194,7 +205,7 @@ export function LyricsTimeline({
             );
           })}
           {/* Abspielposition */}
-          <div className="pointer-events-none absolute top-0 z-20 h-full w-0.5 bg-red-500" style={{ left: time * pps }} data-testid="timeline-playhead" />
+          <LyricsPlayhead source={source} pps={pps} />
         </div>
       </div>
     </section>

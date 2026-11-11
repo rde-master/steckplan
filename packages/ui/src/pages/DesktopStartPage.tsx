@@ -16,6 +16,15 @@ export function DesktopStartPage({ desktop }: { desktop: DesktopBridge }) {
   const [version, setVersion] = useState<string>();
   const [error, setError] = useState<string | null>(null);
   const [showWeb, setShowWeb] = useState(false);
+  // neuere Version gefunden (die App sieht beim Start einmal nach)
+  const [update, setUpdate] = useState<{ version: string; url: string } | null>(null);
+  useEffect(() => {
+    const bridge = desktop.update;
+    if (!bridge) return;
+    const load = () => void bridge.get().then(setUpdate, () => undefined);
+    load();
+    return bridge.onAvailable(load);
+  }, [desktop]);
 
   const [connectRequest, setConnectRequest] = useState(() => (new URLSearchParams(window.location.search).get('verbinden') ? 1 : 0));
   useEffect(
@@ -72,6 +81,14 @@ export function DesktopStartPage({ desktop }: { desktop: DesktopBridge }) {
           </Button>
         </div>
         {showWeb && <WebAccessDialog desktop={desktop} onClose={() => setShowWeb(false)} />}
+        {update && (
+          <div className="flex flex-wrap items-center gap-3 rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-900 dark:border-sky-800 dark:bg-sky-950 dark:text-sky-100" role="status" data-testid="update-available">
+            <span className="min-w-0 flex-1">{texts.desktop.updateAvailable(update.version)}</span>
+            <Button variant="primary" onClick={() => void desktop.update?.open()}>
+              {texts.desktop.updateOpen}
+            </Button>
+          </div>
+        )}
         {error && <Banner tone="error">{error}</Banner>}
         <section>
           <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">{texts.desktop.recent}</h2>

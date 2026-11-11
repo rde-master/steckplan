@@ -10,7 +10,9 @@ import { texts } from '../../texts';
 import { ICON } from '../icons';
 import { Button } from '../ui';
 import { formatSceneTime } from './ScenesSection';
-import { seekAudio, usePlaybackState, usePlayerTime } from './SongMedia';
+import { usePlayerTime, usePlayerValue, usePlaying, type TimeSource } from '../../lib/playerTime';
+import { Playhead, PLAYHEAD_RED } from './Playhead';
+import { seekAudio, usePlaybackState } from './SongMedia';
 import { TimelineScrollbar } from './TimelineScrollbar';
 import { Waveform, WaveformControls, useWaveformSettings } from './Waveform';
 
@@ -73,6 +75,16 @@ function clock(sec: number): string {
   return `${m}:${String(s).padStart(2, '0')}`;
 }
 
+/** so lange nach dem Scrollen nicht mitlaufen (ms) */
+const HOLD_MS = 4000;
+
+/** Abspielstand als rote Linie (läuft je Bild, ohne die Zeitleiste neu zu zeichnen) */
+function ScenePlayhead({ source, start, span }: { source: TimeSource | null; start: number; span: number }) {
+  const time = usePlayerTime(source);
+  if (time < start || time > start + span) return null;
+  return <Playhead at={{ fraction: (time - start) / span }} width={2} image={PLAYHEAD_RED} testId="scene-timeline-playhead" className="z-20" />;
+}
+
 export function SceneTimeline({
   scenes,
   music,
@@ -102,7 +114,6 @@ export function SceneTimeline({
   events?: { id: string; atSec: number; note: string }[];
   onEventMove?: (id: string, atSec: number) => void;
 }) {
-  const time = usePlayerTime(music);
   const { duration } = usePlaybackState(music);
   const wave = useWaveformSettings();
   const timed = scenes.filter((s) => s.at !== undefined).sort((a, b) => a.at! - b.at! || a.number - b.number);
@@ -124,7 +135,7 @@ export function SceneTimeline({
   /** zuletzt von Hand verschoben (dann eine Weile nicht mitlaufen) */
   const lastScroll = useRef(0);
 
-  const zoom = (factor: number, around = time) => {
+  const zoom = (factor: number, around = music?.currentTime ?? 0) => {
     const nextSpan = Math.min(total, Math.max(MIN_SPAN, span * factor));
     const ratio = span > 0 ? (around - start) / span : 0.5;
     setView({ span: nextSpan, start: around - ratio * nextSpan });
@@ -160,14 +171,22 @@ export function SceneTimeline({
   }, []);
 
   // Abspielstand im Blick behalten (nicht beim Ziehen)
-  const playing = !!music && !music.paused;
+  // geprüft je Bild, neu gezeichnet nur, wenn der Abspielstand den Ausschnitt verlässt (die Leiste selbst steht)
+  const playing = usePlaying(music);
+  const outside = usePlayerValue(music, (time) => time < start || time > start + span * 0.95);
+  const dragging = drag !== null;
   useEffect(() => {
-    if (!playing || drag || span >= total) return;
-    if (performance.now() - lastScroll.current < 4000) return;
-    if (time >= start && time <= start + span * 0.95) return;
-    const id = requestAnimationFrame(() => setView({ span, start: time - span * 0.1 }));
+    if (!music || !playing || dragging || span >= total || !outside) return;
+    const follow = () => setView({ span, start: music.currentTime - span * 0.1 });
+    // nach dem Scrollen erst nach der Wartezeit wieder mitlaufen
+    const wait = HOLD_MS - (performance.now() - lastScroll.current);
+    if (wait > 0) {
+      const timer = window.setTimeout(follow, wait);
+      return () => window.clearTimeout(timer);
+    }
+    const id = requestAnimationFrame(follow);
     return () => cancelAnimationFrame(id);
-  }, [time, playing, drag, span, start, total]);
+  }, [music, outside, playing, dragging, span, start, total]);
 
   const times = timed.map((s) => s.at!);
   const preview = drag ? applyDrag(drag.orig, drag.index, drag.mode, drag.delta) : new Map<number, number>();
@@ -338,7 +357,7 @@ export function SceneTimeline({
             <Waveform src={src} offset={audioOffset} start={start} span={span} />
           </div>
         )}
-        {time >= start && time <= end && <div className="pointer-events-none absolute top-0 bottom-0 z-20 w-0.5 bg-red-500" style={{ left: `${pos(time)}%` }} data-testid="scene-timeline-playhead" />}
+        <ScenePlayhead source={music} start={start} span={span} />
       </div>
       <TimelineScrollbar start={start} span={span} total={total} label={t.scroll} onChange={(next) => {
           lastScroll.current = performance.now();

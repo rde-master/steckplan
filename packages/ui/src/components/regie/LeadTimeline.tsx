@@ -9,8 +9,9 @@ import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } f
 import { parseTimeSignature, type TimedLine } from '@steckplan/core';
 import { texts } from '../../texts';
 import { ICON } from '../icons';
-import { useFrame } from './BeatPanel';
+import { usePlayerTime, usePlayerValue, usePlaying, type TimeSource } from '../../lib/playerTime';
 import { formatSceneTime } from './ScenesSection';
+import { Playhead } from './Playhead';
 import { TimelineScrollbar } from './TimelineScrollbar';
 import { Waveform, WaveformControls, useWaveformSettings } from './Waveform';
 
@@ -75,6 +76,16 @@ function SceneRow({ scenes, total, pos, label, color, testId }: { scenes: Timeli
   );
 }
 
+/** rote Linie mit Schein (als Hintergrundbild: Mitte rot, zu den Rändern auslaufend) */
+const LEAD_PLAYHEAD = 'linear-gradient(to right, transparent, rgb(239 68 68 / 0.35) 36%, rgb(239 68 68) 43%, rgb(239 68 68) 57%, rgb(239 68 68 / 0.35) 64%, transparent)';
+
+/** Abspielstand als rote Linie (läuft je Bild, ohne den Zeitstrahl neu zu zeichnen) */
+function LeadPlayhead({ source, start, span }: { source: TimeSource; start: number; span: number }) {
+  const time = usePlayerTime(source);
+  if (time < start || time > start + span) return null;
+  return <Playhead at={{ fraction: (time - start) / span }} width={28} image={LEAD_PLAYHEAD} testId="lead-playhead" />;
+}
+
 export function LeadTimeline({
   duration,
   lines,
@@ -82,8 +93,7 @@ export function LeadTimeline({
   bpm,
   signature,
   offset,
-  getTime,
-  playing,
+  source,
   onSeek,
   lightScenes,
   soundScenes,
@@ -98,8 +108,8 @@ export function LeadTimeline({
   bpm: number | undefined;
   signature: string | undefined;
   offset: number | undefined;
-  getTime: () => number;
-  playing: boolean;
+  /** Abspielzeit des Punkts – nur der Abspielstrich läuft je Bild, der Zeitstrahl selbst bleibt stehen */
+  source: TimeSource;
   onSeek?: (sec: number) => void;
   lightScenes: TimelineScene[];
   soundScenes: TimelineScene[];
@@ -112,9 +122,8 @@ export function LeadTimeline({
   /** Licht-Events: Marker über den Szenen */
   events?: { id: string; atSec: number; note: string }[];
 }) {
-  useFrame(playing);
+  const playing = usePlaying(source);
   const wave = useWaveformSettings();
-  const time = getTime();
   const total = duration > 0 ? duration : 1;
   // Ausschnitt: Beginn und Länge (Sekunden); Standard alles
   const [view, setView] = useState<{ start: number; span: number } | null>(null);
@@ -135,16 +144,16 @@ export function LeadTimeline({
       // ohne Speicher gilt die Wahl bis zum Neuladen
     }
   };
-  const zoom = (factor: number, around = time) => {
+  const zoom = (factor: number, around = source.currentTime) => {
     const nextSpan = Math.min(total, Math.max(2, span * factor));
     const ratio = span > 0 ? (around - start) / span : 0.5;
     setView({ span: nextSpan, start: around - ratio * nextSpan });
   };
 
   // Mausrad: verschieben (Strg: zoomen) – die Abspielposition bleibt
-  const wheelState = useRef({ start, span, total, time });
+  const wheelState = useRef({ start, span, total });
   useEffect(() => {
-    wheelState.current = { start, span, total, time };
+    wheelState.current = { start, span, total };
   });
   useEffect(() => {
     const el = track.current;
@@ -169,13 +178,19 @@ export function LeadTimeline({
   }, []);
 
   // beim Abspielen mitlaufen, wenn der Abspielstand den Ausschnitt verlässt (nicht direkt nach dem Scrollen)
+  const outside = usePlayerValue(source, (time) => time < start || time > start + span * 0.9);
   useEffect(() => {
-    if (!playing || span >= total) return;
-    if (performance.now() - lastScroll.current < HOLD_MS) return;
-    if (time >= start && time <= start + span * 0.9) return;
-    const id = requestAnimationFrame(() => setView({ span, start: time - span * 0.1 }));
+    if (!playing || span >= total || !outside) return;
+    const follow = () => setView({ span, start: source.currentTime - span * 0.1 });
+    // nach dem Scrollen erst nach der Wartezeit wieder mitlaufen
+    const wait = HOLD_MS - (performance.now() - lastScroll.current);
+    if (wait > 0) {
+      const timer = window.setTimeout(follow, wait);
+      return () => window.clearTimeout(timer);
+    }
+    const id = requestAnimationFrame(follow);
     return () => cancelAnimationFrame(id);
-  }, [time, playing, span, start, total]);
+  }, [outside, playing, span, start, total, source]);
 
   const timeAt = (clientX: number) => {
     const rect = track.current!.getBoundingClientRect();
@@ -284,9 +299,12 @@ export function LeadTimeline({
             <SceneRow scenes={soundScenes} total={total} pos={pos} label={t.sides.sound} color="bg-violet-600" testId="lead-sound-scenes" />
           </div>
           <div className="relative h-32">
-            {beatTicks.map((at) => (
-              <div key={`b${at.toFixed(3)}`} className="pointer-events-none absolute top-6 bottom-0 w-px bg-slate-700/60" style={{ left: pct(at) }} />
-            ))}
+            {/* Zählzeiten: alle Striche in einer Zeichnung (statt bis zu 600 einzelnen Elementen) */}
+            {beatTicks.length > 0 && (
+              <svg className="pointer-events-none absolute top-6 left-0 h-[calc(100%-1.5rem)] w-full text-slate-700/60" viewBox="0 0 100 1" preserveAspectRatio="none" aria-hidden data-testid="lead-beat-ticks" data-count={beatTicks.length}>
+                <path d={beatTicks.map((at) => `M${pos(at).toFixed(3)} 0V1`).join('')} stroke="currentColor" strokeWidth={1} vectorEffect="non-scaling-stroke" shapeRendering="crispEdges" fill="none" />
+              </svg>
+            )}
             {bars.map((b, i) => (
               <div key={`t${b.number}`} className="pointer-events-none absolute top-0 bottom-0 w-0.5 bg-slate-400/70" style={{ left: pct(b.at) }} data-testid="lead-bar-line">
                 {i % labelEvery === 0 && <span className="absolute top-0.5 left-1 text-[11px] font-semibold text-slate-400 tabular-nums">{b.number}</span>}
@@ -317,9 +335,7 @@ export function LeadTimeline({
             </div>
           )}
           {/* Abspielstand über alles */}
-          {time >= start && time <= end && (
-            <div className="pointer-events-none absolute top-0 bottom-0 z-10 w-1 -translate-x-1/2 rounded bg-red-500 shadow-[0_0_12px_rgb(239_68_68/0.8)]" style={{ left: pct(time) }} data-testid="lead-playhead" />
-          )}
+          <LeadPlayhead source={source} start={start} span={span} />
         </div>
         <TimelineScrollbar
           dark

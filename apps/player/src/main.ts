@@ -5,7 +5,7 @@
 import { join } from 'node:path';
 import { hostname } from 'node:os';
 import { app, BrowserWindow, ipcMain, Menu, powerSaveBlocker, protocol, session } from 'electron';
-import { PLAYER_COOKIE, PLAYER_HEARTBEAT_MS, VERSION, type PlayerCatalog, type PlayerHeartbeatReply, type PlayerReport } from '@steckplan/core';
+import { checkForUpdate, PLAYER_COOKIE, PLAYER_HEARTBEAT_MS, VERSION, type PlayerCatalog, type PlayerHeartbeatReply, type PlayerReport, type UpdateInfo } from '@steckplan/core';
 import { MediaCache } from './cache';
 import { ConfigStore } from './config';
 import { DiscoveryClient, parseAddress, type FoundServer } from './discovery';
@@ -435,6 +435,18 @@ if (!app.requestSingleInstanceLock()) {
     };
     await updateNetwork();
     setInterval(() => void updateNetwork(), 10_000);
+
+    // Hinweis auf eine neue Version: einmal beim Start bei GitHub nachsehen (nur das installierte Programm;
+    // abschaltbar mit STECKPLAN_UPDATE_CHECK=aus, für Tests eine eigene Adresse). Ohne Netz passiert nichts.
+    let update: UpdateInfo | null = null;
+    ipcMain.handle('player:update', () => update);
+    const updateUrl = env.STECKPLAN_UPDATE_URL;
+    if ((app.isPackaged || updateUrl) && env.STECKPLAN_UPDATE_CHECK !== 'aus' && !isSmokeTest) {
+      void checkForUpdate(VERSION, fetch, updateUrl ? { url: updateUrl } : {}).then((info) => {
+        update = info;
+        if (info && !win.isDestroyed()) win.webContents.send('player:update', info);
+      });
+    }
 
     // Tasten: beenden, Vollbild, neu synchronisieren, andere Steuersoftware wählen
     win.webContents.on('before-input-event', (event, input) => {

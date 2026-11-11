@@ -1,6 +1,6 @@
 {
   "name": "@steckplan/player",
-  "version": "0.46.0",
+  "version": "0.47.0",
   "productName": "Steckplan Player",
   "private": true,
   "description": "Steckplan Player – Textfenster im Vollbild auf einem eigenen Rechner, lädt Texte und Medien von der Steuersoftware",
@@ -18,7 +18,7 @@
   },
   "devDependencies": {
     "@steckplan/core": "workspace:*",
-    "electron": "^45.2.1",
+    "electron": "^45.3.0",
     "electron-builder": "^26.18.0",
     "tsup": "^9.0.0"
   }

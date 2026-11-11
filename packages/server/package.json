@@ -1,6 +1,6 @@
 {
   "name": "@steckplan/server",
-  "version": "0.46.0",
+  "version": "0.47.0",
   "private": true,
   "description": "Steckplan-Server (Fastify) – eingebettet in der Desktop-App oder eigenständig im Docker-Container",
   "license": "GPL-3.0-only",
@@ -17,12 +17,12 @@
   },
   "dependencies": {
     "@fastify/cookie": "^11.1.5",
-    "@fastify/static": "^10.1.8",
-    "@fastify/websocket": "^11.3.6",
+    "@fastify/static": "^10.1.10",
+    "@fastify/websocket": "^11.3.7",
     "@steckplan/core": "workspace:*",
-    "fastify": "^5.12.7",
+    "fastify": "^5.12.8",
     "fflate": "0.8.3",
-    "lib0": "^0.2.119",
+    "lib0": "^0.2.120",
     "qrcode": "^1.5.4",
     "y-protocols": "^1.0.7",
     "yjs": "^13.6.33"
@@ -33,6 +33,6 @@
     "cross-env": "^10.1.0",
     "tsup": "^9.0.0",
     "tsx": "^4.23.15",
-    "ws": "^8.22.1"
+    "ws": "^8.22.2"
   }
 }

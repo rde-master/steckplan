@@ -1,6 +1,7 @@
 import { ArrowLeft, Copy, Download, FileOutput, History, LibraryBig, LogOut, Menu, Wifi, X } from 'lucide-react';
 import { ICON } from '../components/icons';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { Suspense, useEffect, useRef, useState, type ReactNode } from 'react';
+import { lazyPage } from '../lib/lazyPage';
 import type * as Y from 'yjs';
 import { can, devicePageId, unreadHelperMessages, type Conflict, type PresenceUser, type ProjectMeta } from '@steckplan/core';
 import { api, errorMessage } from '../lib/api';
@@ -22,7 +23,6 @@ import { StagePlanView } from '../components/stageplan/StagePlanView';
 import { ListsView } from '../components/lists/ListsView';
 import { RegieView } from '../components/regie/RegieView';
 import { NetworkView } from '../components/network/NetworkView';
-import { ExportDialog } from '../components/ExportDialog';
 import { CasesPanel } from '../components/project/CasesPanel';
 import { GigsPanel } from '../components/project/GigsPanel';
 import { HelpersView } from '../components/helpers/HelpersView';
@@ -35,6 +35,9 @@ import { MeterField } from '../components/library/fields';
 import { AccessBadge, Banner, Button, Field, Spinner, TextArea, TextInput } from '../components/ui';
 
 type Tab = 'signalflow' | 'stageplan' | 'network' | 'lists' | 'regie' | 'helpers' | 'meta';
+// Export-Dialog (mit den Bausteinen für PDF und CSV) erst laden, wenn er geöffnet wird
+const ExportDialog = lazyPage(() => import('../components/ExportDialog').then((m) => m.ExportDialog));
+
 const TAB_PARAM: Record<Tab, string> = { signalflow: 'signalfluss', stageplan: 'buehnenplan', network: 'netzwerk', lists: 'listen', regie: 'regie', helpers: 'helfer', meta: 'projektdaten' };
 const TABS: Tab[] = ['signalflow', 'stageplan', 'network', 'lists', 'regie', 'helpers', 'meta'];
 
@@ -410,7 +413,9 @@ export function ProjectPage({ id }: { id: string }) {
         />
       )}
       {showExport && library && project && (
-        <ExportDialog projectId={id} data={data} library={library} meta={meta} issues={issues} onClose={() => setShowExport(false)} />
+        <Suspense fallback={null}>
+          <ExportDialog projectId={id} data={data} library={library} meta={meta} issues={issues} onClose={() => setShowExport(false)} />
+        </Suspense>
       )}
       {showVersions && session && (
         <VersionsDialog

@@ -2,7 +2,7 @@
 // Fünf Zeilen, zentriert: die vorige (ausgegraut), die aktuelle (hervorgehoben), die drei nächsten.
 // Die Stelle kommt von der Person, die in der Vorstellung führt (über den Server, mit Abspielposition),
 // im selben Browser auch ohne Führen direkt von der eigenen Vorstellung.
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useState } from 'react';
 import { isBreakLine, type Cue, type TimedLine } from '@steckplan/core';
 
 export function lyricsPath(projectId: string): string {
@@ -63,22 +63,50 @@ export function useLocalCue(projectId: string): ReceivedCue | null {
   return cue;
 }
 
-/** Abspielzeit aus der letzten Stelle; läuft die Wiedergabe, zählt sie flüssig weiter */
-export function useCueClock(cue: ReceivedCue | null): number | undefined {
-  const [now, setNow] = useState(() => performance.now());
-  const running = !!cue?.playing && cue.at !== undefined;
-  useEffect(() => {
-    if (!running) return;
-    let frame = 0;
-    const tick = () => {
-      setNow(performance.now());
-      frame = requestAnimationFrame(tick);
-    };
-    frame = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frame);
-  }, [running]);
-  if (!cue || cue.at === undefined) return undefined;
-  return running ? cue.at + (Math.max(0, now - cue.receivedAt) / 1000) * (cue.rate ?? 1) : cue.at;
+/** Was die Uhr von einer Stelle braucht */
+interface CueTime {
+  at: number;
+  playing: boolean;
+  rate: number;
+  receivedAt: number;
+}
+
+/**
+ * Uhr aus der letzten empfangenen Stelle: läuft die Wiedergabe, zählt sie von selbst weiter. Zeitquelle wie ein
+ * Transport (nur lesen) – Anzeigen fragen sie ab (usePlayerValue/usePlayerTime), statt je Bild neu zu rendern.
+ */
+export class CueClock extends EventTarget {
+  private cue: CueTime | null = null;
+
+  set(cue: CueTime | null): void {
+    this.cue = cue;
+    this.dispatchEvent(new Event(this.paused ? 'pause' : 'play'));
+    this.dispatchEvent(new Event('seeked'));
+  }
+
+  get paused(): boolean {
+    return !this.cue?.playing;
+  }
+
+  get currentTime(): number {
+    const c = this.cue;
+    if (!c) return 0;
+    return c.playing ? c.at + (Math.max(0, performance.now() - c.receivedAt) / 1000) * c.rate : c.at;
+  }
+}
+
+/** Uhr zur letzten Stelle (ohne Stelle bzw. ohne Abspielposition steht sie auf 0) */
+export function useCueSource(cue: Pick<ReceivedCue, 'at' | 'playing' | 'rate' | 'receivedAt'> | null): CueClock {
+  const [clock] = useState(() => new CueClock());
+  const at = cue?.at;
+  const playing = cue?.playing === true;
+  const rate = cue?.rate ?? 1;
+  const receivedAt = cue?.receivedAt ?? 0;
+  // vor dem Zeichnen: Anzeigen, die an der Uhr hängen, stimmen schon im selben Bild
+  useLayoutEffect(() => {
+    clock.set(at === undefined ? null : { at, playing, rate, receivedAt });
+  }, [clock, at, playing, rate, receivedAt]);
+  return clock;
 }
 
 // ---------- Anzeige ----------

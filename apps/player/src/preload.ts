@@ -17,6 +17,13 @@ contextBridge.exposeInMainWorld('steckplanPlayer', {
     void ipcRenderer.invoke('player:network').then(callback);
     return () => ipcRenderer.removeListener('player:network', listener);
   },
+  /** Neuere Version des Players gefunden: { version, url } – sonst null */
+  onUpdate: (callback: (update: unknown) => void) => {
+    const listener = (_event: unknown, update: unknown) => callback(update);
+    ipcRenderer.on('player:update', listener);
+    void ipcRenderer.invoke('player:update').then(callback);
+    return () => ipcRenderer.removeListener('player:update', listener);
+  },
   choose: (serverId: string) => ipcRenderer.invoke('player:choose', serverId),
   manual: (address: string) => ipcRenderer.invoke('player:manual', address),
   retry: () => ipcRenderer.invoke('player:retry'),

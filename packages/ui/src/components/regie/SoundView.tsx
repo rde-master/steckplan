@@ -15,7 +15,7 @@ import { ItemNumber, KIND_ICONS } from './RegieView';
 import { useRegieSelection } from './regieSelection';
 import { itemAudioSrc } from './Waveform';
 import { RichTextEditor } from './RichTextEditor';
-import { PlayerBar, TimecodePanel, usePlayerTime } from './SongMedia';
+import { PlayerBar, TimecodePanel } from './SongMedia';
 import { SoundScenesSection } from './SoundScenesSection';
 
 const t = texts.regie.sound;
@@ -28,7 +28,6 @@ export function SoundView({ projectId, doc, origin, data, editable }: { projectI
   const numbers = itemNumbers(items);
   const [audio, setAudio] = useState<HTMLAudioElement | null>(null);
   const { tc, music, sync } = usePointPlayback(item?.id, item?.durationSec, audio, item?.audioOffsetSec, itemTempo(item ?? {}).rate);
-  const time = usePlayerTime(music);
 
   if (items.length === 0) return <p className="mx-auto max-w-2xl p-6 text-sm text-slate-500" data-testid="sound-view">{t.empty}</p>;
 
@@ -84,7 +83,6 @@ export function SoundView({ projectId, doc, origin, data, editable }: { projectI
         media={data.media}
         playback={music}
         setAudio={setAudio}
-        time={time}
         recording={false}
         onNextLine={() => undefined}
         nextLineText={undefined}

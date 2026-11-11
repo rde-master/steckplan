@@ -3,7 +3,7 @@
 //   GET    /api/player/pair/:requestId          → { state, token? }                        (ohne Anmeldung)
 //   GET    /api/player/info                     → { id, name, mode }                       (ohne Anmeldung)
 //   POST   /api/player/heartbeat                Stand → { resync, leadProjectId }          (Player)
-//   GET    /api/player/state                    → { leadProjectId }                        (angemeldet)
+//   GET    /api/player/state                    → { leadProjectId, version }               (angemeldet)
 //   GET    /api/player/catalog                  → Projekte mit Regie und ihre Bilder/Videos (angemeldet)
 //   GET    /api/players                         → Übersicht                                (Regie)
 //   POST   /api/players/pairing/:requestId/approve | reject                                 (Regie)
@@ -11,7 +11,7 @@
 //   DELETE /api/players/:id                                                                (Regie)
 import { hostname } from 'node:os';
 import type { FastifyInstance, FastifyReply } from 'fastify';
-import { parsePlayerReport, playerCatalogEntry, type PlayerCatalog, type Project, type ServerMode } from '@steckplan/core';
+import { parsePlayerReport, playerCatalogEntry, VERSION, type PlayerCatalog, type Project, type ServerMode } from '@steckplan/core';
 import { requireSession } from '../auth/plugin';
 import { PlayerError, type PlayerStore } from '../auth/players';
 import type { ProjectStore } from '../storage/types';
@@ -63,7 +63,8 @@ export function registerPlayerRoutes(app: FastifyInstance, deps: PlayerRouteDeps
 
   app.get('/api/player/state', async (request, reply) => {
     if (!requireSession(request, reply)) return reply;
-    return { leadProjectId: deps.leadingProjectId() };
+    // version: damit ein Player nach einem Update der Steuersoftware die Oberfläche neu lädt
+    return { leadProjectId: deps.leadingProjectId(), version: VERSION };
   });
 
   app.get('/api/player/catalog', async (request, reply) => {

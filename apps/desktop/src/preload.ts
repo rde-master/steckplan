@@ -32,6 +32,15 @@ contextBridge.exposeInMainWorld('steckplanDesktop', {
     setPort: (port: number) => ipcRenderer.invoke('web:setPort', port),
     disconnect: (sessionId: string) => ipcRenderer.invoke('web:disconnect', sessionId),
   },
+  update: {
+    get: () => ipcRenderer.invoke('update:get'),
+    open: () => ipcRenderer.invoke('update:open'),
+    onAvailable: (callback: () => void) => {
+      const listener = () => callback();
+      ipcRenderer.on('update:available', listener);
+      return () => ipcRenderer.removeListener('update:available', listener);
+    },
+  },
   onRecentChanged: (callback: () => void) => {
     const listener = () => callback();
     ipcRenderer.on('recent:changed', listener);

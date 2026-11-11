@@ -1,6 +1,6 @@
 import dgram from 'node:dgram';
 import { afterEach, describe, expect, it } from 'vitest';
-import { createEmptyProject, DISCOVERY_REQUEST, parseDiscoveryReply, PLAYER_COOKIE, type PlayerCatalog, type PlayersOverview, type SyncClient } from '@steckplan/core';
+import { createEmptyProject, DISCOVERY_REQUEST, parseDiscoveryReply, PLAYER_COOKIE, VERSION, type PlayerCatalog, type PlayersOverview, type SyncClient } from '@steckplan/core';
 import { PlayerStore } from './auth/players';
 import { isManagedStore } from './storage/types';
 import { connect, login, startTestServer, waitFor, type TestServer } from './test-utils';
@@ -108,7 +108,7 @@ describe('Steckplan Player', () => {
     await lead.whenSynced();
     lead.sendCue({ itemId: 'song' });
     await waitFor(async () => (await beat()).leadProjectId === id);
-    expect((await s.app.inject({ method: 'GET', url: '/api/player/state', headers: { cookie } })).json()).toEqual({ leadProjectId: id });
+    expect((await s.app.inject({ method: 'GET', url: '/api/player/state', headers: { cookie } })).json()).toEqual({ leadProjectId: id, version: VERSION });
     lead.sendCue(null);
     await waitFor(async () => (await beat()).leadProjectId === null);
 
