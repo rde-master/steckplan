@@ -7,6 +7,8 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.47.0] - 2026-11-11
+
 ### Hinzugefügt
 
 - Fehlerseite: Stürzt eine Ansicht ab oder lässt sich ein Teil der Oberfläche nicht laden, erscheint eine Meldung mit „Neu laden“ und „Zur Startseite“ statt eines weißen Bildschirms. Textfenster und Player (am Beamer) bleiben dunkel und laden nach wenigen Sekunden von selbst neu
