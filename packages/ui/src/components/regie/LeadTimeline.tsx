@@ -83,7 +83,7 @@ const LEAD_PLAYHEAD = 'linear-gradient(to right, transparent, rgb(239 68 68 / 0.
 function LeadPlayhead({ source, start, span }: { source: TimeSource; start: number; span: number }) {
   const time = usePlayerTime(source);
   if (time < start || time > start + span) return null;
-  return <Playhead position={(time - start) / span} width={28} image={LEAD_PLAYHEAD} testId="lead-playhead" />;
+  return <Playhead at={{ fraction: (time - start) / span }} width={28} image={LEAD_PLAYHEAD} testId="lead-playhead" />;
 }
 
 export function LeadTimeline({
@@ -299,9 +299,12 @@ export function LeadTimeline({
             <SceneRow scenes={soundScenes} total={total} pos={pos} label={t.sides.sound} color="bg-violet-600" testId="lead-sound-scenes" />
           </div>
           <div className="relative h-32">
-            {beatTicks.map((at) => (
-              <div key={`b${at.toFixed(3)}`} className="pointer-events-none absolute top-6 bottom-0 w-px bg-slate-700/60" style={{ left: pct(at) }} />
-            ))}
+            {/* Zählzeiten: alle Striche in einer Zeichnung (statt bis zu 600 einzelnen Elementen) */}
+            {beatTicks.length > 0 && (
+              <svg className="pointer-events-none absolute top-6 left-0 h-[calc(100%-1.5rem)] w-full text-slate-700/60" viewBox="0 0 100 1" preserveAspectRatio="none" aria-hidden data-testid="lead-beat-ticks" data-count={beatTicks.length}>
+                <path d={beatTicks.map((at) => `M${pos(at).toFixed(3)} 0V1`).join('')} stroke="currentColor" strokeWidth={1} vectorEffect="non-scaling-stroke" shapeRendering="crispEdges" fill="none" />
+              </svg>
+            )}
             {bars.map((b, i) => (
               <div key={`t${b.number}`} className="pointer-events-none absolute top-0 bottom-0 w-0.5 bg-slate-400/70" style={{ left: pct(b.at) }} data-testid="lead-bar-line">
                 {i % labelEvery === 0 && <span className="absolute top-0.5 left-1 text-[11px] font-semibold text-slate-400 tabular-nums">{b.number}</span>}
