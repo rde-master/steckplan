@@ -58,7 +58,7 @@ import { SoundView } from './SoundView';
 import { OscView } from './OscView';
 import { openPerformance } from '../../pages/PerformancePage';
 import { TextsView } from './TextsView';
-import { MediaSection, PlayerBar, seekAudio, TimecodePanel, usePlaybackState, usePlayerTime } from './SongMedia';
+import { MediaSection, PlayerBar, seekAudio, TimecodePanel, usePlaybackState } from './SongMedia';
 import { Transport, usePointPlayback } from '../../lib/transport';
 import { lyricsUrl, openLyricsWindow } from './LyricsWindow';
 import { LyricsSettings } from './LyricsSettings';
@@ -310,7 +310,6 @@ function ItemDetail({
   // Player zum Anhören (Text und Mitschreiben im Bereich „Texte“)
   const [audio, setAudio] = useState<HTMLAudioElement | null>(null);
   const { tc, music, sync } = usePointPlayback(item.id, item.durationSec, audio, item.audioOffsetSec, itemTempo(item).rate);
-  const time = usePlayerTime(music);
   // Länge der Datei kommt mit den Metadaten (neu zeichnen)
   usePlaybackState(music);
   const lines = itemTimedLines(sections, item);
@@ -388,7 +387,7 @@ function ItemDetail({
               offset={item.audioOffsetSec ?? 0}
               audioLength={music instanceof Transport ? music.audioLength : 0}
               duration={item.durationSec}
-              time={time}
+              source={music}
               src={itemAudioSrc(projectId, item)}
               editable={editable}
               onChange={(sec) => set({ audioOffsetSec: sec === 0 ? undefined : sec })}
@@ -471,7 +470,6 @@ function ItemDetail({
           media={media}
           playback={music}
           setAudio={setAudio}
-          time={time}
           recording={false}
           onNextLine={() => undefined}
           nextLineText={undefined}

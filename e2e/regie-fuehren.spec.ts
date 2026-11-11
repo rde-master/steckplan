@@ -52,7 +52,9 @@ test('Führen-Ansicht: ohne Licht/Ton, Text klein (vorige/aktuelle/nächste), Ze
 
   // Abspielen: Text zeigt nur vorige, aktuelle, nächste – mit grünem und rotem Balken; Abspielstand wandert
   const head = timeline.getByTestId('lead-playhead');
-  const left0 = (await head.boundingBox())!.x;
+  // Lage als Anteil der Breite (der Strich ist ein Hintergrundbild, das Element selbst bewegt sich nicht)
+  const position = async () => Number(await head.getAttribute('data-position'));
+  const position0 = await position();
   await lead.getByRole('button', { name: 'Timecode starten' }).click();
   await expect(lead.locator('[data-testid=lead-line][data-current]')).toHaveText(/Zwei/, { timeout: 4000 });
   await expect(lead.getByTestId('lead-line')).toHaveCount(3);
@@ -61,7 +63,7 @@ test('Führen-Ansicht: ohne Licht/Ton, Text klein (vorige/aktuelle/nächste), Ze
   await expect(lead.getByTestId('lead-text')).not.toContainText('Fünf');
   await expect(lead.getByTestId('line-progress-current')).toBeVisible();
   await expect(lead.getByTestId('line-progress-next')).toBeVisible();
-  expect((await head.boundingBox())!.x).toBeGreaterThan(left0 + 20);
+  expect(await position()).toBeGreaterThan(position0 + 0.02);
   // Klick in den Zeitstrahl springt (zur Hälfte: 10 s)
   const track = (await timeline.getByTestId('lead-timeline-track').boundingBox())!;
   await show.mouse.click(track.x + track.width / 2, track.y + 10);

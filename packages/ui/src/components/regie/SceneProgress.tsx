@@ -1,5 +1,6 @@
 // Kopf einer Szenenfolge in der Vorstellung (Licht und Ton): links die aktuelle Szene mit Startpunkt und wie lange
 // sie schon läuft, rechts die nächste mit Startpunkt und Countdown; darunter ein grüner Balken bis zur nächsten.
+import { usePlayerTime, type TimeSource } from '../../lib/playerTime';
 import { texts } from '../../texts';
 import { formatSceneClock } from './ScenesSection';
 
@@ -12,7 +13,9 @@ export interface SceneMark {
   at: number | undefined;
 }
 
-export function SceneProgress({ current, next, time, nextItemTitle, testPrefix }: { current: SceneMark | undefined; next: SceneMark | undefined; time: number; nextItemTitle: string | undefined; testPrefix: string }) {
+export function SceneProgress({ current, next, source, nextItemTitle, testPrefix }: { current: SceneMark | undefined; next: SceneMark | undefined; source: TimeSource | null; nextItemTitle: string | undefined; testPrefix: string }) {
+  // aktualisiert sich selbst (20-mal je Sekunde genügt für Uhr und Balken)
+  const time = usePlayerTime(source, 0.05);
   const elapsed = current?.at !== undefined && time >= current.at ? time - current.at : undefined;
   const countdown = next?.at !== undefined && next.at > time ? next.at - time : undefined;
   const span = current?.at !== undefined && next?.at !== undefined && next.at > current.at ? next.at - current.at : undefined;
@@ -60,7 +63,7 @@ export function SceneProgress({ current, next, time, nextItemTitle, testPrefix }
       </div>
       {/* grüner Balken: Fortschritt bis zur nächsten Szene */}
       <div className="h-1.5 overflow-hidden rounded-full bg-slate-800">
-        {progress !== undefined && <div className="h-full rounded-full bg-emerald-500" style={{ width: `${progress * 100}%` }} data-testid={`${testPrefix}-progress`} data-progress={progress.toFixed(2)} />}
+        {progress !== undefined && <div className="h-full w-full bg-no-repeat text-emerald-500/99 will-change-transform" style={{ backgroundImage: 'linear-gradient(currentColor, currentColor)', backgroundSize: `${progress * 100}% 100%` }} data-testid={`${testPrefix}-progress`} data-progress={progress.toFixed(2)} />}
       </div>
     </div>
   );

@@ -8,6 +8,7 @@ import { setLineTime, type TimedLine } from '@steckplan/core';
 import { texts } from '../../texts';
 import { ICON } from '../icons';
 import { Button } from '../ui';
+import { usePlayerTime, type TimeSource } from '../../lib/playerTime';
 import { Waveform, WaveformControls, useWaveformSettings } from './Waveform';
 
 const t = texts.regie.media;
@@ -41,7 +42,7 @@ export function LyricsTimeline({
   doc,
   origin,
   lines,
-  time,
+  source,
   duration,
   timeOffset,
   editable,
@@ -52,7 +53,8 @@ export function LyricsTimeline({
   doc: Y.Doc;
   origin: object;
   lines: TimedLine[];
-  time: number;
+  /** Abspielzeit (die Leiste aktualisiert sich selbst) */
+  source: TimeSource | null;
   /** Länge der Leiste (Sekunden) */
   duration: number;
   /** angezeigte Zeiten sind um diesen Versatz verschoben (gespeichert wird ohne) */
@@ -64,6 +66,7 @@ export function LyricsTimeline({
   /** die Datei beginnt bei diesem Zeitpunkt */
   audioOffset?: number;
 }) {
+  const time = usePlayerTime(source);
   const wave = useWaveformSettings();
   // sichtbarer Ausschnitt (für die Wellenform)
   const [visible, setVisible] = useState({ left: 0, width: 0 });

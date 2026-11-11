@@ -3,6 +3,7 @@ import { ArrowLeft, ArrowRight, ClipboardCopy, ClipboardPaste, Copy, CopyPlus, K
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type * as Y from 'yjs';
 import type { Playback } from '../../lib/transport';
+import { usePlayerValue, usePlaying } from '../../lib/playerTime';
 import {
   addScene,
   clearFixtureValues,
@@ -70,7 +71,6 @@ export function ScenesSection({
   data,
   library,
   lines,
-  time,
   audio,
   editable,
   waveSrc,
@@ -81,7 +81,6 @@ export function ScenesSection({
   data: ProjectData;
   library: Library | null;
   lines: TimedLine[];
-  time: number;
   audio: Playback | null;
   editable: boolean;
   /** Audiodatei für die Wellenform der Zeitleiste */
@@ -93,10 +92,11 @@ export function ScenesSection({
   const scenes = itemScenes(data.lightScenes, item.id);
   const events = itemLightEvents(data.lightEvents, item.id);
   const plainLines = lines.map((l) => l.line);
-  const current = currentSceneId(scenes, plainLines, time);
+  // laufende Szene und „läuft“: geprüft je Bild, neu gezeichnet nur beim Wechsel
+  const current = usePlayerValue(audio, (time) => currentSceneId(scenes, plainLines, time));
   const [chosen, setChosen] = useState<string | null>(null);
   const [follow, setFollow] = useState(true);
-  const playing = !!audio && !audio.paused;
+  const playing = usePlaying(audio);
   // beim Abspielen der laufenden Szene folgen, sonst die gewählte
   const sceneId = (follow && playing && current) || (scenes.some((s) => s.id === chosen) ? chosen : scenes[0]?.id);
   const scene = scenes.find((s) => s.id === sceneId);

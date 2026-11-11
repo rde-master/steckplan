@@ -8,7 +8,9 @@ import { texts } from '../../texts';
 import { ICON } from '../icons';
 import { Button } from '../ui';
 import { formatSceneTime } from './ScenesSection';
+import { Playhead } from './Playhead';
 import { TimelineScrollbar } from './TimelineScrollbar';
+import { usePlayerTime, type TimeSource } from '../../lib/playerTime';
 import { Waveform } from './Waveform';
 
 const t = texts.regie.fields;
@@ -26,11 +28,19 @@ interface Drag {
   offset: number;
 }
 
+/** Abspielstrich (läuft je Bild, ohne die Zeitleiste neu zu zeichnen) */
+function OffsetPlayhead({ source, from, span }: { source: TimeSource | null; from: number; span: number }) {
+  const time = usePlayerTime(source);
+  const position = (time - from) / span;
+  if (position < 0 || position > 1) return null;
+  return <Playhead position={position} width={2} image="linear-gradient(rgb(239 68 68), rgb(239 68 68))" testId="offset-playhead" />;
+}
+
 export function OffsetTimeline({
   offset,
   audioLength,
   duration,
-  time,
+  source,
   src,
   editable,
   onChange,
@@ -41,8 +51,8 @@ export function OffsetTimeline({
   audioLength: number;
   /** Dauer des Punkts (sonst bis zum Ende der Musik) */
   duration: number | undefined;
-  /** Abspielposition (Zeit des Punkts) */
-  time: number;
+  /** Abspielposition (Zeit des Punkts) – der Strich aktualisiert sich selbst */
+  source: TimeSource | null;
   src: string | undefined;
   editable: boolean;
   onChange: (offset: number) => void;
@@ -134,7 +144,10 @@ export function OffsetTimeline({
         <Button variant="ghost" className="min-h-7 px-1.5" aria-label={t.offsetZoomOut} title={t.offsetZoomOut} disabled={!zoomed} onClick={() => zoom(1.5)}>
           <ZoomOut {...ICON} />
         </Button>
-        <Button variant="ghost" className="min-h-7 px-1.5" aria-label={t.offsetZoomIn} title={t.offsetZoomIn} disabled={span <= MIN_SPAN} onClick={() => zoom(1 / 1.5, time >= from && time <= from + span ? time : undefined)}>
+        <Button variant="ghost" className="min-h-7 px-1.5" aria-label={t.offsetZoomIn} title={t.offsetZoomIn} disabled={span <= MIN_SPAN} onClick={() => {
+          const time = source?.currentTime ?? 0;
+          zoom(1 / 1.5, time >= from && time <= from + span ? time : undefined);
+        }}>
           <ZoomIn {...ICON} />
         </Button>
         {zoomed && (
@@ -185,7 +198,7 @@ export function OffsetTimeline({
             <span className="pointer-events-none absolute top-0.5 left-1 z-[2] font-semibold text-sky-800 dark:text-sky-200">{t.offsetMusic}</span>
           </div>
         )}
-        <div className="pointer-events-none absolute top-0 bottom-0 z-10 w-0.5 bg-red-500" style={{ left: pct(time) }} data-testid="offset-playhead" />
+        <OffsetPlayhead source={source} from={from} span={span} />
       </div>
       <TimelineScrollbar start={vStart} span={span} total={total} label={t.offsetScroll} onChange={(start) => setZoomView({ span, start })} />
     </section>

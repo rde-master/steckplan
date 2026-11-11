@@ -26,10 +26,13 @@ import { setClickSettings, useClickSettings, useClickTrack } from '../../lib/cli
 import { canRecord, useRecorder } from '../../lib/recorder';
 import { useSession } from '../../lib/session';
 import { setTimecodeSync, Transport, type Playback } from '../../lib/transport';
+import { usePlayerTime, usePlayerValue, usePlaying, type TimeSource } from '../../lib/playerTime';
 import { texts } from '../../texts';
 import { ICON } from '../icons';
 import { Button } from '../ui';
 import { parseSceneTime } from './ScenesSection';
+
+export { usePlayerTime };
 
 const t = texts.regie.media;
 
@@ -215,39 +218,6 @@ function setAudioVolume(container: HTMLElement | null, volume: number): void {
   if (el) el.volume = volume;
 }
 
-/** Aktuelle Abspielzeit (flüssig per requestAnimationFrame, solange abgespielt wird). */
-export function usePlayerTime(el: Playback | null): number {
-  const [time, setTime] = useState(0);
-  useEffect(() => {
-    if (!el) return;
-    let frame = 0;
-    const tick = () => {
-      setTime(el.currentTime);
-      if (!el.paused) frame = requestAnimationFrame(tick);
-    };
-    const start = () => {
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(tick);
-    };
-    const update = () => setTime(el.currentTime);
-    update();
-    el.addEventListener('play', start);
-    el.addEventListener('seeked', update);
-    el.addEventListener('timeupdate', update);
-    el.addEventListener('pause', update);
-    el.addEventListener('loadedmetadata', update);
-    return () => {
-      cancelAnimationFrame(frame);
-      el.removeEventListener('play', start);
-      el.removeEventListener('seeked', update);
-      el.removeEventListener('timeupdate', update);
-      el.removeEventListener('pause', update);
-      el.removeEventListener('loadedmetadata', update);
-    };
-  }, [el]);
-  return time;
-}
-
 /** Läuft der Transport? Ende (Dauer) – für die Anzeige */
 export function usePlaybackState(playback: Playback | null): { playing: boolean; duration: number } {
   const [state, setState] = useState({ playing: false, duration: Number.POSITIVE_INFINITY });
@@ -280,15 +250,13 @@ export function TimecodePanel({
   large?: boolean;
   /** Führen-Ansicht: sehr große Knöpfe und Uhr, mittig */
   huge?: boolean;
-  /** beim Folgen: Timecode der führenden Vorstellung anzeigen (eigene Knöpfe aus) */
-  follow?: { time: number; playing: boolean };
+  /** beim Folgen: Uhr der führenden Vorstellung anzeigen (eigene Knöpfe aus) */
+  follow?: TimeSource;
 }) {
-  const ownTime = usePlayerTime(tc);
   const own = usePlaybackState(tc);
-  const time = follow ? follow.time : ownTime;
-  const playing = follow ? follow.playing : own.playing;
+  const source = follow ?? tc;
+  const playing = usePlaying(source);
   const duration = own.duration;
-  const remaining = Number.isFinite(duration) ? Math.max(0, duration - time) : undefined;
   const button = huge
     ? 'flex min-h-12 min-w-12 items-center justify-center rounded-xl border border-slate-700 bg-slate-900 px-2.5 text-lg font-semibold tabular-nums text-slate-100 hover:bg-slate-800 active:scale-95 2xl:min-h-16 2xl:min-w-16 2xl:px-3 2xl:text-xl'
     : `rounded tabular-nums text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 ${large ? 'min-h-9 min-w-9 px-2 py-1.5 text-sm' : 'px-1.5 py-1 text-xs'}`;
@@ -317,25 +285,33 @@ export function TimecodePanel({
           </button>
         ))}
       </div>
-      <TimecodeClock time={time} className={huge ? 'px-5 py-2.5 text-5xl 2xl:px-6 2xl:py-3 2xl:text-7xl' : large ? 'px-4 py-2 text-3xl sm:text-5xl' : ''} />
-      {remaining !== undefined && (
-        <span className={`font-mono font-bold tabular-nums text-red-500 ${huge ? 'text-3xl 2xl:text-4xl' : large ? 'text-xl sm:text-3xl' : 'text-base'}`} title={t.tcRemaining} data-testid="timecode-remaining">
-          −{formatTimecode(remaining)}
-        </span>
-      )}
+      <TimecodeClock source={source} className={huge ? 'px-5 py-2.5 text-5xl 2xl:px-6 2xl:py-3 2xl:text-7xl' : large ? 'px-4 py-2 text-3xl sm:text-5xl' : ''} />
+      {Number.isFinite(duration) && <TimecodeRemaining source={source} duration={duration} className={huge ? 'text-3xl 2xl:text-4xl' : large ? 'text-xl sm:text-3xl' : 'text-base'} />}
     </div>
   );
 }
 
 /** Große Timecode-Uhr (HH:MM:SS:FF, grün): gelaufene Zeit des Ablaufpunkts, jeder beginnt bei 00:00:00:00 */
-export function TimecodeClock({ time, className = '' }: { time: number; className?: string }) {
+function TimecodeClock({ source, className = '' }: { source: TimeSource; className?: string }) {
+  // neu gezeichnet nur, wenn sich die Anzeige ändert (je Timecode-Bild, nicht je Bildschirmbild)
+  const text = usePlayerValue(source, formatTimecode);
   return (
     <span
       className={`inline-block shrink-0 rounded-md bg-black px-2.5 py-1 font-mono text-2xl leading-none font-bold tracking-wider text-emerald-400 tabular-nums [text-shadow:0_0_8px_rgb(52_211_153/0.6)] ${className}`}
       title={t.timecode}
       data-testid="timecode"
     >
-      {formatTimecode(time)}
+      {text}
+    </span>
+  );
+}
+
+/** Restzeit bis zur geplanten Dauer (rot) */
+function TimecodeRemaining({ source, duration, className }: { source: TimeSource; duration: number; className: string }) {
+  const text = usePlayerValue(source, (time) => formatTimecode(Math.max(0, duration - time)));
+  return (
+    <span className={`font-mono font-bold tabular-nums text-red-500 ${className}`} title={t.tcRemaining} data-testid="timecode-remaining">
+      −{text}
     </span>
   );
 }
@@ -346,7 +322,6 @@ export function PlayerBar({
   media,
   setAudio,
   playback,
-  time,
   recording,
   onNextLine,
   nextLineText,
@@ -368,7 +343,6 @@ export function PlayerBar({
   setAudio: (el: HTMLAudioElement | null) => void;
   /** Transport des Ablaufpunkts */
   playback: Playback | null;
-  time: number;
   recording: boolean;
   onNextLine: () => void;
   nextLineText: string | undefined;
@@ -386,7 +360,6 @@ export function PlayerBar({
   const audioLength = tr?.audioLength ?? 0;
   const audioOffset = tr?.audioOffset ?? 0;
   const duration = tr && audioLength ? Math.max(planned, audioOffset + audioLength) : planned;
-  const audioTime = tr && audioLength ? tr.audioTime : time;
   const audioEnd = tr && audioLength ? audioLength : duration;
   const [volume, setVolume] = useState(1);
   const container = useRef<HTMLDivElement>(null);
@@ -425,18 +398,7 @@ export function PlayerBar({
           ))}
         </span>
         <div className="relative min-w-32 flex-1">
-          <input
-            type="range"
-            aria-label={t.position}
-            className="w-full accent-sky-600"
-            min={0}
-            max={duration || Math.max(1, time)}
-            step={0.1}
-            value={duration ? Math.min(time, duration) : time}
-            onChange={(e) => {
-              seekAudio(playback, Number(e.target.value));
-            }}
-          />
+          <PositionSlider playback={playback} duration={duration} />
           {/* Lichtszenen als Marken auf der Zeitleiste */}
           {duration > 0 &&
             markers
@@ -463,11 +425,7 @@ export function PlayerBar({
             />
           )}
         </div>
-        <span className="shrink-0 text-xs tabular-nums text-slate-600 dark:text-slate-300" data-testid="regie-time">
-          {formatDuration(audioTime)}
-          {audioEnd > 0 ? ` / ${formatDuration(audioEnd)}` : ''}
-        </span>
-        {audioEnd > 0 && <RemainingTime remaining={Math.max(0, audioEnd - audioTime)} playing={playing} {...remainRange(settings)} />}
+        <PlayerTimes playback={playback} audioEnd={audioEnd} playing={playing} settings={settings} />
         {current && (
           <label className="hidden items-center gap-1 sm:flex" title={t.volume}>
             <Volume2 size={16} className="text-slate-500" aria-hidden />
@@ -524,6 +482,40 @@ export function PlayerBar({
   );
 }
 
+/** Schieberegler der Abspielposition (aktualisiert sich selbst, in Zehntelsekunden) */
+function PositionSlider({ playback, duration }: { playback: Playback | null; duration: number }) {
+  const time = usePlayerTime(playback, 0.1);
+  return (
+    <input
+      type="range"
+      aria-label={t.position}
+      className="w-full accent-sky-600"
+      min={0}
+      max={duration || Math.max(1, time)}
+      step={0.1}
+      value={duration ? Math.min(time, duration) : time}
+      onChange={(e) => {
+        seekAudio(playback, Number(e.target.value));
+      }}
+    />
+  );
+}
+
+/** „1:12 / 3:40“ und die Restzeit – mit Audiodatei deren Zeit (aktualisiert sich selbst, in Zehntelsekunden) */
+function PlayerTimes({ playback, audioEnd, playing, settings }: { playback: Playback | null; audioEnd: number; playing: boolean; settings: Pick<ShowSettings, 'remainWarnSec' | 'remainBlinkSec'> }) {
+  const tr = playback instanceof Transport ? playback : null;
+  const audioTime = usePlayerValue(playback, (time) => Math.floor((tr && tr.audioLength ? tr.audioTime : time) * 10 + 1e-6) / 10);
+  return (
+    <>
+      <span className="shrink-0 text-xs tabular-nums text-slate-600 dark:text-slate-300" data-testid="regie-time">
+        {formatDuration(audioTime)}
+        {audioEnd > 0 ? ` / ${formatDuration(audioEnd)}` : ''}
+      </span>
+      {audioEnd > 0 && <RemainingTime remaining={Math.max(0, audioEnd - audioTime)} playing={playing} {...remainRange(settings)} />}
+    </>
+  );
+}
+
 // ---------- Text zum Mitlesen / Mitschreiben ----------
 
 function formatAt(sec: number): string {
@@ -568,7 +560,7 @@ export function LyricsView({
   doc,
   origin,
   lines,
-  time,
+  source,
   recording,
   editable,
   onSeek,
@@ -577,14 +569,15 @@ export function LyricsView({
   doc: Y.Doc;
   origin: object;
   lines: TimedLine[];
-  time: number;
+  /** Abspielzeit (die aktuelle Zeile folgt ihr) */
+  source: TimeSource | null;
   /** Zeiten der Zeilen sind um diesen Versatz verschoben (gespeichert wird ohne) */
   timeOffset?: number;
   recording: boolean;
   editable: boolean;
   onSeek: (sec: number) => void;
 }) {
-  const current = currentLineId(lines, time);
+  const current = usePlayerValue(source, (time) => currentLineId(lines, time));
   const refs = useRef(new Map<string, HTMLLIElement>());
   useEffect(() => {
     if (current) refs.current.get(current)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
@@ -617,7 +610,7 @@ export function LyricsView({
               </button>
               {recording && editable && (
                 <span className="flex shrink-0">
-                  <Button variant="ghost" className="min-h-7 px-1.5 text-xs" aria-label={`${t.setHere}: ${line.text}`} title={t.setHere} onClick={() => setLineTime(doc, sectionId, line.id, Math.max(0, time - timeOffset), origin)}>
+                  <Button variant="ghost" className="min-h-7 px-1.5 text-xs" aria-label={`${t.setHere}: ${line.text}`} title={t.setHere} onClick={() => setLineTime(doc, sectionId, line.id, Math.max(0, (source?.currentTime ?? 0) - timeOffset), origin)}>
                     <Timer {...ICON} />
                   </Button>
                 </span>
