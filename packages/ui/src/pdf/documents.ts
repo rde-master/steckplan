@@ -1,6 +1,7 @@
 // PDF-Dokumente als pdfmake-Definitionen (reine Daten – getestet ohne Browser).
 import type { CheckMark, PackGroup, PackingList, PackRow, PortRole, ProjectMeta, SignalKind } from '@steckplan/core';
 import { LOGO_PNG } from './logo';
+import { SIGNAL_COLORS } from './signalColors';
 import { sortRows, type SortKey } from './sorting';
 import { contrastText, formatCableLength } from '@steckplan/core';
 import type { Rect } from './svg';
@@ -504,15 +505,7 @@ export function labelsDoc(labels: LabelContent[], format: LabelFormat, ctx: Pick
 export const LABEL_PAD_MM = 3;
 export const SHEET_SAFE_MM = 5;
 
-/** Farben je Signalart (Etiketten) */
-export const SIGNAL_COLORS: Record<SignalKind, string> = {
-  audio: '#0284c7',
-  dmx: '#9333ea',
-  network: '#16a34a',
-  power: '#dc2626',
-  video: '#ea580c',
-  other: '#64748b',
-};
+export { SIGNAL_COLORS };
 
 /** Weiße Symbole (10 × 10) im farbigen Kreis */
 const SIGNAL_ICONS: Record<SignalKind, string> = {

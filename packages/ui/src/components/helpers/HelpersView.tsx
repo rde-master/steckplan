@@ -8,7 +8,7 @@ import { buildPeopleList, EMPTY_FILTER, formatGigDate, formatGigTimes, gigSummar
 import { api, errorMessage } from '../../lib/api';
 import { personLink, resolveShare } from '../../lib/shareLink';
 import type { ProjectData } from '../../lib/useProjectData';
-import { SIGNAL_COLORS } from '../../pdf/documents';
+import { SIGNAL_COLORS } from '../../pdf/signalColors';
 import { stageBounds, stagePlanSvg, type StageDrawing } from '../../pdf/svg';
 import { texts } from '../../texts';
 import { buildMulticoreRoutes, buildStageCables, buildStageItems } from '../stageplan/model';

@@ -3,7 +3,7 @@ import { Download, Upload } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type * as Y from 'yjs';
 import { applyRegieImport, parseRegieFile, planRegieImport, serializeRegie, type RegieContent, type RegieImportMode } from '@steckplan/core';
-import { asciiFileName } from '../../pdf/export';
+import { asciiFileName } from '../../lib/fileName';
 import { texts } from '../../texts';
 import { ICON } from '../icons';
 import { Banner, Button, Modal } from '../ui';
