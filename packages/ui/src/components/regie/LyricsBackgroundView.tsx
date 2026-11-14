@@ -1,7 +1,7 @@
 // Hintergrund des Textfensters: Bild, Diashow oder Videos (mehrere hintereinander, in Schleife oder einmalig).
 // Nur Bilder als Standard-Hintergrund in Schleife: nach der Wanduhr (auf allen Geräten gleich). Sonst eine Liste ab
 // dem Start des Eintrags (eigener Hintergrund) bzw. ab dem Öffnen: Bilder stehen slideSec Sekunden, Videos laufen bis
-// zum Ende. Abschnittsbilder gehen vor; ausgeblendet (Führen) ist alles schwarz. Videos immer stumm.
+// zum Ende. Abschnittsbilder gehen vor; beim Führen in der Helligkeit regelbar (0 = schwarz). Videos immer stumm.
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { FADE_SEC_DEFAULT, isVideoMedia, lyricsImages, SLIDE_SEC_DEFAULT, slideIndex, type LyricsBackground, type MediaRef } from '@steckplan/core';
 import { api } from '../../lib/api';
@@ -28,7 +28,8 @@ export function LyricsBackgroundView({
   background,
   own,
   sectionImage,
-  off,
+  level,
+  fadeSec,
 }: {
   projectId: string;
   media: MediaRef[];
@@ -37,8 +38,10 @@ export function LyricsBackgroundView({
   own: boolean;
   /** Bild des aktuellen Abschnitts (geht vor) */
   sectionImage: string | undefined;
-  /** ausgeblendet (Führen) */
-  off: boolean;
+  /** Helligkeit (Führen): 0 = schwarz; die Bilder und Videos laufen darunter weiter */
+  level: number;
+  /** Zeit, in der auf die Helligkeit übergeblendet wird (Sekunden) */
+  fadeSec: number;
 }) {
   const byId = new Map(media.map((m) => [m.id, m]));
   const entries: Entry[] = lyricsImages(background).map((id) => ({ id, video: isVideoMedia(byId.get(id)) }));
@@ -46,10 +49,15 @@ export function LyricsBackgroundView({
   const slideSec = background?.slideSec ?? SLIDE_SEC_DEFAULT;
   const fadeMs = Math.round((background?.fadeSec ?? FADE_SEC_DEFAULT) * 1000);
   const wallClock = !own && loop && !entries.some((e) => e.video);
-  const showsList = !sectionImage && !off;
+  const showsList = !sectionImage;
   const dim = background?.dim ?? 0.5;
   return (
-    <>
+    <div
+      className="absolute inset-0 transition-opacity ease-in-out motion-reduce:transition-none"
+      style={{ opacity: level, transitionDuration: `${fadeSec}s` }}
+      data-testid="lyrics-background-layer"
+      data-level={level}
+    >
       {wallClock ? (
         <WallClockSlides projectId={projectId} entries={entries} slideSec={slideSec} fadeMs={fadeMs} visible={showsList} />
       ) : (
@@ -58,14 +66,14 @@ export function LyricsBackgroundView({
       {sectionImage && (
         <div
           className="absolute inset-0 bg-cover bg-center transition-opacity duration-700 ease-in-out"
-          style={{ backgroundImage: `url("${api.mediaUrl(projectId, sectionImage)}")`, opacity: off ? 0 : 1 }}
-          data-testid={off ? undefined : 'lyrics-background'}
+          style={{ backgroundImage: `url("${api.mediaUrl(projectId, sectionImage)}")` }}
+          data-testid="lyrics-background"
           data-media={sectionImage}
           data-kind="image"
         />
       )}
-      {(sectionImage || entries.length > 0) && !off && <div className="absolute inset-0 bg-black" style={{ opacity: dim }} />}
-    </>
+      {(sectionImage || entries.length > 0) && <div className="absolute inset-0 bg-black" style={{ opacity: dim }} />}
+    </div>
   );
 }
 

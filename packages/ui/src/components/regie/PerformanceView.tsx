@@ -29,6 +29,8 @@ import {
   sceneStates,
   sceneTime,
   type Cue,
+  LYRICS_FADE_SEC_DEFAULT,
+  LYRICS_FADE_SEC_MAX,
   type Library,
   type RemoteCommand,
   type SyncClientState,
@@ -44,8 +46,9 @@ import { openLyricsWindow, useCueSource, useLocalCueSender, type ReceivedCue } f
 import { ItemColors, ItemNumber, KIND_ICONS } from './RegieView';
 import { BeatPanel } from './BeatPanel';
 import { Apc40Settings } from './Apc40Settings';
-import { APC40_CONTROLS, type Apc40Input } from '../../lib/midi/apc40';
-import { ledFor, useMidiMapping, type MidiAction, type PerformanceLedState } from '../../lib/midi/mapping';
+import { APC40_ANALOG, APC40_CONTROLS, type Apc40Input } from '../../lib/midi/apc40';
+import { ledFor, useAnalogMapping, useMidiMapping, type AnalogActionName, type MidiAction, type PerformanceLedState } from '../../lib/midi/mapping';
+import { useLyricsLevels, type LyricsLayer, type LyricsLevels } from '../../lib/lyricsLevels';
 import { midiSupported, useApc40 } from '../../lib/midi/useApc40';
 import { setClickSettings, useClickSettings } from '../../lib/click';
 import { LeadTimeline } from './LeadTimeline';
@@ -233,11 +236,16 @@ export function PerformanceView({
     writeOscAuto(on);
   };
   // Textfenster: Text bzw. Hintergrund aus-/einblenden (beim Führen, geht mit der Stelle an alle Textfenster)
-  const [hideText, setHideText] = useState(false);
-  const [hideBackground, setHideBackground] = useState(false);
-  const cueState = useRef({ mode, itemId, sceneId, audio, tc, sendCue, localCue, oscAuto, hideText, hideBackground });
+  // Helligkeit 0–1 (Knöpfe: ganz aus/ein in der eingestellten Blendzeit; Schieberegler und Fader: direkt)
+  const lyricsLevels = useLyricsLevels();
+  const { levels } = lyricsLevels;
+  const hideText = levels.text === 0;
+  const hideBackground = levels.background === 0;
+  const setHideText = (hide: boolean) => lyricsLevels.setHidden('text', hide);
+  const setHideBackground = (hide: boolean) => lyricsLevels.setHidden('background', hide);
+  const cueState = useRef({ mode, itemId, sceneId, audio, tc, sendCue, localCue, oscAuto, levels });
   useEffect(() => {
-    cueState.current = { mode, itemId, sceneId, audio, tc, sendCue, localCue, oscAuto, hideText, hideBackground };
+    cueState.current = { mode, itemId, sceneId, audio, tc, sendCue, localCue, oscAuto, levels };
   });
   useEffect(() => {
     const send = () => {
@@ -251,8 +259,12 @@ export function PerformanceView({
         playing: !c.audio.paused,
         tc: { at: c.tc.currentTime, playing: !c.tc.paused },
         ...(c.oscAuto ? { osc: true } : {}),
-        ...(c.hideText ? { hideText: true } : {}),
-        ...(c.hideBackground ? { hideBackground: true } : {}),
+        // Helligkeiten (hideText/hideBackground zusätzlich für ältere Textfenster)
+        ...(c.levels.text === 0 ? { hideText: true } : {}),
+        ...(c.levels.background === 0 ? { hideBackground: true } : {}),
+        ...(c.levels.text < 1 ? { textLevel: c.levels.text } : {}),
+        ...(c.levels.background < 1 ? { backgroundLevel: c.levels.background } : {}),
+        ...(c.levels.fadeSec !== LYRICS_FADE_SEC_DEFAULT ? { fadeSec: c.levels.fadeSec } : {}),
         ...(c.tc.playbackRate !== 1 ? { rate: c.tc.playbackRate } : {}),
       };
       c.localCue(cue);
@@ -269,7 +281,7 @@ export function PerformanceView({
       for (const source of sources) for (const e of events) source.removeEventListener(e, send);
       window.clearInterval(timer);
     };
-  }, [mode, itemId, sceneId, audio, tc, oscAuto, hideText, hideBackground]);
+  }, [mode, itemId, sceneId, audio, tc, oscAuto, levels]);
   // beim Verlassen nicht weiter führen
   const leading = useRef(false);
   useEffect(() => {
@@ -439,6 +451,7 @@ export function PerformanceView({
   // APC40 (MIDI): Tasten lösen die belegten Aktionen aus, die LEDs zeigen den Zustand (je Gerät belegt).
   // Beim Folgen wirkt nur „Führen übernehmen“; mit offenen Einstellungen wählt eine gedrückte Taste sie dort aus.
   const midiMapping = useMidiMapping();
+  const analogMapping = useAnalogMapping();
   const clickSettings = useClickSettings();
   const [midiOpen, setMidiOpen] = useState(false);
   const [midiSelected, setMidiSelected] = useState<string | null>(null);
@@ -464,6 +477,10 @@ export function PerformanceView({
     ...(tempo.gridBpm !== undefined && beatCount !== null ? { beat: beatCount, beatsPerBar: beats } : {}),
   };
   const midiLeds = Object.fromEntries(APC40_CONTROLS.map((c) => [c.id, ledFor(midiMapping[c.id], ledState)]));
+  // Ringe der Drehregler: zeigen den Wert ihrer Aufgabe (ohne Aufgabe aus)
+  const analogValue = (action: AnalogActionName | undefined): number | null =>
+    action === 'textLevel' ? levels.text : action === 'backgroundLevel' ? levels.background : action === 'fadeTime' ? lyricsLevels.fadeSec / LYRICS_FADE_SEC_MAX : null;
+  const midiRings = Object.fromEntries(APC40_ANALOG.filter((c) => c.kind === 'knob').map((c) => [c.id, analogValue(analogMapping[c.id])]));
   const showNote = (text: string) => {
     setRemoteNote(text);
     window.clearTimeout(noteTimer.current);
@@ -505,6 +522,17 @@ export function PerformanceView({
     showNote(texts.regie.midi.remote(`${texts.regie.midi.actions[a.action]}${a.value !== undefined ? ` ${String(a.value).replace('.', ',')}` : ''}`));
   };
   const onMidi = (input: Apc40Input) => {
+    if (input.kind === 'analog') {
+      // Fader/Drehregler: mit offenen Einstellungen auswählen, sonst Helligkeit bzw. Blendzeit (nicht beim Folgen)
+      if (midiOpen) setMidiSelected(input.id);
+      else if (!following) {
+        const action = analogMapping[input.id];
+        if (action === 'textLevel') lyricsLevels.setLevel('text', input.value);
+        else if (action === 'backgroundLevel') lyricsLevels.setLevel('background', input.value);
+        else if (action === 'fadeTime') lyricsLevels.setFadeSec(input.value * LYRICS_FADE_SEC_MAX);
+      }
+      return;
+    }
     if (input.kind === 'encoder') {
       // Cue Level: fein spulen (0,1 s je Raste)
       if (!following && !midiOpen) perform({ action: input.delta > 0 ? 'forward' : 'back', value: Math.round(Math.abs(input.delta)) / 10 });
@@ -519,7 +547,7 @@ export function PerformanceView({
     if (!a || (following && a.action !== 'lead')) return;
     runMidi(a);
   };
-  const midi = useApc40(midiSupported(), midiLeds, onMidi);
+  const midi = useApc40(midiSupported(), midiLeds, onMidi, midiRings);
 
   // Tastenkürzel (Übersicht: Knopf im Kopf bzw. „?“). Bedienen beim Folgen übernimmt bewusst (wie die Pfeiltasten).
   // Esc schließt Liedliste bzw. Übersicht – die Vorstellung ist ein eigener Tab (schließen mit ✕)
@@ -885,7 +913,7 @@ export function PerformanceView({
             <button type="button" onClick={() => setToolsHidden(true)} title={t.hideToolsTitle} className="flex shrink-0 items-center justify-end gap-1 self-end rounded-md px-2 py-1 text-xs text-slate-400 hover:bg-slate-800" data-testid="lead-side-hide">
               {t.hideTools} <ChevronsRight size={16} aria-hidden />
             </button>
-            <LyricsControl hideText={hideText} hideBackground={hideBackground} onText={setHideText} onBackground={setHideBackground} />
+            <LyricsControl levels={levels} fadeSec={lyricsLevels.fadeSec} onHide={lyricsLevels.setHidden} onLevel={lyricsLevels.setLevel} onFade={lyricsLevels.setFadeSec} />
             {canLead && <PlayersPanel />}
             <DeskCuePanel cues={sync.deskCues} />
             <OscLeadPanel projectId={projectId} auto={oscAuto} onAuto={setOscAuto} manual={triggerCommands(data.oscCommands, item.id, 'manual')} log={sync.oscLog} />
@@ -1152,34 +1180,83 @@ function NavButton({ label, onClick, disabled, compact = false, children }: { la
   );
 }
 
-/** Führen: Text und Hintergrund im Textfenster aus- bzw. einblenden */
-function LyricsControl({ hideText, hideBackground, onText, onBackground }: { hideText: boolean; hideBackground: boolean; onText: (hide: boolean) => void; onBackground: (hide: boolean) => void }) {
+/** Führen: Text und Hintergrund im Textfenster aus- bzw. einblenden (Knöpfe in der Blendzeit, Schieberegler direkt) */
+function LyricsControl({ levels, fadeSec, onHide, onLevel, onFade }: { levels: LyricsLevels; fadeSec: number; onHide: (layer: LyricsLayer, hide: boolean) => void; onLevel: (layer: LyricsLayer, value: number) => void; onFade: (sec: number) => void }) {
   const t = texts.regie.performance;
-  const toggle = (label: string, hidden: boolean, set: (hide: boolean) => void, Icon: typeof Type, testId: string) => (
-    <button
-      type="button"
-      onClick={() => set(!hidden)}
-      aria-pressed={!hidden}
-      className={`flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg border px-2 py-1 text-sm font-semibold active:scale-95 ${hidden ? 'border-red-500 bg-red-500/15 text-red-200' : 'border-emerald-600 bg-emerald-500/10 text-emerald-200'}`}
-      title={t.lyricsControlHint}
-      data-testid={testId}
-      data-hidden={hidden || undefined}
-    >
-      {hidden ? <EyeOff size={18} className="shrink-0" aria-hidden /> : <Icon size={18} className="shrink-0" aria-hidden />}
-      <span className="flex flex-col items-start leading-tight">
-        <span>{label}</span>
-        <span className="text-xs font-normal opacity-80">{hidden ? t.lyricsHiddenState : t.lyricsShown}</span>
-      </span>
-    </button>
-  );
+  const percent = (v: number) => `${Math.round(v * 100)} %`;
+  const toggle = (layer: LyricsLayer, label: string, Icon: typeof Type, testId: string) => {
+    const level = levels[layer];
+    const hidden = level === 0;
+    return (
+      <button
+        type="button"
+        onClick={() => onHide(layer, !hidden)}
+        aria-pressed={!hidden}
+        className={`flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg border px-2 py-1 text-sm font-semibold active:scale-95 ${hidden ? 'border-red-500 bg-red-500/15 text-red-200' : level < 1 ? 'border-amber-500 bg-amber-500/10 text-amber-100' : 'border-emerald-600 bg-emerald-500/10 text-emerald-200'}`}
+        title={t.lyricsControlHint(String(fadeSec).replace('.', ','))}
+        data-testid={testId}
+        data-hidden={hidden || undefined}
+      >
+        {hidden ? <EyeOff size={18} className="shrink-0" aria-hidden /> : <Icon size={18} className="shrink-0" aria-hidden />}
+        <span className="flex flex-col items-start leading-tight">
+          <span>{label}</span>
+          <span className="text-xs font-normal tabular-nums opacity-80">{hidden ? t.lyricsHiddenState : level < 1 ? percent(level) : t.lyricsShown}</span>
+        </span>
+      </button>
+    );
+  };
   return (
     <section className="space-y-2 rounded-xl border border-slate-700 bg-slate-900 p-3" aria-label={t.lyricsControl} data-testid="lyrics-control">
       <span className="text-xs font-semibold tracking-wide text-slate-400 uppercase">{t.lyricsControl}</span>
       <div className="flex gap-2">
-        {toggle(t.lyricsText, hideText, onText, Type, 'lyrics-toggle-text')}
-        {toggle(t.lyricsBackground, hideBackground, onBackground, ImageIcon, 'lyrics-toggle-background')}
+        {toggle('text', t.lyricsText, Type, 'lyrics-toggle-text')}
+        {toggle('background', t.lyricsBackground, ImageIcon, 'lyrics-toggle-background')}
       </div>
+      <Slider label={t.lyricsText} value={levels.text} max={1} step={0.01} format={percent} onChange={(v) => onLevel('text', v)} testId="lyrics-level-text" />
+      <Slider label={t.lyricsBackground} value={levels.background} max={1} step={0.01} format={percent} onChange={(v) => onLevel('background', v)} testId="lyrics-level-background" />
+      <Slider label={t.lyricsFade} value={fadeSec} max={LYRICS_FADE_SEC_MAX} step={0.1} format={(v) => `${v.toFixed(1).replace('.', ',')} s`} onChange={onFade} testId="lyrics-fade" title={t.lyricsFadeHint} />
     </section>
+  );
+}
+
+/**
+ * Schieberegler mit Wert daneben (feste Breite, die Zahl springt nicht). Beim Ziehen zeigt er den eigenen Wert –
+ * übernommen wird gebündelt (siehe lyricsLevels.ts), sonst spränge er zwischendurch zurück.
+ */
+function Slider({ label, value, max, step, format, onChange, testId, title }: { label: string; value: number; max: number; step: number; format: (v: number) => string; onChange: (v: number) => void; testId: string; title?: string }) {
+  const [draft, setDraft] = useState<number | null>(null);
+  const release = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(release.current), []);
+  const shown = draft ?? value;
+  const done = () => {
+    window.clearTimeout(release.current);
+    release.current = window.setTimeout(() => setDraft(null), 150);
+  };
+  return (
+    <label className="flex items-center gap-2 text-xs text-slate-400" title={title}>
+      <span className="w-20 shrink-0">{label}</span>
+      <input
+        type="range"
+        min={0}
+        max={max}
+        step={step}
+        value={shown}
+        onChange={(e) => {
+          const v = Number(e.target.value);
+          window.clearTimeout(release.current);
+          setDraft(v);
+          onChange(v);
+        }}
+        onPointerUp={done}
+        onKeyUp={done}
+        onBlur={done}
+        className="min-w-0 flex-1 accent-sky-500"
+        data-testid={testId}
+      />
+      <span className="w-12 shrink-0 text-right tabular-nums text-slate-200" data-testid={`${testId}-value`}>
+        {format(shown)}
+      </span>
+    </label>
   );
 }
 
