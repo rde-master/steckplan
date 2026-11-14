@@ -1,7 +1,7 @@
 // Textfenster als eigene Seite: zentrierter Text, fünf Zeilen, Vollbild per Antippen.
 // Folgt der Person, die in der Vorstellung führt; im selben Browser auch der eigenen Vorstellung.
 import { useEffect, useState } from 'react';
-import { currentLineId, effectiveBackground, itemTimedLines, itemSections, lyricsRange, sectionBackground } from '@steckplan/core';
+import { cueLevels, currentLineId, effectiveBackground, itemTimedLines, itemSections, lyricsRange, sectionBackground } from '@steckplan/core';
 import { LyricsBackgroundView } from '../components/regie/LyricsBackgroundView';
 import { LyricsDisplay, useCueSource, useLocalCue, type ReceivedCue } from '../components/regie/LyricsWindow';
 import { usePlayerValue } from '../lib/playerTime';
@@ -78,9 +78,9 @@ export function LyricsPage({ id, player }: { id: string; player?: PlayerEmbeddin
   const sectionId = (lines.find((l) => l.line.id === current) ?? lines[0])?.sectionId;
   const sectionImage = sectionBackground(sections, sectionId, undefined);
   const { background, own } = effectiveBackground(data.showSettings, item);
-  // beim Führen ausgeblendet: Hintergrund (schwarz) bzw. Text – weich
-  const backgroundOff = cue?.hideBackground === true;
-  const textOff = cue?.hideText === true;
+  // beim Führen: Helligkeit von Hintergrund (darunter schwarz) und Text, übergeblendet in der mitgeschickten Zeit
+  const fade = cueLevels(cue);
+  const textLevel = message ? 1 : fade.text;
 
   // im Player: unsichtbare Fenster halten nur die Verbindung (Texte aktuell), zeigen aber nichts
   if (!visible) return null;
@@ -92,8 +92,13 @@ export function LyricsPage({ id, player }: { id: string; player?: PlayerEmbeddin
       data-testid="lyrics-page"
     >
       {/* eigener Hintergrund des Eintrags beginnt mit dem Eintrag neu */}
-      <LyricsBackgroundView key={own ? `item-${item?.id}` : 'standard'} projectId={id} media={data.media} background={background} own={own} sectionImage={sectionImage} off={backgroundOff} />
-      <div className={`relative h-full transition-opacity duration-700 ${textOff && !message ? 'opacity-0' : 'opacity-100'}`} data-testid={textOff && !message ? 'lyrics-text-off' : undefined}>
+      <LyricsBackgroundView key={own ? `item-${item?.id}` : 'standard'} projectId={id} media={data.media} background={background} own={own} sectionImage={sectionImage} level={fade.background} fadeSec={fade.fadeSec} />
+      <div
+        className="relative h-full transition-opacity ease-in-out motion-reduce:transition-none"
+        style={{ opacity: textLevel, transitionDuration: `${fade.fadeSec}s` }}
+        data-testid={textLevel === 0 ? 'lyrics-text-off' : 'lyrics-text-layer'}
+        data-level={textLevel}
+      >
       {message ? (
         <div className="flex h-full flex-col items-center justify-center gap-4 p-8 text-center text-[3vw] text-slate-500">
           <p>{message}</p>

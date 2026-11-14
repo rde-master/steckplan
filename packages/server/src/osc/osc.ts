@@ -98,6 +98,8 @@ const ADDRESSES: Record<string, RemoteAction> = {
   prev: 'prev',
   'scene/next': 'sceneNext',
   'scene/prev': 'scenePrev',
+  'line/next': 'lineNext',
+  'line/prev': 'linePrev',
   'tc/forward': 'tcForward',
   'tc/back': 'tcBack',
   tap: 'tap',

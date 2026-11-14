@@ -7,6 +7,23 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.48.0] - 2026-11-14
+
+### Hinzugefügt
+
+- Führen: Knöpfe „Zeile zurück“ und „Zeile weiter“ neben dem Text – springen an den Anfang der vorigen bzw. nächsten Textzeile (Zeilen ohne Zeit werden übersprungen); Textfenster, Timecode und Szenen folgen. Auch per Tastatur (Umschalt+↑ / Umschalt+↓), als APC40-Aktionen (Vorbelegung Clip Stop 5 und 6; LED gelb, wenn es die Zeile gibt) und per OSC/HTTP (`/steckplan/line/prev`, `/steckplan/line/next` bzw. `linePrev`, `lineNext`)
+- Führen: Schieberegler für Text und Hintergrund im Textfenster (0–100 %, wirken sofort auf allen Textfenstern) und für die Blendzeit der Knöpfe „Text“ und „Hintergrund“ (0–10 s, Standard 0,7 s, je Gerät gemerkt)
+- APC40: Fader und Drehregler sind belegbar (Text, Hintergrund, Blendzeit); Vorbelegung Kanalfader 1 = Text, Kanalfader 2 = Hintergrund, Track-Control-Regler 1 = Blendzeit. Der LED-Ring eines belegten Drehreglers zeigt den Wert
+
+- Texte: neben jeder Zeile die Zahl der Zeichen; Zeilen, die im Textfenster bzw. auf dem Player nicht passen und mit „…“ abgeschnitten werden, sind rot markiert, darunter ein Hinweis, wie viele Zeichen etwa passen (berechnet mit der Schriftgröße aus den Textfenster-Einstellungen für einen 16:9-Bildschirm). Die Zeilen im Textfeld brechen dafür nicht mehr um
+
+- Führen: Schalter „Licht“ und „Ton“ im Kopf des Zeitstrahls blenden die Lichtszenen (Zeile im Zeitstrahl, Liste daneben, Szenenzeile unten) bzw. die Tonszenen aus – je Gerät gemerkt
+
+### Geändert
+
+- Führen: Die Szenenliste neben dem Zeitstrahl zeigt nur noch Lichtszenen und wie der Text die vorige, aktuelle und nächste Szene – über der aktuellen ein grüner Balken mit der Zeit, bis sie endet, über der nächsten ein roter mit dem Countdown bis zum Start; ein Klick springt weiterhin dorthin
+- Zeiten neben Text und Szenen immer mit Zehntel („0:05,0“, „3,0 s“), damit die Zahlen beim Wechsel nicht springen
+
 ## [0.47.0] - 2026-11-11
 
 ### Hinzugefügt

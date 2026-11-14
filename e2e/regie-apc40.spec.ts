@@ -22,7 +22,8 @@ const sent = (page: Page) => page.evaluate(() => (window as unknown as { __apcSe
 /** zuletzt gesendeter Zustand einer LED (Status mit Kanal, Note) */
 const led = async (page: Page, status: number, note: number) => {
   const all = await sent(page);
-  const last = [...all].reverse().find((m) => (m[0]! & 0x0f) === (status & 0x0f) && m[1] === note && (m[0]! & 0xf0) !== 0xf0);
+  // nur Noten (LEDs) – Controller-Nachrichten (Ringe der Drehregler) haben teils dieselben Nummern
+  const last = [...all].reverse().find((m) => (m[0]! & 0x0f) === (status & 0x0f) && m[1] === note && ((m[0]! & 0xf0) === 0x80 || (m[0]! & 0xf0) === 0x90));
   return last ? ((last[0]! & 0xf0) === 0x80 ? 0 : last[2]) : undefined;
 };
 const press = (page: Page, channel: number, note: number) =>
@@ -162,4 +163,69 @@ test('APC40: Metronom in der unteren Matrixreihe – Schlag leuchtet im Takt (di
   await expect.poll(() => led(show, 0x90, ROW5), { timeout: 3000 }).toBe(3);
   await expect.poll(() => led(show, 0x91, ROW5), { timeout: 3000 }).toBe(1);
   await press(show, 0, 0x5b);
+});
+
+test('APC40: Fader 1/2 regeln Text und Hintergrund im Textfenster, Drehregler 1 die Blendzeit (mit LED-Ring)', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await loginAs(page, 'edit', 'Ralf');
+  const { id } = await (
+    await page.request.post('/api/projects/upload', {
+      data: {
+        schemaVersion: 9,
+        id: 'apc40-fader',
+        meta: { name: 'APC40 Fader' },
+        layers: [{ id: 'l1', name: 'Bühne', order: 0 }],
+        show: {
+          items: [{ id: 'a', order: 0, kind: 'song', title: 'Lied', number: 1, durationSec: 60 }],
+          sections: [{ id: 's', itemId: 'a', order: 0, kind: 'verse', label: 'Strophe', lines: [{ id: 'z1', text: 'Eins', atSec: 0 }] }],
+        },
+      },
+    })
+  ).json();
+  await page.goto(`/projekt/${id}?ansicht=regie`);
+  const show = await openPerformance(page);
+  const perf = show.getByTestId('performance');
+  await perf.getByRole('radio', { name: 'Führen' }).click();
+  const control = perf.getByTestId('lyrics-control');
+  const lyrics = await page.context().newPage();
+  await lyrics.goto(`/projekt/${id}/text`);
+  await expect(lyrics.getByTestId('lyrics-text-layer')).toHaveAttribute('data-level', '1');
+  const cc = (channel: number, number: number, value: number) => show.evaluate(([c, n, v]) => (window as unknown as { __apcPress: (b: number[]) => void }).__apcPress([0xb0 | c!, n!, v!]), [channel, number, value]);
+
+  // Ring um Track Control 1: Stil „Volume“, Wert = Blendzeit 0,7 von 10 s; Regler ohne Aufgabe: Ring aus
+  await expect.poll(async () => (await sent(show)).some((m) => m.join(',') === '176,56,2')).toBe(true);
+  await expect.poll(async () => (await sent(show)).some((m) => m.join(',') === '176,48,9')).toBe(true);
+  await expect.poll(async () => (await sent(show)).some((m) => m.join(',') === '176,57,0')).toBe(true);
+
+  // Fader 1 (Kanal 0) halb: Text 50 %; Fader 2 (Kanal 1) ganz unten: Hintergrund aus
+  await cc(0, 7, 64);
+  await expect(control.getByTestId('lyrics-level-text-value')).toHaveText('50 %');
+  await expect(lyrics.getByTestId('lyrics-text-layer')).toHaveAttribute('data-level', String(64 / 127));
+  await cc(1, 7, 0);
+  await expect(control.getByTestId('lyrics-toggle-background')).toContainText('ausgeblendet');
+  await expect(lyrics.getByTestId('lyrics-background-layer')).toHaveAttribute('data-level', '0');
+  // Drehregler: Blendzeit ganz auf (10 s), der Ring folgt
+  await cc(0, 48, 127);
+  await expect(control.getByTestId('lyrics-fade-value')).toHaveText('10,0 s');
+  await expect.poll(async () => (await sent(show)).filter((m) => m[0] === 176 && m[1] === 48).at(-1)).toEqual([176, 48, 127]);
+  // am Bildschirm geändert: Ring geht mit
+  await control.getByTestId('lyrics-fade').fill('5');
+  await expect.poll(async () => (await sent(show)).filter((m) => m[0] === 176 && m[1] === 48).at(-1)).toEqual([176, 48, 64]);
+
+  // Einstellungen: Fader und Regler im Bild; am Gerät bewegt = ausgewählt; Aufgabe ändern
+  await perf.getByTestId('apc40-open').click();
+  const settings = show.getByTestId('apc40-settings');
+  await expect(settings.getByTestId('apc-analog')).toHaveCount(26);
+  await expect(settings.locator('[data-testid=apc-analog][data-id="fader:0"]')).toHaveText('Text');
+  await expect(settings.locator('[data-testid=apc-analog][data-id="trackKnob:0"]')).toHaveText('Blende');
+  await cc(2, 7, 100);
+  await expect(settings.getByTestId('apc40-selected')).toHaveText('Fader 3');
+  // mit offenen Einstellungen wirkt der Fader nicht
+  await expect(control.getByTestId('lyrics-level-text-value')).toHaveText('50 %');
+  await settings.getByTestId('apc40-analog-action').selectOption('textLevel');
+  await expect(settings.locator('[data-testid=apc-analog][data-id="fader:2"]')).toHaveAttribute('data-action', 'textLevel');
+  await show.getByRole('button', { name: 'Fertig' }).click();
+  await cc(2, 7, 127);
+  await expect(control.getByTestId('lyrics-level-text-value')).toHaveText('100 %');
+  await expect(lyrics.getByTestId('lyrics-text-layer')).toHaveAttribute('data-level', '1');
 });

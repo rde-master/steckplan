@@ -1,9 +1,10 @@
 // Belegung des APC40 für die Vorstellung (Führen): welche Taste welche Aktion auslöst, und wie ihre LED leuchtet.
 // Je Gerät gespeichert (der Controller hängt an diesem Rechner). Vorbelegung: die Clip-Matrix sind die Ablaufpunkte
 // 1–32 (aktuell grün, beim Abspielen blinkend; nächster rot; übrige gelb), darunter das Metronom (Schlag 1–8: blinkt
-// im Takt, Druck springt im laufenden Takt auf diesen Schlag), Transport, Szenen, Tap und Schlag.
+// im Takt, Druck springt im laufenden Takt auf diesen Schlag), Transport, Szenen, Tap und Schlag; Clip Stop 1–6:
+// spulen (−5 s, −1 s, +1 s, +5 s) und Textzeile zurück/weiter.
 import { useSyncExternalStore } from 'react';
-import { APC40_CONTROLS, clipId, CLIP_ROWS, COLUMNS, type LedState } from './apc40';
+import { APC40_ANALOG, APC40_CONTROLS, clipId, CLIP_ROWS, COLUMNS, type LedState } from './apc40';
 
 export const MIDI_ACTIONS = [
   'none',
@@ -18,6 +19,8 @@ export const MIDI_ACTIONS = [
   'item',
   'scenePrev',
   'sceneNext',
+  'linePrev',
+  'lineNext',
   'tap',
   'beatBack',
   'beatForward',
@@ -71,6 +74,8 @@ export function defaultMapping(): MidiMapping {
     'clipStop:1': { action: 'back', value: 1 },
     'clipStop:2': { action: 'forward', value: 1 },
     'clipStop:3': { action: 'forward', value: 5 },
+    'clipStop:4': { action: 'linePrev' },
+    'clipStop:5': { action: 'lineNext' },
     'device:7': { action: 'click' },
     'device:6': { action: 'preroll' },
   } satisfies MidiMapping);
@@ -126,6 +131,7 @@ export function setMidiAction(id: string, action: MidiAction): void {
 
 export function resetMidiMapping(): void {
   save(defaultMapping());
+  saveAnalog(defaultAnalogMapping());
 }
 
 export function useMidiMapping(): MidiMapping {
@@ -136,6 +142,69 @@ export function useMidiMapping(): MidiMapping {
     },
     current,
     current,
+  );
+}
+
+// ---------- Fader und Drehregler ----------
+
+/** Aktionen für Fader und Drehregler: Helligkeit von Text bzw. Hintergrund im Textfenster, Ein-/Ausblendzeit */
+export const ANALOG_ACTIONS = ['none', 'textLevel', 'backgroundLevel', 'fadeTime'] as const;
+export type AnalogActionName = (typeof ANALOG_ACTIONS)[number];
+export type AnalogMapping = Record<string, AnalogActionName>;
+
+/** Vorbelegung: Fader 1 = Text, Fader 2 = Hintergrund, oberer Drehregler 1 = Blendzeit */
+export function defaultAnalogMapping(): AnalogMapping {
+  return { 'fader:0': 'textLevel', 'fader:1': 'backgroundLevel', 'trackKnob:0': 'fadeTime' };
+}
+
+const ANALOG_KEY = 'steckplan.apc40.analog';
+const knownAnalog = new Set<string>(ANALOG_ACTIONS);
+const analogIds = new Set(APC40_ANALOG.map((c) => c.id));
+
+export function sanitizeAnalogMapping(raw: unknown): AnalogMapping | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const out: AnalogMapping = {};
+  for (const [id, action] of Object.entries(raw as Record<string, unknown>)) {
+    if (analogIds.has(id) && typeof action === 'string' && knownAnalog.has(action) && action !== 'none') out[id] = action as AnalogActionName;
+  }
+  return out;
+}
+
+let analog: AnalogMapping | null = null;
+const currentAnalog = () =>
+  (analog ??= (() => {
+    try {
+      return sanitizeAnalogMapping(JSON.parse(localStorage.getItem(ANALOG_KEY) ?? 'null')) ?? defaultAnalogMapping();
+    } catch {
+      return defaultAnalogMapping();
+    }
+  })());
+
+function saveAnalog(next: AnalogMapping): void {
+  analog = next;
+  try {
+    localStorage.setItem(ANALOG_KEY, JSON.stringify(next));
+  } catch {
+    // ohne Speicher gilt die Belegung bis zum Neuladen
+  }
+  for (const l of listeners) l();
+}
+
+export function setAnalogAction(id: string, action: AnalogActionName): void {
+  const next = { ...currentAnalog() };
+  if (action === 'none') delete next[id];
+  else next[id] = action;
+  saveAnalog(next);
+}
+
+export function useAnalogMapping(): AnalogMapping {
+  return useSyncExternalStore(
+    (cb) => {
+      listeners.add(cb);
+      return () => listeners.delete(cb);
+    },
+    currentAnalog,
+    currentAnalog,
   );
 }
 
@@ -152,11 +221,14 @@ export interface PerformanceLedState {
   hasNextItem: boolean;
   hasPrevScene: boolean;
   hasNextScene: boolean;
+  /** Textzeile zurück/weiter möglich (vorige bzw. nächste Zeile mit Zeit) */
+  hasPrevLine: boolean;
+  hasNextLine: boolean;
   click: boolean;
   preroll: boolean;
   leading: boolean;
   hasTempo: boolean;
-  /** Textfenster: Text bzw. Hintergrund ausgeblendet */
+  /** Textfenster: Text bzw. Hintergrund ganz ausgeblendet (Helligkeit 0) */
   hideText: boolean;
   hideBackground: boolean;
   /** Metronom: aktueller Schlag im Takt (1 …) und Schläge je Takt; ohne Tempo undefined */
@@ -192,6 +264,10 @@ export function ledFor(action: MidiAction | undefined, s: PerformanceLedState): 
       return s.hasPrevScene ? 'green' : 'off';
     case 'sceneNext':
       return s.hasNextScene ? 'green' : 'off';
+    case 'linePrev':
+      return s.hasPrevLine ? 'yellow' : 'off';
+    case 'lineNext':
+      return s.hasNextLine ? 'yellow' : 'off';
     case 'tap':
     case 'beatBack':
     case 'beatForward':

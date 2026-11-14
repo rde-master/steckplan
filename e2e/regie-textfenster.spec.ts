@@ -76,7 +76,7 @@ test('Textfenster: eigene Seite, im selben Browser und auf anderen Geräten (Fü
   // Countdown zu den nächsten fünf Zeilen, danach feste Zeiten
   await expect(perf.getByTestId('line-countdown')).toHaveCount(5);
   await expect(perf.getByTestId('line-countdown').first()).toHaveText('0,5 s');
-  await expect(perf.getByTestId('line-time').nth(0)).toHaveText('0:05.5');
+  await expect(perf.getByTestId('line-time').nth(0)).toHaveText('0:05,5');
 
   // an 2,0 s: vorige Zeile 1, aktuelle Zeile 2 (zentriert), dann 3–5
   await perf.getByLabel('Position').fill('2');

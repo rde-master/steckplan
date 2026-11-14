@@ -972,6 +972,28 @@ export function currentLineId(lines: TimedLine[], t: number): string | undefined
   return current;
 }
 
+/**
+ * „Textzeile weiter/zurück“ (Vorstellung): Zeitpunkt der nächsten bzw. vorigen Zeile mit Zeit, ausgehend von der
+ * angezeigten Zeile (currentId; undefined = vor der ersten Zeile). Zeilen ohne Zeit und Zeilen zur selben Zeit werden
+ * übersprungen (sonst bliebe die Anzeige stehen). Keine solche Zeile: undefined.
+ */
+export function lineStepTime(lines: TimedLine[], currentId: string | undefined, dir: 1 | -1): number | undefined {
+  const index = currentId === undefined ? -1 : lines.findIndex((l) => l.line.id === currentId);
+  const at = index >= 0 ? lines[index]!.line.atSec : undefined;
+  if (dir > 0) {
+    for (let i = index + 1; i < lines.length; i++) {
+      const t = lines[i]!.line.atSec;
+      if (t !== undefined && (at === undefined || t > at + 0.05)) return t;
+    }
+    return undefined;
+  }
+  for (let i = index - 1; i >= 0; i--) {
+    const t = lines[i]!.line.atSec;
+    if (t !== undefined && (at === undefined || t < at - 0.05)) return t;
+  }
+  return undefined;
+}
+
 /** Erste Zeile ohne Zeitpunkt nach der letzten Zeile mit Zeitpunkt („Nächste Zeile“ beim Mitschreiben). */
 export function nextUntimedLine(lines: TimedLine[]): TimedLine | undefined {
   let lastTimed = -1;

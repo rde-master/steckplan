@@ -64,6 +64,9 @@ describe('OSC', () => {
     expect(cmd('/steckplan/tap', [0])).toBeNull(); // Loslassen eines Tasters
     expect(cmd('/steckplan/tc/forward', [0])).toBeNull();
     expect(cmd('/steckplan/scene/next')).toEqual({ action: 'sceneNext' });
+    expect(cmd('/steckplan/line/next')).toEqual({ action: 'lineNext' });
+    expect(cmd('/steckplan/line/prev', [1])).toEqual({ action: 'linePrev' });
+    expect(cmd('/steckplan/line/prev', [0])).toBeNull(); // Loslassen eines Tasters
     expect(cmd('/steckplan/unbekannt')).toBeNull();
     expect(cmd('/anderes/play')).toBeNull();
   });

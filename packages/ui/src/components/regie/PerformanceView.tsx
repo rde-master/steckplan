@@ -1,6 +1,6 @@
 // Vorstellung (Regie, M11e): Vollbild, dunkel. Aktueller Eintrag mit mitlaufendem Text, aktuelle und nächste Lichtszene,
 // Player, große Knöpfe und Pfeiltasten. „Führen“ sendet die Stelle an alle, „Folgen“ springt mit (nicht gespeichert).
-import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, EyeOff, Image as ImageIcon, Keyboard, ListMusic, Monitor, Radio, Type, UserRound, X } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, ChevronsLeft, ChevronsRight, EyeOff, Image as ImageIcon, Keyboard, ListMusic, Monitor, Radio, Type, UserRound, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   addTap,
@@ -16,6 +16,7 @@ import {
   updateShowItem,
   type Tap,
   currentLineId,
+  lineStepTime,
   currentSceneId,
   formatDuration,
   gridLayout,
@@ -28,6 +29,8 @@ import {
   sceneStates,
   sceneTime,
   type Cue,
+  LYRICS_FADE_SEC_DEFAULT,
+  LYRICS_FADE_SEC_MAX,
   type Library,
   type RemoteCommand,
   type SyncClientState,
@@ -43,8 +46,9 @@ import { openLyricsWindow, useCueSource, useLocalCueSender, type ReceivedCue } f
 import { ItemColors, ItemNumber, KIND_ICONS } from './RegieView';
 import { BeatPanel } from './BeatPanel';
 import { Apc40Settings } from './Apc40Settings';
-import { APC40_CONTROLS, type Apc40Input } from '../../lib/midi/apc40';
-import { ledFor, useMidiMapping, type MidiAction, type PerformanceLedState } from '../../lib/midi/mapping';
+import { APC40_ANALOG, APC40_CONTROLS, type Apc40Input } from '../../lib/midi/apc40';
+import { ledFor, useAnalogMapping, useMidiMapping, type AnalogActionName, type MidiAction, type PerformanceLedState } from '../../lib/midi/mapping';
+import { useLyricsLevels, type LyricsLayer, type LyricsLevels } from '../../lib/lyricsLevels';
 import { midiSupported, useApc40 } from '../../lib/midi/useApc40';
 import { setClickSettings, useClickSettings } from '../../lib/click';
 import { LeadTimeline } from './LeadTimeline';
@@ -58,10 +62,10 @@ import { RichTextView } from './RichTextEditor';
 import { SceneProgress, type SceneMark } from './SceneProgress';
 import { hasRichText } from '../../lib/richText';
 import { SceneGrid } from './SceneGrid';
-import { formatSceneTime } from './ScenesSection';
 import { BreakMark, PlayerBar, seekAudio, TimecodePanel } from './SongMedia';
+import { CueBar, cueClock, useCountdown } from './CueProgress';
 import { usePointPlayback, type Playback } from '../../lib/transport';
-import { usePlayerTime, usePlayerValue, usePlaying, type TimeSource } from '../../lib/playerTime';
+import { usePlayerValue, usePlaying, type TimeSource } from '../../lib/playerTime';
 
 const t = texts.regie.performance;
 
@@ -216,6 +220,10 @@ export function PerformanceView({
   const timed = usePlayerValue(clock, (time) => playing || time > 0);
   const lineByTime = usePlayerValue(clock, (time) => currentLineId(lines, time));
   const currentLine = timed ? lineByTime : scene?.lineId;
+  const currentIndex = lines.findIndex((l) => l.line.id === currentLine);
+  // Textzeile zurück/weiter: an den Anfang der vorigen bzw. nächsten Zeile mit Zeit (ausgehend von der angezeigten)
+  const prevLineAt = lineStepTime(lines, currentLine, -1);
+  const nextLineAt = lineStepTime(lines, currentLine, 1);
 
   // Stelle mit Abspielposition senden: beim Führen an alle (Server), immer an Textfenster im selben Browser.
   // Bei Eintrag/Szene, Start, Pause, Spulen und alle zwei Sekunden während der Wiedergabe.
@@ -228,11 +236,16 @@ export function PerformanceView({
     writeOscAuto(on);
   };
   // Textfenster: Text bzw. Hintergrund aus-/einblenden (beim Führen, geht mit der Stelle an alle Textfenster)
-  const [hideText, setHideText] = useState(false);
-  const [hideBackground, setHideBackground] = useState(false);
-  const cueState = useRef({ mode, itemId, sceneId, audio, tc, sendCue, localCue, oscAuto, hideText, hideBackground });
+  // Helligkeit 0–1 (Knöpfe: ganz aus/ein in der eingestellten Blendzeit; Schieberegler und Fader: direkt)
+  const lyricsLevels = useLyricsLevels();
+  const { levels } = lyricsLevels;
+  const hideText = levels.text === 0;
+  const hideBackground = levels.background === 0;
+  const setHideText = (hide: boolean) => lyricsLevels.setHidden('text', hide);
+  const setHideBackground = (hide: boolean) => lyricsLevels.setHidden('background', hide);
+  const cueState = useRef({ mode, itemId, sceneId, audio, tc, sendCue, localCue, oscAuto, levels });
   useEffect(() => {
-    cueState.current = { mode, itemId, sceneId, audio, tc, sendCue, localCue, oscAuto, hideText, hideBackground };
+    cueState.current = { mode, itemId, sceneId, audio, tc, sendCue, localCue, oscAuto, levels };
   });
   useEffect(() => {
     const send = () => {
@@ -246,8 +259,12 @@ export function PerformanceView({
         playing: !c.audio.paused,
         tc: { at: c.tc.currentTime, playing: !c.tc.paused },
         ...(c.oscAuto ? { osc: true } : {}),
-        ...(c.hideText ? { hideText: true } : {}),
-        ...(c.hideBackground ? { hideBackground: true } : {}),
+        // Helligkeiten (hideText/hideBackground zusätzlich für ältere Textfenster)
+        ...(c.levels.text === 0 ? { hideText: true } : {}),
+        ...(c.levels.background === 0 ? { hideBackground: true } : {}),
+        ...(c.levels.text < 1 ? { textLevel: c.levels.text } : {}),
+        ...(c.levels.background < 1 ? { backgroundLevel: c.levels.background } : {}),
+        ...(c.levels.fadeSec !== LYRICS_FADE_SEC_DEFAULT ? { fadeSec: c.levels.fadeSec } : {}),
         ...(c.tc.playbackRate !== 1 ? { rate: c.tc.playbackRate } : {}),
       };
       c.localCue(cue);
@@ -264,7 +281,7 @@ export function PerformanceView({
       for (const source of sources) for (const e of events) source.removeEventListener(e, send);
       window.clearInterval(timer);
     };
-  }, [mode, itemId, sceneId, audio, tc, oscAuto, hideText, hideBackground]);
+  }, [mode, itemId, sceneId, audio, tc, oscAuto, levels]);
   // beim Verlassen nicht weiter führen
   const leading = useRef(false);
   useEffect(() => {
@@ -327,6 +344,9 @@ export function PerformanceView({
   const [sideHidden, setSideHidden] = useHidden('steckplan.performanceSideHidden');
   // Führen: Einstellungen rechts (Textfenster, Player, Lichtpult, OSC) einklappbar, je Gerät gemerkt
   const [toolsHidden, setToolsHidden] = useHidden('steckplan.leadToolsHidden');
+  // Führen: Licht- bzw. Tonszenen ausblenden (je Gerät gemerkt)
+  const [leadLightHidden, setLeadLightHidden] = useHidden('steckplan.leadLightHidden');
+  const [leadSoundHidden, setLeadSoundHidden] = useHidden('steckplan.leadSoundHidden');
   const [tapState, setTapState] = useState<{ itemId: string; taps: Tap[] } | null>(null);
   const taps = tapState && tapState.itemId === item?.id ? tapState.taps : [];
   const beats = parseTimeSignature(item?.timeSignature).beats;
@@ -402,6 +422,12 @@ export function PerformanceView({
       case 'scenePrev':
         goScene(command.action === 'sceneNext' ? 1 : -1);
         break;
+      case 'lineNext':
+      case 'linePrev': {
+        const at = command.action === 'lineNext' ? nextLineAt : prevLineAt;
+        if (at !== undefined) both((p) => seekAudio(p, at));
+        break;
+      }
       case 'tcForward':
       case 'tcBack':
         // nur der Timecode (mit „Mit Musik“ hängt die Musik daran)
@@ -428,6 +454,7 @@ export function PerformanceView({
   // APC40 (MIDI): Tasten lösen die belegten Aktionen aus, die LEDs zeigen den Zustand (je Gerät belegt).
   // Beim Folgen wirkt nur „Führen übernehmen“; mit offenen Einstellungen wählt eine gedrückte Taste sie dort aus.
   const midiMapping = useMidiMapping();
+  const analogMapping = useAnalogMapping();
   const clickSettings = useClickSettings();
   const [midiOpen, setMidiOpen] = useState(false);
   const [midiSelected, setMidiSelected] = useState<string | null>(null);
@@ -442,6 +469,8 @@ export function PerformanceView({
     hasNextItem: !!nextItem,
     hasPrevScene: sceneIndex > 0,
     hasNextScene: sceneIndex < scenes.length - 1,
+    hasPrevLine: prevLineAt !== undefined,
+    hasNextLine: nextLineAt !== undefined,
     click: clickSettings.click,
     preroll: clickSettings.preroll,
     leading: mode === 'lead',
@@ -451,6 +480,10 @@ export function PerformanceView({
     ...(tempo.gridBpm !== undefined && beatCount !== null ? { beat: beatCount, beatsPerBar: beats } : {}),
   };
   const midiLeds = Object.fromEntries(APC40_CONTROLS.map((c) => [c.id, ledFor(midiMapping[c.id], ledState)]));
+  // Ringe der Drehregler: zeigen den Wert ihrer Aufgabe (ohne Aufgabe aus)
+  const analogValue = (action: AnalogActionName | undefined): number | null =>
+    action === 'textLevel' ? levels.text : action === 'backgroundLevel' ? levels.background : action === 'fadeTime' ? lyricsLevels.fadeSec / LYRICS_FADE_SEC_MAX : null;
+  const midiRings = Object.fromEntries(APC40_ANALOG.filter((c) => c.kind === 'knob').map((c) => [c.id, analogValue(analogMapping[c.id])]));
   const showNote = (text: string) => {
     setRemoteNote(text);
     window.clearTimeout(noteTimer.current);
@@ -492,6 +525,17 @@ export function PerformanceView({
     showNote(texts.regie.midi.remote(`${texts.regie.midi.actions[a.action]}${a.value !== undefined ? ` ${String(a.value).replace('.', ',')}` : ''}`));
   };
   const onMidi = (input: Apc40Input) => {
+    if (input.kind === 'analog') {
+      // Fader/Drehregler: mit offenen Einstellungen auswählen, sonst Helligkeit bzw. Blendzeit (nicht beim Folgen)
+      if (midiOpen) setMidiSelected(input.id);
+      else if (!following) {
+        const action = analogMapping[input.id];
+        if (action === 'textLevel') lyricsLevels.setLevel('text', input.value);
+        else if (action === 'backgroundLevel') lyricsLevels.setLevel('background', input.value);
+        else if (action === 'fadeTime') lyricsLevels.setFadeSec(input.value * LYRICS_FADE_SEC_MAX);
+      }
+      return;
+    }
     if (input.kind === 'encoder') {
       // Cue Level: fein spulen (0,1 s je Raste)
       if (!following && !midiOpen) perform({ action: input.delta > 0 ? 'forward' : 'back', value: Math.round(Math.abs(input.delta)) / 10 });
@@ -506,7 +550,7 @@ export function PerformanceView({
     if (!a || (following && a.action !== 'lead')) return;
     runMidi(a);
   };
-  const midi = useApc40(midiSupported(), midiLeds, onMidi);
+  const midi = useApc40(midiSupported(), midiLeds, onMidi, midiRings);
 
   // Tastenkürzel (Übersicht: Knopf im Kopf bzw. „?“). Bedienen beim Folgen übernimmt bewusst (wie die Pfeiltasten).
   // Esc schließt Liedliste bzw. Übersicht – die Vorstellung ist ein eigener Tab (schließen mit ✕)
@@ -545,7 +589,9 @@ export function PerformanceView({
                         ? { action: 'stop' }
                         : lower === 't'
                           ? { action: 'tap' }
-                          : null;
+                          : e.shiftKey && (k === 'ArrowDown' || k === 'ArrowUp')
+                            ? { action: k === 'ArrowDown' ? 'lineNext' : 'linePrev' }
+                            : null;
     if (command) {
       takeOver();
       perform(command);
@@ -598,8 +644,6 @@ export function PerformanceView({
   const Icon = item ? KIND_ICONS[item.kind] : null;
   const roleNames = new Map((item?.roles ?? []).map((r) => [r.id, r.name]));
   const roleColors = new Map((item?.roles ?? []).flatMap((r) => (r.color ? [[r.id, r.color] as const] : [])));
-  // Countdown bis zu den nächsten fünf Zeilen (mit Audio), sonst die feste Zeit
-  const currentIndex = lines.findIndex((l) => l.line.id === currentLine);
   // Fortschritt bis zur nächsten Zeile (mit Audio): grüner Balken über der aktuellen, roter über der nächsten
   const nextIndex = lines.findIndex((l, i) => i > currentIndex && l.line.atSec !== undefined);
   const nextAt = nextIndex >= 0 ? lines[nextIndex]!.line.atSec! : undefined;
@@ -610,7 +654,7 @@ export function PerformanceView({
   const lastLineAt = lines.reduce((m, l) => Math.max(m, l.line.atSec ?? 0), 0);
   const timelineLength = Number.isFinite(tc.duration) && tc.duration > 0 ? tc.duration : (item?.durationSec ?? Math.max(60, lastLineAt + 10));
   /** Balken über der aktuellen (grün) bzw. nächsten Zeile (rot) */
-  const progressBar = (i: number) => (hasProgress && (i === currentIndex || i === nextIndex) ? <LineBar source={clock} kind={i === currentIndex ? 'current' : 'next'} startAt={startAt} nextAt={nextAt} /> : null);
+  const progressBar = (i: number) => (hasProgress && (i === currentIndex || i === nextIndex) ? <CueBar source={clock} kind={i === currentIndex ? 'current' : 'next'} startAt={startAt} nextAt={nextAt} testPrefix="line-progress" /> : null);
   /** Countdown nur für die nächsten fünf Zeilen */
   const counts = (i: number) => i - currentIndex >= 1 && i - currentIndex <= 5;
 
@@ -762,7 +806,9 @@ export function PerformanceView({
         // links die Bedienung (passt ohne Scrollen), rechts eine feste Spalte mit Textfenster, Player, Lichtpult und OSC
         <main className={`grid min-h-0 flex-1 gap-5 overflow-y-auto px-6 py-4 lg:overflow-hidden ${toolsHidden ? 'lg:grid-cols-[minmax(0,1fr)_2.75rem]' : 'lg:grid-cols-[minmax(0,1fr)_19rem]'}`} data-testid="lead-view">
           <div className="flex min-h-0 flex-col gap-3" data-testid="lead-main">
-          <section className="shrink-0 space-y-1" aria-label={texts.regie.text} data-testid="lead-text">
+          {/* Text (vorige, aktuelle, nächste Zeile) und daneben Textzeile zurück/weiter */}
+          <div className="flex shrink-0 items-stretch gap-3">
+          <section className="min-w-0 flex-1 space-y-1" aria-label={texts.regie.text} data-testid="lead-text">
             {lines.length === 0 ? (
               <p className="text-slate-500">{texts.regie.noText}</p>
             ) : (
@@ -785,6 +831,17 @@ export function PerformanceView({
                 })
             )}
           </section>
+          {lines.length > 0 && (
+            <div className="flex w-32 shrink-0 flex-col gap-2" data-testid="lead-line-nav">
+              <NavButton compact label={t.prevLine} onClick={() => perform({ action: 'linePrev' })} disabled={prevLineAt === undefined}>
+                <ChevronUp size={22} aria-hidden />
+              </NavButton>
+              <NavButton compact label={t.nextLine} onClick={() => perform({ action: 'lineNext' })} disabled={nextLineAt === undefined}>
+                <ChevronDown size={22} aria-hidden />
+              </NavButton>
+            </div>
+          )}
+          </div>
           <LeadTimeline
             duration={timelineLength}
             lines={lines}
@@ -797,6 +854,10 @@ export function PerformanceView({
             waveSrc={itemAudioSrc(projectId, item)}
             audioOffset={item.audioOffsetSec ?? 0}
             events={lightEvents}
+            showLight={!leadLightHidden}
+            showSound={!leadSoundHidden}
+            onShowLight={(show) => setLeadLightHidden(!show)}
+            onShowSound={(show) => setLeadSoundHidden(!show)}
             lightScenes={scenes.map((s, i) => ({ id: s.id, number: i + 1, name: s.name, at: sceneTime(s, plainLines), current: i === sceneIndex }))}
             soundScenes={soundScenes.map((s, i) => ({ id: s.id, number: i + 1, name: s.name, at: sceneTime(s, plainLines), current: i === soundIndex }))}
             onScene={(kind, s) => {
@@ -827,7 +888,7 @@ export function PerformanceView({
           </div>
           </FitBox>
           {/* nur zur Orientierung beim Weiterschalten: welche Szene dran ist und welche als Nächstes kommt */}
-          {scene && (
+          {scene && !leadLightHidden && (
             <p className="shrink-0 text-center text-sm text-slate-400" data-testid="lead-scene">
               {texts.light.scenes.title}: <span className="font-semibold text-slate-200" data-testid="performance-scene">{sceneIndex + 1}. {scene.name || '–'}</span>
               {scenes[sceneIndex + 1] && (
@@ -859,7 +920,7 @@ export function PerformanceView({
             <button type="button" onClick={() => setToolsHidden(true)} title={t.hideToolsTitle} className="flex shrink-0 items-center justify-end gap-1 self-end rounded-md px-2 py-1 text-xs text-slate-400 hover:bg-slate-800" data-testid="lead-side-hide">
               {t.hideTools} <ChevronsRight size={16} aria-hidden />
             </button>
-            <LyricsControl hideText={hideText} hideBackground={hideBackground} onText={setHideText} onBackground={setHideBackground} />
+            <LyricsControl levels={levels} fadeSec={lyricsLevels.fadeSec} onHide={lyricsLevels.setHidden} onLevel={lyricsLevels.setLevel} onFade={lyricsLevels.setFadeSec} />
             {canLead && <PlayersPanel />}
             <DeskCuePanel cues={sync.deskCues} />
             <OscLeadPanel projectId={projectId} auto={oscAuto} onAuto={setOscAuto} manual={triggerCommands(data.oscCommands, item.id, 'manual')} log={sync.oscLog} />
@@ -1100,31 +1161,17 @@ export function PerformanceView({
   );
 }
 
-/** Füllung eines Balkens in der Textfarbe (Breite über background-size) */
-const FILL = 'linear-gradient(currentColor, currentColor)';
-
-/** Fortschritt bis zur nächsten Zeile: grün über der aktuellen (füllt sich), rot über der nächsten (läuft ab) */
-function LineBar({ source, kind, startAt, nextAt }: { source: TimeSource; kind: 'current' | 'next'; startAt: number; nextAt: number }) {
-  const time = usePlayerTime(source);
-  const progress = Math.min(1, Math.max(0, (time - startAt) / (nextAt - startAt)));
-  const width = kind === 'current' ? progress : 1 - progress;
-  // als Hintergrund auf eigener Ebene gezeichnet: je Bild ändert sich nur die Füllung – kein neues Layout, und der
-  // Browser malt nur diese kleine Ebene neu. Nicht ganz deckend (/99): bei deckenden Flächen, deren Größe sich
-  // ändert, teilt Chromium die ganze Seite je Bild neu in Ebenen auf (gemessen: teurer als alles andere).
-  return <div className={`h-full w-full bg-no-repeat will-change-transform ${kind === 'current' ? 'text-emerald-500/99' : 'text-red-500/99'}`} style={{ backgroundImage: FILL, backgroundSize: `${width * 100}% 100%` }} data-testid={`line-progress-${kind}`} data-progress={width.toFixed(2)} />;
-}
-
 /** Zeit einer Zeile; bei den nächsten Zeilen läuft stattdessen der Countdown (neu gezeichnet je Zehntelsekunde) */
 function LineTime({ source, atSec, countdown, small = false }: { source: TimeSource; atSec: number | undefined; countdown: boolean; small?: boolean }) {
-  const remaining = usePlayerValue(countdown ? source : null, (time) => (countdown && atSec !== undefined && atSec > time ? texts.regie.performance.countdown(atSec - time) : null));
+  const remaining = useCountdown(countdown ? source : null, atSec);
   return (
     <span className={`w-16 shrink-0 text-right tabular-nums ${small ? 'text-xs' : 'text-sm'} ${remaining !== null ? 'font-semibold text-amber-400' : 'text-slate-500'}`} data-testid={small ? undefined : remaining !== null ? 'line-countdown' : 'line-time'}>
-      {remaining ?? (atSec !== undefined ? formatSceneTime(atSec) : '')}
+      {remaining ?? (atSec !== undefined ? cueClock(atSec) : '')}
     </span>
   );
 }
 
-function NavButton({ label, onClick, disabled, children }: { label: string; onClick: () => void; disabled: boolean; children: ReactNode }) {
+function NavButton({ label, onClick, disabled, compact = false, children }: { label: string; onClick: () => void; disabled: boolean; compact?: boolean; children: ReactNode }) {
   return (
     <button
       type="button"
@@ -1132,7 +1179,7 @@ function NavButton({ label, onClick, disabled, children }: { label: string; onCl
       title={label}
       disabled={disabled}
       onClick={onClick}
-      className="flex min-h-14 flex-col items-center justify-center gap-0.5 rounded-lg bg-slate-800 text-xs text-slate-200 hover:bg-slate-700 active:bg-sky-700 disabled:opacity-30"
+      className={`flex items-center justify-center rounded-lg bg-slate-800 text-xs text-slate-200 hover:bg-slate-700 active:bg-sky-700 disabled:opacity-30 ${compact ? 'min-h-10 flex-1 gap-1 px-2' : 'min-h-14 flex-col gap-0.5'}`}
     >
       {children}
       <span>{label}</span>
@@ -1140,34 +1187,83 @@ function NavButton({ label, onClick, disabled, children }: { label: string; onCl
   );
 }
 
-/** Führen: Text und Hintergrund im Textfenster aus- bzw. einblenden */
-function LyricsControl({ hideText, hideBackground, onText, onBackground }: { hideText: boolean; hideBackground: boolean; onText: (hide: boolean) => void; onBackground: (hide: boolean) => void }) {
+/** Führen: Text und Hintergrund im Textfenster aus- bzw. einblenden (Knöpfe in der Blendzeit, Schieberegler direkt) */
+function LyricsControl({ levels, fadeSec, onHide, onLevel, onFade }: { levels: LyricsLevels; fadeSec: number; onHide: (layer: LyricsLayer, hide: boolean) => void; onLevel: (layer: LyricsLayer, value: number) => void; onFade: (sec: number) => void }) {
   const t = texts.regie.performance;
-  const toggle = (label: string, hidden: boolean, set: (hide: boolean) => void, Icon: typeof Type, testId: string) => (
-    <button
-      type="button"
-      onClick={() => set(!hidden)}
-      aria-pressed={!hidden}
-      className={`flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg border px-2 py-1 text-sm font-semibold active:scale-95 ${hidden ? 'border-red-500 bg-red-500/15 text-red-200' : 'border-emerald-600 bg-emerald-500/10 text-emerald-200'}`}
-      title={t.lyricsControlHint}
-      data-testid={testId}
-      data-hidden={hidden || undefined}
-    >
-      {hidden ? <EyeOff size={18} className="shrink-0" aria-hidden /> : <Icon size={18} className="shrink-0" aria-hidden />}
-      <span className="flex flex-col items-start leading-tight">
-        <span>{label}</span>
-        <span className="text-xs font-normal opacity-80">{hidden ? t.lyricsHiddenState : t.lyricsShown}</span>
-      </span>
-    </button>
-  );
+  const percent = (v: number) => `${Math.round(v * 100)} %`;
+  const toggle = (layer: LyricsLayer, label: string, Icon: typeof Type, testId: string) => {
+    const level = levels[layer];
+    const hidden = level === 0;
+    return (
+      <button
+        type="button"
+        onClick={() => onHide(layer, !hidden)}
+        aria-pressed={!hidden}
+        className={`flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg border px-2 py-1 text-sm font-semibold active:scale-95 ${hidden ? 'border-red-500 bg-red-500/15 text-red-200' : level < 1 ? 'border-amber-500 bg-amber-500/10 text-amber-100' : 'border-emerald-600 bg-emerald-500/10 text-emerald-200'}`}
+        title={t.lyricsControlHint(String(fadeSec).replace('.', ','))}
+        data-testid={testId}
+        data-hidden={hidden || undefined}
+      >
+        {hidden ? <EyeOff size={18} className="shrink-0" aria-hidden /> : <Icon size={18} className="shrink-0" aria-hidden />}
+        <span className="flex flex-col items-start leading-tight">
+          <span>{label}</span>
+          <span className="text-xs font-normal tabular-nums opacity-80">{hidden ? t.lyricsHiddenState : level < 1 ? percent(level) : t.lyricsShown}</span>
+        </span>
+      </button>
+    );
+  };
   return (
     <section className="space-y-2 rounded-xl border border-slate-700 bg-slate-900 p-3" aria-label={t.lyricsControl} data-testid="lyrics-control">
       <span className="text-xs font-semibold tracking-wide text-slate-400 uppercase">{t.lyricsControl}</span>
       <div className="flex gap-2">
-        {toggle(t.lyricsText, hideText, onText, Type, 'lyrics-toggle-text')}
-        {toggle(t.lyricsBackground, hideBackground, onBackground, ImageIcon, 'lyrics-toggle-background')}
+        {toggle('text', t.lyricsText, Type, 'lyrics-toggle-text')}
+        {toggle('background', t.lyricsBackground, ImageIcon, 'lyrics-toggle-background')}
       </div>
+      <Slider label={t.lyricsText} value={levels.text} max={1} step={0.01} format={percent} onChange={(v) => onLevel('text', v)} testId="lyrics-level-text" />
+      <Slider label={t.lyricsBackground} value={levels.background} max={1} step={0.01} format={percent} onChange={(v) => onLevel('background', v)} testId="lyrics-level-background" />
+      <Slider label={t.lyricsFade} value={fadeSec} max={LYRICS_FADE_SEC_MAX} step={0.1} format={(v) => `${v.toFixed(1).replace('.', ',')} s`} onChange={onFade} testId="lyrics-fade" title={t.lyricsFadeHint} />
     </section>
+  );
+}
+
+/**
+ * Schieberegler mit Wert daneben (feste Breite, die Zahl springt nicht). Beim Ziehen zeigt er den eigenen Wert –
+ * übernommen wird gebündelt (siehe lyricsLevels.ts), sonst spränge er zwischendurch zurück.
+ */
+function Slider({ label, value, max, step, format, onChange, testId, title }: { label: string; value: number; max: number; step: number; format: (v: number) => string; onChange: (v: number) => void; testId: string; title?: string }) {
+  const [draft, setDraft] = useState<number | null>(null);
+  const release = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(release.current), []);
+  const shown = draft ?? value;
+  const done = () => {
+    window.clearTimeout(release.current);
+    release.current = window.setTimeout(() => setDraft(null), 150);
+  };
+  return (
+    <label className="flex items-center gap-2 text-xs text-slate-400" title={title}>
+      <span className="w-20 shrink-0">{label}</span>
+      <input
+        type="range"
+        min={0}
+        max={max}
+        step={step}
+        value={shown}
+        onChange={(e) => {
+          const v = Number(e.target.value);
+          window.clearTimeout(release.current);
+          setDraft(v);
+          onChange(v);
+        }}
+        onPointerUp={done}
+        onKeyUp={done}
+        onBlur={done}
+        className="min-w-0 flex-1 accent-sky-500"
+        data-testid={testId}
+      />
+      <span className="w-12 shrink-0 text-right tabular-nums text-slate-200" data-testid={`${testId}-value`}>
+        {format(shown)}
+      </span>
+    </label>
   );
 }
 

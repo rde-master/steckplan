@@ -2,8 +2,8 @@
 // ihre Aktion und – wie am Gerät – ihre LED-Farbe. Klick auf eine Taste (oder Drücken am Gerät) wählt sie aus, unten
 // wird die Aktion eingestellt. Belegung je Gerät gespeichert.
 import { useState } from 'react';
-import { apc40Control, clipId, CLIP_ROWS, COLUMNS, type LedState } from '../../lib/midi/apc40';
-import { ACTION_VALUE, ledFor, MIDI_ACTIONS, resetMidiMapping, setMidiAction, useMidiMapping, type MidiAction, type MidiActionName, type PerformanceLedState } from '../../lib/midi/mapping';
+import { apc40Analog, apc40Control, clipId, CLIP_ROWS, COLUMNS, type LedState } from '../../lib/midi/apc40';
+import { ACTION_VALUE, ANALOG_ACTIONS, ledFor, MIDI_ACTIONS, resetMidiMapping, setAnalogAction, setMidiAction, useAnalogMapping, useMidiMapping, type AnalogActionName, type MidiAction, type MidiActionName, type PerformanceLedState } from '../../lib/midi/mapping';
 import type { Apc40Status } from '../../lib/midi/useApc40';
 import { texts } from '../../texts';
 import { Button, Modal } from '../ui';
@@ -34,7 +34,9 @@ export function actionShort(a: MidiAction | undefined): string {
 
 export function Apc40Settings({ status, port, selected, onSelect, leds, ledState, onClose }: { status: Apc40Status; port: string | null; selected: string | null; onSelect: (id: string | null) => void; leds: Record<string, LedState>; ledState: PerformanceLedState; onClose: () => void }) {
   const mapping = useMidiMapping();
+  const analogMapping = useAnalogMapping();
   const control = selected ? apc40Control(selected) : undefined;
+  const analog = selected ? apc40Analog(selected) : undefined;
   const action = selected ? mapping[selected] : undefined;
   const [confirmReset, setConfirmReset] = useState(false);
 
@@ -57,6 +59,27 @@ export function Apc40Settings({ status, port, selected, onSelect, leds, ledState
         data-led={led}
       >
         {actionShort(a)}
+      </button>
+    );
+  };
+  // Fader bzw. Drehregler im Bild: zeigt die Aufgabe (Text, Hintergrund, Blendzeit)
+  const slider = (id: string) => {
+    const c = apc40Analog(id)!;
+    const a = analogMapping[id];
+    return (
+      <button
+        key={id}
+        type="button"
+        onClick={() => onSelect(id)}
+        title={`${c.label}${a ? ` – ${t.analogActions[a]}` : ''}`}
+        aria-label={c.label}
+        aria-pressed={selected === id}
+        className={`flex items-center justify-center overflow-hidden px-0.5 text-[9px] leading-tight font-semibold ${c.kind === 'knob' ? 'h-10 w-10 rounded-full border-4' : id === 'crossfader' ? 'h-7 w-24 rounded' : 'h-16 w-8 rounded'} ${a ? (c.kind === 'knob' ? 'border-sky-500 bg-slate-700 text-sky-100' : 'bg-sky-700 text-sky-50') : c.kind === 'knob' ? 'border-slate-700 bg-slate-800 text-slate-400' : 'bg-slate-800 text-slate-400'} ${selected === id ? 'ring-2 ring-sky-400 ring-offset-2 ring-offset-slate-900' : 'hover:ring-1 hover:ring-slate-400'}`}
+        data-testid="apc-analog"
+        data-id={id}
+        data-action={a ?? 'none'}
+      >
+        {a ? t.analogShort[a] : ''}
       </button>
     );
   };
@@ -125,9 +148,23 @@ export function Apc40Settings({ status, port, selected, onSelect, leds, ledState
               {row('Activator', 'activator')}
               {row('Solo/Cue', 'solo')}
               {row('Rec Arm', 'recArm')}
+              <div className="flex items-end gap-1.5 pt-2">
+                {Array.from({ length: COLUMNS }, (_, col) => (
+                  <div key={col} className="flex w-14 justify-center">
+                    {slider(`fader:${col}`)}
+                  </div>
+                ))}
+                <span className="w-3" />
+                {slider('masterFader')}
+              </div>
+              <div className="flex justify-center pt-1">{slider('crossfader')}</div>
             </div>
 
             <div className="space-y-3">
+              <div>
+                <div className="mb-1 text-[10px] text-slate-500">Track Control</div>
+                <div className="grid grid-cols-4 gap-1.5">{Array.from({ length: 8 }, (_, n) => slider(`trackKnob:${n}`))}</div>
+              </div>
               <div>
                 <div className="mb-1 text-[10px] text-slate-500">Pan · Send A · B · C</div>
                 <div className="flex gap-1.5">
@@ -175,13 +212,42 @@ export function Apc40Settings({ status, port, selected, onSelect, leds, ledState
                   </div>
                 </div>
               </div>
+              <div>
+                <div className="mb-1 text-[10px] text-slate-500">Device Control</div>
+                <div className="grid grid-cols-4 gap-1.5">{Array.from({ length: 8 }, (_, n) => slider(`deviceKnob:${n}`))}</div>
+              </div>
               <p className="max-w-56 text-[10px] text-slate-500">{t.cueLevel}</p>
             </div>
           </div>
         </div>
 
-        {/* Belegung der gewählten Taste */}
-        {control ? (
+        {/* Belegung des gewählten Faders bzw. Drehreglers */}
+        {analog ? (
+          <div className="flex flex-wrap items-end gap-3 rounded-lg border border-slate-200 p-3 dark:border-slate-700" data-testid="apc40-editor">
+            <div className="text-sm">
+              <div className="text-xs text-slate-500">{analog.kind === 'knob' ? t.knob : t.fader}</div>
+              <div className="font-semibold" data-testid="apc40-selected">
+                {analog.label}
+              </div>
+            </div>
+            <label className="flex flex-col gap-1 text-xs text-slate-500">
+              {t.action}
+              <select
+                className="rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                value={analogMapping[analog.id] ?? 'none'}
+                onChange={(e) => setAnalogAction(analog.id, e.target.value as AnalogActionName)}
+                data-testid="apc40-analog-action"
+              >
+                {ANALOG_ACTIONS.map((a) => (
+                  <option key={a} value={a}>
+                    {t.analogActions[a]}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <p className="basis-full text-xs text-slate-500">{analog.kind === 'knob' ? t.knobHint : t.faderHint}</p>
+          </div>
+        ) : /* Belegung der gewählten Taste */ control ? (
           <div className="flex flex-wrap items-end gap-3 rounded-lg border border-slate-200 p-3 dark:border-slate-700" data-testid="apc40-editor">
             <div className="text-sm">
               <div className="text-xs text-slate-500">{t.key}</div>

@@ -2,7 +2,7 @@
 // in Modus 2 schalten, Eingaben melden, LEDs setzen (nur Änderungen senden). Ein-/Ausstecken wird erkannt – nach
 // dem Wiederverbinden wird das Gerät neu eingerichtet und alle LEDs neu gesendet.
 import { useEffect, useRef, useState } from 'react';
-import { APC40_INIT, isApc40Port, ledMessage, parseApc40, type Apc40Input, type LedState } from './apc40';
+import { APC40_INIT, isApc40Port, ledMessage, parseApc40, ringMessages, type Apc40Input, type LedState } from './apc40';
 
 export type Apc40Status = 'unsupported' | 'connecting' | 'denied' | 'notFound' | 'connected';
 
@@ -11,16 +11,24 @@ export function midiSupported(): boolean {
   return typeof navigator !== 'undefined' && typeof navigator.requestMIDIAccess === 'function' && (typeof window === 'undefined' || window.isSecureContext);
 }
 
-export function useApc40(enabled: boolean, leds: Record<string, LedState>, onInput: (input: Apc40Input) => void): { status: Apc40Status; port: string | null } {
+/**
+ * leds: Zustand je Taste; rings: Wert (0–1) je Drehregler-Ring, null = Ring aus (Regler ohne Aufgabe). Der Wert
+ * setzt auch die Lage des Reglers – Drehen macht dort weiter (die Fader haben keinen Motor und springen).
+ */
+export function useApc40(enabled: boolean, leds: Record<string, LedState>, onInput: (input: Apc40Input) => void, rings: Record<string, number | null> = {}): { status: Apc40Status; port: string | null } {
   const [state, setState] = useState<{ status: Apc40Status; port: string | null }>({ status: 'connecting', port: null });
   const output = useRef<MIDIOutput | null>(null);
   /** zuletzt gesendeter LED-Zustand je Taste */
   const sent = useRef(new Map<string, string>());
   const handler = useRef(onInput);
   const wanted = useRef(leds);
+  const wantedRings = useRef(rings);
+  /** zuletzt gesendeter Ring je Regler (gerundet auf die 128 Stufen) */
+  const sentRings = useRef(new Map<string, number | null>());
   useEffect(() => {
     handler.current = onInput;
     wanted.current = leds;
+    wantedRings.current = rings;
   });
 
   const flush = () => {
@@ -38,6 +46,16 @@ export function useApc40(enabled: boolean, leds: Record<string, LedState>, onInp
         // Gerät gerade weg – beim Wiederverbinden wird alles neu gesendet
       }
     }
+    for (const [id, value] of Object.entries(wantedRings.current)) {
+      const step = value === null ? null : Math.round(value * 127);
+      if (sentRings.current.has(id) && sentRings.current.get(id) === step) continue;
+      try {
+        for (const msg of ringMessages(id, value)) out.send(msg);
+        sentRings.current.set(id, step);
+      } catch {
+        // wie oben
+      }
+    }
   };
 
   useEffect(() => {
@@ -46,6 +64,7 @@ export function useApc40(enabled: boolean, leds: Record<string, LedState>, onInp
     let access: MIDIAccess | null = null;
     let input: MIDIInput | null = null;
     const sentLeds = sent.current;
+    const ringsSent = sentRings.current;
     const onMessage = (e: MIDIMessageEvent) => {
       const parsed = e.data ? parseApc40(e.data) : null;
       if (parsed) handler.current(parsed);
@@ -62,6 +81,7 @@ export function useApc40(enabled: boolean, leds: Record<string, LedState>, onInp
       if (nextOut !== output.current) {
         output.current = nextOut;
         sent.current.clear();
+        sentRings.current.clear();
         if (nextOut) {
           try {
             nextOut.send(APC40_INIT);
@@ -101,13 +121,21 @@ export function useApc40(enabled: boolean, leds: Record<string, LedState>, onInp
           }
         }
       }
+      if (out) for (const id of ringsSent.keys()) {
+        try {
+          for (const msg of ringMessages(id, null)) out.send(msg);
+        } catch {
+          // egal
+        }
+      }
       output.current = null;
       sentLeds.clear();
+      ringsSent.clear();
     };
   }, [enabled]);
 
   // LEDs nachführen, wenn sich der gewünschte Zustand ändert
-  const signature = JSON.stringify(leds);
+  const signature = JSON.stringify(leds) + JSON.stringify(rings);
   useEffect(() => {
     flush();
   }, [signature]);

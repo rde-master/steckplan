@@ -73,14 +73,26 @@ test('Führen-Ansicht: ohne Licht/Ton, Text klein (vorige/aktuelle/nächste), Ze
   // Szenen als Balken über dem Zeitstrahl und als Liste rechts
   await expect(timeline.getByTestId('lead-light-scenes').getByTestId('lead-scene-bar')).toHaveCount(2);
   await expect(timeline.getByTestId('lead-sound-scenes').getByTestId('lead-scene-bar')).toHaveCount(1);
-  const list = timeline.getByTestId('lead-scene-list');
-  await expect(list.getByTestId('lead-scene-item')).toHaveCount(3);
-  // Klick in der Liste springt dorthin (Dunkel bei 12 s)
+  // anhalten (vor 12 s), damit die Timer stehen
   await lead.getByRole('button', { name: 'Timecode anhalten' }).click();
+  // rechts nur Lichtszenen, wie der Text: aktuelle (Hell) und nächste (Dunkel) mit Balken und Timern (immer mit Zehntel)
+  const list = timeline.getByTestId('lead-scene-list');
+  await expect(list.getByTestId('lead-scene-item')).toHaveCount(2);
+  await expect(list).not.toContainText('Laut');
+  await expect(list.locator('[data-testid=lead-scene-item][data-current]')).toContainText('Hell');
+  await expect(list.getByTestId('scene-ends')).toHaveText(/^\d+,\d s$/);
+  await expect(list.getByTestId('scene-countdown')).toHaveText(/^\d+,\d s$/);
+  await expect(list.getByTestId('scene-progress-current')).toBeVisible();
+  await expect(list.getByTestId('scene-progress-next')).toBeVisible();
+  // Klick in der Liste springt dorthin (Dunkel bei 12 s)
   await list.getByRole('button', { name: /Dunkel/ }).click();
   const seconds = async () => Number((await lead.getByTestId('timecode').textContent())!.split(':')[2]);
   await expect.poll(seconds).toBe(12);
   await expect(list.locator('[data-testid=lead-scene-item][data-current]').filter({ hasText: 'Dunkel' })).toHaveCount(1);
+  // letzte Szene: vorige (Hell, mit Startpunkt) und aktuelle, kein Balken
+  await expect(list.getByTestId('lead-scene-item')).toHaveCount(2);
+  await expect(list.getByTestId('scene-time').first()).toHaveText('0:00,0');
+  await expect(list.getByTestId('scene-progress-current')).toHaveCount(0);
   await expect(lead.getByTestId('performance-scene')).toContainText('Dunkel');
   // Schlag vor/zurück (120 BPM: 0,5 s je Schlag)
   await lead.getByRole('button', { name: 'Einen Schlag vor' }).click();
@@ -129,8 +141,84 @@ test('Führen-Ansicht: ohne Licht/Ton, Text klein (vorige/aktuelle/nächste), Ze
   await show.mouse.up();
   await expect.poll(seconds).toBe(5);
 
+  // Licht- und Tonszenen ausblenden (je Gerät gemerkt): Zeilen im Zeitstrahl, Liste und Szenenzeile verschwinden
+  await expect(lead.getByTestId('lead-scene')).toBeVisible();
+  await timeline.getByText('Licht', { exact: true }).click();
+  await expect(timeline.getByTestId('lead-show-light')).not.toBeChecked();
+  await expect(timeline.getByTestId('lead-light-scenes')).toHaveCount(0);
+  await expect(timeline.getByTestId('lead-scene-list')).toHaveCount(0);
+  await expect(lead.getByTestId('lead-scene')).toHaveCount(0);
+  await expect(timeline.getByTestId('lead-sound-scenes')).toBeVisible();
+  await timeline.getByText('Ton', { exact: true }).click();
+  await expect(timeline.getByTestId('lead-sound-scenes')).toHaveCount(0);
+  await show.reload();
+  await show.getByTestId('performance').getByRole('radio', { name: 'Führen' }).click();
+  const timeline2 = show.getByTestId('lead-timeline');
+  await expect(timeline2.getByTestId('lead-show-light')).not.toBeChecked();
+  await expect(timeline2.getByTestId('lead-light-scenes')).toHaveCount(0);
+  await expect(timeline2.getByTestId('lead-sound-scenes')).toHaveCount(0);
+  await timeline2.getByText('Licht', { exact: true }).click();
+  await timeline2.getByText('Ton', { exact: true }).click();
+  await expect(timeline2.getByTestId('lead-light-scenes')).toBeVisible();
+  await expect(timeline2.getByTestId('lead-sound-scenes')).toBeVisible();
+  await expect(timeline2.getByTestId('lead-scene-list')).toBeVisible();
+
   // zurück auf Frei: alte Ansicht
-  await perf.getByRole('radio', { name: 'Frei' }).click();
-  await expect(perf.getByTestId('lead-view')).toHaveCount(0);
-  await expect(perf.getByRole('tab', { name: 'Licht' })).toBeVisible();
+  const perf2 = show.getByTestId('performance');
+  await perf2.getByRole('radio', { name: 'Frei' }).click();
+  await expect(perf2.getByTestId('lead-view')).toHaveCount(0);
+  await expect(perf2.getByRole('tab', { name: 'Licht' })).toBeVisible();
+});
+
+test('Führen: Textzeile zurück/weiter springt an den Anfang der Zeile (Knopf, Umschalt+↑/↓, OSC/HTTP)', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await loginAs(page, 'edit', 'Ralf');
+  const { id } = await (
+    await page.request.post('/api/projects/upload', {
+      data: {
+        schemaVersion: 9,
+        id: 'fuehren-zeile',
+        meta: { name: 'Führen Zeile' },
+        layers: [{ id: 'l1', name: 'Bühne', order: 0 }],
+        show: {
+          items: [{ id: 'a', order: 0, kind: 'song', title: 'Zeilenlied', number: 1, durationSec: 20 }],
+          // „Zwei“ ohne Zeit wird übersprungen
+          sections: [{ id: 's', itemId: 'a', order: 0, kind: 'verse', label: 'Strophe', lines: [{ id: 'z1', text: 'Eins', atSec: 1 }, { id: 'z2', text: 'Zwei' }, { id: 'z3', text: 'Drei', atSec: 5 }, { id: 'z4', text: 'Vier', atSec: 8 }] }],
+        },
+      },
+    })
+  ).json();
+  await page.goto(`/projekt/${id}?ansicht=regie`);
+  const show = await openPerformance(page);
+  const perf = show.getByTestId('performance');
+  await perf.getByRole('radio', { name: 'Führen' }).click();
+  const lead = perf.getByTestId('lead-view');
+  const back = lead.getByRole('button', { name: 'Zeile zurück' });
+  const forward = lead.getByRole('button', { name: 'Zeile weiter' });
+  const current = lead.locator('[data-testid=lead-line][data-current]');
+  const timecode = lead.getByTestId('timecode');
+
+  // vor der ersten Zeile: zurück geht nicht
+  await expect(back).toBeDisabled();
+  await forward.click();
+  await expect(timecode).toHaveText('00:00:01:00');
+  await expect(current).toHaveText(/Eins/);
+  await forward.click();
+  await expect(timecode).toHaveText('00:00:05:00');
+  await expect(current).toHaveText(/Drei/);
+  await show.keyboard.press('Shift+ArrowDown');
+  await expect(timecode).toHaveText('00:00:08:00');
+  await expect(current).toHaveText(/Vier/);
+  await expect(forward).toBeDisabled();
+  await show.keyboard.press('Shift+ArrowUp');
+  await expect(current).toHaveText(/Drei/);
+  // Umschalt+↑/↓ wechselt nicht den Eintrag
+  await expect(perf.getByTestId('performance-title')).toHaveText('Zeilenlied');
+  await back.click();
+  await expect(timecode).toHaveText('00:00:01:00');
+  await expect(back).toBeDisabled();
+  // Fernsteuerung: /steckplan/line/next bzw. POST /api/remote { action: 'lineNext' }
+  await page.request.post('/api/remote', { data: { action: 'lineNext' } });
+  await expect(current).toHaveText(/Drei/);
+  await expect(timecode).toHaveText('00:00:05:00');
 });

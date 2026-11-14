@@ -4,13 +4,14 @@
 // Mausrad verschiebt den Ausschnitt (Strg + Mausrad bzw. Lupen zoomen), ohne die Abspielposition zu ändern; beim
 // Abspielen läuft der Ausschnitt wieder mit, wenn man eine Weile nicht scrollt. Klick springt; mit „Scrubben“ verschiebt
 // gedrückte Maus die Abspielposition.
-import { Hand, ZoomIn, ZoomOut } from 'lucide-react';
+import { Eye, EyeOff, Hand, ZoomIn, ZoomOut } from 'lucide-react';
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { parseTimeSignature, type TimedLine } from '@steckplan/core';
 import { texts } from '../../texts';
 import { ICON } from '../icons';
 import { usePlayerTime, usePlayerValue, usePlaying, type TimeSource } from '../../lib/playerTime';
 import { formatSceneTime } from './ScenesSection';
+import { CueBar, cueClock, useCountdown } from './CueProgress';
 import { Playhead } from './Playhead';
 import { TimelineScrollbar } from './TimelineScrollbar';
 import { Waveform, WaveformControls, useWaveformSettings } from './Waveform';
@@ -101,6 +102,10 @@ export function LeadTimeline({
   waveSrc,
   audioOffset = 0,
   events = [],
+  showLight = true,
+  showSound = true,
+  onShowLight,
+  onShowSound,
 }: {
   duration: number;
   lines: TimedLine[];
@@ -121,6 +126,11 @@ export function LeadTimeline({
   audioOffset?: number;
   /** Licht-Events: Marker über den Szenen */
   events?: { id: string; atSec: number; note: string }[];
+  /** Lichtszenen (Zeile und Liste) bzw. Tonszenen zeigen – mit Schaltern im Kopf */
+  showLight?: boolean;
+  showSound?: boolean;
+  onShowLight?: (show: boolean) => void;
+  onShowSound?: (show: boolean) => void;
 }) {
   const playing = usePlaying(source);
   const wave = useWaveformSettings();
@@ -243,14 +253,16 @@ export function LeadTimeline({
   const zoomed = span < total - 0.01;
 
   return (
-    <section className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_16rem]" aria-label={t.timeline} data-testid="lead-timeline">
+    <section className={`grid gap-3 ${showLight ? 'lg:grid-cols-[minmax(0,1fr)_16rem]' : ''}`} aria-label={t.timeline} data-testid="lead-timeline">
       <div className="min-w-0 space-y-1">
         <div className="flex items-center gap-2 text-xs text-slate-400">
           <span className="font-semibold tracking-wide uppercase">{t.timeline}</span>
           <span className="hidden truncate sm:inline">{t.timelineHint}</span>
           <span className="flex-1" />
+          {onShowLight && <SceneToggle label={t.sides.light} title={t.showLightScenes} on={showLight} onChange={onShowLight} active="border-amber-500 bg-amber-500/15 text-amber-200" testId="lead-show-light" />}
+          {onShowSound && <SceneToggle label={t.sides.sound} title={t.showSoundScenes} on={showSound} onChange={onShowSound} active="border-violet-500 bg-violet-500/15 text-violet-200" testId="lead-show-sound" />}
           <WaveformControls dark />
-          <label className={`flex cursor-pointer items-center gap-1.5 rounded-md border px-2 py-1 ${scrub ? 'border-amber-500 bg-amber-500/15 text-amber-200' : 'border-slate-700'}`} title={t.scrubHint}>
+          <label className={`flex cursor-pointer items-center gap-1.5 rounded-md border px-2 py-1 whitespace-nowrap ${scrub ? 'border-amber-500 bg-amber-500/15 text-amber-200' : 'border-slate-700'}`} title={t.scrubHint}>
             <input type="checkbox" className="sr-only" checked={scrub} onChange={(e) => setScrubOn(e.target.checked)} aria-label={t.scrub} />
             <Hand size={14} aria-hidden /> {t.scrub}: {scrub ? t.on : t.off}
           </label>
@@ -294,10 +306,12 @@ export function LeadTimeline({
             ev.atSec >= start && ev.atSec <= end ? <div key={`l${ev.id}`} className="pointer-events-none absolute top-6 bottom-0 z-[5] w-px border-l border-dashed border-amber-400/70" style={{ left: pct(ev.atSec) }} /> : null,
           )}
           {/* Szenen oben */}
-          <div className="border-b border-slate-800 bg-slate-950/60">
-            <SceneRow scenes={lightScenes} total={total} pos={pos} label={t.sides.light} color="bg-amber-600" testId="lead-light-scenes" />
-            <SceneRow scenes={soundScenes} total={total} pos={pos} label={t.sides.sound} color="bg-violet-600" testId="lead-sound-scenes" />
-          </div>
+          {(showLight || showSound) && (
+            <div className="border-b border-slate-800 bg-slate-950/60">
+              {showLight && <SceneRow scenes={lightScenes} total={total} pos={pos} label={t.sides.light} color="bg-amber-600" testId="lead-light-scenes" />}
+              {showSound && <SceneRow scenes={soundScenes} total={total} pos={pos} label={t.sides.sound} color="bg-violet-600" testId="lead-sound-scenes" />}
+            </div>
+          )}
           <div className="relative h-32">
             {/* Zählzeiten: alle Striche in einer Zeichnung (statt bis zu 600 einzelnen Elementen) */}
             {beatTicks.length > 0 && (
@@ -357,43 +371,74 @@ export function LeadTimeline({
         </div>
       </div>
 
-      {/* Szenenliste: Klick springt dorthin */}
-      <aside className="max-h-64 min-h-0 overflow-y-auto rounded-xl border border-slate-700 bg-slate-900 p-1 lg:max-h-56" aria-label={t.sceneList} data-testid="lead-scene-list">
-        {lightScenes.length + soundScenes.length === 0 ? (
-          <p className="p-2 text-sm text-slate-500">{t.noScenes}</p>
-        ) : (
-          (
-            [
-              ['light', lightScenes],
-              ['sound', soundScenes],
-            ] as const
-          ).map(([kind, list]) =>
-            list.length === 0 ? null : (
-              <div key={kind}>
-                <div className="px-2 pt-1 text-[11px] font-semibold tracking-wide text-slate-500 uppercase">{t.sides[kind]}</div>
-                <ol>
-                  {list.map((s) => (
-                    <li key={s.id}>
-                      <button
-                        type="button"
-                        className={`flex w-full cursor-pointer items-baseline gap-2 rounded px-2 py-1 text-left text-sm hover:bg-slate-800 ${s.current ? (kind === 'light' ? 'bg-amber-600/30 font-semibold text-amber-100' : 'bg-violet-600/30 font-semibold text-violet-100') : 'text-slate-300'}`}
-                        onClick={() => onScene?.(kind, s)}
-                        disabled={!onScene}
-                        data-testid="lead-scene-item"
-                        data-current={s.current || undefined}
-                      >
-                        <span className="w-5 shrink-0 text-right tabular-nums text-slate-500">{s.number}</span>
-                        <span className="min-w-0 flex-1 truncate">{s.name || '–'}</span>
-                        <span className="shrink-0 text-xs tabular-nums text-slate-500">{s.at !== undefined ? formatSceneTime(s.at) : ''}</span>
-                      </button>
-                    </li>
-                  ))}
-                </ol>
-              </div>
-            ),
-          )
-        )}
-      </aside>
+      {/* Lichtszenen wie der Text: vorige, aktuelle, nächste – mit Balken und Timern; Klick springt dorthin */}
+      {showLight && <LeadSceneList scenes={lightScenes} source={source} onScene={onScene ? (scene) => onScene('light', scene) : undefined} />}
     </section>
+  );
+}
+
+/** Lichtszenen beim Führen (wie der Text): vorige, aktuelle und nächste Szene. Über der aktuellen ein grüner Balken
+ * mit der Zeit, bis sie endet, über der nächsten ein roter mit dem Countdown bis zum Start. */
+function LeadSceneList({ scenes, source, onScene }: { scenes: TimelineScene[]; source: TimeSource; onScene?: (scene: TimelineScene) => void }) {
+  const current = scenes.findIndex((s) => s.current);
+  const shown = (current < 0 ? [0, 1] : [current - 1, current, current + 1]).filter((i) => i >= 0 && i < scenes.length);
+  const startAt = scenes[current]?.at;
+  const nextAt = scenes[current + 1]?.at;
+  const span = startAt !== undefined && nextAt !== undefined && nextAt > startAt ? { startAt, nextAt } : undefined;
+  return (
+    <aside className="max-h-64 min-h-0 overflow-y-auto rounded-xl border border-slate-700 bg-slate-900 p-1 lg:max-h-56" aria-label={t.sceneList} data-testid="lead-scene-list">
+      <div className="px-2 pt-1 text-[11px] font-semibold tracking-wide text-slate-500 uppercase">{t.sceneList}</div>
+      {scenes.length === 0 ? (
+        <p className="p-2 text-sm text-slate-500">{t.noScenes}</p>
+      ) : (
+        <ol>
+          {shown.map((i) => {
+            const s = scenes[i]!;
+            const role = i === current ? 'current' : i === current + 1 ? 'next' : 'other';
+            return (
+              <li key={s.id}>
+                <div className="mt-1 mr-2 mb-0.5 ml-[6.75rem] h-1 overflow-hidden rounded-full">{span && role !== 'other' && <CueBar source={source} kind={role} startAt={span.startAt} nextAt={span.nextAt} testPrefix="scene-progress" />}</div>
+                <button
+                  type="button"
+                  className={`flex w-full cursor-pointer items-baseline gap-2 rounded px-2 py-1 text-left hover:bg-slate-800 ${role === 'current' ? 'bg-amber-600/30 text-base font-semibold text-amber-100' : 'text-sm text-slate-400'}`}
+                  onClick={() => onScene?.(s)}
+                  disabled={!onScene}
+                  data-testid="lead-scene-item"
+                  data-current={role === 'current' || undefined}
+                >
+                  <SceneTimer source={source} at={s.at} until={role === 'current' ? nextAt : role === 'next' ? s.at : undefined} role={role} />
+                  <span className="w-5 shrink-0 text-right tabular-nums text-slate-500">{s.number}</span>
+                  <span className="min-w-0 flex-1 truncate">{s.name || '–'}</span>
+                </button>
+              </li>
+            );
+          })}
+        </ol>
+      )}
+    </aside>
+  );
+}
+
+/** Aktuelle Szene: Zeit, bis sie endet (grün); nächste: Countdown bis zum Start (gelb); sonst der Startpunkt */
+function SceneTimer({ source, at, until, role }: { source: TimeSource; at: number | undefined; until: number | undefined; role: 'current' | 'next' | 'other' }) {
+  const remaining = useCountdown(role === 'other' ? null : source, until);
+  return (
+    <span
+      className={`w-16 shrink-0 text-right text-sm tabular-nums ${remaining === null ? 'font-normal text-slate-500' : role === 'current' ? 'font-semibold text-emerald-400' : 'font-semibold text-amber-400'}`}
+      title={remaining === null ? undefined : role === 'current' ? t.sceneEndsIn : t.sceneStartsIn}
+      data-testid={remaining === null ? 'scene-time' : role === 'current' ? 'scene-ends' : 'scene-countdown'}
+    >
+      {remaining ?? (at !== undefined ? cueClock(at) : '')}
+    </span>
+  );
+}
+
+/** Schalter im Kopf: Licht- bzw. Tonszenen ein-/ausblenden (wie „Scrubben“) */
+function SceneToggle({ label, title, on, onChange, active, testId }: { label: string; title: string; on: boolean; onChange: (on: boolean) => void; active: string; testId: string }) {
+  return (
+    <label className={`flex cursor-pointer items-center gap-1.5 rounded-md border px-2 py-1 ${on ? active : 'border-slate-700 text-slate-500'}`} title={title}>
+      <input type="checkbox" className="sr-only" checked={on} onChange={(e) => onChange(e.target.checked)} aria-label={title} data-testid={testId} />
+      {on ? <Eye size={14} aria-hidden /> : <EyeOff size={14} aria-hidden />} {label}
+    </label>
   );
 }
