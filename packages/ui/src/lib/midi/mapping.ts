@@ -1,7 +1,8 @@
 // Belegung des APC40 für die Vorstellung (Führen): welche Taste welche Aktion auslöst, und wie ihre LED leuchtet.
 // Je Gerät gespeichert (der Controller hängt an diesem Rechner). Vorbelegung: die Clip-Matrix sind die Ablaufpunkte
 // 1–32 (aktuell grün, beim Abspielen blinkend; nächster rot; übrige gelb), darunter das Metronom (Schlag 1–8: blinkt
-// im Takt, Druck springt im laufenden Takt auf diesen Schlag), Transport, Szenen, Tap und Schlag.
+// im Takt, Druck springt im laufenden Takt auf diesen Schlag), Transport, Szenen, Tap und Schlag; Clip Stop 1–6:
+// spulen (−5 s, −1 s, +1 s, +5 s) und Textzeile zurück/weiter.
 import { useSyncExternalStore } from 'react';
 import { APC40_CONTROLS, clipId, CLIP_ROWS, COLUMNS, type LedState } from './apc40';
 
@@ -18,6 +19,8 @@ export const MIDI_ACTIONS = [
   'item',
   'scenePrev',
   'sceneNext',
+  'linePrev',
+  'lineNext',
   'tap',
   'beatBack',
   'beatForward',
@@ -71,6 +74,8 @@ export function defaultMapping(): MidiMapping {
     'clipStop:1': { action: 'back', value: 1 },
     'clipStop:2': { action: 'forward', value: 1 },
     'clipStop:3': { action: 'forward', value: 5 },
+    'clipStop:4': { action: 'linePrev' },
+    'clipStop:5': { action: 'lineNext' },
     'device:7': { action: 'click' },
     'device:6': { action: 'preroll' },
   } satisfies MidiMapping);
@@ -152,6 +157,9 @@ export interface PerformanceLedState {
   hasNextItem: boolean;
   hasPrevScene: boolean;
   hasNextScene: boolean;
+  /** Textzeile zurück/weiter möglich (vorige bzw. nächste Zeile mit Zeit) */
+  hasPrevLine: boolean;
+  hasNextLine: boolean;
   click: boolean;
   preroll: boolean;
   leading: boolean;
@@ -192,6 +200,10 @@ export function ledFor(action: MidiAction | undefined, s: PerformanceLedState): 
       return s.hasPrevScene ? 'green' : 'off';
     case 'sceneNext':
       return s.hasNextScene ? 'green' : 'off';
+    case 'linePrev':
+      return s.hasPrevLine ? 'yellow' : 'off';
+    case 'lineNext':
+      return s.hasNextLine ? 'yellow' : 'off';
     case 'tap':
     case 'beatBack':
     case 'beatForward':

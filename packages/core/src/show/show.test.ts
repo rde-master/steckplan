@@ -24,6 +24,7 @@ import {
   addShowItem,
   clearLineTimes,
   currentLineId,
+  lineStepTime,
   defaultItemMedia,
   itemLines,
   itemTimedLines,
@@ -250,6 +251,25 @@ describe('Regie: Audio und Zeitpunkte', () => {
     removeItemMedia(d, b, 'm1', null);
     expect(readMedia(d)).toEqual([]);
     expect(readProjectFromYDoc(d).ok).toBe(true);
+  });
+
+  it('Textzeile weiter/zurück: Zeit der nächsten bzw. vorigen Zeile mit Zeit; ohne Zeit und zur selben Zeit übersprungen', () => {
+    const line = (id: string, atSec?: number) => ({ sectionId: 's', sectionLabel: '', line: { id, text: id, ...(atSec !== undefined ? { atSec } : {}) } });
+    const lines = [line('a', 2), line('b'), line('c', 5), line('d', 5), line('e', 9)];
+    // vor der ersten Zeile: weiter = erste Zeile, zurück gibt es nicht
+    expect(lineStepTime(lines, undefined, 1)).toBe(2);
+    expect(lineStepTime(lines, undefined, -1)).toBeUndefined();
+    expect(lineStepTime(lines, 'a', 1)).toBe(5);
+    expect(lineStepTime(lines, 'a', -1)).toBeUndefined();
+    // d hat dieselbe Zeit wie c: von c weiter auf e, von d zurück auf a
+    expect(lineStepTime(lines, 'c', 1)).toBe(9);
+    expect(lineStepTime(lines, 'd', -1)).toBe(2);
+    expect(lineStepTime(lines, 'e', 1)).toBeUndefined();
+    expect(lineStepTime(lines, 'e', -1)).toBe(5);
+    // angezeigte Zeile ohne Zeit (Zeile der Szene): die nächste bzw. vorige mit Zeit
+    expect(lineStepTime(lines, 'b', 1)).toBe(5);
+    expect(lineStepTime(lines, 'b', -1)).toBe(2);
+    expect(lineStepTime([line('x'), line('y')], 'x', 1)).toBeUndefined();
   });
 
   it('Mitschreiben: nächste Zeile ohne Zeit, aktuelle Zeile zur Abspielzeit, Zeiten löschen', () => {

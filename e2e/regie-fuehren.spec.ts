@@ -134,3 +134,56 @@ test('Führen-Ansicht: ohne Licht/Ton, Text klein (vorige/aktuelle/nächste), Ze
   await expect(perf.getByTestId('lead-view')).toHaveCount(0);
   await expect(perf.getByRole('tab', { name: 'Licht' })).toBeVisible();
 });
+
+test('Führen: Textzeile zurück/weiter springt an den Anfang der Zeile (Knopf, Umschalt+↑/↓, OSC/HTTP)', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await loginAs(page, 'edit', 'Ralf');
+  const { id } = await (
+    await page.request.post('/api/projects/upload', {
+      data: {
+        schemaVersion: 9,
+        id: 'fuehren-zeile',
+        meta: { name: 'Führen Zeile' },
+        layers: [{ id: 'l1', name: 'Bühne', order: 0 }],
+        show: {
+          items: [{ id: 'a', order: 0, kind: 'song', title: 'Zeilenlied', number: 1, durationSec: 20 }],
+          // „Zwei“ ohne Zeit wird übersprungen
+          sections: [{ id: 's', itemId: 'a', order: 0, kind: 'verse', label: 'Strophe', lines: [{ id: 'z1', text: 'Eins', atSec: 1 }, { id: 'z2', text: 'Zwei' }, { id: 'z3', text: 'Drei', atSec: 5 }, { id: 'z4', text: 'Vier', atSec: 8 }] }],
+        },
+      },
+    })
+  ).json();
+  await page.goto(`/projekt/${id}?ansicht=regie`);
+  const show = await openPerformance(page);
+  const perf = show.getByTestId('performance');
+  await perf.getByRole('radio', { name: 'Führen' }).click();
+  const lead = perf.getByTestId('lead-view');
+  const back = lead.getByRole('button', { name: 'Zeile zurück' });
+  const forward = lead.getByRole('button', { name: 'Zeile weiter' });
+  const current = lead.locator('[data-testid=lead-line][data-current]');
+  const timecode = lead.getByTestId('timecode');
+
+  // vor der ersten Zeile: zurück geht nicht
+  await expect(back).toBeDisabled();
+  await forward.click();
+  await expect(timecode).toHaveText('00:00:01:00');
+  await expect(current).toHaveText(/Eins/);
+  await forward.click();
+  await expect(timecode).toHaveText('00:00:05:00');
+  await expect(current).toHaveText(/Drei/);
+  await show.keyboard.press('Shift+ArrowDown');
+  await expect(timecode).toHaveText('00:00:08:00');
+  await expect(current).toHaveText(/Vier/);
+  await expect(forward).toBeDisabled();
+  await show.keyboard.press('Shift+ArrowUp');
+  await expect(current).toHaveText(/Drei/);
+  // Umschalt+↑/↓ wechselt nicht den Eintrag
+  await expect(perf.getByTestId('performance-title')).toHaveText('Zeilenlied');
+  await back.click();
+  await expect(timecode).toHaveText('00:00:01:00');
+  await expect(back).toBeDisabled();
+  // Fernsteuerung: /steckplan/line/next bzw. POST /api/remote { action: 'lineNext' }
+  await page.request.post('/api/remote', { data: { action: 'lineNext' } });
+  await expect(current).toHaveText(/Drei/);
+  await expect(timecode).toHaveText('00:00:05:00');
+});
