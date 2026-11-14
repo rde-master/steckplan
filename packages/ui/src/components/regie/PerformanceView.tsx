@@ -344,6 +344,9 @@ export function PerformanceView({
   const [sideHidden, setSideHidden] = useHidden('steckplan.performanceSideHidden');
   // Führen: Einstellungen rechts (Textfenster, Player, Lichtpult, OSC) einklappbar, je Gerät gemerkt
   const [toolsHidden, setToolsHidden] = useHidden('steckplan.leadToolsHidden');
+  // Führen: Licht- bzw. Tonszenen ausblenden (je Gerät gemerkt)
+  const [leadLightHidden, setLeadLightHidden] = useHidden('steckplan.leadLightHidden');
+  const [leadSoundHidden, setLeadSoundHidden] = useHidden('steckplan.leadSoundHidden');
   const [tapState, setTapState] = useState<{ itemId: string; taps: Tap[] } | null>(null);
   const taps = tapState && tapState.itemId === item?.id ? tapState.taps : [];
   const beats = parseTimeSignature(item?.timeSignature).beats;
@@ -851,6 +854,10 @@ export function PerformanceView({
             waveSrc={itemAudioSrc(projectId, item)}
             audioOffset={item.audioOffsetSec ?? 0}
             events={lightEvents}
+            showLight={!leadLightHidden}
+            showSound={!leadSoundHidden}
+            onShowLight={(show) => setLeadLightHidden(!show)}
+            onShowSound={(show) => setLeadSoundHidden(!show)}
             lightScenes={scenes.map((s, i) => ({ id: s.id, number: i + 1, name: s.name, at: sceneTime(s, plainLines), current: i === sceneIndex }))}
             soundScenes={soundScenes.map((s, i) => ({ id: s.id, number: i + 1, name: s.name, at: sceneTime(s, plainLines), current: i === soundIndex }))}
             onScene={(kind, s) => {
@@ -881,7 +888,7 @@ export function PerformanceView({
           </div>
           </FitBox>
           {/* nur zur Orientierung beim Weiterschalten: welche Szene dran ist und welche als Nächstes kommt */}
-          {scene && (
+          {scene && !leadLightHidden && (
             <p className="shrink-0 text-center text-sm text-slate-400" data-testid="lead-scene">
               {texts.light.scenes.title}: <span className="font-semibold text-slate-200" data-testid="performance-scene">{sceneIndex + 1}. {scene.name || '–'}</span>
               {scenes[sceneIndex + 1] && (

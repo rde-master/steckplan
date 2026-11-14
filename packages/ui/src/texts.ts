@@ -602,6 +602,8 @@ export const texts = {
       zoomAll: 'Alles',
       timelineScroll: 'Ausschnitt des Zeitstrahls verschieben',
       sceneList: 'Lichtszenen',
+      showLightScenes: 'Lichtszenen zeigen (im Zeitstrahl und als Liste daneben) – je Gerät gemerkt',
+      showSoundScenes: 'Tonszenen im Zeitstrahl zeigen – je Gerät gemerkt',
       sceneEndsIn: 'endet in',
       sceneStartsIn: 'beginnt in',
       events: 'Licht-Events',

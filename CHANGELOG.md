@@ -15,6 +15,8 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 - Texte: neben jeder Zeile die Zahl der Zeichen; Zeilen, die im Textfenster bzw. auf dem Player nicht passen und mit „…“ abgeschnitten werden, sind rot markiert, darunter ein Hinweis, wie viele Zeichen etwa passen (berechnet mit der Schriftgröße aus den Textfenster-Einstellungen für einen 16:9-Bildschirm). Die Zeilen im Textfeld brechen dafür nicht mehr um
 
+- Führen: Schalter „Licht“ und „Ton“ im Kopf des Zeitstrahls blenden die Lichtszenen (Zeile im Zeitstrahl, Liste daneben, Szenenzeile unten) bzw. die Tonszenen aus – je Gerät gemerkt
+
 ### Geändert
 
 - Führen: Die Szenenliste neben dem Zeitstrahl zeigt nur noch Lichtszenen und wie der Text die vorige, aktuelle und nächste Szene – über der aktuellen ein grüner Balken mit der Zeit, bis sie endet, über der nächsten ein roter mit dem Countdown bis zum Start; ein Klick springt weiterhin dorthin
