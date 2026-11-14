@@ -7,6 +7,8 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.48.1] - 2026-11-14
+
 ### Behoben
 
 - Player an der Desktop-Steuersoftware: Bilder und Videos des Textfensters ließen sich nicht laden („… konnte nicht geladen werden (404)“). Der Katalog nannte die Kennung aus der Projektdatei statt der, unter der die Desktop-App das geöffnete Projekt führt
