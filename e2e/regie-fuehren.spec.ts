@@ -141,10 +141,33 @@ test('Führen-Ansicht: ohne Licht/Ton, Text klein (vorige/aktuelle/nächste), Ze
   await show.mouse.up();
   await expect.poll(seconds).toBe(5);
 
+  // Licht- und Tonszenen ausblenden (je Gerät gemerkt): Zeilen im Zeitstrahl, Liste und Szenenzeile verschwinden
+  await expect(lead.getByTestId('lead-scene')).toBeVisible();
+  await timeline.getByText('Licht', { exact: true }).click();
+  await expect(timeline.getByTestId('lead-show-light')).not.toBeChecked();
+  await expect(timeline.getByTestId('lead-light-scenes')).toHaveCount(0);
+  await expect(timeline.getByTestId('lead-scene-list')).toHaveCount(0);
+  await expect(lead.getByTestId('lead-scene')).toHaveCount(0);
+  await expect(timeline.getByTestId('lead-sound-scenes')).toBeVisible();
+  await timeline.getByText('Ton', { exact: true }).click();
+  await expect(timeline.getByTestId('lead-sound-scenes')).toHaveCount(0);
+  await show.reload();
+  await show.getByTestId('performance').getByRole('radio', { name: 'Führen' }).click();
+  const timeline2 = show.getByTestId('lead-timeline');
+  await expect(timeline2.getByTestId('lead-show-light')).not.toBeChecked();
+  await expect(timeline2.getByTestId('lead-light-scenes')).toHaveCount(0);
+  await expect(timeline2.getByTestId('lead-sound-scenes')).toHaveCount(0);
+  await timeline2.getByText('Licht', { exact: true }).click();
+  await timeline2.getByText('Ton', { exact: true }).click();
+  await expect(timeline2.getByTestId('lead-light-scenes')).toBeVisible();
+  await expect(timeline2.getByTestId('lead-sound-scenes')).toBeVisible();
+  await expect(timeline2.getByTestId('lead-scene-list')).toBeVisible();
+
   // zurück auf Frei: alte Ansicht
-  await perf.getByRole('radio', { name: 'Frei' }).click();
-  await expect(perf.getByTestId('lead-view')).toHaveCount(0);
-  await expect(perf.getByRole('tab', { name: 'Licht' })).toBeVisible();
+  const perf2 = show.getByTestId('performance');
+  await perf2.getByRole('radio', { name: 'Frei' }).click();
+  await expect(perf2.getByTestId('lead-view')).toHaveCount(0);
+  await expect(perf2.getByRole('tab', { name: 'Licht' })).toBeVisible();
 });
 
 test('Führen: Textzeile zurück/weiter springt an den Anfang der Zeile (Knopf, Umschalt+↑/↓, OSC/HTTP)', async ({ page }) => {
