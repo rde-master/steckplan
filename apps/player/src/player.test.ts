@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { PlayerCatalog } from '@steckplan/core';
-import { cacheFileName, MediaCache, parseRange } from './cache';
+import { cacheFileName, MediaCache, MediaUnavailableError, parseRange } from './cache';
 import { broadcastAddress, discoveryTargets, parseAddress } from './discovery';
 
 const sha = (c: string) => c.repeat(64);
@@ -91,6 +91,13 @@ describe('Player: Zwischenspeicher', () => {
     const broken = { projectId: 'p3', media: { id: 'b', name: 'Kaputt.mp4', mime: 'video/mp4', sizeBytes: 10, sha256: '' }, file: 'p3_b' };
     await expect(cache.download(broken, async () => new Response('zu kurz'), () => undefined)).rejects.toThrow(/unvollständig/);
     expect(cache.get('p3', 'b')).toBeUndefined();
+
+    // Server liefert die Datei nicht: eigener Fehler (die Synchronisierung lädt die übrigen weiter)
+    const gone = { projectId: 'p4', media: { id: 'g', name: 'Kaffeehaus.png', mime: 'image/png', sizeBytes: 3, sha256: '' }, file: 'p4_g' };
+    const failed = await cache.download(gone, async () => new Response(null, { status: 404 }), () => undefined).catch((e: unknown) => e);
+    expect(failed).toBeInstanceOf(MediaUnavailableError);
+    expect(failed).toMatchObject({ mediaName: 'Kaffeehaus.png', status: 404 });
+    expect(cache.get('p4', 'g')).toBeUndefined();
   });
 });
 

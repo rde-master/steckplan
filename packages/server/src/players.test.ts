@@ -1,7 +1,12 @@
 import dgram from 'node:dgram';
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { createEmptyProject, DISCOVERY_REQUEST, parseDiscoveryReply, PLAYER_COOKIE, VERSION, type PlayerCatalog, type PlayersOverview, type SyncClient } from '@steckplan/core';
+import { createEmptyProject, DISCOVERY_REQUEST, parseDiscoveryReply, PLAYER_COOKIE, serializeProject, VERSION, type PlayerCatalog, type PlayersOverview, type SyncClient } from '@steckplan/core';
 import { PlayerStore } from './auth/players';
+import { LocalFileStore, mediaDirFor } from './storage/local-file-store';
+import { MediaStore } from './storage/media-store';
 import { isManagedStore } from './storage/types';
 import { connect, login, startTestServer, waitFor, type TestServer } from './test-utils';
 
@@ -116,6 +121,31 @@ describe('Steckplan Player', () => {
     expect((await s.app.inject({ method: 'DELETE', url: `/api/players/${player.id}`, headers: { cookie: regie } })).statusCode).toBe(200);
     expect((await s.app.inject({ method: 'GET', url: '/api/auth/session', headers: { cookie } })).statusCode).toBe(401);
     expect((await overview()).players).toEqual([]);
+  });
+
+  it('Desktop: Katalog nennt die Kennung der geöffneten Datei, unter der die Medien abrufbar sind', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'player-desktop-'));
+    const file = join(dir, 'Fest.steckplan');
+    const project = createEmptyProject({ name: 'Fest' });
+    project.showSettings = { ...project.showSettings, lyricsBackground: { mediaId: 'kaffeehaus', dim: 0.3 } };
+    project.media = [{ ...media('kaffeehaus', 'image/png'), sizeBytes: 5 }];
+    writeFileSync(file, serializeProject(project));
+    mkdirSync(mediaDirFor(file));
+    writeFileSync(join(mediaDirFor(file), 'kaffeehaus'), 'BILD!');
+    const store = new LocalFileStore('Ralf');
+    server = await startTestServer({ mode: 'desktop', store, players: new PlayerStore(), media: new MediaStore((id) => {
+      const path = store.pathOf(id);
+      return path ? mediaDirFor(path) : undefined;
+    }) });
+    const { id } = await store.open(file);
+    expect(id).not.toBe(project.id);
+    const cookie = await pair(server);
+
+    const catalog = (await server.app.inject({ method: 'GET', url: '/api/player/catalog', headers: { cookie } })).json() as PlayerCatalog;
+    expect(catalog.projects.map((p) => p.id)).toEqual([id]);
+    const res = await server.app.inject({ method: 'GET', url: `/api/projects/${catalog.projects[0]!.id}/media/kaffeehaus`, headers: { cookie } });
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toBe('BILD!');
   });
 
   it('erneut koppeln: dasselbe Gerät behält seine Kennung, der alte Schlüssel gilt nicht mehr', async () => {

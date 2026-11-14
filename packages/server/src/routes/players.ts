@@ -73,7 +73,9 @@ export function registerPlayerRoutes(app: FastifyInstance, deps: PlayerRouteDeps
     for (const summary of await deps.store.list()) {
       try {
         const entry = playerCatalogEntry(await deps.project(summary.id));
-        if (entry) catalog.projects.push(entry);
+        // Kennung des Speichers, nicht die aus der Datei: unter ihr laufen Medien und Verbindung
+        // (Desktop: beim Öffnen vergeben, weicht von der Kennung in der .steckplan-Datei ab)
+        if (entry) catalog.projects.push({ ...entry, id: summary.id });
       } catch {
         // nicht lesbares Projekt überspringen
       }
