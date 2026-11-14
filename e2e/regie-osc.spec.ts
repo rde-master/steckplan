@@ -97,9 +97,10 @@ test('OSC: in den Einstellungen einschalten, Vorstellung per OSC steuern (Punkt,
   await page.goto('/osc');
   const overview = page.getByTestId('osc-page');
   await expect(overview.getByTestId('osc-page-status')).toContainText(`UDP-Port ${OSC_PORT}`);
-  await expect(overview.getByTestId('osc-commands').locator('tbody tr')).toHaveCount(16);
+  await expect(overview.getByTestId('osc-commands').locator('tbody tr')).toHaveCount(18);
   await expect(overview.getByTestId('osc-commands')).toContainText('SendOSC 1 "/steckplan/tap,,"');
   await expect(overview.getByTestId('osc-commands')).toContainText('/steckplan/scene/next');
+  await expect(overview.getByTestId('osc-commands')).toContainText('/steckplan/line/next');
   await expect(overview.getByTestId('osc-grandma3').first()).toHaveText('SendOSC 1 "/steckplan/play,,"');
   await expect(overview.getByTestId('osc-commands')).toContainText('SendOSC 1 "/steckplan/lied/13,,"');
   await expect(overview.getByTestId('osc-grandma3-help')).toContainText('In & Out');
