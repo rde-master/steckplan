@@ -13,6 +13,8 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 - Führen: Schieberegler für Text und Hintergrund im Textfenster (0–100 %, wirken sofort auf allen Textfenstern) und für die Blendzeit der Knöpfe „Text“ und „Hintergrund“ (0–10 s, Standard 0,7 s, je Gerät gemerkt)
 - APC40: Fader und Drehregler sind belegbar (Text, Hintergrund, Blendzeit); Vorbelegung Kanalfader 1 = Text, Kanalfader 2 = Hintergrund, Track-Control-Regler 1 = Blendzeit. Der LED-Ring eines belegten Drehreglers zeigt den Wert
 
+- Texte: neben jeder Zeile die Zahl der Zeichen; Zeilen, die im Textfenster bzw. auf dem Player nicht passen und mit „…“ abgeschnitten werden, sind rot markiert, darunter ein Hinweis, wie viele Zeichen etwa passen (berechnet mit der Schriftgröße aus den Textfenster-Einstellungen für einen 16:9-Bildschirm). Die Zeilen im Textfeld brechen dafür nicht mehr um
+
 ### Geändert
 
 - Führen: Die Szenenliste neben dem Zeitstrahl zeigt nur noch Lichtszenen und wie der Text die vorige, aktuelle und nächste Szene – über der aktuellen ein grüner Balken mit der Zeit, bis sie endet, über der nächsten ein roter mit dem Countdown bis zum Start; ein Klick springt weiterhin dorthin

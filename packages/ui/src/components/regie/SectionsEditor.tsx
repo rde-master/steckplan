@@ -1,7 +1,7 @@
 // Texte eines Ablauf-Eintrags: je Abschnitt Art, Bezeichnung und ein Textfeld (jede Zeile = eine Textzeile).
 // Beim Tippen bleibt der Text im Feld so, wie er getippt wird; ins Dokument geht die zerlegte Fassung
 // (Zeilen mit stabilen Kennungen, beim Schauspiel Rollen). Erst nach dem Verlassen zeigt das Feld wieder den Stand aus dem Dokument.
-import { ArrowDown, ArrowUp, ClipboardPaste, Copy, Plus, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, ClipboardPaste, Copy, Plus, Trash2, TriangleAlert } from 'lucide-react';
 import { useState } from 'react';
 import type * as Y from 'yjs';
 import {
@@ -18,6 +18,7 @@ import {
   setSectionText,
   setSectionTranslation,
   updateSection,
+  lyricsRange,
   type SectionKind,
   type ShowItem,
   type ShowSettings,
@@ -29,6 +30,7 @@ import { Button, Toast } from '../ui';
 import { useToast } from '../../lib/useToast';
 import { setSectionClip, useSectionClip } from './sectionClipboard';
 import { SectionBackground } from './SectionBackground';
+import { canvasMeasure, fitLines, type LyricsFitOptions } from '../../lib/lyricsFit';
 
 const t = texts.regie;
 
@@ -55,6 +57,8 @@ export function SectionsEditor({
   const defaultKind: SectionKind = play ? 'scene' : item.kind === 'song' ? 'verse' : 'other';
   // Übersetzung bearbeiten: sichtbar, sobald es eine gibt (sonst auf Wunsch)
   const hasTranslation = sections.some((s) => s.lines.some((l) => l.translation));
+  // Wie im Textfenster: Ansicht, Zeilen davor/danach, Übersetzung – bestimmt die Schriftgröße und damit, was passt
+  const fit: Omit<LyricsFitOptions, 'blockLines'> = { mode: item.lyricsMode ?? settings.lyricsMode ?? 'lines', ...lyricsRange(settings), translation: settings.lyricsTranslation === true && hasTranslation };
   const [showTranslation, setShowTranslation] = useState(false);
   const translating = hasTranslation || showTranslation;
   const clip = useSectionClip();
@@ -128,11 +132,11 @@ export function SectionsEditor({
           </div>
           {translating ? (
             <div className="grid gap-2 sm:grid-cols-2">
-              <SectionText doc={doc} origin={origin} section={section} item={item} editable={editable} nowrap />
+              <SectionText doc={doc} origin={origin} section={section} item={item} editable={editable} fit={fit} nowrap />
               <TranslationText doc={doc} origin={origin} section={section} editable={editable} />
             </div>
           ) : (
-            <SectionText doc={doc} origin={origin} section={section} item={item} editable={editable} />
+            <SectionText doc={doc} origin={origin} section={section} item={item} editable={editable} fit={fit} />
           )}
           <SectionBackground projectId={projectId} doc={doc} origin={origin} section={section} sections={sections} settings={settings} editable={editable} />
           {/* unter jedem Abschnitt: hier einen neuen bzw. die kopierte Kopie einfügen */}
@@ -169,30 +173,70 @@ export function SectionsEditor({
   );
 }
 
-function SectionText({ doc, origin, section, item, editable, nowrap = false }: { doc: Y.Doc; origin: object; section: TextSection; item: ShowItem; editable: boolean; /** neben der Übersetzung: nicht umbrechen, damit die Zeilen nebeneinander bleiben */ nowrap?: boolean }) {
+/**
+ * Text eines Abschnitts. Rechts daneben je Zeile die Zahl der Zeichen – rot, wenn die Zeile im Textfenster (Player)
+ * nicht passt und mit „…“ abgeschnitten wird. Die Zeilen brechen nicht um, damit die Zahlen neben ihren Zeilen stehen.
+ */
+function SectionText({ doc, origin, section, item, editable, fit, nowrap = false }: { doc: Y.Doc; origin: object; section: TextSection; item: ShowItem; editable: boolean; fit: Omit<LyricsFitOptions, 'blockLines'>; /** neben der Übersetzung (bricht nie um) */ nowrap?: boolean }) {
   const play = item.kind === 'play';
   const stored = sectionToText(section.lines, item.roles ?? [], play);
   // null = nicht in Bearbeitung → Stand aus dem Dokument zeigen (auch Änderungen anderer)
   const [draft, setDraft] = useState<string | null>(null);
+  const [scrollTop, setScrollTop] = useState(0);
+  const [measure] = useState(canvasMeasure);
   const value = draft ?? stored;
   const rows = Math.min(24, Math.max(3, value.split('\n').length + 1));
+  const textLines = value.split('\n');
+  const filled = value.replace(/\n+$/, '').split('\n').length;
+  const result = measure ? fitLines(textLines, { ...fit, blockLines: filled }, measure) : null;
+  const counts = result?.lines ?? textLines.map((l) => ({ chars: [...l.trim()].length, tooLong: false }));
+  const tooLong = counts.flatMap((c, i) => (c.tooLong ? [i + 1] : []));
   return (
-    <textarea
-      aria-label={t.sectionText(section.label)}
-      className="w-full rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 font-[inherit] text-sm leading-relaxed focus:border-sky-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500/30 dark:border-slate-700 dark:bg-slate-800 dark:focus:bg-slate-900"
-      rows={rows}
-      value={value}
-      readOnly={!editable}
-      placeholder={play ? t.sectionPlayHint : undefined}
-      spellCheck
-      wrap={nowrap ? 'off' : undefined}
-      onFocus={() => editable && setDraft(stored)}
-      onChange={(e) => {
-        setDraft(e.target.value);
-        setSectionText(doc, section.id, e.target.value, origin);
-      }}
-      onBlur={() => setDraft(null)}
-    />
+    <div>
+      <div className="flex">
+        <textarea
+          aria-label={t.sectionText(section.label)}
+          className="min-w-0 flex-1 rounded-l-md border border-slate-200 bg-slate-50 px-2 py-1.5 font-[inherit] text-sm leading-relaxed focus:border-sky-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500/30 dark:border-slate-700 dark:bg-slate-800 dark:focus:bg-slate-900"
+          rows={rows}
+          value={value}
+          readOnly={!editable}
+          placeholder={play ? t.sectionPlayHint : undefined}
+          spellCheck
+          wrap="off"
+          data-nowrap={nowrap || undefined}
+          onFocus={() => editable && setDraft(stored)}
+          onChange={(e) => {
+            setDraft(e.target.value);
+            setSectionText(doc, section.id, e.target.value, origin);
+          }}
+          onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
+          onBlur={() => setDraft(null)}
+        />
+        {/* Zeichen je Zeile: gleiche Zeilenhöhe wie das Textfeld, scrollt mit */}
+        <div className="w-14 shrink-0 overflow-hidden rounded-r-md border border-l-0 border-slate-200 bg-slate-100 py-1.5 pr-1.5 text-right text-sm leading-relaxed tabular-nums dark:border-slate-700 dark:bg-slate-900" aria-hidden data-testid="line-chars">
+          <div style={{ transform: `translateY(${-scrollTop}px)` }}>
+            {counts.map((c, i) => (
+              <div key={i} className={c.tooLong ? 'font-semibold text-red-600 dark:text-red-400' : 'text-slate-400'} title={c.tooLong ? t.lineTooLong(c.chars, result!.maxChars) : undefined} data-testid="line-char-count" data-too-long={c.tooLong || undefined}>
+                {c.chars > 0 ? (
+                  <span className="inline-flex items-center gap-0.5 text-[11px]">
+                    {c.tooLong && <TriangleAlert size={11} aria-hidden />}
+                    {c.chars}
+                  </span>
+                ) : (
+                  '\u00a0'
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+      {tooLong.length > 0 && (
+        <p className="mt-1 flex items-start gap-1 text-xs text-red-700 dark:text-red-400" role="status" data-testid="lines-too-long">
+          <TriangleAlert size={14} className="mt-px shrink-0" aria-hidden />
+          {t.linesTooLong(tooLong, result!.maxChars)}
+        </p>
+      )}
+    </div>
   );
 }
 
