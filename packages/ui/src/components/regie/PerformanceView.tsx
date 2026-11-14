@@ -59,10 +59,10 @@ import { RichTextView } from './RichTextEditor';
 import { SceneProgress, type SceneMark } from './SceneProgress';
 import { hasRichText } from '../../lib/richText';
 import { SceneGrid } from './SceneGrid';
-import { formatSceneTime } from './ScenesSection';
 import { BreakMark, PlayerBar, seekAudio, TimecodePanel } from './SongMedia';
+import { CueBar, cueClock, useCountdown } from './CueProgress';
 import { usePointPlayback, type Playback } from '../../lib/transport';
-import { usePlayerTime, usePlayerValue, usePlaying, type TimeSource } from '../../lib/playerTime';
+import { usePlayerValue, usePlaying, type TimeSource } from '../../lib/playerTime';
 
 const t = texts.regie.performance;
 
@@ -623,7 +623,7 @@ export function PerformanceView({
   const lastLineAt = lines.reduce((m, l) => Math.max(m, l.line.atSec ?? 0), 0);
   const timelineLength = Number.isFinite(tc.duration) && tc.duration > 0 ? tc.duration : (item?.durationSec ?? Math.max(60, lastLineAt + 10));
   /** Balken über der aktuellen (grün) bzw. nächsten Zeile (rot) */
-  const progressBar = (i: number) => (hasProgress && (i === currentIndex || i === nextIndex) ? <LineBar source={clock} kind={i === currentIndex ? 'current' : 'next'} startAt={startAt} nextAt={nextAt} /> : null);
+  const progressBar = (i: number) => (hasProgress && (i === currentIndex || i === nextIndex) ? <CueBar source={clock} kind={i === currentIndex ? 'current' : 'next'} startAt={startAt} nextAt={nextAt} testPrefix="line-progress" /> : null);
   /** Countdown nur für die nächsten fünf Zeilen */
   const counts = (i: number) => i - currentIndex >= 1 && i - currentIndex <= 5;
 
@@ -1126,26 +1126,12 @@ export function PerformanceView({
   );
 }
 
-/** Füllung eines Balkens in der Textfarbe (Breite über background-size) */
-const FILL = 'linear-gradient(currentColor, currentColor)';
-
-/** Fortschritt bis zur nächsten Zeile: grün über der aktuellen (füllt sich), rot über der nächsten (läuft ab) */
-function LineBar({ source, kind, startAt, nextAt }: { source: TimeSource; kind: 'current' | 'next'; startAt: number; nextAt: number }) {
-  const time = usePlayerTime(source);
-  const progress = Math.min(1, Math.max(0, (time - startAt) / (nextAt - startAt)));
-  const width = kind === 'current' ? progress : 1 - progress;
-  // als Hintergrund auf eigener Ebene gezeichnet: je Bild ändert sich nur die Füllung – kein neues Layout, und der
-  // Browser malt nur diese kleine Ebene neu. Nicht ganz deckend (/99): bei deckenden Flächen, deren Größe sich
-  // ändert, teilt Chromium die ganze Seite je Bild neu in Ebenen auf (gemessen: teurer als alles andere).
-  return <div className={`h-full w-full bg-no-repeat will-change-transform ${kind === 'current' ? 'text-emerald-500/99' : 'text-red-500/99'}`} style={{ backgroundImage: FILL, backgroundSize: `${width * 100}% 100%` }} data-testid={`line-progress-${kind}`} data-progress={width.toFixed(2)} />;
-}
-
 /** Zeit einer Zeile; bei den nächsten Zeilen läuft stattdessen der Countdown (neu gezeichnet je Zehntelsekunde) */
 function LineTime({ source, atSec, countdown, small = false }: { source: TimeSource; atSec: number | undefined; countdown: boolean; small?: boolean }) {
-  const remaining = usePlayerValue(countdown ? source : null, (time) => (countdown && atSec !== undefined && atSec > time ? texts.regie.performance.countdown(atSec - time) : null));
+  const remaining = useCountdown(countdown ? source : null, atSec);
   return (
     <span className={`w-16 shrink-0 text-right tabular-nums ${small ? 'text-xs' : 'text-sm'} ${remaining !== null ? 'font-semibold text-amber-400' : 'text-slate-500'}`} data-testid={small ? undefined : remaining !== null ? 'line-countdown' : 'line-time'}>
-      {remaining ?? (atSec !== undefined ? formatSceneTime(atSec) : '')}
+      {remaining ?? (atSec !== undefined ? cueClock(atSec) : '')}
     </span>
   );
 }

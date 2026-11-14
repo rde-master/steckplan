@@ -73,14 +73,26 @@ test('Führen-Ansicht: ohne Licht/Ton, Text klein (vorige/aktuelle/nächste), Ze
   // Szenen als Balken über dem Zeitstrahl und als Liste rechts
   await expect(timeline.getByTestId('lead-light-scenes').getByTestId('lead-scene-bar')).toHaveCount(2);
   await expect(timeline.getByTestId('lead-sound-scenes').getByTestId('lead-scene-bar')).toHaveCount(1);
-  const list = timeline.getByTestId('lead-scene-list');
-  await expect(list.getByTestId('lead-scene-item')).toHaveCount(3);
-  // Klick in der Liste springt dorthin (Dunkel bei 12 s)
+  // anhalten (vor 12 s), damit die Timer stehen
   await lead.getByRole('button', { name: 'Timecode anhalten' }).click();
+  // rechts nur Lichtszenen, wie der Text: aktuelle (Hell) und nächste (Dunkel) mit Balken und Timern (immer mit Zehntel)
+  const list = timeline.getByTestId('lead-scene-list');
+  await expect(list.getByTestId('lead-scene-item')).toHaveCount(2);
+  await expect(list).not.toContainText('Laut');
+  await expect(list.locator('[data-testid=lead-scene-item][data-current]')).toContainText('Hell');
+  await expect(list.getByTestId('scene-ends')).toHaveText(/^\d+,\d s$/);
+  await expect(list.getByTestId('scene-countdown')).toHaveText(/^\d+,\d s$/);
+  await expect(list.getByTestId('scene-progress-current')).toBeVisible();
+  await expect(list.getByTestId('scene-progress-next')).toBeVisible();
+  // Klick in der Liste springt dorthin (Dunkel bei 12 s)
   await list.getByRole('button', { name: /Dunkel/ }).click();
   const seconds = async () => Number((await lead.getByTestId('timecode').textContent())!.split(':')[2]);
   await expect.poll(seconds).toBe(12);
   await expect(list.locator('[data-testid=lead-scene-item][data-current]').filter({ hasText: 'Dunkel' })).toHaveCount(1);
+  // letzte Szene: vorige (Hell, mit Startpunkt) und aktuelle, kein Balken
+  await expect(list.getByTestId('lead-scene-item')).toHaveCount(2);
+  await expect(list.getByTestId('scene-time').first()).toHaveText('0:00,0');
+  await expect(list.getByTestId('scene-progress-current')).toHaveCount(0);
   await expect(lead.getByTestId('performance-scene')).toContainText('Dunkel');
   // Schlag vor/zurück (120 BPM: 0,5 s je Schlag)
   await lead.getByRole('button', { name: 'Einen Schlag vor' }).click();
