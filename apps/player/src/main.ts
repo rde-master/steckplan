@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { hostname } from 'node:os';
 import { app, BrowserWindow, ipcMain, Menu, powerSaveBlocker, protocol, session } from 'electron';
 import { checkForUpdate, PLAYER_COOKIE, PLAYER_HEARTBEAT_MS, VERSION, type PlayerCatalog, type PlayerHeartbeatReply, type PlayerReport, type UpdateInfo } from '@steckplan/core';
-import { MediaCache } from './cache';
+import { MediaCache, MediaUnavailableError } from './cache';
 import { ConfigStore } from './config';
 import { DiscoveryClient, parseAddress, type FoundServer } from './discovery';
 import { networkInfo, type NetworkInfo } from './network';
@@ -265,22 +265,31 @@ class Player {
         this.setView({ screen: 'syncing', server, phase: 'media', done, total: plan.total, bytesDone, bytesTotal: plan.bytesTotal, ...(current ? { current } : {}) }, true);
       };
       progress();
+      // fehlt eine Datei beim Server, die übrigen trotzdem laden (Netzfehler brechen weiter ab → neuer Versuch)
+      const missing = new Set<string>();
       for (const item of plan.todo) {
         this.check(gen);
         progress(item.media.name);
-        await this.cache.download(
-          item,
-          () => fetch(`${base}/api/projects/${encodeURIComponent(item.projectId)}/media/${encodeURIComponent(item.media.id)}`, { headers: this.headers() }),
-          (n) => {
-            bytesDone += n;
-            progress(item.media.name);
-          },
-        );
-        done++;
+        try {
+          await this.cache.download(
+            item,
+            () => fetch(`${base}/api/projects/${encodeURIComponent(item.projectId)}/media/${encodeURIComponent(item.media.id)}`, { headers: this.headers() }),
+            (n) => {
+              bytesDone += n;
+              progress(item.media.name);
+            },
+          );
+          done++;
+        } catch (error) {
+          // kommt vor dem ersten Byte – am Fortschritt ist nichts zurückzunehmen
+          if (!(error instanceof MediaUnavailableError)) throw error;
+          missing.add(error.message);
+        }
       }
       progress();
       await this.cache.cleanup(catalog);
-      this.report = { ...this.report, phase: 'ready', mediaDone: done, bytesDone, syncedAt: new Date().toISOString(), error: undefined };
+      const error = missing.size ? `${missing.size === 1 ? 'Nicht geladen' : `${missing.size} Dateien nicht geladen`}: ${[...missing].join(' ')}` : undefined;
+      this.report = { ...this.report, phase: 'ready', mediaDone: done, bytesDone, syncedAt: new Date().toISOString(), error };
       void this.sendHeartbeat(gen);
     } catch (error) {
       if (!(error instanceof Cancelled)) this.report = { ...this.report, phase: 'error', error: (error as Error).message };

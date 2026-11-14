@@ -18,6 +18,17 @@ export interface DownloadItem {
   file: string;
 }
 
+/** Der Server liefert eine Datei nicht (z. B. 404): diese überspringen, die übrigen trotzdem laden */
+export class MediaUnavailableError extends Error {
+  constructor(
+    readonly mediaName: string,
+    readonly status: number,
+  ) {
+    super(`„${mediaName}“ konnte nicht geladen werden (${status}).`);
+    this.name = 'MediaUnavailableError';
+  }
+}
+
 const key = (projectId: string, mediaId: string) => `${projectId}/${mediaId}`;
 
 /** Dateiname im Zwischenspeicher: nach dem Inhalt (SHA-256), sonst nach Projekt und Datei */
@@ -105,7 +116,7 @@ export class MediaCache {
     const existing = await stat(target).then((s) => s.size).catch(() => -1);
     if (existing !== item.media.sizeBytes) {
       const res = await fetchFile();
-      if (!res.ok || !res.body) throw new Error(`„${item.media.name}“ konnte nicht geladen werden (${res.status}).`);
+      if (!res.ok || !res.body) throw new MediaUnavailableError(item.media.name, res.status);
       const tmp = `${target}.part`;
       await new Promise<void>((resolve, reject) => {
         const out = createWriteStream(tmp);
