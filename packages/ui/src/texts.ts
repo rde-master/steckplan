@@ -513,6 +513,9 @@ export const texts = {
     sectionKind: 'Art',
     sectionLabel: 'Bezeichnung',
     sectionText: (label: string) => `Text ${label}`,
+    lineTooLong: (chars: number, max: number) => `${chars} Zeichen – zu lang: wird im Textfenster bzw. auf dem Player mit „…“ abgeschnitten (passt etwa bis ${max} Zeichen)`,
+    linesTooLong: (lines: number[], max: number) =>
+      `${lines.length === 1 ? `Zeile ${lines[0]} ist` : `Zeilen ${lines.slice(0, -1).join(', ')} und ${lines[lines.length - 1]} sind`} zu lang – im Textfenster bzw. auf dem Player ${lines.length === 1 ? 'wird sie' : 'werden sie'} mit „…“ abgeschnitten. Es passen etwa ${max} Zeichen (16:9-Bildschirm, aktuelle Textfenster-Einstellungen); Zeile kürzen oder teilen.`,
     sectionTranslation: (label: string) => `Übersetzung ${label}`,
     breakLine: '♪ Zwischenspiel',
     breakHint: 'Leere Zeile im Text = Zwischenspiel (keine neue Strophe): sie bekommt beim Mitschreiben eine Zeit, im Textfenster wird dann nichts hervorgehoben. Ein Abschnitt ganz ohne Text zählt genauso als Leerzeile.',
