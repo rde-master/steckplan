@@ -7,6 +7,11 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+### Behoben
+
+- Player an der Desktop-Steuersoftware: Bilder und Videos des Textfensters ließen sich nicht laden („… konnte nicht geladen werden (404)“). Der Katalog nannte die Kennung aus der Projektdatei statt der, unter der die Desktop-App das geöffnete Projekt führt
+- Player: Fehlt beim Synchronisieren eine einzelne Datei, werden die übrigen trotzdem geladen und die Texte angezeigt; die fehlenden Dateien stehen im Führen-Bildschirm beim Player
+
 ## [0.48.0] - 2026-11-14
 
 ### Hinzugefügt
