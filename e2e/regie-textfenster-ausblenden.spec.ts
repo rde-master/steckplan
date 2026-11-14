@@ -52,8 +52,8 @@ test('Führen: Text und Hintergrund im Textfenster per Knopf aus- und einblenden
   // Hintergrund aus: schwarz
   await control.getByTestId('lyrics-toggle-background').click();
   await expect(control.getByTestId('lyrics-toggle-background')).toHaveAttribute('aria-pressed', 'false');
-  await expect(lyrics.getByTestId('lyrics-background')).toHaveCount(0);
-  await expect(lyrics.locator('[data-media]')).toHaveCSS('opacity', '0');
+  await expect(lyrics.getByTestId('lyrics-background-layer')).toHaveAttribute('data-level', '0');
+  await expect(lyrics.getByTestId('lyrics-background-layer')).toHaveCSS('opacity', '0');
   await control.screenshot({ path: 'test-results/textfenster-ausblenden.png' });
 
   // wieder ein
@@ -63,4 +63,35 @@ test('Führen: Text und Hintergrund im Textfenster per Knopf aus- und einblenden
   await expect(lyrics.getByTestId('lyrics-active-line')).toContainText('Erste Zeile');
   await expect(lyrics.getByTestId('lyrics-background')).toBeVisible();
   await expect(other.getByTestId('lyrics-text-off')).toHaveCount(0);
+
+  // Blendzeit der Knöpfe: 2 s (wird mitgeschickt), Standard 0,7 s
+  await expect(control.getByTestId('lyrics-fade-value')).toHaveText('0,7 s');
+  await expect(lyrics.getByTestId('lyrics-text-layer')).toHaveCSS('transition-duration', '0.7s');
+  await control.getByTestId('lyrics-fade').fill('2');
+  await expect(control.getByTestId('lyrics-fade-value')).toHaveText('2,0 s');
+  await control.getByTestId('lyrics-toggle-text').click();
+  await expect(lyrics.getByTestId('lyrics-text-off')).toHaveCSS('transition-duration', '2s');
+  await expect(other.getByTestId('lyrics-text-off')).toHaveCSS('transition-duration', '2s');
+  await control.getByTestId('lyrics-toggle-text').click();
+  await expect(lyrics.getByTestId('lyrics-text-layer')).toHaveAttribute('data-level', '1');
+
+  // Schieberegler: direkt (kurz geglättet), auch auf dem anderen Gerät
+  await control.getByTestId('lyrics-level-text').fill('0.4');
+  await expect(control.getByTestId('lyrics-level-text-value')).toHaveText('40 %');
+  await expect(control.getByTestId('lyrics-toggle-text')).toContainText('40 %');
+  await expect(lyrics.getByTestId('lyrics-text-layer')).toHaveAttribute('data-level', '0.4');
+  await expect(lyrics.getByTestId('lyrics-text-layer')).toHaveCSS('transition-duration', '0.15s');
+  await expect(lyrics.getByTestId('lyrics-text-layer')).toHaveCSS('opacity', '0.4');
+  await expect(other.getByTestId('lyrics-text-layer')).toHaveAttribute('data-level', '0.4');
+  await control.getByTestId('lyrics-level-background').fill('0');
+  await expect(control.getByTestId('lyrics-toggle-background')).toContainText('ausgeblendet');
+  await expect(lyrics.getByTestId('lyrics-background-layer')).toHaveAttribute('data-level', '0');
+  // Knopf bei teilweise sichtbarem Text: ganz aus
+  await control.getByTestId('lyrics-toggle-text').click();
+  await expect(lyrics.getByTestId('lyrics-text-off')).toBeAttached();
+  await expect(control.getByTestId('lyrics-level-text-value')).toHaveText('0 %');
+  // die Blendzeit gilt je Gerät auch nach dem Neuladen
+  await show.reload();
+  await show.getByTestId('performance').getByRole('radio', { name: 'Führen' }).click();
+  await expect(show.getByTestId('lyrics-fade-value')).toHaveText('2,0 s');
 });

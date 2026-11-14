@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { APC40_CONTROLS, APC40_INIT, clipId, isApc40Port, ledMessage, parseApc40 } from './apc40';
-import { defaultMapping, ledFor, sanitizeMapping, type PerformanceLedState } from './mapping';
+import { APC40_CONTROLS, APC40_INIT, clipId, isApc40Port, ledMessage, parseApc40, ringMessages } from './apc40';
+import { defaultAnalogMapping, defaultMapping, ledFor, sanitizeAnalogMapping, sanitizeMapping, type PerformanceLedState } from './mapping';
 
 describe('APC40: Protokoll', () => {
   it('Modus 2 per SysEx', () => {
@@ -19,7 +19,7 @@ describe('APC40: Protokoll', () => {
     expect(parseApc40([0xb0, 47, 3])).toEqual({ kind: 'encoder', id: 'cueLevel', delta: 3 });
     expect(parseApc40([0xb0, 47, 126])).toEqual({ kind: 'encoder', id: 'cueLevel', delta: -2 });
     expect(parseApc40([0xb0, 47, 0])).toBeNull();
-    expect(parseApc40([0xb0, 7, 64])).toBeNull();
+    expect(parseApc40([0xb0, 46, 64])).toBeNull(); // unbekannter Regler
   });
   it('LEDs: Farben nur in der Matrix, Blinken bei Szenen/Clip-Stopp, sonst an/aus', () => {
     expect(ledMessage(clipId(3, 2), 'redBlink')).toEqual([0x93, 0x37, 4]);
@@ -112,5 +112,37 @@ describe('APC40: Belegung und LEDs', () => {
       [clipId(0, 0)]: { action: 'item', value: 1 },
     });
     expect(sanitizeMapping('x')).toBeNull();
+  });
+});
+
+describe('APC40: Fader und Drehregler', () => {
+  it('Kanalfader nach Kanal, Master/Crossfader und Regler auf beliebigem Kanal, Wert 0–1', () => {
+    expect(parseApc40([0xb1, 7, 127])).toEqual({ kind: 'analog', id: 'fader:1', value: 1 });
+    expect(parseApc40([0xb0, 7, 0])).toEqual({ kind: 'analog', id: 'fader:0', value: 0 });
+    expect(parseApc40([0xb0, 14, 64])).toMatchObject({ id: 'masterFader' });
+    expect(parseApc40([0xb0, 15, 64])).toMatchObject({ id: 'crossfader' });
+    expect(parseApc40([0xb0, 48, 127])).toEqual({ kind: 'analog', id: 'trackKnob:0', value: 1 });
+    expect(parseApc40([0xb3, 23, 0])).toEqual({ kind: 'analog', id: 'deviceKnob:7', value: 0 });
+    // Cue Level bleibt relativ
+    expect(parseApc40([0xb0, 47, 1])).toEqual({ kind: 'encoder', id: 'cueLevel', delta: 1 });
+  });
+
+  it('LED-Ring: Stil „Volume“ und Wert; ohne Aufgabe aus; Fader haben keinen Ring', () => {
+    expect(ringMessages('trackKnob:0', 0.5)).toEqual([
+      [0xb0, 56, 2],
+      [0xb0, 48, 64],
+    ]);
+    expect(ringMessages('deviceKnob:2', 1)).toEqual([
+      [0xb0, 26, 2],
+      [0xb0, 18, 127],
+    ]);
+    expect(ringMessages('trackKnob:3', null)).toEqual([[0xb0, 59, 0]]);
+    expect(ringMessages('fader:0', 0.5)).toEqual([]);
+  });
+
+  it('Vorbelegung: Fader 1 = Text, Fader 2 = Hintergrund, Track Control 1 = Blendzeit; gespeicherte Belegung prüfen', () => {
+    expect(defaultAnalogMapping()).toEqual({ 'fader:0': 'textLevel', 'fader:1': 'backgroundLevel', 'trackKnob:0': 'fadeTime' });
+    expect(sanitizeAnalogMapping({ 'fader:7': 'textLevel', 'trackKnob:1': 'boom', unbekannt: 'fadeTime', crossfader: 'none' })).toEqual({ 'fader:7': 'textLevel' });
+    expect(sanitizeAnalogMapping(null)).toBeNull();
   });
 });

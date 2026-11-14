@@ -28,6 +28,28 @@ export interface Cue {
   hideText?: boolean;
   /** Führen: Hintergrund im Textfenster ausgeblendet (schwarz) */
   hideBackground?: boolean;
+  /** Führen: Helligkeit von Text bzw. Hintergrund im Textfenster (0–1; fehlt = 1, bzw. 0 bei hideText/hideBackground) */
+  textLevel?: number;
+  backgroundLevel?: number;
+  /** Führen: in dieser Zeit (Sekunden) blendet das Textfenster auf die Helligkeiten über (fehlt = Standard) */
+  fadeSec?: number;
+}
+
+/** Ein-/Ausblendzeit der Knöpfe „Text“ und „Hintergrund“ (Sekunden) */
+export const LYRICS_FADE_SEC_DEFAULT = 0.7;
+export const LYRICS_FADE_SEC_MAX = 10;
+/** Schieberegler und Fader wirken direkt – nur kurz geglättet (Sekunden) */
+export const LYRICS_SLIDER_FADE_SEC = 0.15;
+
+/** Helligkeiten aus der Stelle (ältere Sender schicken nur hideText/hideBackground) */
+export function cueLevels(cue: Pick<Cue, 'hideText' | 'hideBackground' | 'textLevel' | 'backgroundLevel' | 'fadeSec'> | null | undefined): { text: number; background: number; fadeSec: number } {
+  const level = (v: number | undefined, hidden: boolean | undefined) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : hidden ? 0 : 1);
+  const fade = cue?.fadeSec;
+  return {
+    text: level(cue?.textLevel, cue?.hideText),
+    background: level(cue?.backgroundLevel, cue?.hideBackground),
+    fadeSec: typeof fade === 'number' && Number.isFinite(fade) ? Math.min(LYRICS_FADE_SEC_MAX, Math.max(0, fade)) : LYRICS_FADE_SEC_DEFAULT,
+  };
 }
 
 /** Fernsteuerung der Vorstellung (OSC bzw. HTTP) */
@@ -153,7 +175,15 @@ export function decodeCue(decoder: decoding.Decoder): Cue | null {
     ...(v.osc === true ? { osc: true } : {}),
     ...(v.hideText === true ? { hideText: true } : {}),
     ...(v.hideBackground === true ? { hideBackground: true } : {}),
+    ...(unit(v.textLevel) !== undefined ? { textLevel: unit(v.textLevel)! } : {}),
+    ...(unit(v.backgroundLevel) !== undefined ? { backgroundLevel: unit(v.backgroundLevel)! } : {}),
+    ...(typeof v.fadeSec === 'number' && Number.isFinite(v.fadeSec) && v.fadeSec >= 0 && v.fadeSec <= LYRICS_FADE_SEC_MAX ? { fadeSec: v.fadeSec } : {}),
   };
+}
+
+/** Helligkeit 0–1 (sonst undefined) */
+function unit(x: unknown): number | undefined {
+  return typeof x === 'number' && Number.isFinite(x) && x >= 0 && x <= 1 ? x : undefined;
 }
 
 export function decodeInfo(decoder: decoding.Decoder): ServerInfo {

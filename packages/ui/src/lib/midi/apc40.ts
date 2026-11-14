@@ -75,7 +75,49 @@ export function apc40Control(id: string): Apc40Control | undefined {
 /** Kennung des relativen Drehreglers „Cue Level“ */
 export const CUE_LEVEL = 'cueLevel';
 
-export type Apc40Input = { kind: 'button'; id: string; pressed: boolean } | { kind: 'encoder'; id: string; delta: number };
+export type Apc40Input = { kind: 'button'; id: string; pressed: boolean } | { kind: 'encoder'; id: string; delta: number } | { kind: 'analog'; id: string; value: number };
+
+// ---------- Fader und Drehregler (absolut, 0–127) ----------
+
+export interface Apc40Analog {
+  id: string;
+  label: string;
+  cc: number;
+  /** MIDI-Kanal bei den Kanalfadern (Spalte), sonst 0 */
+  channel: number;
+  kind: 'fader' | 'knob';
+  /** CC für den Stil des LED-Rings (nur Drehregler) */
+  ringStyleCc?: number;
+}
+
+function buildAnalog(): Apc40Analog[] {
+  const list: Apc40Analog[] = [];
+  for (let col = 0; col < COLUMNS; col++) list.push({ id: `fader:${col}`, label: `Fader ${col + 1}`, cc: 7, channel: col, kind: 'fader' });
+  list.push({ id: 'masterFader', label: 'Master-Fader', cc: 14, channel: 0, kind: 'fader' }, { id: 'crossfader', label: 'Crossfader', cc: 15, channel: 0, kind: 'fader' });
+  for (let n = 0; n < 8; n++) list.push({ id: `trackKnob:${n}`, label: `Track Control ${n + 1}`, cc: 48 + n, channel: 0, kind: 'knob', ringStyleCc: 56 + n });
+  for (let n = 0; n < 8; n++) list.push({ id: `deviceKnob:${n}`, label: `Device Control ${n + 1}`, cc: 16 + n, channel: 0, kind: 'knob', ringStyleCc: 24 + n });
+  return list;
+}
+
+export const APC40_ANALOG: Apc40Analog[] = buildAnalog();
+const analogById = new Map(APC40_ANALOG.map((c) => [c.id, c]));
+/** Kanalfader: Kanal zählt; übrige Regler auf beliebigem Kanal (Device-Regler sind je nach Modus gebankt) */
+const analogByCc = new Map(APC40_ANALOG.map((c) => [`${c.cc}:${c.cc === 7 ? c.channel : 0}`, c]));
+
+export function apc40Analog(id: string): Apc40Analog | undefined {
+  return analogById.get(id);
+}
+
+/** Ring eines Drehreglers: Stil „Volume“ (Balken) bzw. aus, und Wert 0–1 (setzt Ring und Position des Reglers) */
+export function ringMessages(id: string, value: number | null): number[][] {
+  const c = analogById.get(id);
+  if (!c?.ringStyleCc) return [];
+  if (value === null) return [[0xb0, c.ringStyleCc, 0]];
+  return [
+    [0xb0, c.ringStyleCc, 2],
+    [0xb0, c.cc, Math.round(Math.min(1, Math.max(0, value)) * 127)],
+  ];
+}
 
 /** Eingehende MIDI-Nachricht → Bedienelement (Taste gedrückt/losgelassen, Cue-Level-Drehung) */
 export function parseApc40(data: ArrayLike<number>): Apc40Input | null {
@@ -87,6 +129,10 @@ export function parseApc40(data: ArrayLike<number>): Apc40Input | null {
     if (!c) return null;
     // Note-On mit Velocity 0 gilt als Loslassen
     return { kind: 'button', id: c.id, pressed: type === 0x90 && d2 > 0 };
+  }
+  if (type === 0xb0) {
+    const analog = analogByCc.get(`${d1}:${d1 === 7 ? channel : 0}`);
+    if (analog) return { kind: 'analog', id: analog.id, value: Math.min(127, d2) / 127 };
   }
   if (type === 0xb0 && d1 === 47) {
     const delta = d2 < 64 ? d2 : d2 - 128;
