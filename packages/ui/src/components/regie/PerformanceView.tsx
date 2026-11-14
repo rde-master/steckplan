@@ -1,6 +1,6 @@
 // Vorstellung (Regie, M11e): Vollbild, dunkel. Aktueller Eintrag mit mitlaufendem Text, aktuelle und nächste Lichtszene,
 // Player, große Knöpfe und Pfeiltasten. „Führen“ sendet die Stelle an alle, „Folgen“ springt mit (nicht gespeichert).
-import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, EyeOff, Image as ImageIcon, Keyboard, ListMusic, Monitor, Radio, Type, UserRound, X } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, ChevronsLeft, ChevronsRight, EyeOff, Image as ImageIcon, Keyboard, ListMusic, Monitor, Radio, Type, UserRound, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   addTap,
@@ -16,6 +16,7 @@ import {
   updateShowItem,
   type Tap,
   currentLineId,
+  lineStepTime,
   currentSceneId,
   formatDuration,
   gridLayout,
@@ -216,6 +217,10 @@ export function PerformanceView({
   const timed = usePlayerValue(clock, (time) => playing || time > 0);
   const lineByTime = usePlayerValue(clock, (time) => currentLineId(lines, time));
   const currentLine = timed ? lineByTime : scene?.lineId;
+  const currentIndex = lines.findIndex((l) => l.line.id === currentLine);
+  // Textzeile zurück/weiter: an den Anfang der vorigen bzw. nächsten Zeile mit Zeit (ausgehend von der angezeigten)
+  const prevLineAt = lineStepTime(lines, currentLine, -1);
+  const nextLineAt = lineStepTime(lines, currentLine, 1);
 
   // Stelle mit Abspielposition senden: beim Führen an alle (Server), immer an Textfenster im selben Browser.
   // Bei Eintrag/Szene, Start, Pause, Spulen und alle zwei Sekunden während der Wiedergabe.
@@ -402,6 +407,12 @@ export function PerformanceView({
       case 'scenePrev':
         goScene(command.action === 'sceneNext' ? 1 : -1);
         break;
+      case 'lineNext':
+      case 'linePrev': {
+        const at = command.action === 'lineNext' ? nextLineAt : prevLineAt;
+        if (at !== undefined) both((p) => seekAudio(p, at));
+        break;
+      }
       case 'tcForward':
       case 'tcBack':
         // nur der Timecode (mit „Mit Musik“ hängt die Musik daran)
@@ -442,6 +453,8 @@ export function PerformanceView({
     hasNextItem: !!nextItem,
     hasPrevScene: sceneIndex > 0,
     hasNextScene: sceneIndex < scenes.length - 1,
+    hasPrevLine: prevLineAt !== undefined,
+    hasNextLine: nextLineAt !== undefined,
     click: clickSettings.click,
     preroll: clickSettings.preroll,
     leading: mode === 'lead',
@@ -545,7 +558,9 @@ export function PerformanceView({
                         ? { action: 'stop' }
                         : lower === 't'
                           ? { action: 'tap' }
-                          : null;
+                          : e.shiftKey && (k === 'ArrowDown' || k === 'ArrowUp')
+                            ? { action: k === 'ArrowDown' ? 'lineNext' : 'linePrev' }
+                            : null;
     if (command) {
       takeOver();
       perform(command);
@@ -598,8 +613,6 @@ export function PerformanceView({
   const Icon = item ? KIND_ICONS[item.kind] : null;
   const roleNames = new Map((item?.roles ?? []).map((r) => [r.id, r.name]));
   const roleColors = new Map((item?.roles ?? []).flatMap((r) => (r.color ? [[r.id, r.color] as const] : [])));
-  // Countdown bis zu den nächsten fünf Zeilen (mit Audio), sonst die feste Zeit
-  const currentIndex = lines.findIndex((l) => l.line.id === currentLine);
   // Fortschritt bis zur nächsten Zeile (mit Audio): grüner Balken über der aktuellen, roter über der nächsten
   const nextIndex = lines.findIndex((l, i) => i > currentIndex && l.line.atSec !== undefined);
   const nextAt = nextIndex >= 0 ? lines[nextIndex]!.line.atSec! : undefined;
@@ -762,7 +775,9 @@ export function PerformanceView({
         // links die Bedienung (passt ohne Scrollen), rechts eine feste Spalte mit Textfenster, Player, Lichtpult und OSC
         <main className={`grid min-h-0 flex-1 gap-5 overflow-y-auto px-6 py-4 lg:overflow-hidden ${toolsHidden ? 'lg:grid-cols-[minmax(0,1fr)_2.75rem]' : 'lg:grid-cols-[minmax(0,1fr)_19rem]'}`} data-testid="lead-view">
           <div className="flex min-h-0 flex-col gap-3" data-testid="lead-main">
-          <section className="shrink-0 space-y-1" aria-label={texts.regie.text} data-testid="lead-text">
+          {/* Text (vorige, aktuelle, nächste Zeile) und daneben Textzeile zurück/weiter */}
+          <div className="flex shrink-0 items-stretch gap-3">
+          <section className="min-w-0 flex-1 space-y-1" aria-label={texts.regie.text} data-testid="lead-text">
             {lines.length === 0 ? (
               <p className="text-slate-500">{texts.regie.noText}</p>
             ) : (
@@ -785,6 +800,17 @@ export function PerformanceView({
                 })
             )}
           </section>
+          {lines.length > 0 && (
+            <div className="flex w-32 shrink-0 flex-col gap-2" data-testid="lead-line-nav">
+              <NavButton compact label={t.prevLine} onClick={() => perform({ action: 'linePrev' })} disabled={prevLineAt === undefined}>
+                <ChevronUp size={22} aria-hidden />
+              </NavButton>
+              <NavButton compact label={t.nextLine} onClick={() => perform({ action: 'lineNext' })} disabled={nextLineAt === undefined}>
+                <ChevronDown size={22} aria-hidden />
+              </NavButton>
+            </div>
+          )}
+          </div>
           <LeadTimeline
             duration={timelineLength}
             lines={lines}
@@ -1124,7 +1150,7 @@ function LineTime({ source, atSec, countdown, small = false }: { source: TimeSou
   );
 }
 
-function NavButton({ label, onClick, disabled, children }: { label: string; onClick: () => void; disabled: boolean; children: ReactNode }) {
+function NavButton({ label, onClick, disabled, compact = false, children }: { label: string; onClick: () => void; disabled: boolean; compact?: boolean; children: ReactNode }) {
   return (
     <button
       type="button"
@@ -1132,7 +1158,7 @@ function NavButton({ label, onClick, disabled, children }: { label: string; onCl
       title={label}
       disabled={disabled}
       onClick={onClick}
-      className="flex min-h-14 flex-col items-center justify-center gap-0.5 rounded-lg bg-slate-800 text-xs text-slate-200 hover:bg-slate-700 active:bg-sky-700 disabled:opacity-30"
+      className={`flex items-center justify-center rounded-lg bg-slate-800 text-xs text-slate-200 hover:bg-slate-700 active:bg-sky-700 disabled:opacity-30 ${compact ? 'min-h-10 flex-1 gap-1 px-2' : 'min-h-14 flex-col gap-0.5'}`}
     >
       {children}
       <span>{label}</span>

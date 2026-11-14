@@ -54,6 +54,8 @@ describe('APC40: Belegung und LEDs', () => {
     hasNextItem: true,
     hasPrevScene: false,
     hasNextScene: true,
+    hasPrevLine: false,
+    hasNextLine: true,
     click: false,
     preroll: true,
     leading: false,
@@ -94,6 +96,14 @@ describe('APC40: Belegung und LEDs', () => {
     expect(ledFor({ action: 'preroll' }, state)).toBe('red');
     expect(ledFor({ action: 'click' }, state)).toBe('off');
     expect(ledFor(undefined, state)).toBe('off');
+  });
+  it('Textzeile zurück/weiter: Vorbelegung Clip Stop 5 und 6, gelb, wenn es die Zeile gibt', () => {
+    const m = defaultMapping();
+    expect(m['clipStop:4']).toEqual({ action: 'linePrev' });
+    expect(m['clipStop:5']).toEqual({ action: 'lineNext' });
+    expect(ledFor(m['clipStop:4'], state)).toBe('off');
+    expect(ledFor(m['clipStop:5'], state)).toBe('yellow');
+    expect(sanitizeMapping({ 'clipStop:6': { action: 'lineNext', value: 3 } })).toEqual({ 'clipStop:6': { action: 'lineNext' } });
   });
   it('gespeicherte Belegung prüfen', () => {
     expect(sanitizeMapping({ tap: { action: 'tap' }, unbekannt: { action: 'tap' }, play: { action: 'boom' }, 'clipStop:0': { action: 'back', value: 999 }, [clipId(0, 0)]: { action: 'item' } })).toEqual({
