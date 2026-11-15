@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import WebSocket from 'ws';
 import * as Y from 'yjs';
-import { addLightEvent, addOscCommand, addScene, addShowItem, createEmptyProject, readProjectFromYDoc, readShow, type SyncClient } from '@steckplan/core';
+import { addLightEvent, addOscCommand, addOscRange, addScene, addSection, addShowItem, createEmptyProject, OSC_ALL_ITEMS, readProjectFromYDoc, readShow, updateOscCommand, type SyncClient } from '@steckplan/core';
 import { isManagedStore } from '../storage/types';
 import { connect, login, startTestServer, waitFor, type TestServer } from '../test-utils';
 import { parseOsc } from '../osc/osc';
@@ -334,6 +334,62 @@ describe('Live-Sync', () => {
     await waitFor(() => regie.state.oscLog.length === 4);
     expect(regie.state.oscLog[0]).toMatchObject({ source: 'Von Hand (Regina): Blackout', text: '/a/manual', target: '10.0.0.9:7000' });
     expect((await server.app.inject({ method: 'POST', url: `/api/projects/${id}/osc-commands/gibtsnicht`, headers: { cookie } })).statusCode).toBe(404);
+  });
+
+  it('OSC über Lieder und im Stück: jeder Eintrag ({nr}, {titel}), Zeitpunkt, Zeile, Abschnitt, Ende, Bereich, Verlauf', async () => {
+    const sent: { at: number; packet: Buffer }[] = [];
+    server = await startTestServer({ oscOut: { send: (p) => void sent.push({ at: Date.now(), packet: Buffer.from(p) }), close: () => undefined } });
+    if (!isManagedStore(server.store)) throw new Error();
+    const id = await server.store.create(createEmptyProject({ name: 'OSC2' }));
+    const regie = track(connect(server, id, await login(server, 'direction', 'Regina')));
+    await regie.whenSynced();
+    const doc = regie.doc;
+    const a = addShowItem(doc, 'song', null, { title: 'Erstes Lied', durationSec: 0.6 });
+    const b = addShowItem(doc, 'song', null, { title: 'Zweites', durationSec: 30 });
+    const c = addShowItem(doc, 'song', null, { title: 'Drittes' });
+    addSection(doc, a, 'verse', 'Strophe', null, [{ id: 'z1', text: 'Eins', atSec: 0.2 }]);
+    const refrain = addSection(doc, a, 'chorus', 'Refrain', null, [{ id: 'z2', text: 'Zwei', atSec: 0.35 }]);
+    doc.getMap('showSettings').set('oscOut', { host: '192.168.1.30', port: 9000 });
+    addOscCommand(doc, { itemId: OSC_ALL_ITEMS, trigger: 'item', address: '/lied', args: '{nr} "{titel}"' }, null);
+    addOscCommand(doc, { itemId: OSC_ALL_ITEMS, trigger: 'end', address: '/ende', args: '{nr}' }, null);
+    addOscCommand(doc, { itemId: a, trigger: 'time', atSec: 0.1, address: '/zeit' }, null);
+    addOscCommand(doc, { itemId: a, trigger: 'line', refId: 'z1', address: '/zeile' }, null);
+    addOscCommand(doc, { itemId: a, trigger: 'section', refId: refrain, address: '/refrain' }, null);
+    const fade = addOscCommand(doc, { itemId: b, trigger: 'item', address: '/dimmer', args: '{wert}' }, null);
+    updateOscCommand(doc, fade, { fade: { from: 0, to: 1, sec: 0.2 } }, null);
+    const range = addOscRange(doc, a, b, null);
+    for (const cmd of doc.getMap<import('yjs').Map<unknown>>('oscCommands').values()) {
+      if (cmd.get('refId') === range) cmd.set('address', cmd.get('phase') === 'start' ? '/nebel/an' : '/nebel/aus');
+    }
+    const texts = () => sent.map((m) => { const msg = parseOsc(m.packet)[0]!; return [msg.address, ...msg.args.map((x) => (typeof x === 'number' ? Math.round(x * 100) / 100 : x))].join(' '); });
+
+    // Lied A abspielen: Bereich betreten, Start (jeder Eintrag), dann im Stück Zeit → Zeile → Abschnitt, am Ende (Dauer) Ende
+    regie.sendCue({ itemId: a, at: 0, playing: true, osc: true });
+    await waitFor(() => texts().includes('/ende 1'), 3000);
+    expect(texts()).toEqual(['/nebel/an', '/lied 1 Erstes Lied', '/zeit', '/zeile', '/refrain', '/ende 1']);
+    // Wechsel zu B: Ende von A schon gesendet → nicht doppelt; im Bereich → nichts; Start und Verlauf 0 → 1 (Kommazahlen)
+    sent.length = 0;
+    regie.sendCue({ itemId: b, at: 0, playing: false, osc: true });
+    await waitFor(() => texts().at(-1) === '/dimmer 1', 2000);
+    expect(texts()[0]).toBe('/lied 2 Zweites');
+    const dimmer = sent.filter((m) => parseOsc(m.packet)[0]!.address === '/dimmer');
+    expect(dimmer.length).toBeGreaterThanOrEqual(4);
+    expect(parseOsc(dimmer[0]!.packet)[0]!.args).toEqual([0]);
+    // Typ-Kennung im Paket (nach der Adresse): immer float, auch bei 0 und 1
+    const tags = (p: Buffer) => {
+      const start = (p.indexOf(0) + 4) & ~3;
+      return p.toString('utf8', start, p.indexOf(0, start));
+    };
+    expect(dimmer.map((m) => tags(m.packet))).toEqual(dimmer.map(() => ',f'));
+    // Wechsel zu C (ohne Dauer bei B nicht erreicht): Ende von B, Bereich verlassen, Start von C
+    sent.length = 0;
+    regie.sendCue({ itemId: c, at: 0, playing: false, osc: true });
+    await waitFor(() => sent.length >= 3);
+    expect(texts()).toEqual(['/ende 2', '/nebel/aus', '/lied 3 Drittes']);
+    // zurück in den Bereich → wieder an
+    sent.length = 0;
+    regie.sendCue({ itemId: b, at: 0, playing: false, osc: true });
+    await waitFor(() => texts().includes('/nebel/an'));
   });
 
   it('Bearbeiter trennt ein verbundenes Gerät: kein automatisches Neuverbinden, nur auf Wunsch; Lesen/Regie dürfen nicht trennen', async () => {

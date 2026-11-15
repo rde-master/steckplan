@@ -2,7 +2,7 @@
 // (manuell getappt vor gespeichert) als Text an das Lichtpult, z. B. /cmd "Master 3.1 At BPM 120".
 // Gesendet wird nur bei einer Änderung (anderer Punkt, anderes Tempo, andere Einstellung).
 import dgram from 'node:dgram';
-import { bpmCommand, isArtNetHost, OSC_BPM_DEFAULTS } from '@steckplan/core';
+import { bpmCommand, isArtNetHost, OSC_BPM_DEFAULTS, type OscArg } from '@steckplan/core';
 
 export interface OscBpmConfig {
   enabled: boolean;
@@ -23,14 +23,16 @@ function padded(text: string): Buffer {
 }
 
 /** OSC-Nachricht mit Text- (s), Ganzzahl- (i) bzw. Kommazahl-Argumenten (f) */
-export function encodeOsc(address: string, args: (string | number)[]): Uint8Array {
-  const tags = `,${args.map((a) => (typeof a === 'string' ? 's' : Number.isInteger(a) ? 'i' : 'f')).join('')}`;
+export function encodeOsc(address: string, args: OscArg[]): Uint8Array {
+  // Zahl: ganz → int, sonst float; { float } immer float (Verläufe mit Kommazahlen, auch bei 0 und 1)
+  const tags = `,${args.map((a) => (typeof a === 'string' ? 's' : typeof a === 'object' ? 'f' : Number.isInteger(a) ? 'i' : 'f')).join('')}`;
   const parts = [padded(address), padded(tags)];
   for (const a of args) {
     if (typeof a === 'string') parts.push(padded(a));
     else {
       const b = Buffer.alloc(4);
-      if (Number.isInteger(a)) b.writeInt32BE(a);
+      if (typeof a === 'object') b.writeFloatBE(a.float);
+      else if (Number.isInteger(a)) b.writeInt32BE(a);
       else b.writeFloatBE(a);
       parts.push(b);
     }
