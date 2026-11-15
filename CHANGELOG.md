@@ -10,6 +10,7 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 ### Hinzugefügt
 
 - Player: Netzprüfung vor dem ersten Verbinden (Statusseite) und auf „Bereit“ – Netzwerkkabel oder WLAN, WLAN-Signal (ab 70 % gut, unter 50 % Problem), Frequenzband (2,4 GHz: Hinweis), Energiesparen des WLAN-Adapters (Windows), Akkubetrieb und Laufzeit zur Steuersoftware (10 Anfragen; Mittel, Höchstwert, ohne Antwort), je mit Tipp, was zu tun ist. Das Ergebnis steht auch im Führen-Bildschirm beim Player (⚠ in der Kopfzeile)
+- Führen: rechts neben dem Player die Uhrzeit (mit Sekunden) und das voraussichtliche Ende der Vorstellung (jetzt + Rest des laufenden Eintrags + Dauer der folgenden). Mit Anfangszeit im Ablauf auch das geplante Ende und die Abweichung („+5 min“ gelb, „−3 min“ grün); Einträge ohne Dauer werden genannt
 - Führen: Pause im Textfenster – Titel (z. B. „Kaffeepause“) groß, darunter „Es geht weiter in 14:59“, zählt auf allen Textfenstern selbst herunter, danach „Es geht gleich weiter“; „+5 min“ verlängert, auch ohne Zeit möglich. Titel und Minuten merkt sich das Gerät
 - Player: Große Bilder werden beim Synchronisieren auf Bildschirmgröße verkleinert (einmal je Bild und Bildschirm, mit richtiger Drehung von Handyfotos) – sie erscheinen schneller und belegen weniger Speicher
 - Textfenster: Schatten hinter dem Text (abschaltbar in den Regie-Einstellungen) – besser lesbar auf hellen Bildern

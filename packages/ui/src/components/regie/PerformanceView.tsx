@@ -57,6 +57,7 @@ import { DeskCuePanel } from './DeskCuePanel';
 import { PauseControl, type PauseState } from './PauseControl';
 import { PlayersPanel } from './PlayersPanel';
 import { PlayerStatusBadge } from './PlayerStatusBadge';
+import { ShowClock } from './ShowClock';
 import { OscLeadPanel, readOscAuto, writeOscAuto } from './OscLeadPanel';
 import { LightEventCountdown } from './LightEvents';
 import type * as Y from 'yjs';
@@ -1167,6 +1168,8 @@ export function PerformanceView({
           </div>
         )}
         </div>
+        {/* Führen: rechts neben dem Player Uhrzeit und voraussichtliches Ende */}
+        {leadLayout && <ShowClock items={items} itemId={item?.id} source={clock} settings={data.showSettings} />}
         {/* Timecode unten rechts: gelaufene Zeit des Punkts, läuft mit dem Transport (Führen: groß in der Mitte) */}
         {item && !leadLayout && (
           <div className="flex shrink-0 flex-col items-end gap-1">

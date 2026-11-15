@@ -115,7 +115,7 @@ export function PauseControl({ pause, onChange }: { pause: PauseState | null; on
             }}
             data-testid="pause-minutes"
           />
-          <button type="button" className={`${button} border-amber-500 bg-amber-500/15 text-amber-100 hover:bg-amber-500/25`} onClick={start} data-testid="pause-start">
+          <button type="button" className={`${button} border-amber-500 bg-amber-500/15 text-amber-100 hover:bg-amber-500/25`} onClick={start} aria-label={t.pauseStartLabel} title={t.pauseStartLabel} data-testid="pause-start">
             {t.pauseStart}
           </button>
         </>
