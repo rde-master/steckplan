@@ -16,6 +16,7 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 - OSC im Stück: Befehle zu einem Zeitpunkt, beim Beginn einer Textzeile oder eines Abschnitts (beim Abspielen); OSC-Zeitpunkte erscheinen als blaue Marke im Zeitstrahl der Lichtszenen und lassen sich dort verschieben
 - OSC-Verlauf: ein Befehl kann einen Wert über eine Zeit verlaufen lassen (z. B. Dimmer 0 → 100 in 5 s, 25 Werte je Sekunde; ganze Zahlen oder Kommazahlen, von selbst oder eingestellt), Platzhalter `{wert}`
 - OSC-Platzhalter in den Argumenten: `{nr}` (Nummer des Eintrags), `{titel}`, `{wert}`
+- Textfenster und Player: Passt die aktuelle Zeile nicht in die Breite, läuft ihr Text während ihrer Zeit (bis zur nächsten Zeile bzw. bis zum Ende des Stücks) von links nach rechts durch, statt mit „…“ abgeschnitten zu bleiben – am Anfang und Ende steht er kurz (je bis 1 s), weiche Ränder zeigen, dass es weitergeht. Gilt auch für die Übersetzung; die übrigen Zeilen bleiben mit „…“ gekürzt
 
 ### Geändert
 
