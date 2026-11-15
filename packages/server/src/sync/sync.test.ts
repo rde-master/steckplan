@@ -126,9 +126,11 @@ describe('Live-Sync', () => {
     await waitFor(() => reader.state.lead?.sceneId === 's3');
 
     // Abspielposition: läuft die Wiedergabe, bekommen Nachzügler die weitergerechnete Position
+    // (läuft sie, rechnet der Server die gemessene Verzögerung der Verbindungen drauf – auf langsamen Rechnern einige ms)
     regie.sendCue({ itemId: 'song', sceneId: 's3', at: 10, playing: true });
-    await waitFor(() => reader.state.lead?.at === 10);
-    expect(reader.state.lead).toMatchObject({ at: 10, playing: true });
+    const nearTen = () => Math.abs((reader.state.lead?.at ?? -1) - 10) < 0.2;
+    await waitFor(nearTen);
+    expect(reader.state.lead).toMatchObject({ playing: true });
     await new Promise((r) => setTimeout(r, 300));
     const later = track(connect(server, id, await login(server, 'read', 'Lea')));
     await later.whenSynced();

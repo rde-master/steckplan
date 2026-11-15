@@ -165,7 +165,10 @@ export function LyricsPage({ id, player }: { id: string; player?: PlayerEmbeddin
                 highlight={data.showSettings.lyricsHighlight !== false}
                 translation={data.showSettings.lyricsTranslation === true}
                 title={showTitle ? title : ''}
-                lines={lines} currentLineId={current} roleNames={roleNames} roleColors={roleColors} {...lyricsRange(data.showSettings)} />
+                lines={lines} currentLineId={current} roleNames={roleNames} roleColors={roleColors} {...lyricsRange(data.showSettings)}
+                // zu lange aktuelle Zeile läuft in ihrer Zeit durch
+                source={hasTime ? clock : null}
+                {...(durationSec !== undefined ? { endSec: durationSec } : {})} />
             </div>
           )}
         </div>
