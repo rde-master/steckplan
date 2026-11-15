@@ -7,6 +7,8 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.50.0] - 2026-11-15
+
 ### Hinzugefügt
 
 - OSC über Lieder hinweg (Reiter OSC):
