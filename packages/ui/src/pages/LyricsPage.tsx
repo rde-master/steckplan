@@ -4,6 +4,9 @@ import { useEffect, useState } from 'react';
 import { cueLevels, currentLineId, effectiveBackground, itemTimedLines, itemSections, lyricsRange, sectionBackground } from '@steckplan/core';
 import { LyricsBackgroundView } from '../components/regie/LyricsBackgroundView';
 import { LyricsDisplay, useCueSource, useLocalCue, type ReceivedCue } from '../components/regie/LyricsWindow';
+import { api } from '../lib/api';
+import { backgroundPreloadIds } from '../lib/backgroundPreload';
+import { usePreloadImages } from '../lib/imagePreload';
 import { usePlayerValue } from '../lib/playerTime';
 import { useProjectData } from '../lib/useProjectData';
 import { useProjectDoc } from '../lib/useProjectDoc';
@@ -78,6 +81,10 @@ export function LyricsPage({ id, player }: { id: string; player?: PlayerEmbeddin
   const sectionId = (lines.find((l) => l.line.id === current) ?? lines[0])?.sectionId;
   const sectionImage = sectionBackground(sections, sectionId, undefined);
   const { background, own } = effectiveBackground(data.showSettings, item);
+  // kommende Bilder schon laden und decodieren (auch im Player, solange das Fenster unsichtbar ist)
+  usePreloadImages(
+    backgroundPreloadIds({ items: data.show.items, sections: data.show.sections, settings: data.showSettings, media: data.media, itemId: item?.id, sectionId }).map((m) => api.mediaUrl(id, m)),
+  );
   // beim Führen: Helligkeit von Hintergrund (darunter schwarz) und Text, übergeblendet in der mitgeschickten Zeit
   const fade = cueLevels(cue);
   const textLevel = message ? 1 : fade.text;

@@ -5,13 +5,13 @@
 //   POST   /api/player/heartbeat                Stand → { resync, leadProjectId }          (Player)
 //   GET    /api/player/state                    → { leadProjectId, version }               (angemeldet)
 //   GET    /api/player/catalog                  → Projekte mit Regie und ihre Bilder/Videos (angemeldet)
-//   GET    /api/players                         → Übersicht                                (Regie)
+//   GET    /api/players                         → Übersicht mit Laufzeit je Player         (Regie)
 //   POST   /api/players/pairing/:requestId/approve | reject                                 (Regie)
 //   POST   /api/players/:id/resync, /api/players/resync (alle)                              (Regie)
 //   DELETE /api/players/:id                                                                (Regie)
 import { hostname } from 'node:os';
 import type { FastifyInstance, FastifyReply } from 'fastify';
-import { parsePlayerReport, playerCatalogEntry, VERSION, type PlayerCatalog, type Project, type ServerMode } from '@steckplan/core';
+import { parsePlayerReport, playerCatalogEntry, VERSION, type PlayerCatalog, type PlayerLink, type Project, type ServerMode } from '@steckplan/core';
 import { requireSession } from '../auth/plugin';
 import { PlayerError, type PlayerStore } from '../auth/players';
 import type { ProjectStore } from '../storage/types';
@@ -27,6 +27,8 @@ export interface PlayerRouteDeps {
   discoverable: () => boolean;
   /** Verbindungen eines entfernten Players trennen */
   disconnect: (playerId: string) => void;
+  /** Live-Verbindungen des Textfensters eines Players (Laufzeit, Verluste) */
+  link?: (playerId: string) => PlayerLink;
 }
 
 function sendError(reply: FastifyReply, error: unknown): FastifyReply {
@@ -85,7 +87,12 @@ export function registerPlayerRoutes(app: FastifyInstance, deps: PlayerRouteDeps
 
   app.get('/api/players', async (request, reply) => {
     if (!requireSession(request, reply, 'editShow')) return reply;
-    return { players: players.status(), pairing: players.pending(), discoverable: deps.discoverable() };
+    // Live-Verbindung nur, wo das Textfenster eine haben soll (ohne Projekte mit Regie zeigt der Player nur „Bereit“)
+    const list = players.status().map((p) => {
+      const link = deps.link?.(p.id);
+      return link && (link.connections > 0 || (p.report?.projects ?? 0) > 0) ? { ...p, link } : p;
+    });
+    return { players: list, pairing: players.pending(), discoverable: deps.discoverable() };
   });
 
   app.post<{ Params: { requestId: string } }>('/api/players/pairing/:requestId/approve', async (request, reply) => {

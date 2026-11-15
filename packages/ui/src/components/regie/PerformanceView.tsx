@@ -39,7 +39,7 @@ import {
   triggerCommands,
 } from '@steckplan/core';
 import type { ProjectData } from '../../lib/useProjectData';
-import { api } from '../../lib/api';
+import { usePlayersOverview } from '../../lib/players';
 import { texts } from '../../texts';
 import { Button } from '../ui';
 import { openLyricsWindow, useCueSource, useLocalCueSender, type ReceivedCue } from './LyricsWindow';
@@ -55,6 +55,7 @@ import { LeadTimeline } from './LeadTimeline';
 import { itemAudioSrc } from './Waveform';
 import { DeskCuePanel } from './DeskCuePanel';
 import { PlayersPanel } from './PlayersPanel';
+import { PlayerStatusBadge } from './PlayerStatusBadge';
 import { OscLeadPanel, readOscAuto, writeOscAuto } from './OscLeadPanel';
 import { LightEventCountdown } from './LightEvents';
 import type * as Y from 'yjs';
@@ -281,7 +282,8 @@ export function PerformanceView({
       for (const source of sources) for (const e of events) source.removeEventListener(e, send);
       window.clearInterval(timer);
     };
-  }, [mode, itemId, sceneId, audio, tc, oscAuto, levels]);
+    // connectionId: nach dem Neuverbinden (z. B. WLAN) sofort wieder senden – der Server hält die Stelle nur kurz
+  }, [mode, itemId, sceneId, audio, tc, oscAuto, levels, sync.connectionId]);
   // beim Verlassen nicht weiter führen
   const leading = useRef(false);
   useEffect(() => {
@@ -685,6 +687,14 @@ export function PerformanceView({
             </span>
           )}
         </div>
+        {canLead && (
+          <PlayerStatusBadge
+            leadingHere={!!lead}
+            onOpen={() => {
+              if (leadLayout) setToolsHidden(false);
+            }}
+          />
+        )}
         {midiSupported() && (
           <Button variant="ghost" className="px-2 text-sm" title={texts.regie.midi.title} onClick={() => setMidiOpen(true)} data-testid="apc40-open">
             <span className={`h-2 w-2 rounded-full ${midi.status === 'connected' ? 'bg-emerald-500' : 'bg-slate-500'}`} aria-hidden />
@@ -1302,22 +1312,7 @@ function FitBox({ children, className = '', testId }: { children: ReactNode; cla
 /** Eingeklappte Einstellungen im Führen: schmale Leiste; wartet ein Player auf „Zulassen“, wird das angezeigt */
 function ToolsShowButton({ onShow, watchPlayers }: { onShow: () => void; watchPlayers: boolean }) {
   const t = texts.regie.performance;
-  const [pairing, setPairing] = useState(0);
-  useEffect(() => {
-    if (!watchPlayers) return;
-    let alive = true;
-    const poll = () =>
-      void api
-        .players()
-        .then((o) => alive && setPairing(o.pairing.length))
-        .catch(() => undefined);
-    poll();
-    const timer = window.setInterval(poll, 3000);
-    return () => {
-      alive = false;
-      window.clearInterval(timer);
-    };
-  }, [watchPlayers]);
+  const pairing = usePlayersOverview(watchPlayers).overview?.pairing.length ?? 0;
   return (
     <button
       type="button"

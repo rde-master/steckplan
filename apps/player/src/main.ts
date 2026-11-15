@@ -1,7 +1,9 @@
 // Steckplan Player: startet im Vollbild (und trägt sich in den Autostart ein), sucht die Steuersoftware im Netz,
 // koppelt sich einmal (Code im Führen-Bildschirm bestätigen), lädt Texte und alle Bilder/Videos des Textfensters
 // und zeigt dann „Bereit“ bzw. das Textfenster des Projekts, in dem geführt wird. Medien kommen danach nur noch aus
-// dem eigenen Zwischenspeicher. Lebenszeichen alle 3 s: Stand an den Führen-Bildschirm, „Neu synchronisieren“ zurück.
+// dem eigenen Zwischenspeicher. Lebenszeichen jede Sekunde: Stand an den Führen-Bildschirm, „Neu synchronisieren“ zurück.
+// Bleiben die Lebenszeichen aus (WLAN), bleibt das Textfenster stehen (es verbindet sich selbst neu); im Hintergrund
+// wird nachgesehen, ob die Steuersoftware unter einer anderen Adresse antwortet – nur dann wird die Seite neu geladen.
 import { join } from 'node:path';
 import { hostname } from 'node:os';
 import { app, BrowserWindow, ipcMain, Menu, powerSaveBlocker, protocol, session } from 'electron';
@@ -15,6 +17,10 @@ const MEDIA_SCHEME = 'steckplan-media';
 protocol.registerSchemesAsPrivileged([{ scheme: MEDIA_SCHEME, privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true, bypassCSP: true, corsEnabled: true } }]);
 // Videos ohne Klick abspielen
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
+// nicht drosseln, wenn ein anderes Fenster (Meldung, Update-Hinweis) den Player verdeckt – sonst steht der Text
+app.commandLine.appendSwitch('disable-renderer-backgrounding');
+app.commandLine.appendSwitch('disable-background-timer-throttling');
+app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
 
 const env = process.env;
 if (env.STECKPLAN_PLAYER_USER_DATA) app.setPath('userData', env.STECKPLAN_PLAYER_USER_DATA);
@@ -22,8 +28,10 @@ const isSmokeTest = env.STECKPLAN_SMOKE_TEST === '1';
 const windowed = env.STECKPLAN_PLAYER_WINDOWED === '1' || isSmokeTest;
 const deviceName = (env.STECKPLAN_PLAYER_NAME || hostname() || 'Player').slice(0, 60);
 const discoveryPort = env.STECKPLAN_DISCOVERY_PORT ? Number(env.STECKPLAN_DISCOVERY_PORT) : undefined;
-/** Ohne Lebenszeichen-Antwort so oft hintereinander → neu suchen */
-const MAX_FAILURES = 4;
+/** Ohne Lebenszeichen-Antwort so lange → neu suchen (bei gezeigtem Textfenster: still im Hintergrund) */
+const SILENT_SEARCH_MS = 8000;
+/** stille Suche: so oft die Adressen fragen */
+const QUIET_PROBE_MS = 3000;
 /** so lange nach dem ersten Fund warten, ob weitere antworten */
 const CHOOSE_DELAY_MS = 2500;
 const RETRY_MS = 8000;
@@ -49,7 +57,10 @@ class Player {
   private token: string | null = null;
   private generation = 0;
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
-  private failures = 0;
+  /** zuletzt beantwortetes Lebenszeichen */
+  private lastBeat = 0;
+  private beating = false;
+  private quiet: { discovery: DiscoveryClient; timer: ReturnType<typeof setInterval> } | null = null;
   private syncing = false;
   private showingPage = false;
   private choose: ((server: FoundServer) => void) | null = null;
@@ -85,7 +96,20 @@ class Player {
   private async showPage(): Promise<void> {
     if (!this.server) return;
     this.showingPage = true;
-    await this.win.loadURL(`${baseUrl(this.server)}/player`);
+    await this.win.loadURL(`${baseUrl(this.server)}/player`).catch(() => undefined);
+  }
+
+  /** Seite neu laden (nach einem Absturz der Anzeige bzw. wenn sie nicht geladen werden konnte) */
+  async reloadView(): Promise<void> {
+    if (this.showingPage) await this.showPage();
+    else {
+      this.showingPage = true; // erzwingt das Laden der Statusseite
+      await this.showStatus();
+    }
+  }
+
+  get pageShown(): boolean {
+    return this.showingPage;
   }
 
   // ---------- Ablauf ----------
@@ -94,6 +118,7 @@ class Player {
   async start(options: { forceChoose?: boolean } = {}): Promise<void> {
     const gen = ++this.generation;
     this.stopHeartbeat();
+    this.stopQuietSearch();
     this.choose = null;
     await this.showStatus();
     try {
@@ -140,10 +165,16 @@ class Player {
           // schon gekoppelt: sofort; zuletzt genutzt: bevorzugt; nur einer: nach kurzer Wartezeit
           const paired = list.find((s) => this.config.config.tokens[s.id] && s.id === this.config.config.lastServer?.id) ?? list.find((s) => this.config.config.tokens[s.id]);
           if (paired) return finish(paired);
-          if (list.length === 1 && Date.now() - firstFound >= CHOOSE_DELAY_MS) return finish(list[0]!);
+          // (Zeitgeber laufen nach einer anderen Uhr als Date.now() und kommen evtl. eine Millisekunde früher)
+          if (list.length === 1 && Date.now() - firstFound >= CHOOSE_DELAY_MS - 50) return finish(list[0]!);
         }
         this.setView({ screen: 'searching', found: list, choose: forceChoose || list.length > 1 });
-        if (list.length === 1 && !forceChoose && !decideTimer) decideTimer = setTimeout(decide, CHOOSE_DELAY_MS);
+        if (list.length === 1 && !forceChoose && !decideTimer) {
+          decideTimer = setTimeout(() => {
+            decideTimer = null;
+            decide();
+          }, Math.max(0, CHOOSE_DELAY_MS - (Date.now() - firstFound)));
+        }
       };
       const add = (server: FoundServer) => {
         if (gen !== this.generation) return;
@@ -318,7 +349,7 @@ class Player {
 
   private startHeartbeat(gen: number): void {
     this.stopHeartbeat();
-    this.failures = 0;
+    this.lastBeat = Date.now();
     this.heartbeatTimer = setInterval(() => void this.sendHeartbeat(gen), PLAYER_HEARTBEAT_MS);
     void this.sendHeartbeat(gen);
   }
@@ -329,7 +360,18 @@ class Player {
   }
 
   private async sendHeartbeat(gen: number): Promise<void> {
-    if (!this.server || gen !== this.generation) return;
+    if (!this.server || gen !== this.generation || this.beating) return;
+    // nie mehrere gleichzeitig (bei schlechtem WLAN dauert eine Antwort länger als der Abstand)
+    this.beating = true;
+    try {
+      await this.heartbeat(gen);
+    } finally {
+      this.beating = false;
+    }
+  }
+
+  private async heartbeat(gen: number): Promise<void> {
+    if (!this.server) return;
     try {
       const res = await fetch(`${baseUrl(this.server)}/api/player/heartbeat`, { method: 'POST', headers: { ...this.headers(), 'Content-Type': 'application/json' }, body: JSON.stringify(this.report), signal: AbortSignal.timeout(5000) });
       if (gen !== this.generation) return;
@@ -340,15 +382,57 @@ class Player {
         return;
       }
       if (!res.ok) throw new Error(String(res.status));
-      this.failures = 0;
+      this.lastBeat = Date.now();
+      this.stopQuietSearch();
       const reply = (await res.json()) as PlayerHeartbeatReply;
       if (reply.resync) void this.resync();
     } catch {
-      if (gen !== this.generation) return;
-      this.failures++;
-      // Steuersoftware weg (beendet, Netz) → wieder suchen; mit Schlüssel geht es danach von selbst weiter
-      if (this.failures >= MAX_FAILURES) void this.start();
+      if (gen !== this.generation || Date.now() - this.lastBeat < SILENT_SEARCH_MS) return;
+      // Steuersoftware nicht erreichbar (Netz, beendet, neue Adresse). Zeigt der Player gerade das Textfenster, bleibt
+      // es stehen (es verbindet sich selbst neu) und es wird still gesucht; sonst neu beginnen (Statusseite).
+      if (this.showingPage && !this.syncing) this.startQuietSearch(gen);
+      else if (!this.syncing) void this.start();
     }
+  }
+
+  /** Steuersoftware still suchen (gleiche Kennung, evtl. neue Adresse); das Textfenster bleibt dabei sichtbar */
+  private startQuietSearch(gen: number): void {
+    if (this.quiet || !this.server) return;
+    const id = this.server.id;
+    const check = (found: FoundServer | null) => {
+      if (!found || found.id !== id || gen !== this.generation || !this.quiet || !this.server) return;
+      if (found.host === this.server.host && found.port === this.server.port) return; // gleiche Adresse: Lebenszeichen kommen von selbst wieder
+      this.stopQuietSearch();
+      void this.moveTo(found, gen);
+    };
+    const discovery = new DiscoveryClient((s) => void probe(s).then((ok) => check(ok && { ...s, name: s.name || ok.name })), discoveryPort);
+    void discovery.start();
+    const timer = setInterval(() => {
+      if (this.server) void probe(this.server).then(check);
+    }, QUIET_PROBE_MS);
+    this.quiet = { discovery, timer };
+  }
+
+  private stopQuietSearch(): void {
+    if (!this.quiet) return;
+    this.quiet.discovery.stop();
+    clearInterval(this.quiet.timer);
+    this.quiet = null;
+  }
+
+  /** Steuersoftware unter neuer Adresse: Schlüssel dort hinterlegen und das Textfenster von dort laden */
+  private async moveTo(server: FoundServer, gen: number): Promise<void> {
+    if (!this.token) return void this.start();
+    this.server = server;
+    try {
+      await session.defaultSession.cookies.set({ url: baseUrl(server), name: PLAYER_COOKIE, value: this.token, httpOnly: true, sameSite: 'strict', expirationDate: Math.floor(Date.now() / 1000) + 10 * 365 * 24 * 3600 });
+      await this.config.update({ lastServer: { id: server.id, host: server.host, port: server.port } });
+    } catch {
+      // Speichern egal – geladen wird trotzdem
+    }
+    if (gen !== this.generation) return;
+    this.lastBeat = Date.now();
+    await this.showPage();
   }
 
   // ---------- Medien aus dem Zwischenspeicher ----------
@@ -406,6 +490,8 @@ if (!app.requestSingleInstanceLock()) {
     if (app.isPackaged && env.STECKPLAN_PLAYER_NO_AUTOSTART !== '1') app.setLoginItemSettings({ openAtLogin: true });
     // Bildschirm nicht abschalten
     powerSaveBlocker.start('prevent-display-sleep');
+    // und den Rechner nicht schlafen legen (sonst reißt auch das WLAN ab)
+    powerSaveBlocker.start('prevent-app-suspension');
 
     const config = new ConfigStore(app.getPath('userData'));
     await config.load();
@@ -420,10 +506,32 @@ if (!app.requestSingleInstanceLock()) {
       autoHideMenuBar: true,
       title: 'Steckplan Player',
       show: !isSmokeTest,
-      webPreferences: { preload: join(__dirname, 'preload.cjs'), contextIsolation: true, sandbox: false },
+      webPreferences: { preload: join(__dirname, 'preload.cjs'), contextIsolation: true, sandbox: false, backgroundThrottling: false },
     });
     win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
     const player = new Player(win, config, cache);
+    // Anzeige abgestürzt bzw. Seite nicht geladen (Netz): nach kurzer Pause neu laden – nie eine Fehlerseite stehen lassen
+    let reloadTimer: ReturnType<typeof setTimeout> | null = null;
+    const reloadSoon = (ms: number) => {
+      if (reloadTimer) return;
+      reloadTimer = setTimeout(() => {
+        reloadTimer = null;
+        if (!win.isDestroyed()) void player.reloadView();
+      }, ms);
+    };
+    win.webContents.on('render-process-gone', (_e, details) => {
+      if (details.reason !== 'clean-exit') reloadSoon(500);
+    });
+    // hängt die Anzeige länger, neu laden – antwortet sie vorher wieder, nicht
+    win.webContents.on('unresponsive', () => reloadSoon(10_000));
+    win.webContents.on('responsive', () => {
+      if (reloadTimer) clearTimeout(reloadTimer);
+      reloadTimer = null;
+    });
+    win.webContents.on('did-fail-load', (_e, code, _description, _url, isMainFrame) => {
+      // -3: abgebrochen (eine neue Seite wird geladen)
+      if (isMainFrame && code !== -3 && player.pageShown) reloadSoon(2000);
+    });
 
     protocol.handle(MEDIA_SCHEME, (request) => player.media(request));
     ipcMain.handle('player:state', () => player.state);
