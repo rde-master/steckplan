@@ -4,6 +4,7 @@
 import type { Project } from '../model/schema';
 import { lyricsImages } from '../show/show';
 import type { ServerMode } from '../app';
+import { parseNetChecks, type NetCheck } from './netcheck';
 
 /** UDP-Port der Suche (Player ruft, Steuersoftware antwortet) */
 export const DISCOVERY_PORT = 41234;
@@ -65,6 +66,8 @@ export interface PlayerReport {
   /** zuletzt vollständig synchronisiert */
   syncedAt?: string;
   error?: string;
+  /** Netzprüfung des Player-Rechners (WLAN, Signal, Band, Energiesparen, Laufzeit) */
+  checks?: NetCheck[];
 }
 
 export function parsePlayerReport(raw: unknown): PlayerReport | null {
@@ -75,6 +78,7 @@ export function parsePlayerReport(raw: unknown): PlayerReport | null {
   const text = (x: unknown, max: number) => (typeof x === 'string' && x ? x.slice(0, max) : undefined);
   const syncedAt = text(v.syncedAt, 40);
   const error = text(v.error, 300);
+  const checks = parseNetChecks(v.checks);
   return {
     phase: v.phase,
     version: text(v.version, 32) ?? '',
@@ -85,6 +89,7 @@ export function parsePlayerReport(raw: unknown): PlayerReport | null {
     bytesTotal: count(v.bytesTotal),
     ...(syncedAt ? { syncedAt } : {}),
     ...(error ? { error } : {}),
+    ...(checks?.length ? { checks } : {}),
   };
 }
 

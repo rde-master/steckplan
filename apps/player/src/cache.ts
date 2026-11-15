@@ -1,5 +1,6 @@
 // Zwischenspeicher der Medien (Bilder/Videos des Textfensters): beim Start bzw. „Neu synchronisieren“ geladen,
 // danach nur noch von hier abgespielt. Gleiche Dateien (SHA-256) liegen nur einmal da; Unbenutztes wird gelöscht.
+// Große Bilder bekommen eine Fassung in Bildschirmgröße (schneller angezeigt, weniger Speicher) – die wird ausgeliefert.
 import { createReadStream, createWriteStream } from 'node:fs';
 import { mkdir, readdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -10,7 +11,15 @@ export interface CachedFile {
   file: string;
   size: number;
   mime: string;
+  /** Fassung in Bildschirmgröße: für welchen Bildschirm (key) und welche Datei – ohne file: Original passt schon */
+  screen?: { key: string; file?: string; size?: number; mime?: string };
 }
+
+/** Bilder, die verkleinert werden können (keine GIFs – die wären danach nicht mehr bewegt) */
+export const RESIZABLE = new Set(['image/jpeg', 'image/png', 'image/webp']);
+
+/** verkleinert ein Bild auf Bildschirmgröße; null = nicht nötig bzw. nicht möglich */
+export type ResizeImage = (data: Buffer, mime: string) => Promise<Uint8Array | null>;
 
 export interface DownloadItem {
   projectId: string;
@@ -97,7 +106,9 @@ export class MediaCache {
         if (size === media.sizeBytes || planned.has(file)) {
           // schon da (bzw. kommt mit einer gleichen Datei eines anderen Projekts)
           if (size === media.sizeBytes) {
-            this.index.set(key(project.id, media.id), { file, size, mime: media.mime });
+            // eine schon gemachte Bildschirmfassung bleibt
+            const before = this.index.get(key(project.id, media.id));
+            this.index.set(key(project.id, media.id), { file, size, mime: media.mime, ...(before?.file === file && before.screen ? { screen: before.screen } : {}) });
             ready++;
             bytesReady += media.sizeBytes;
           } else todo.push({ projectId: project.id, media, file });
@@ -137,11 +148,40 @@ export class MediaCache {
     this.index.set(key(item.projectId, item.media.id), { file: item.file, size: item.media.sizeBytes, mime: item.media.mime });
   }
 
+  /**
+   * Bildschirmfassungen machen (fehlende bzw. für einen anderen Bildschirm): screenKey z. B. „1920x1080“.
+   * onItem meldet je Bild den Namen (Fortschritt); Fehler beim Verkleinern lassen das Original stehen.
+   */
+  async prepareScreens(screenKey: string, resize: ResizeImage, onItem?: (file: string, done: number, total: number) => void): Promise<void> {
+    const byFile = new Map<string, CachedFile>();
+    for (const entry of this.index.values()) if (RESIZABLE.has(entry.mime) && entry.screen?.key !== screenKey) byFile.set(entry.file, entry);
+    let done = 0;
+    for (const [file, entry] of byFile) {
+      onItem?.(file, done, byFile.size);
+      let screen: CachedFile['screen'] = { key: screenKey };
+      try {
+        const small = await resize(await readFile(join(this.dir, file)), entry.mime);
+        if (small && small.byteLength > 0) {
+          const mime = entry.mime === 'image/png' ? 'image/png' : 'image/jpeg';
+          const name = `${file}.${screenKey}.${mime === 'image/png' ? 'png' : 'jpg'}`;
+          await writeFile(join(this.dir, `${name}.part`), small);
+          await rename(join(this.dir, `${name}.part`), join(this.dir, name));
+          screen = { key: screenKey, file: name, size: small.byteLength, mime };
+        }
+      } catch {
+        // Original zeigen
+      }
+      for (const [k, v] of this.index) if (v.file === file) this.index.set(k, { ...v, screen });
+      done++;
+    }
+    if (byFile.size) await this.saveIndex();
+  }
+
   /** Nach vollständigem Laden: Verweise und Dateien, die nicht mehr im Katalog stehen, entfernen */
   async cleanup(catalog: PlayerCatalog): Promise<void> {
     const wanted = new Set(catalog.projects.flatMap((p) => p.media.map((m) => key(p.id, m.id))));
     for (const k of [...this.index.keys()]) if (!wanted.has(k)) this.index.delete(k);
-    const files = new Set([...this.index.values()].map((v) => v.file));
+    const files = new Set([...this.index.values()].flatMap((v) => (v.screen?.file ? [v.file, v.screen.file] : [v.file])));
     for (const name of await readdir(this.dir)) {
       if (name === 'index.json' || files.has(name)) continue;
       await rm(join(this.dir, name), { force: true });
@@ -157,8 +197,11 @@ export class MediaCache {
 
   /** Antwort für die Anzeige (mit Bereichen, damit Videos spulen können) */
   respond(projectId: string, mediaId: string, range: string | null): Response | undefined {
-    const entry = this.get(projectId, mediaId);
-    if (!entry) return undefined;
+    const original = this.get(projectId, mediaId);
+    if (!original) return undefined;
+    // Bildschirmfassung, falls vorhanden
+    const screen = original.screen;
+    const entry = screen?.file && screen.size ? { ...original, path: join(this.dir, screen.file), size: screen.size, mime: screen.mime ?? original.mime } : original;
     const headers: Record<string, string> = { 'Accept-Ranges': 'bytes', 'Content-Type': entry.mime || 'application/octet-stream' };
     const r = parseRange(range, entry.size);
     if (r === 'invalid') return new Response(null, { status: 416, headers: { ...headers, 'Content-Range': `bytes */${entry.size}` } });

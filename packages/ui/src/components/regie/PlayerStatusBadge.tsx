@@ -1,7 +1,7 @@
 // Führen, Kopfzeile: Stand jedes gekoppelten Players auf einen Blick – Punkt (grün gut, gelb schwankt, rot getrennt,
 // grau aus), Name und Laufzeit in ms; jede Sekunde neu. Klick öffnet die Einzelheiten (Einstellungen rechts).
 import { MonitorPlay } from 'lucide-react';
-import { playerLinkQuality, type PlayerLinkQuality, type PlayerStatus } from '@steckplan/core';
+import { playerLinkQuality, worstCheck, type PlayerLinkQuality, type PlayerStatus } from '@steckplan/core';
 import { usePlayersOverview } from '../../lib/players';
 import { texts } from '../../texts';
 import { QUALITY_DOT, QUALITY_TEXT } from './PlayersPanel';
@@ -24,6 +24,7 @@ function tooltip(p: PlayerStatus, quality: PlayerLinkQuality, note: string | und
   const detail = link ? t.linkDetail(link.avgMs, link.maxMs, link.lost) : '';
   if (detail) lines.push(`${detail} (${t.linkWindow})`);
   if (link && link.connections > 0 && link.silentMs >= 2000) lines.push(t.silent(Math.floor(link.silentMs / 1000)));
+  for (const c of p.report?.checks ?? []) if (c.state !== 'ok') lines.push(`⚠ ${c.text}`);
   return lines.join('\n');
 }
 
@@ -50,6 +51,11 @@ export function PlayerStatusBadge({ leadingHere, onOpen }: { leadingHere: boolea
           <span key={p.id} className="flex min-w-0 items-center gap-1.5" title={tooltip(p, quality, note)} data-testid="player-badge-item" data-quality={quality}>
             <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${QUALITY_DOT[quality]}`} aria-hidden />
             <span className="max-w-[9rem] truncate text-slate-200">{p.name}</span>
+            {p.online && p.report?.checks?.some((c) => c.state !== 'ok') && (
+              <span className={worstCheck(p.report.checks) === 'bad' ? 'text-red-300' : 'text-amber-300'} data-testid="player-badge-checks" aria-label={t.checksIssues(p.report.checks.filter((c) => c.state !== 'ok').length)}>
+                ⚠
+              </span>
+            )}
             {/* feste Breite, damit nichts springt */}
             <span className={`w-[4.5em] text-right tabular-nums ${QUALITY_TEXT[quality]}`} data-testid="player-badge-ms">
               {ms !== undefined ? t.ms(ms) : t.qualityShort[quality] || '–'}

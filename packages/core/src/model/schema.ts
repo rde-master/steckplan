@@ -776,6 +776,10 @@ export const ShowSettingsSchema = z.object({
   lyricsHighlight: z.boolean().optional(),
   /** Textfenster: Übersetzung unter jeder Zeile zeigen */
   lyricsTranslation: z.boolean().optional(),
+  /** Textfenster: false = ohne Schatten hinter dem Text (Standard: mit – besser lesbar auf hellen Bildern) */
+  lyricsShadow: z.boolean().optional(),
+  /** Player: was zu sehen ist, wenn niemand (mehr) führt – 'black' = schwarz (Standard: Hintergrundbild ohne Text) */
+  lyricsIdle: z.enum(['background', 'black']).optional(),
   /** Restzeit im Player: ab so vielen Sekunden vor Schluss allmählich rot (Standard 30), ab so vielen blinkend (Standard 5) */
   remainWarnSec: z.number().int().min(0).max(REMAIN_MAX_WARN).optional(),
   remainBlinkSec: z.number().int().min(0).max(REMAIN_MAX_BLINK).optional(),

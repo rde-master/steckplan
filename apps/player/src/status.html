@@ -42,11 +42,24 @@
       .net .dot { display: inline-block; width: 0.8vw; height: 0.8vw; border-radius: 50%; margin-right: 0.5vw; vertical-align: middle; }
       footer { position: fixed; bottom: 2vh; left: 0; right: 0; text-align: center; font-size: 1vw; color: var(--faint); }
       .update { position: fixed; bottom: 9.5vh; left: 0; right: 0; text-align: center; font-size: 1.25vw; color: var(--accent); }
+      /* Netzprüfung rechts; der Inhalt rückt dafür nach links */
+      body.with-checks main { padding-right: 38vw; }
+      .checks { position: fixed; top: 12vh; right: 3vw; width: 32vw; max-height: 76vh; overflow: hidden; text-align: left; background: #0b1220; border: 1px solid #1e293b; border-radius: 1vw; padding: 1.6vh 1.4vw; }
+      .checks h2 { margin: 0 0 1.2vh; font-size: 1.5vw; font-weight: 600; display: flex; align-items: center; gap: 0.8vw; }
+      .checks h2 small { font-size: 1.1vw; font-weight: 400; color: var(--muted); }
+      .checks li { display: flex; gap: 0.8vw; align-items: flex-start; font-size: 1.05vw; }
+      .checks ul { gap: 0.9vh; }
+      .checks li b { font-weight: 600; }
+      .checks li p { margin-top: 0.2vh; font-size: 0.82vw; color: var(--muted); line-height: 1.3; }
+      .checks .dot { flex: none; width: 0.9vw; height: 0.9vw; border-radius: 50%; margin-top: 0.35vw; }
+      .state-ok { background: var(--ok); } .state-warn { background: var(--warn); } .state-bad { background: var(--bad); }
+      .text-ok { color: var(--ok); } .text-warn { color: var(--warn); } .text-bad { color: var(--bad); }
     </style>
   </head>
   <body>
     <div class="brand" data-testid="player-logo"><img src="logo.png" alt="" />Steckplan Player</div>
     <main id="screen" data-testid="player-status"></main>
+    <aside class="checks" id="checks" data-testid="player-checks" hidden></aside>
     <div class="update" id="update" data-testid="player-update" hidden></div>
     <div class="net" id="network" data-testid="player-network"></div>
     <footer id="footer"></footer>
@@ -94,12 +107,12 @@
             el('p', { class: 'hint' }, `Name dieses Players: ${state.device}`),
           );
         } else if (state.screen === 'syncing') {
-          const share = state.bytesTotal > 0 ? state.bytesDone / state.bytesTotal : state.total > 0 ? state.done / state.total : 1;
+          const share = state.phase === 'images' ? (state.total > 0 ? state.done / state.total : 1) : state.bytesTotal > 0 ? state.bytesDone / state.bytesTotal : state.total > 0 ? state.done / state.total : 1;
           const bar = el('div', { class: 'bar' }, el('div', { style: `width:${Math.round(share * 100)}%` }));
           screen.append(
             el('div', { class: 'pulse' }),
-            el('h1', {}, state.phase === 'texts' ? 'Lade Texte …' : 'Lade Medien …'),
-            el('p', { class: 'sub', 'data-testid': 'sync-progress' }, state.phase === 'texts' ? serverLabel(state.server) : `${state.done} von ${state.total} Dateien · ${bytes(state.bytesDone)} von ${bytes(state.bytesTotal)}`),
+            el('h1', {}, state.phase === 'texts' ? 'Lade Texte …' : state.phase === 'images' ? 'Bereite Bilder vor …' : 'Lade Medien …'),
+            el('p', { class: 'sub', 'data-testid': 'sync-progress' }, state.phase === 'texts' ? serverLabel(state.server) : state.phase === 'images' ? `${state.done} von ${state.total} Bildern auf Bildschirmgröße` : `${state.done} von ${state.total} Dateien · ${bytes(state.bytesDone)} von ${bytes(state.bytesTotal)}`),
             bar,
             state.current ? el('p', { class: 'hint' }, state.current) : null,
           );
@@ -123,6 +136,23 @@
         network.append(el('span', { 'data-testid': 'network-state' }, dot, el('b', {}, 'Netzwerk verbunden')));
         if (n.wifi) network.append(el('span', { 'data-testid': 'network-wifi' }, 'WLAN: ', el('b', {}, n.wifi)));
         for (const a of n.addresses) network.append(el('span', { 'data-testid': 'network-address' }, `IP ${a.name}: `, el('b', {}, a.address)));
+      });
+
+      // Netzprüfung (WLAN, Signal, Band, Energiesparen, Akku, Laufzeit) mit Tipps
+      const checksBox = document.getElementById('checks');
+      window.steckplanPlayer.onChecks?.((checks) => {
+        checksBox.replaceChildren();
+        const list = Array.isArray(checks) ? checks : [];
+        checksBox.hidden = list.length === 0;
+        document.body.classList.toggle('with-checks', list.length > 0);
+        if (!list.length) return;
+        const warn = list.filter((c) => c.state !== 'ok').length;
+        const worst = list.some((c) => c.state === 'bad') ? 'bad' : warn ? 'warn' : 'ok';
+        checksBox.dataset.state = worst;
+        checksBox.append(
+          el('h2', {}, el('span', { class: `dot state-${worst}`, style: 'width:1.1vw;height:1.1vw;border-radius:50%;display:inline-block' }), 'Netzprüfung', el('small', { class: `text-${worst}`, 'data-testid': 'checks-summary' }, warn ? `${warn} ${warn === 1 ? 'Hinweis' : 'Hinweise'}` : 'alles in Ordnung')),
+          el('ul', {}, ...list.map((c) => el('li', { 'data-testid': 'player-check', 'data-id': c.id, 'data-state': c.state }, el('span', { class: `dot state-${c.state}` }), el('div', {}, el('b', {}, c.text), c.tip ? el('p', {}, c.tip) : null)))),
+        );
       });
 
       // Hinweis auf eine neuere Version des Players
