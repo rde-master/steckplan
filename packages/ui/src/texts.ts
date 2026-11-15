@@ -944,6 +944,7 @@ export const texts = {
       slideRemove: (n: number) => `Bild ${n} entfernen`,
       slideSec: 'Standzeit je Bild',
       fadeSec: 'Überblendung',
+      fadeSecHint: 'Gilt für jeden Bildwechsel im Textfenster und im Player: Diashow, Abschnittsbilder und den Wechsel zu diesem Hintergrund (anderer Eintrag, Pause, ohne Führen)',
       noImage: 'Kein Hintergrundbild.',
       dim: 'Abdunkeln',
       uploading: 'Lädt hoch …',

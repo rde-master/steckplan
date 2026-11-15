@@ -4,13 +4,21 @@
 // zum Ende. Abschnittsbilder gehen vor; beim Führen in der Helligkeit regelbar (0 = schwarz). Videos immer stumm.
 // Ein neues Abschnittsbild wird erst übergeblendet, wenn es geladen und decodiert ist – bis dahin bleibt stehen, was
 // zu sehen ist (kein kurzes Schwarz, kein Aufploppen).
-import { useCallback, useEffect, useRef, useState } from 'react';
+// Jeder Bildwechsel nutzt die eingestellte Überblendung (fadeSec des Hintergrunds): Diashow, Videos, Abschnittsbilder
+// und – über BackgroundCrossfade – der Wechsel zu einem anderen Hintergrund (Eintrag, Pause, ohne Führen).
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { FADE_SEC_DEFAULT, isVideoMedia, lyricsImages, SLIDE_SEC_DEFAULT, slideIndex, type LyricsBackground, type MediaRef } from '@steckplan/core';
 import { api } from '../../lib/api';
 import { preloadImage, useImageReady } from '../../lib/imagePreload';
 
-/** Überblendung zwischen Abschnittsbildern */
-const SECTION_FADE_MS = 700;
+/** Überblendung eines Hintergrunds in ms (Einstellung „Überblendung“, sonst Standard) */
+export function backgroundFadeMs(background: Pick<LyricsBackground, 'fadeSec'> | undefined): number {
+  return Math.round((background?.fadeSec ?? FADE_SEC_DEFAULT) * 1000);
+}
+
+/** false: dieser Hintergrund blendet gerade aus – seine Bilder sind nicht „das aktive Bild“ (Test-Kennungen) */
+const Current = createContext(true);
+const tag = (current: boolean, active: boolean) => (current && active ? 'lyrics-background' : undefined);
 
 interface Entry {
   id: string;
@@ -53,7 +61,8 @@ export function LyricsBackgroundView({
   const entries: Entry[] = lyricsImages(background).map((id) => ({ id, video: isVideoMedia(byId.get(id)) }));
   const loop = background?.loop !== false;
   const slideSec = background?.slideSec ?? SLIDE_SEC_DEFAULT;
-  const fadeMs = Math.round((background?.fadeSec ?? FADE_SEC_DEFAULT) * 1000);
+  const fadeMs = backgroundFadeMs(background);
+  const current = useContext(Current);
   const wallClock = !own && loop && !entries.some((e) => e.video);
   // das Abschnittsbild löst die Liste erst ab, wenn es bereitsteht
   const sectionReady = useImageReady(sectionImage ? api.mediaUrl(projectId, sectionImage) : undefined);
@@ -67,7 +76,7 @@ export function LyricsBackgroundView({
     <div
       className="absolute inset-0 transition-opacity ease-in-out motion-reduce:transition-none"
       style={{ opacity: level, transitionDuration: `${fadeSec}s` }}
-      data-testid="lyrics-background-layer"
+      data-testid={current ? 'lyrics-background-layer' : undefined}
       data-level={level}
     >
       {wallClock ? (
@@ -75,14 +84,15 @@ export function LyricsBackgroundView({
       ) : (
         <Playlist projectId={projectId} entries={entries} slideSec={slideSec} fadeMs={fadeMs} loop={loop} visible={showsList} />
       )}
-      <SectionImage projectId={projectId} id={showsList ? undefined : sectionImage} />
+      <SectionImage projectId={projectId} id={showsList ? undefined : sectionImage} fadeMs={fadeMs} />
       {(sectionImage || entries.length > 0) && <div className="absolute inset-0 bg-black" style={{ opacity: dim }} />}
     </div>
   );
 }
 
 /** Abschnittsbild: ein neues blendet über das vorige, sobald es geladen ist; ohne Bild blendet es aus */
-function SectionImage({ projectId, id }: { projectId: string; id: string | undefined }) {
+function SectionImage({ projectId, id, fadeMs }: { projectId: string; id: string | undefined; fadeMs: number }) {
+  const current = useContext(Current);
   const [layers, setLayers] = useState<{ id: string; shown: boolean }[]>([]);
   // neues Bild oben auflegen (noch unsichtbar) bzw. ohne Bild alle ausblenden
   const [placed, setPlaced] = useState<string | undefined>(undefined);
@@ -96,7 +106,7 @@ function SectionImage({ projectId, id }: { projectId: string; id: string | undef
   }
   useEffect(() => {
     if (!id) {
-      const timer = window.setTimeout(() => setLayers((current) => current.filter((l) => l.shown)), SECTION_FADE_MS);
+      const timer = window.setTimeout(() => setLayers((current) => current.filter((l) => l.shown)), fadeMs);
       return () => window.clearTimeout(timer);
     }
     let alive = true;
@@ -105,21 +115,21 @@ function SectionImage({ projectId, id }: { projectId: string; id: string | undef
       if (!alive) return;
       setLayers((current) => current.map((l) => (l.id === id ? { ...l, shown: true } : l)));
       // die darunter nach der Überblendung entfernen
-      timer = window.setTimeout(() => setLayers((current) => current.filter((l) => l.id === id)), SECTION_FADE_MS + 50);
+      timer = window.setTimeout(() => setLayers((current) => current.filter((l) => l.id === id)), fadeMs + 50);
     });
     return () => {
       alive = false;
       window.clearTimeout(timer);
     };
-  }, [projectId, id]);
+  }, [projectId, id, fadeMs]);
   return (
     <>
       {layers.map((l) => (
         <div
           key={l.id}
           className="absolute inset-0 bg-cover bg-center transition-opacity ease-in-out"
-          style={{ backgroundImage: `url("${api.mediaUrl(projectId, l.id)}")`, opacity: l.shown ? 1 : 0, transitionDuration: `${SECTION_FADE_MS}ms` }}
-          data-testid={l.id === id && l.shown ? 'lyrics-background' : undefined}
+          style={{ backgroundImage: `url("${api.mediaUrl(projectId, l.id)}")`, opacity: l.shown ? 1 : 0, transitionDuration: `${fadeMs}ms` }}
+          data-testid={tag(current, l.id === id && l.shown)}
           data-media={l.id}
           data-kind="image"
         />
@@ -129,11 +139,12 @@ function SectionImage({ projectId, id }: { projectId: string; id: string | undef
 }
 
 function ImageLayer({ projectId, id, active, fadeMs }: { projectId: string; id: string; active: boolean; fadeMs: number }) {
+  const current = useContext(Current);
   return (
     <div
       className="absolute inset-0 bg-cover bg-center transition-opacity ease-in-out"
       style={{ backgroundImage: `url("${api.mediaUrl(projectId, id)}")`, opacity: active ? 1 : 0, transitionDuration: `${fadeMs}ms` }}
-      data-testid={active ? 'lyrics-background' : undefined}
+      data-testid={tag(current, active)}
       data-media={id}
       data-kind="image"
     />
@@ -179,6 +190,7 @@ function Playlist({ projectId, entries, slideSec, fadeMs, loop, visible }: { pro
 
 function VideoLayer({ projectId, id, active, fadeMs, loop, onEnded }: { projectId: string; id: string; active: boolean; fadeMs: number; loop: boolean; onEnded?: () => void }) {
   const ref = useRef<HTMLVideoElement>(null);
+  const current = useContext(Current);
   // aktiv: von vorn abspielen; sonst anhalten
   useEffect(() => {
     const video = ref.current;
@@ -199,9 +211,85 @@ function VideoLayer({ projectId, id, active, fadeMs, loop, onEnded }: { projectI
       onEnded={onEnded}
       className="absolute inset-0 h-full w-full object-cover transition-opacity ease-in-out"
       style={{ opacity: active ? 1 : 0, transitionDuration: `${fadeMs}ms` }}
-      data-testid={active ? 'lyrics-background' : undefined}
+      data-testid={tag(current, active)}
       data-media={id}
       data-kind="video"
     />
+  );
+}
+
+/** Was als Hintergrund zu sehen ist; key wechselt mit dem Hintergrund (eigener des Eintrags bzw. Standard) */
+export interface BackgroundScene {
+  key: string;
+  background: LyricsBackground | undefined;
+  own: boolean;
+  sectionImage: string | undefined;
+}
+
+interface SceneLayer {
+  id: number;
+  scene: BackgroundScene;
+  shown: boolean;
+}
+
+/**
+ * Wechsel zwischen Hintergründen (anderer Eintrag, Pause, ohne Führen): der neue blendet in seiner eingestellten
+ * Überblendung über den alten, sobald sein erstes Bild bereitsteht – kein Schnitt nach Schwarz. Innerhalb eines
+ * Hintergrunds (Abschnittsbilder, Diashow) blendet LyricsBackgroundView selbst.
+ */
+export function BackgroundCrossfade({ projectId, media, scene, level, fadeSec }: { projectId: string; media: MediaRef[]; scene: BackgroundScene; level: number; fadeSec: number }) {
+  const [layers, setLayers] = useState<SceneLayer[]>(() => [{ id: 0, scene, shown: true }]);
+  // nur bei echter Änderung neu einordnen (scene ist je Darstellung ein neues Objekt)
+  const signature = `${scene.key}|${scene.own}|${scene.sectionImage ?? ''}|${JSON.stringify(scene.background ?? null)}`;
+  const [seen, setSeen] = useState(signature);
+  if (seen !== signature) {
+    setSeen(signature);
+    setLayers((current) => {
+      const top = current[current.length - 1]!;
+      // gleicher Hintergrund (z. B. neues Abschnittsbild): nur aktualisieren
+      if (top.scene.key === scene.key) return [...current.slice(0, -1), { ...top, scene }];
+      return [...current, { id: top.id + 1, scene, shown: false }];
+    });
+  }
+  const top = layers[layers.length - 1]!;
+  const fadeMs = backgroundFadeMs(top.scene.background);
+  const first = top.scene.sectionImage ?? lyricsImages(top.scene.background)[0];
+  const firstIsImage = !!first && !isVideoMedia(media.find((m) => m.id === first));
+  // einblenden, sobald das erste Bild bereitsteht (höchstens kurz warten)
+  useEffect(() => {
+    if (top.shown) return;
+    let alive = true;
+    const show = () => {
+      if (alive) setLayers((current) => current.map((l) => (l.id === top.id ? { ...l, shown: true } : l)));
+    };
+    const fallback = window.setTimeout(show, 1500);
+    if (first && firstIsImage) void preloadImage(api.mediaUrl(projectId, first)).then(() => window.setTimeout(show, 20));
+    else window.setTimeout(show, 20);
+    return () => {
+      alive = false;
+      window.clearTimeout(fallback);
+    };
+  }, [top.id, top.shown, first, firstIsImage, projectId]);
+  // die darunter nach der Überblendung entfernen
+  useEffect(() => {
+    if (!top.shown || layers.length < 2) return;
+    const timer = window.setTimeout(() => setLayers((current) => current.filter((l) => l.id >= top.id)), fadeMs + 100);
+    return () => window.clearTimeout(timer);
+  }, [top.id, top.shown, layers.length, fadeMs]);
+  return (
+    <>
+      {layers.map((l) => (
+        <div
+          key={l.id}
+          className="absolute inset-0 transition-opacity ease-in-out motion-reduce:transition-none"
+          style={{ opacity: l.shown ? 1 : 0, transitionDuration: `${fadeMs}ms` }}
+          data-background-key={l.scene.key}
+        >
+          <Current.Provider value={l.id === top.id}>
+            <LyricsBackgroundView projectId={projectId} media={media} background={l.scene.background} own={l.scene.own} sectionImage={l.scene.sectionImage} level={level} fadeSec={fadeSec} />
+          </Current.Provider>
+        </div>
+      ))}
+    </>
   );
 }
