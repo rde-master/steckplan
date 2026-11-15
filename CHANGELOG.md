@@ -7,6 +7,11 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+### Geändert
+
+- Textfenster und Player: Jeder Bildwechsel nutzt die eingestellte „Überblendung“ des Hintergrunds – auch Abschnittsbilder (bisher fest 0,7 s), der Wechsel zu einem Eintrag mit eigenem Hintergrund, Pause und „ohne Führen“ (bisher harter Schnitt nach Schwarz, dann 0,8 s Einblenden; jetzt blendet der neue Hintergrund über den alten), Schwarz ohne Führen und das erste Erscheinen im Player. Maßgeblich ist die Überblendung des Hintergrunds, zu dem gewechselt wird
+- Hintergrund-Einstellungen: „Überblendung“ ist jetzt auch bei nur einem Bild einstellbar
+
 ## [0.49.0] - 2026-11-15
 
 ### Hinzugefügt

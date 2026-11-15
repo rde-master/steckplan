@@ -132,8 +132,9 @@ export function BackgroundEditor({
               s
             </label>
           )}
-          {images.length > 1 && (
-            <label className="flex items-center gap-2">
+          {/* gilt für jeden Bildwechsel (Diashow, Abschnittsbilder, Wechsel zu diesem Hintergrund) – auch bei einem Bild */}
+          {images.length > 0 && (
+            <label className="flex items-center gap-2" title={t.fadeSecHint}>
               {t.fadeSec}
               <input
                 type="number"
