@@ -46,6 +46,21 @@ body {
   }
 }
 
+/* Textfenster/Player: weich einblenden (Wechsel Bereit → Text, neue Ansicht) */
+@keyframes steckplan-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+.steckplan-fade-in {
+  animation: steckplan-fade-in 0.8s ease-in-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .steckplan-fade-in {
+    animation: none;
+  }
+}
+
 /* Formatierter Text (Tonszenen): Überschriften, Listen und Absätze trotz Tailwind-Grundstil sichtbar */
 .rich-text h3 {
   margin: 0.6em 0 0.3em;

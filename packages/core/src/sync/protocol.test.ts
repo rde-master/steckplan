@@ -16,6 +16,13 @@ describe('Stelle: Helligkeit von Text und Hintergrund, Blendzeit', () => {
     expect(roundTrip({ itemId: 'a', textLevel: 'hell', fadeSec: null })).toEqual({ itemId: 'a' });
   });
 
+  it('Pause: Titel (gekürzt) und Restzeit (begrenzt) übernehmen, Unsinn weglassen', () => {
+    expect(roundTrip({ itemId: 'a', pause: { title: '  Pause  ', leftSec: 900 } })).toEqual({ itemId: 'a', pause: { title: 'Pause', leftSec: 900 } });
+    expect(roundTrip({ itemId: 'a', pause: { title: 'x'.repeat(200), leftSec: 999_999 } })?.pause).toEqual({ title: 'x'.repeat(80), leftSec: 4 * 3600 });
+    expect(roundTrip({ itemId: 'a', pause: { title: 5, leftSec: 'bald' } })).toEqual({ itemId: 'a', pause: {} });
+    expect(roundTrip({ itemId: 'a', pause: 'ja' })).toEqual({ itemId: 'a' });
+  });
+
   it('Helligkeiten lesen: fehlt = sichtbar, ältere Sender mit hideText/hideBackground', () => {
     expect(cueLevels(null)).toEqual({ text: 1, background: 1, fadeSec: LYRICS_FADE_SEC_DEFAULT });
     expect(cueLevels({ hideText: true })).toEqual({ text: 0, background: 1, fadeSec: LYRICS_FADE_SEC_DEFAULT });

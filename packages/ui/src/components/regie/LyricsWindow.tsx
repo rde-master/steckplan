@@ -77,9 +77,24 @@ interface CueTime {
  */
 export class CueClock extends EventTarget {
   private cue: CueTime | null = null;
+  /** Abweichung zur vorigen Stelle, die weich ausgeglichen wird (Sekunden) und seit wann */
+  private offset = 0;
+  private offsetAt = 0;
 
   set(cue: CueTime | null): void {
+    // läuft die Wiedergabe weiter und weicht die neue Stelle nur wenig ab (Laufzeit im WLAN schwankt), nicht springen:
+    // die Abweichung über SLEW_MS ausgleichen – die Zeit läuft dabei nie rückwärts, die Zeile flackert nicht zurück
+    const before = this.cue;
+    const shown = before?.playing ? this.currentTime : null;
     this.cue = cue;
+    this.offset = 0;
+    if (cue?.playing && before?.playing && before.rate === cue.rate && shown !== null) {
+      const offset = shown - this.currentTime;
+      if (Math.abs(offset) <= SLEW_MAX_SEC * cue.rate) {
+        this.offset = offset;
+        this.offsetAt = performance.now();
+      }
+    }
     this.dispatchEvent(new Event(this.paused ? 'pause' : 'play'));
     this.dispatchEvent(new Event('seeked'));
   }
@@ -91,9 +106,17 @@ export class CueClock extends EventTarget {
   get currentTime(): number {
     const c = this.cue;
     if (!c) return 0;
-    return c.playing ? c.at + (Math.max(0, performance.now() - c.receivedAt) / 1000) * c.rate : c.at;
+    if (!c.playing) return c.at;
+    const now = performance.now();
+    const time = c.at + (Math.max(0, now - c.receivedAt) / 1000) * c.rate;
+    if (this.offset === 0) return time;
+    return time + this.offset * Math.max(0, 1 - (now - this.offsetAt) / SLEW_MS);
   }
 }
+
+/** kleine Abweichungen (bis SLEW_MAX_SEC) gleicht die Uhr in SLEW_MS aus; größere sind ein Sprung (Spulen) */
+const SLEW_MS = 1000;
+const SLEW_MAX_SEC = 0.3;
 
 /** Uhr zur letzten Stelle (ohne Stelle bzw. ohne Abspielposition steht sie auf 0) */
 export function useCueSource(cue: Pick<ReceivedCue, 'at' | 'playing' | 'rate' | 'receivedAt'> | null): CueClock {

@@ -43,6 +43,11 @@ export interface SyncClientState {
   lead: LeadInfo | null;
   /** Empfangszeitpunkt der Stelle (performance.now) – Folgende rechnen die Abspielposition damit weiter */
   leadReceivedAt?: number;
+  /**
+   * Die Stelle stammt von vor einer Unterbrechung: reißt die Verbindung ab (z. B. WLAN), bleibt die letzte Stelle
+   * stehen (die Uhr läuft weiter), bis nach dem Neuverbinden der Server sagt, wie es steht
+   */
+  leadHeld?: boolean;
   /** Lichtpult: zuletzt gelaufene Cues (per OSC, neueste zuerst) */
   deskCues: DeskCue[];
   /** zuletzt gesendete OSC-Befehle der Regie */
@@ -73,6 +78,8 @@ export class SyncClient {
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private attempts = 0;
   private destroyed = false;
+  /** auf der aktuellen Verbindung schon eine Stelle bekommen? */
+  private leadSeen = false;
   private readonly baseDelay: number;
   private readonly maxDelay: number;
   private _state: SyncClientState = {
@@ -144,6 +151,7 @@ export class SyncClient {
 
     socket.onopen = () => {
       this.attempts = 0;
+      this.leadSeen = false;
       this.setState({ status: 'connected' });
       const encoder = encoding.createEncoder();
       encoding.writeVarUint(encoder, MESSAGE_SYNC);
@@ -179,7 +187,8 @@ export class SyncClient {
           this.setState({ status: 'kicked', users: [], lead: null, notice: event.reason || undefined });
           return;
       }
-      this.setState({ status: 'disconnected', users: [], lead: null });
+      // die letzte Stelle bleibt (gekennzeichnet) – sonst springt jedes Textfenster bei jedem Aussetzer auf „niemand führt“
+      this.setState({ status: 'disconnected', users: [], ...(this._state.lead ? { leadHeld: true } : {}) });
       const delay = Math.min(this.maxDelay, this.baseDelay * 2 ** this.attempts);
       this.attempts += 1;
       this.reconnectTimer = setTimeout(() => this.connect(), delay);
@@ -195,7 +204,8 @@ export class SyncClient {
       const syncType = syncProtocol.readSyncMessage(decoder, encoder, this.doc, this);
       if (encoding.length(encoder) > 1) this.socket?.send(encoding.toUint8Array(encoder));
       if (syncType === syncProtocol.messageYjsSyncStep2 && this._state.status !== 'synced') {
-        this.setState({ status: 'synced', everSynced: true });
+        // die Stelle schickt der Server vor dem Abgleich: kam keine, führt niemand mehr
+        this.setState({ status: 'synced', everSynced: true, ...(this.leadSeen ? {} : { lead: null, leadHeld: false }) });
       }
     } else if (type === MESSAGE_INFO) {
       this.handleInfo(decodeInfo(decoder));
@@ -220,7 +230,8 @@ export class SyncClient {
         this.setState({ notice: info.message });
         break;
       case 'lead':
-        this.setState({ lead: info.lead, leadReceivedAt: performance.now() });
+        this.leadSeen = true;
+        this.setState({ lead: info.lead, leadReceivedAt: performance.now(), leadHeld: false });
         break;
       case 'remote':
         this.onRemote?.(info.command);

@@ -19,6 +19,22 @@ test('Player: sucht die Steuersoftware, Code im Führen-Bildschirm zulassen, lä
   test.setTimeout(120_000);
   await page.setViewportSize({ width: 1440, height: 1000 });
   await loginAs(page, 'edit', 'Ralf');
+  // 4000 × 3000 Pixel, im Browser erzeugt
+  const foto = Buffer.from(
+    (await page.evaluate(() => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 4000;
+      canvas.height = 3000;
+      const ctx = canvas.getContext('2d')!;
+      const gradient = ctx.createLinearGradient(0, 0, 4000, 3000);
+      gradient.addColorStop(0, '#123456');
+      gradient.addColorStop(1, '#abcdef');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, 4000, 3000);
+      return canvas.toDataURL('image/jpeg', 0.8).split(',')[1]!;
+    })) as string,
+    'base64',
+  );
   const { id } = await (
     await page.request.post('/api/projects/upload', {
       data: {
@@ -28,14 +44,22 @@ test('Player: sucht die Steuersoftware, Code im Führen-Bildschirm zulassen, lä
         layers: [{ id: 'l1', name: 'Bühne', order: 0 }],
         show: {
           items: [{ id: 'song', order: 0, kind: 'song', title: 'Eröffnung', durationSec: 60 }],
-          sections: [{ id: 's1', itemId: 'song', order: 0, kind: 'verse', label: 'Strophe', lines: [{ id: 'l1', text: 'Willkommen im Saal', atSec: 0 }] }],
+          sections: [
+            { id: 's1', itemId: 'song', order: 0, kind: 'verse', label: 'Strophe', lines: [{ id: 'l1', text: 'Willkommen im Saal', atSec: 0 }] },
+            // großes Foto (wird beim Synchronisieren auf Bildschirmgröße verkleinert)
+            { id: 's2', itemId: 'song', order: 1, kind: 'chorus', label: 'Refrain', lines: [{ id: 'l2', text: 'Später', atSec: 50 }], backgroundMediaId: 'foto' },
+          ],
         },
         showSettings: { lyricsBackground: { mediaId: 'bild', dim: 0.3 } },
-        media: [{ id: 'bild', name: 'Buehne.png', mime: 'image/png', sizeBytes: png.length, sha256: '', addedAt: '', addedBy: '' }],
+        media: [
+          { id: 'bild', name: 'Buehne.png', mime: 'image/png', sizeBytes: png.length, sha256: '', addedAt: '', addedBy: '' },
+          { id: 'foto', name: 'Foto.jpg', mime: 'image/jpeg', sizeBytes: foto.length, sha256: '', addedAt: '', addedBy: '' },
+        ],
       },
     })
   ).json();
   await uploadMediaFile(page, id, 'bild', png);
+  await uploadMediaFile(page, id, 'foto', foto);
   const players = async () => (await (await page.request.get('/api/players')).json()) as PlayersOverview;
 
   // Hinweis auf eine neue Player-Version: statt GitHub antwortet ein eigener kleiner Server
@@ -56,6 +80,11 @@ test('Player: sucht die Steuersoftware, Code im Führen-Bildschirm zulassen, lä
     // Netzwerk des Rechners: verbunden und IP-Adresse(n)
     await expect(win.getByTestId('player-network').getByTestId('network-state')).toBeVisible();
     await expect(win.getByTestId('player-update')).toContainText('Steckplan Player 99.0.0 ist verfügbar');
+    // Netzprüfung vor dem ersten Verbinden: Anschluss und Laufzeit zur gefundenen Steuersoftware
+    const checks = win.getByTestId('player-checks');
+    await expect(checks.locator('[data-id=link]')).toHaveAttribute('data-state', 'ok');
+    await expect(checks.locator('[data-id=latency]')).toContainText(/Steuersoftware antwortet: Ø \d+ ms · max \d+ ms/, { timeout: 15_000 });
+    await expect(checks.getByTestId('checks-summary')).toBeVisible();
     await win.screenshot({ path: 'test-results/player-koppeln.png' });
 
     // Führen-Bildschirm: Anfrage mit demselben Code zulassen
@@ -79,6 +108,8 @@ test('Player: sucht die Steuersoftware, Code im Führen-Bildschirm zulassen, lä
     expect(me.report?.mediaTotal).toBeGreaterThanOrEqual(1);
     // gleiche Version wie die Steuersoftware: kein Hinweis „veraltet“
     await expect(row.getByTestId('player-outdated')).toHaveCount(0);
+    // Netzprüfung des Players auch im Führen-Bildschirm
+    await expect(row.getByTestId('player-checks')).toContainText('Netz in Ordnung');
 
     // geführt wird in diesem Projekt: Textfenster mit Bild aus dem Zwischenspeicher
     await expect(win.getByTestId('lyrics-active-line')).toContainText('Willkommen im Saal', { timeout: 15_000 });
@@ -92,16 +123,48 @@ test('Player: sucht die Steuersoftware, Code im Führen-Bildschirm zulassen, lä
       return { status: full.status, type: full.headers.get('content-type'), size: (await full.arrayBuffer()).byteLength, part: part.status, partSize: (await part.arrayBuffer()).byteLength };
     }, id);
     expect(fetched).toEqual({ status: 200, type: 'image/png', size: png.length, part: 206, partSize: 4 });
+    // großes Foto: in Bildschirmgröße (kleiner als das Original, füllt den Bildschirm)
+    const scaled = await win.evaluate(async (projectId) => {
+      const res = await fetch(`steckplan-media://media/${projectId}/foto`);
+      const bitmap = await createImageBitmap(await res.blob());
+      return { width: bitmap.width, height: bitmap.height, bytes: Number(res.headers.get('content-length')), screen: { width: screen.width * devicePixelRatio, height: screen.height * devicePixelRatio } };
+    }, id);
+    expect(scaled.width).toBeLessThan(4000);
+    expect(scaled.width / scaled.height).toBeCloseTo(4 / 3, 2);
+    expect(scaled.bytes).toBeLessThan(foto.length);
+    expect(Math.max(scaled.width / scaled.screen.width, scaled.height / scaled.screen.height)).toBeGreaterThanOrEqual(0.99);
+    // Stand jede Sekunde: Kopfzeile (Punkt, Name, Laufzeit) und Einstellungen (Laufzeit, Mittel, Höchstwert)
+    const badge = perf.getByTestId('player-badge-item').filter({ hasText: 'Beamer Saal' });
+    await expect(badge).toHaveAttribute('data-quality', 'good', { timeout: 10_000 });
+    await expect(badge.getByTestId('player-badge-ms')).toHaveText(/^\d+ ms$/);
+    const link = row.getByTestId('player-link');
+    await expect(link).toHaveAttribute('data-quality', 'good');
+    await expect(link.getByTestId('player-latency')).toHaveText(/^\d+ ms$/);
+    await expect(link).toContainText(/Ø \d+ ms · max \d+ ms/);
+    const overview = (await players()).players.find((p) => p.name === 'Beamer Saal')!;
+    expect(overview.link).toMatchObject({ leadRoom: true, lost: 0 });
+    expect(overview.link!.connections).toBeGreaterThanOrEqual(1);
+    await perf.locator('header').screenshot({ path: 'test-results/player-status-kopf.png' });
     await panel.screenshot({ path: 'test-results/player-fuehren.png' });
 
-    // niemand führt → „Bereit“
+    // niemand führt (mehr): das Publikum sieht nur das Bild, kein „Bereit“
     await perf.getByRole('radio', { name: 'Frei' }).click();
+    await expect(win.getByTestId('lyrics-page')).toHaveAttribute('data-view', 'idle', { timeout: 10_000 });
+    await expect(win.getByTestId('lyrics-background')).toHaveAttribute('data-media', 'bild');
+    await expect(win.getByTestId('lyrics-active-line')).toHaveCount(0);
+    await expect(win.getByTestId('player-ready')).toHaveCount(0);
+    await win.screenshot({ path: 'test-results/player-ohne-fuehren.png' });
+    // Strg+Umschalt+I zeigt die Angaben (Netz, Netzprüfung)
+    await win.keyboard.press('Control+Shift+I');
     await expect(win.getByTestId('player-ready')).toBeVisible({ timeout: 10_000 });
     await expect(win.getByTestId('player-ready')).toContainText('Bereit');
+    await expect(win.getByTestId('player-ready-checks')).toContainText('Netzprüfung');
     await expect(win.getByTestId('player-ready').getByTestId('player-logo')).toHaveJSProperty('naturalWidth', 256);
     await expect(win.getByTestId('player-ready').getByTestId('player-network')).toContainText(/Netzwerk verbunden|Kein Netzwerk/);
     await expect(win.getByTestId('player-ready').getByTestId('player-update')).toContainText('Steckplan Player 99.0.0 ist verfügbar');
     await win.screenshot({ path: 'test-results/player-bereit.png' });
+    await win.keyboard.press('Control+Shift+I');
+    await expect(win.getByTestId('player-ready')).toHaveCount(0, { timeout: 5000 });
 
     // neu synchronisieren aus dem Führen-Bildschirm
     await perf.getByRole('radio', { name: 'Führen' }).click();

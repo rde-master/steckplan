@@ -33,7 +33,18 @@ export interface Cue {
   backgroundLevel?: number;
   /** Führen: in dieser Zeit (Sekunden) blendet das Textfenster auf die Helligkeiten über (fehlt = Standard) */
   fadeSec?: number;
+  /** Führen: Pause – das Textfenster zeigt den Titel und zählt herunter (leftSec ab dem Senden; fehlt = ohne Zeit) */
+  pause?: CuePause;
 }
+
+export interface CuePause {
+  title?: string;
+  leftSec?: number;
+}
+
+export const PAUSE_TITLE_MAX = 80;
+/** längste Pause (Sekunden) */
+export const PAUSE_MAX_SEC = 4 * 3600;
 
 /** Ein-/Ausblendzeit der Knöpfe „Text“ und „Hintergrund“ (Sekunden) */
 export const LYRICS_FADE_SEC_DEFAULT = 0.7;
@@ -178,7 +189,15 @@ export function decodeCue(decoder: decoding.Decoder): Cue | null {
     ...(unit(v.textLevel) !== undefined ? { textLevel: unit(v.textLevel)! } : {}),
     ...(unit(v.backgroundLevel) !== undefined ? { backgroundLevel: unit(v.backgroundLevel)! } : {}),
     ...(typeof v.fadeSec === 'number' && Number.isFinite(v.fadeSec) && v.fadeSec >= 0 && v.fadeSec <= LYRICS_FADE_SEC_MAX ? { fadeSec: v.fadeSec } : {}),
+    ...(v.pause && typeof v.pause === 'object' ? { pause: decodePause(v.pause) } : {}),
   };
+}
+
+function decodePause(raw: object): CuePause {
+  const p = raw as { title?: unknown; leftSec?: unknown };
+  const title = typeof p.title === 'string' ? p.title.trim().slice(0, PAUSE_TITLE_MAX) : '';
+  const left = typeof p.leftSec === 'number' && Number.isFinite(p.leftSec) ? Math.min(PAUSE_MAX_SEC, Math.max(0, p.leftSec)) : undefined;
+  return { ...(title ? { title } : {}), ...(left !== undefined ? { leftSec: left } : {}) };
 }
 
 /** Helligkeit 0–1 (sonst undefined) */

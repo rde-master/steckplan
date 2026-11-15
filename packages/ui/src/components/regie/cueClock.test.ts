@@ -28,6 +28,32 @@ describe('Uhr einer empfangenen Stelle', () => {
     expect(clock.currentTime).toBe(12);
   });
 
+  it('schwankende Laufzeit (WLAN): kleine Abweichungen weich ausgleichen, nie rückwärts; Sprünge sofort', () => {
+    const now = vi.spyOn(performance, 'now');
+    const clock = new CueClock();
+    now.mockReturnValue(0);
+    clock.set({ at: 10, playing: true, rate: 1, receivedAt: 0 });
+    now.mockReturnValue(2000);
+    expect(clock.currentTime).toBeCloseTo(12);
+    // nächste Stelle kam 0,2 s verspätet an: sie sagt 11,8 – angezeigt bleibt 12, danach holt die Uhr auf
+    clock.set({ at: 11.8, playing: true, rate: 1, receivedAt: 2000 });
+    expect(clock.currentTime).toBeCloseTo(12);
+    let last = clock.currentTime;
+    for (let t = 2050; t <= 3200; t += 50) {
+      now.mockReturnValue(t);
+      expect(clock.currentTime).toBeGreaterThan(last);
+      last = clock.currentTime;
+    }
+    // nach dem Ausgleich: wie die Stelle sagt
+    expect(clock.currentTime).toBeCloseTo(11.8 + 1.2);
+    // zu weit weg (gespult): sofort
+    clock.set({ at: 40, playing: true, rate: 1, receivedAt: 3200 });
+    expect(clock.currentTime).toBeCloseTo(40);
+    // angehalten: genau die Stelle
+    clock.set({ at: 40.1, playing: false, rate: 1, receivedAt: 3200 });
+    expect(clock.currentTime).toBe(40.1);
+  });
+
   it('meldet jede neue Stelle (Start/Pause und Sprung), damit Anzeigen nachziehen', () => {
     const clock = new CueClock();
     const seen: string[] = [];

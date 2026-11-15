@@ -59,11 +59,40 @@ import { VERSION_INTERVAL_MS, type VersionInfo, type VersionStore } from '../sto
 import { ArtNetTimecode, type ArtNetConfig, type TimecodeSender } from './artnet';
 import { BpmSender, oscBpmConfig, type OscOut } from '../osc/bpm-out';
 import { OscCommandRunner, type OscCommandData } from '../osc/commands-out';
+import { LinkMonitor } from './link';
 
 export interface Connection {
   id: string;
   socket: WebSocket;
   session: Session;
+  /** Laufzeit der Verbindung (jede Sekunde gemessen) */
+  link?: LinkMonitor;
+}
+
+/** Reißt die Verbindung der führenden Person ab (z. B. WLAN), gilt ihre Stelle so lange weiter */
+export const LEAD_GRACE_MS = 15_000;
+/** WebSocket ohne Abschluss beendet (Netz weg, Gegenstelle antwortet nicht) */
+const ABNORMAL_CLOSE = 1006;
+/** Verzögerungen darunter gleicht der Server nicht aus */
+const MIN_LAG_SEC = 0.005;
+
+/** Abspielposition um sec Sekunden weiterrechnen (nur wenn sie läuft); die Restzeit einer Pause läuft immer */
+export function advanceLead(lead: LeadInfo, sec: number): LeadInfo {
+  if (!(sec > 0)) return lead;
+  const passed = sec * (lead.rate ?? 1);
+  return {
+    ...lead,
+    ...(lead.playing && lead.at !== undefined ? { at: lead.at + passed } : {}),
+    ...(lead.tc?.playing ? { tc: { at: lead.tc.at + passed, playing: true } } : {}),
+    // Pause: die Restzeit läuft in Echtzeit
+    ...(lead.pause?.leftSec !== undefined ? { pause: { ...lead.pause, leftSec: Math.max(0, lead.pause.leftSec - sec) } } : {}),
+  };
+}
+
+/** geschätzte Verzögerung einer Verbindung in eine Richtung (Sekunden); kleine Werte zählen nicht */
+function lagOf(connection: Connection): number {
+  const sec = connection.link?.oneWaySec() ?? 0;
+  return sec >= MIN_LAG_SEC ? sec : 0;
 }
 
 export interface RoomLogger {
@@ -91,6 +120,10 @@ export interface RoomDeps {
   oscOut?: OscOut;
   /** Lichtpult: zuletzt gelaufene Cues (beim Verbinden mitgeschickt) */
   deskCues?: () => DeskCue[];
+  /** Laufzeitmessung je Verbindung (ms zwischen den Pings; 0 = aus) */
+  linkIntervalMs?: number;
+  /** Schonfrist, wenn die Verbindung der führenden Person abreißt (ms) */
+  leadGraceMs?: number;
 }
 
 /** Herkunft für Änderungen, die der Server selbst schreibt (z. B. Wiederherstellen). */
@@ -445,7 +478,7 @@ export class Room {
   // ---------- Verbindungen ----------
 
   addConnection(socket: WebSocket, session: Session): Connection {
-    const connection: Connection = { id: randomBytes(6).toString('hex'), socket, session };
+    const connection: Connection = { id: randomBytes(6).toString('hex'), socket, session, link: new LinkMonitor(socket, this.deps.linkIntervalMs) };
     this.connections.add(connection);
 
     this.sendWelcome(connection);
@@ -473,7 +506,7 @@ export class Room {
         reconcilePending: this.reconcilePending,
       }),
     );
-    if (this.lead) this.send(connection, encodeInfo({ type: 'lead', lead: this.currentLead(this.lead) }));
+    if (this.lead) this.sendLead(connection, this.lead);
     const cues = this.deps.deskCues?.() ?? [];
     if (cues.length) this.send(connection, encodeInfo({ type: 'deskCues', cues }));
     if (this.oscRunner.entries.length) this.send(connection, encodeInfo({ type: 'oscLog', entries: this.oscRunner.entries }));
@@ -484,10 +517,37 @@ export class Room {
     this.broadcast(encodeInfo({ type: 'deskCues', cues }));
   }
 
-  removeConnection(connection: Connection): void {
+  /** code: wie die Verbindung endete (1006 = abgerissen, ohne Abschluss) */
+  removeConnection(connection: Connection, code?: number): void {
+    connection.link?.stop();
     if (this.connections.delete(connection)) this.broadcastPresence();
-    // geht die führende Person, endet das Führen
-    if (this.lead?.connectionId === connection.id) this.setLead(null);
+    if (this.lead?.connectionId !== connection.id) return;
+    // geht die führende Person, endet das Führen – reißt nur ihre Verbindung ab (WLAN), läuft die Stelle weiter,
+    // bis sie sich neu verbindet und weiterführt (oder die Schonfrist um ist); die Textfenster bleiben stehen
+    const grace = this.deps.leadGraceMs ?? LEAD_GRACE_MS;
+    if (code !== ABNORMAL_CLOSE || grace <= 0 || this.closed) {
+      this.setLead(null);
+      return;
+    }
+    this.clearLeadGrace();
+    const orphan = this.lead;
+    this.leadGraceTimer = setTimeout(() => {
+      this.leadGraceTimer = null;
+      if (this.lead === orphan) this.setLead(null);
+    }, grace);
+    this.leadGraceTimer.unref?.();
+  }
+
+  private leadGraceTimer: ReturnType<typeof setTimeout> | null = null;
+
+  private clearLeadGrace(): void {
+    if (this.leadGraceTimer) clearTimeout(this.leadGraceTimer);
+    this.leadGraceTimer = null;
+  }
+
+  /** Laufzeit der Verbindungen einer Sitzung (Player-Stand im Führen-Bildschirm) */
+  links(sessionId: string): LinkMonitor[] {
+    return [...this.connections].flatMap((c) => (c.session.id === sessionId && c.link ? [c.link] : []));
   }
 
   // ---------- Vorstellung: führen / folgen (nur im Speicher) ----------
@@ -521,10 +581,12 @@ export class Room {
   }
 
   private setLead(lead: LeadInfo | null): void {
+    this.clearLeadGrace();
     if (lead && !this.lead) this.leadSince = Date.now();
     this.lead = lead;
     this.leadAt = Date.now();
-    this.broadcast(encodeInfo({ type: 'lead', lead }));
+    if (lead) for (const connection of this.connections) this.sendLead(connection, lead);
+    else this.broadcast(encodeInfo({ type: 'lead', lead }));
     this.timecode.update(lead, this.leadAt, this.artnetConfig());
     this.sendBpm();
     this.oscRunner.update(lead, this.leadAt, this.oscData());
@@ -532,12 +594,15 @@ export class Room {
 
   /** Für Nachzügler: läuft die Wiedergabe, die Abspielposition bis jetzt weiterrechnen */
   private currentLead(lead: LeadInfo): LeadInfo {
-    const passed = ((Date.now() - this.leadAt) / 1000) * (lead.rate ?? 1);
-    return {
-      ...lead,
-      ...(lead.playing && lead.at !== undefined ? { at: lead.at + passed } : {}),
-      ...(lead.tc?.playing ? { tc: { at: lead.tc.at + passed, playing: true } } : {}),
-    };
+    return advanceLead(lead, (Date.now() - this.leadAt) / 1000);
+  }
+
+  /**
+   * Stelle an eine Verbindung: läuft die Wiedergabe, die Position so weit voraus, wie die Nachricht unterwegs ist
+   * (halbe gemessene Laufzeit) – im WLAN sonst hinterher
+   */
+  private sendLead(connection: Connection, lead: LeadInfo): void {
+    this.send(connection, encodeInfo({ type: 'lead', lead: advanceLead(this.currentLead(lead), lagOf(connection)) }));
   }
 
   private handleCue(connection: Connection, decoder: decoding.Decoder): void {
@@ -553,7 +618,8 @@ export class Room {
       if (this.lead?.connectionId === connection.id) this.setLead(null);
       return;
     }
-    this.setLead({ ...cue, connectionId: connection.id, name: connection.session.name });
+    // die Stelle war von der führenden Person bis hierher unterwegs
+    this.setLead(advanceLead({ ...cue, connectionId: connection.id, name: connection.session.name }, lagOf(connection)));
   }
 
   updateSession(session: Session): void {
@@ -740,6 +806,8 @@ export class Room {
   }
 
   async close(code: number, reason: string): Promise<void> {
+    this.clearLeadGrace();
+    for (const connection of this.connections) connection.link?.stop();
     this.activity.stop();
     this.timecode.stop();
     this.oscRunner.stop();

@@ -73,6 +73,10 @@ export interface ServerOptions {
   changeLogWindowMs?: number;
   /** Abstand der Lebenszeichen (Ping) auf WebSocket-Verbindungen; 0 = aus. Standard 25 s */
   keepAliveMs?: number;
+  /** Laufzeitmessung je Live-Verbindung (ms zwischen den Pings; 0 = aus). Standard 1 s */
+  linkIntervalMs?: number;
+  /** Schonfrist, wenn die Verbindung der führenden Person abreißt (ms; 0 = sofort Führen beenden). Standard 15 s */
+  leadGraceMs?: number;
   /** Steckplan Player: gekoppelte Geräte (ohne: keine Player) */
   players?: PlayerStore;
   /** Suche für Player (UDP): HTTP-Port, den Player erreichen (null = gerade nicht antworten); ohne: keine Suche */
@@ -132,6 +136,8 @@ export async function createServer(options: ServerOptions): Promise<SteckplanSer
     versionIntervalMs: options.versionIntervalMs,
     stampDelayMs: options.stampDelayMs,
     changeLogWindowMs: options.changeLogWindowMs,
+    linkIntervalMs: options.linkIntervalMs,
+    leadGraceMs: options.leadGraceMs,
     artnet: options.artnet ?? udpSender((message) => app.log.warn(`Art-Net: ${message}`)),
     oscOut: options.oscOut ?? udpOscOut((message) => app.log.warn(`OSC (Tempo): ${message}`)),
     // nach dem Schließen: nicht mehr verwendete Medien in den Papierkorb, alte Papierkorb-Einträge löschen
@@ -265,6 +271,7 @@ export async function createServer(options: ServerOptions): Promise<SteckplanSer
       },
       leadingProjectId: () => rooms.leadingProjectId(),
       discoverable: () => discovery?.active ?? false,
+      link: (playerId) => rooms.link(playerSessionId(playerId)),
       disconnect: (playerId) => {
         rooms.disconnectSession(playerSessionId(playerId), 'Der Player wurde entfernt.');
         events.disconnectSession(playerSessionId(playerId));

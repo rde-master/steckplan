@@ -1,13 +1,28 @@
-// Führen: Stand der Steckplan Player (bereit / synchronisiert / nicht verbunden, Medien), neue Kopplungen zulassen
-// (Code am Player-Bildschirm), neu synchronisieren (einzeln oder alle) und Player entfernen.
+// Führen: Stand der Steckplan Player (bereit / synchronisiert / nicht verbunden, Medien, Laufzeit der Verbindung –
+// jede Sekunde geprüft), neue Kopplungen zulassen (Code am Player-Bildschirm), neu synchronisieren (einzeln oder alle)
+// und Player entfernen.
 import { Check, MonitorPlay, RefreshCw, Trash2, X } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import { formatBytes, isNewerVersion, VERSION, type PlayersOverview, type PlayerStatus } from '@steckplan/core';
+import { useState } from 'react';
+import { formatBytes, isNewerVersion, playerLinkQuality, VERSION, worstCheck, type NetCheck, type PlayerLinkQuality, type PlayerStatus } from '@steckplan/core';
 import { api, errorMessage } from '../../lib/api';
+import { usePlayersOverview } from '../../lib/players';
 import { texts } from '../../texts';
 
 const t = texts.players;
-const POLL_MS = 2000;
+
+/** Farbe des Punkts je Verbindung */
+export const QUALITY_DOT: Record<PlayerLinkQuality, string> = {
+  good: 'bg-emerald-500',
+  weak: 'bg-amber-400',
+  bad: 'bg-red-500 animate-pulse',
+  offline: 'bg-slate-500',
+};
+export const QUALITY_TEXT: Record<PlayerLinkQuality, string> = {
+  good: 'text-emerald-300',
+  weak: 'text-amber-300',
+  bad: 'text-red-300',
+  offline: 'text-slate-400',
+};
 
 function clock(iso: string | undefined): string {
   if (!iso) return '';
@@ -19,28 +34,67 @@ function stateOf(p: PlayerStatus): { label: string; dot: string } {
   if (!p.online) return { label: t.offline, dot: 'bg-slate-500' };
   if (p.resyncPending) return { label: t.resyncPending, dot: 'bg-amber-400 animate-pulse' };
   const phase = p.report?.phase ?? 'syncing';
-  return { label: t.phases[phase] ?? phase, dot: phase === 'ready' ? 'bg-emerald-500' : phase === 'error' ? 'bg-red-500' : 'bg-amber-400 animate-pulse' };
+  if (phase === 'ready') {
+    // bereit: der Punkt zeigt die Verbindung des Textfensters
+    const quality = playerLinkQuality(p);
+    return { label: t.phases.ready!, dot: QUALITY_DOT[quality] };
+  }
+  return { label: t.phases[phase] ?? phase, dot: phase === 'error' ? 'bg-red-500' : 'bg-amber-400 animate-pulse' };
+}
+
+/** Laufzeit und Verluste der Verbindung (eine Zeile) */
+function LinkLine({ player }: { player: PlayerStatus }) {
+  const link = player.link;
+  if (!link || (!player.online && link.connections === 0)) return null;
+  const quality = playerLinkQuality(player);
+  const detail = t.linkDetail(link.avgMs, link.maxMs, link.lost);
+  return (
+    <p className="mt-0.5 flex flex-wrap items-baseline gap-x-2 pl-4 text-xs" data-testid="player-link" data-quality={quality}>
+      <span className={QUALITY_TEXT[quality]}>{t.quality[quality]}</span>
+      {link.rttMs !== undefined && link.connections > 0 && (
+        <span className="font-semibold text-slate-200 tabular-nums" title={t.latency} data-testid="player-latency">
+          {t.ms(link.rttMs)}
+        </span>
+      )}
+      {link.connections > 0 && link.silentMs >= 2000 && <span className="text-red-300">{t.silent(Math.floor(link.silentMs / 1000))}</span>}
+      {detail && (
+        <span className="text-slate-500 tabular-nums" title={t.linkWindow}>
+          {detail}
+        </span>
+      )}
+    </p>
+  );
+}
+
+/** Netzprüfung des Player-Rechners: alles in einer Zeile, Hinweise und Probleme einzeln (Tipp beim Draufzeigen) */
+function ChecksLines({ checks }: { checks: NetCheck[] | undefined }) {
+  if (!checks?.length) return null;
+  const worst = worstCheck(checks);
+  const color = { ok: 'text-emerald-300', warn: 'text-amber-300', bad: 'text-red-300' } as const;
+  const issues = checks.filter((c) => c.state !== 'ok');
+  return (
+    <div className="mt-0.5 pl-4 text-xs" data-testid="player-checks" data-state={worst}>
+      <p className="text-slate-500">
+        <span className={color[worst]}>{issues.length ? t.checksIssues(issues.length) : t.checksOk}</span>
+        {' · '}
+        {checks
+          .filter((c) => c.state === 'ok')
+          .map((c) => c.text)
+          .join(' · ')}
+      </p>
+      {issues.map((c) => (
+        <p key={c.id} className={`${color[c.state]} cursor-help`} title={c.tip} data-testid="player-check" data-state={c.state}>
+          {c.text}
+          {c.tip && <span className="ml-1 text-slate-500">ⓘ</span>}
+        </p>
+      ))}
+    </div>
+  );
 }
 
 export function PlayersPanel({ className = '' }: { className?: string }) {
-  const [overview, setOverview] = useState<PlayersOverview | null>(null);
+  const { overview, refresh } = usePlayersOverview();
   const [error, setError] = useState('');
-  const [tick, setTick] = useState(0);
-
-  useEffect(() => {
-    let alive = true;
-    const load = () =>
-      void api
-        .players()
-        .then((o) => alive && setOverview(o))
-        .catch(() => undefined);
-    load();
-    const timer = window.setInterval(load, POLL_MS);
-    return () => {
-      alive = false;
-      window.clearInterval(timer);
-    };
-  }, [tick]);
 
   const run = async (action: () => Promise<unknown>) => {
     setError('');
@@ -49,7 +103,7 @@ export function PlayersPanel({ className = '' }: { className?: string }) {
     } catch (e) {
       setError(errorMessage(e));
     }
-    setTick((n) => n + 1);
+    refresh();
   };
 
   if (!overview) return null;
@@ -137,6 +191,8 @@ export function PlayersPanel({ className = '' }: { className?: string }) {
                     </span>
                   )}
                 </p>
+                <LinkLine player={p} />
+                {p.online && <ChecksLines checks={r?.checks} />}
                 {p.online && r?.error && <p className="pl-4 text-xs text-red-400">{r.error}</p>}
               </li>
             );

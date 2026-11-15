@@ -4,6 +4,7 @@
 import type { Project } from '../model/schema';
 import { lyricsImages } from '../show/show';
 import type { ServerMode } from '../app';
+import { parseNetChecks, type NetCheck } from './netcheck';
 
 /** UDP-Port der Suche (Player ruft, Steuersoftware antwortet) */
 export const DISCOVERY_PORT = 41234;
@@ -48,7 +49,7 @@ export const PLAYER_COOKIE = 'steckplan_player';
 /** Ohne Lebenszeichen so lange gilt ein Player als nicht verbunden */
 export const PLAYER_OFFLINE_MS = 10_000;
 /** Abstand der Lebenszeichen */
-export const PLAYER_HEARTBEAT_MS = 3_000;
+export const PLAYER_HEARTBEAT_MS = 1_000;
 
 export type PlayerPhase = 'syncing' | 'ready' | 'error';
 
@@ -65,6 +66,8 @@ export interface PlayerReport {
   /** zuletzt vollständig synchronisiert */
   syncedAt?: string;
   error?: string;
+  /** Netzprüfung des Player-Rechners (WLAN, Signal, Band, Energiesparen, Laufzeit) */
+  checks?: NetCheck[];
 }
 
 export function parsePlayerReport(raw: unknown): PlayerReport | null {
@@ -75,6 +78,7 @@ export function parsePlayerReport(raw: unknown): PlayerReport | null {
   const text = (x: unknown, max: number) => (typeof x === 'string' && x ? x.slice(0, max) : undefined);
   const syncedAt = text(v.syncedAt, 40);
   const error = text(v.error, 300);
+  const checks = parseNetChecks(v.checks);
   return {
     phase: v.phase,
     version: text(v.version, 32) ?? '',
@@ -85,7 +89,44 @@ export function parsePlayerReport(raw: unknown): PlayerReport | null {
     bytesTotal: count(v.bytesTotal),
     ...(syncedAt ? { syncedAt } : {}),
     ...(error ? { error } : {}),
+    ...(checks?.length ? { checks } : {}),
   };
+}
+
+/** Live-Verbindung des Textfensters eines Players (vom Server jede Sekunde per Ping gemessen) */
+export interface PlayerLink {
+  /** offene Live-Verbindungen (je Projekt mit Regie eine) */
+  connections: number;
+  /** mit dem Projekt verbunden, in dem gerade geführt wird */
+  leadRoom: boolean;
+  /** Laufzeit hin und zurück: zuletzt, Mittel und Höchstwert der letzten halben Minute (ms) */
+  rttMs?: number;
+  avgMs?: number;
+  maxMs?: number;
+  /** Pings ohne Antwort in der letzten halben Minute */
+  lost: number;
+  /** Messungen in diesem Zeitraum */
+  samples: number;
+  /** seit der letzten Antwort (ms) */
+  silentMs: number;
+}
+
+export type PlayerLinkQuality = 'good' | 'weak' | 'bad' | 'offline';
+
+/** ab so viel Laufzeit (ms) bzw. ohne Antwort so lange gilt die Verbindung als gestört / unterbrochen */
+export const PLAYER_LINK_WEAK_MS = 150;
+export const PLAYER_LINK_SILENT_WEAK_MS = 2_500;
+export const PLAYER_LINK_SILENT_BAD_MS = 5_000;
+
+/** Wie gut erreicht der Player gerade die Steuersoftware? */
+export function playerLinkQuality(p: Pick<PlayerStatus, 'online' | 'link'>): PlayerLinkQuality {
+  const link = p.link;
+  if (!p.online && (!link || link.connections === 0)) return 'offline';
+  // ältere Steuersoftware ohne Messung: nur das Lebenszeichen
+  if (!link) return p.online ? 'good' : 'offline';
+  if (link.connections === 0 || link.silentMs >= PLAYER_LINK_SILENT_BAD_MS) return 'bad';
+  if (link.silentMs >= PLAYER_LINK_SILENT_WEAK_MS || link.lost > 0 || (link.rttMs ?? 0) >= PLAYER_LINK_WEAK_MS || (link.maxMs ?? 0) >= 2 * PLAYER_LINK_WEAK_MS) return 'weak';
+  return 'good';
 }
 
 /** Ein gekoppelter Player im Führen-Bildschirm */
@@ -99,6 +140,8 @@ export interface PlayerStatus {
   report?: PlayerReport;
   /** neue Synchronisierung angefordert, noch nicht abgeholt */
   resyncPending: boolean;
+  /** Live-Verbindung des Textfensters (fehlt bei älterer Steuersoftware) */
+  link?: PlayerLink;
 }
 
 /** Player, der sich koppeln möchte (Code am Player-Bildschirm) */

@@ -101,6 +101,65 @@ describe('Player: Zwischenspeicher', () => {
   });
 });
 
+describe('Player: Bilder in Bildschirmgröße', () => {
+  it('verkleinert Bilder einmal je Bildschirm, liefert die kleine Fassung aus, behält sie beim Neuplanen, räumt sie mit auf', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'player-screen-'));
+    const cache = new MediaCache(dir);
+    await cache.load();
+    const catalog: PlayerCatalog = {
+      projects: [
+        {
+          id: 'p',
+          name: 'A',
+          items: 1,
+          lines: 1,
+          media: [
+            { id: 'foto', name: 'Foto.jpg', mime: 'image/jpeg', sizeBytes: 6, sha256: sha('f') },
+            { id: 'klein', name: 'Klein.png', mime: 'image/png', sizeBytes: 5, sha256: sha('k') },
+            { id: 'film', name: 'Film.mp4', mime: 'video/mp4', sizeBytes: 4, sha256: sha('v') },
+            { id: 'gif', name: 'Tanz.gif', mime: 'image/gif', sizeBytes: 3, sha256: sha('g') },
+          ],
+        },
+      ],
+    };
+    const bodies: Record<string, string> = { foto: 'GROSS!', klein: 'klein', film: 'film', gif: 'gif' };
+    for (const item of (await cache.plan(catalog)).todo) await cache.download(item, async () => new Response(bodies[item.media.id]), () => undefined);
+
+    const asked: string[] = [];
+    // nur das Foto ist zu groß; das kleine PNG passt schon
+    const resize = async (data: Buffer, mime: string) => {
+      asked.push(`${data.toString()}:${mime}`);
+      return data.toString() === 'GROSS!' ? new TextEncoder().encode('ok') : null;
+    };
+    const progress: string[] = [];
+    await cache.prepareScreens('1920x1080', resize, (file, done, total) => progress.push(`${done}/${total}`));
+    expect(asked.sort()).toEqual(['GROSS!:image/jpeg', 'klein:image/png']);
+    expect(progress).toEqual(['0/2', '1/2']);
+    const small = cache.respond('p', 'foto', null)!;
+    expect(small.headers.get('content-type')).toBe('image/jpeg');
+    expect(small.headers.get('content-length')).toBe('2');
+    expect(await small.text()).toBe('ok');
+    expect(await cache.respond('p', 'klein', null)!.text()).toBe('klein');
+
+    // gleicher Bildschirm: nichts mehr zu tun – auch nach neuem Planen
+    expect((await cache.plan(catalog)).todo).toEqual([]);
+    asked.length = 0;
+    await cache.prepareScreens('1920x1080', resize);
+    expect(asked).toEqual([]);
+    // anderer Bildschirm: neu
+    await cache.prepareScreens('3840x2160', resize);
+    expect(asked).toHaveLength(2);
+    // aufräumen: aktuelle Fassung bleibt, die alte (1920x1080) geht
+    await cache.cleanup(catalog);
+    expect(await readFile(join(dir, `${sha('f')}.3840x2160.jpg`), 'utf8')).toBe('ok');
+    await expect(readFile(join(dir, `${sha('f')}.1920x1080.jpg`))).rejects.toThrow();
+    // nach dem Neustart (Index aus der Datei) weiterhin die kleine Fassung
+    const again = new MediaCache(dir);
+    await again.load();
+    expect(await again.respond('p', 'foto', null)!.text()).toBe('ok');
+  });
+});
+
 describe('Player: Netzwerk', () => {
   it('IP-Adressen ohne „dieser Rechner“ und 169.254; WLAN-Name aus den Bordmitteln', async () => {
     const { localAddresses, parseMacWifi, parseMacWifiDevice, parseNetsh, parseNmcli } = await import('./network');
@@ -118,5 +177,30 @@ describe('Player: Netzwerk', () => {
     expect(parseMacWifi('  SSID : <redacted>\n')).toBeUndefined();
     expect(parseMacWifiDevice('Hardware Port: Ethernet\nDevice: en1\n\nHardware Port: Wi-Fi\nDevice: en0\n')).toBe('en0');
     expect(parseNmcli('no:Nachbar\nyes:Technik\\:Netz\n')).toBe('Technik:Netz');
+  });
+
+  it('WLAN-Signal, Band, Anschluss, Energiesparen und Kabel aus den Bordmitteln', async () => {
+    const { hasWiredAddress, parseMacProfiler, parseNetshDetails, parseNmcliDetails, parsePowercfg } = await import('./network');
+    // Windows deutsch (ohne „Band“-Zeile: aus dem Kanal) und englisch (Windows 11 mit „Band“)
+    const de = '    Name                   : WLAN\r\n    SSID                   : Bühne\r\n    BSSID                  : aa:bb\r\n    Funktyp                : 802.11n\r\n    Kanal                  : 6\r\n    Signal                 : 54%\r\n';
+    expect(parseNetshDetails(de)).toEqual({ ssid: 'Bühne', iface: 'WLAN', signal: 54, bandGHz: 2.4 });
+    const en = '    Name                   : Wi-Fi\r\n    SSID                   : Technik\r\n    Band                   : 5 GHz\r\n    Channel                : 36\r\n    Signal                 : 91%\r\n';
+    expect(parseNetshDetails(en)).toEqual({ ssid: 'Technik', iface: 'Wi-Fi', signal: 91, bandGHz: 5 });
+    expect(parseNetshDetails('    Name : WLAN\r\n    Status : Getrennt\r\n')).toEqual({});
+    // Linux
+    expect(parseNmcliDetails('no:Nachbar:40:2412 MHz:wlan0\nyes:Technik\\:5:77:5180 MHz:wlan0\n')).toEqual({ ssid: 'Technik:5', iface: 'wlan0', signal: 77, bandGHz: 5 });
+    // macOS
+    const mac = 'Wi-Fi:\n  Interfaces:\n    en0:\n      Current Network Information:\n        Saal:\n          PHY Mode: 802.11ac\n          Channel: 149 (5GHz, 80MHz)\n          Signal / Noise: -61 dBm / -94 dBm\n      Other Local Wi-Fi Networks:\n        Nachbar:\n          Channel: 1 (2GHz, 20MHz)\n          Signal / Noise: -80 dBm / -94 dBm\n';
+    expect(parseMacProfiler(mac)).toEqual({ signal: 78, bandGHz: 5 });
+    expect(parseMacProfiler('Wi-Fi:\n  Status: Off\n')).toEqual({});
+    // Windows powercfg (deutsch): Netzbetrieb Höchstleistung, Akku mittel
+    const power = 'GUID des Energieschemas: 381b4222-…  (Ausbalanciert)\r\n  GUID der Untergruppe: 19cbb8fa-…  (Drahtlosadaptereinstellungen)\r\n    GUID der Energieeinstellung: 12bbebe6-…  (Energiesparmodus)\r\n      Index der möglichen Einstellung: 000\r\n      Angezeigter Name der möglichen Einstellung: Höchstleistung\r\n    Index der aktuellen Wechselstromeinstellung: 0x00000000\r\n    Index der aktuellen Gleichstromeinstellung: 0x00000002\r\n';
+    expect(parsePowercfg(power)).toEqual({ ac: 0, dc: 2 });
+    expect(parsePowercfg('Ungültige Parameter')).toEqual({});
+    // Kabel: Ethernet mit Adresse, nicht das WLAN und nicht virtuell
+    expect(hasWiredAddress([{ name: 'WLAN', address: '1' }, { name: 'vEthernet (WSL)', address: '2' }], 'WLAN')).toBe(false);
+    expect(hasWiredAddress([{ name: 'Ethernet 2', address: '1' }], 'WLAN')).toBe(true);
+    expect(hasWiredAddress([{ name: 'en0', address: '1' }], 'en0')).toBe(false);
+    expect(hasWiredAddress([{ name: 'enp3s0', address: '1' }, { name: 'wlp2s0', address: '2' }], 'wlp2s0')).toBe(true);
   });
 });

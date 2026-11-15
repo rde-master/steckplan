@@ -1,10 +1,11 @@
 // Verwaltung aller geöffneten Projekte (Räume) und Annahme von WebSocket-Verbindungen.
 import type { FastifyRequest } from 'fastify';
 import type { WebSocket } from 'ws';
-import { CloseCode, type DeskCue, type RemoteCommand } from '@steckplan/core';
+import { CloseCode, type DeskCue, type PlayerLink, type RemoteCommand } from '@steckplan/core';
 import type { Session, SessionStore } from '../auth/sessions';
 import { ProjectNotFoundError, type ProjectStore } from '../storage/types';
 import type { VersionStore } from '../storage/version-store';
+import type { LinkMonitor } from './link';
 import { Room, type RoomDeps, type RoomLogger } from './room';
 
 export interface RoomManagerOptions extends Omit<RoomDeps, 'log'> {
@@ -126,6 +127,29 @@ export class RoomManager {
     return best?.id ?? null;
   }
 
+  /**
+   * Live-Verbindungen einer Sitzung (Player) über alle Projekte: gezeigt wird die Messung der Verbindung zum
+   * geführten Projekt (sonst die zuletzt beantwortete); connections 0 = keine offen.
+   */
+  link(sessionId: string): PlayerLink {
+    const leadId = this.leadingProjectId();
+    let connections = 0;
+    let leadRoom = false;
+    let shown: ReturnType<LinkMonitor['stats']> | null = null;
+    for (const [id, room] of this.rooms) {
+      for (const link of room.links(sessionId)) {
+        connections++;
+        const stats = link.stats();
+        const isLead = id === leadId;
+        if (isLead && !leadRoom) {
+          leadRoom = true;
+          shown = stats;
+        } else if (!leadRoom && (!shown || stats.silentMs < shown.silentMs)) shown = stats;
+      }
+    }
+    return { connections, leadRoom, ...(shown ?? { lost: 0, samples: 0, silentMs: 0 }) };
+  }
+
   /** Lichtpult-Cues an alle geöffneten Projekte */
   deskCues(cues: DeskCue[]): void {
     for (const room of this.rooms.values()) room.deskCues(cues);
@@ -180,8 +204,8 @@ export class RoomManager {
         const connection = room.addConnection(socket, session);
         onMessage = (data) => room.handleMessage(connection, data);
         for (const data of queue.splice(0)) room.handleMessage(connection, data);
-        socket.once('close', () => {
-          room.removeConnection(connection);
+        socket.once('close', (code: number) => {
+          room.removeConnection(connection, code);
           this.scheduleIdle(id, room);
         });
       },
