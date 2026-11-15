@@ -7,6 +7,22 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+### Hinzugefügt
+
+- Führen: Stand jedes Players in der Kopfzeile – Punkt (grün gut, gelb schwankt, rot unterbrochen, grau aus), Name und Laufzeit in ms, jede Sekunde geprüft. Die Steuersoftware misst dafür jede Sekunde die Live-Verbindung des Textfensters (Ping); in den Einstellungen rechts dazu Mittel, Höchstwert und Pings ohne Antwort der letzten halben Minute. Ein Hinweis erscheint auch, wenn das Textfenster eines Players nicht mit dem geführten Projekt verbunden ist
+
+### Geändert
+
+- Textfenster und Player bei schlechtem WLAN: Reißt die Verbindung kurz ab, bleibt das Textfenster stehen und läuft mit der Musik weiter, statt auf „Bereit“ zu springen und danach alles neu aufzubauen; nach dem Neuverbinden gilt wieder der Stand der Steuersoftware. Reißt die Verbindung der führenden Person ab, gilt ihre Stelle noch 15 s weiter; nach dem Neuverbinden führt sie von selbst weiter
+- Player: Bleiben die Lebenszeichen aus, bleibt das Textfenster sichtbar; der Player sucht im Hintergrund, ob die Steuersoftware unter einer anderen Adresse antwortet, und lädt nur dann neu (bisher nach 12 s Statusseite, neu synchronisieren und Oberfläche neu laden). Lebenszeichen jede Sekunde statt alle 3 s
+- Textfenster: Die Zeit läuft gleichmäßig – schwankt die Laufzeit der Stellen im WLAN, wird die Abweichung weich ausgeglichen, statt zu springen (die Zeile flackerte an Zeilenwechseln kurz zurück). Die Verzögerung der Verbindung (halbe gemessene Laufzeit) gleicht die Steuersoftware aus
+- Textfenster: Hintergrundbilder werden vorab geladen und decodiert (aktuelles und nächste Abschnittsbilder, der Hintergrund, der Anfang des nächsten Eintrags); ein neues Abschnittsbild blendet erst über, wenn es bereitsteht – kein kurzes Schwarz und kein Aufploppen mehr
+
+### Behoben
+
+- Player: Anzeige abgestürzt, hängend oder Seite nicht geladen → wird nach kurzer Pause neu geladen; ein verdeckendes Fenster (Meldung) bremst das Textfenster nicht mehr aus; der Rechner geht während des Players nicht in den Ruhezustand
+- Player: Bei genau einer gefundenen Steuersoftware blieb die Suche selten für immer bei „Suche Steuersoftware …“ stehen
+
 ## [0.48.1] - 2026-11-14
 
 ### Behoben

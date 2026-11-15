@@ -20,9 +20,9 @@ afterEach(async () => {
 
 const media = (id: string, mime: string) => ({ id, name: `${id}.bin`, mime, sizeBytes: 10, sha256: `sha-${id}`, addedAt: '', addedBy: '' });
 
-async function setup(udpPort?: number) {
+async function setup(udpPort?: number, overrides: Parameters<typeof startTestServer>[0] = {}) {
   const players = new PlayerStore();
-  server = await startTestServer({ players, ...(udpPort ? { discovery: { port: () => 4321, udpPort } } : {}) });
+  server = await startTestServer({ players, ...(udpPort ? { discovery: { port: () => 4321, udpPort } } : {}), ...overrides });
   if (!isManagedStore(server.store)) throw new Error();
   const project = createEmptyProject({ name: 'Konzert' });
   project.show = {
@@ -121,6 +121,38 @@ describe('Steckplan Player', () => {
     expect((await s.app.inject({ method: 'DELETE', url: `/api/players/${player.id}`, headers: { cookie: regie } })).statusCode).toBe(200);
     expect((await s.app.inject({ method: 'GET', url: '/api/auth/session', headers: { cookie } })).statusCode).toBe(401);
     expect((await overview()).players).toEqual([]);
+  });
+
+  it('Laufzeit: der Server misst die Live-Verbindung des Textfensters (Ping) und zeigt sie im Führen-Bildschirm', async () => {
+    const { server: s, id } = await setup(undefined, { linkIntervalMs: 40 });
+    const cookie = await pair(s);
+    const regie = await login(s, 'direction');
+    const overview = async () => ((await s.app.inject({ method: 'GET', url: '/api/players', headers: { cookie: regie } })).json() as PlayersOverview).players[0]!;
+    // ohne Projekte gemeldet und ohne Verbindung: keine Messung
+    expect((await overview()).link).toBeUndefined();
+
+    const window = connect(s, id, cookie);
+    clients.push(window);
+    await window.whenSynced();
+    await waitFor(async () => ((await overview()).link?.samples ?? 0) >= 3);
+    const link = (await overview()).link!;
+    expect(link).toMatchObject({ connections: 1, leadRoom: false, lost: 0 });
+    expect(link.rttMs).toBeGreaterThanOrEqual(0);
+    expect(link.rttMs).toBeLessThan(500);
+    expect(link.maxMs).toBeGreaterThanOrEqual(link.avgMs!);
+    expect(link.silentMs).toBeLessThan(1000);
+
+    // jemand führt in diesem Projekt → verbunden mit dem geführten Projekt
+    const lead = connect(s, id, regie);
+    clients.push(lead);
+    await lead.whenSynced();
+    lead.sendCue({ itemId: 'song' });
+    await waitFor(async () => (await overview()).link?.leadRoom === true);
+
+    // Textfenster zu → keine Verbindung (der Player meldet aber Projekte: Messung bleibt sichtbar)
+    await s.app.inject({ method: 'POST', url: '/api/player/heartbeat', headers: { cookie }, payload: { phase: 'ready', version: VERSION, projects: 1, mediaDone: 0, mediaTotal: 0, bytesDone: 0, bytesTotal: 0 } });
+    window.destroy();
+    await waitFor(async () => (await overview()).link?.connections === 0);
   });
 
   it('Desktop: Katalog nennt die Kennung der geöffneten Datei, unter der die Medien abrufbar sind', async () => {

@@ -92,6 +92,18 @@ test('Player: sucht die Steuersoftware, Code im Führen-Bildschirm zulassen, lä
       return { status: full.status, type: full.headers.get('content-type'), size: (await full.arrayBuffer()).byteLength, part: part.status, partSize: (await part.arrayBuffer()).byteLength };
     }, id);
     expect(fetched).toEqual({ status: 200, type: 'image/png', size: png.length, part: 206, partSize: 4 });
+    // Stand jede Sekunde: Kopfzeile (Punkt, Name, Laufzeit) und Einstellungen (Laufzeit, Mittel, Höchstwert)
+    const badge = perf.getByTestId('player-badge-item').filter({ hasText: 'Beamer Saal' });
+    await expect(badge).toHaveAttribute('data-quality', 'good', { timeout: 10_000 });
+    await expect(badge.getByTestId('player-badge-ms')).toHaveText(/^\d+ ms$/);
+    const link = row.getByTestId('player-link');
+    await expect(link).toHaveAttribute('data-quality', 'good');
+    await expect(link.getByTestId('player-latency')).toHaveText(/^\d+ ms$/);
+    await expect(link).toContainText(/Ø \d+ ms · max \d+ ms/);
+    const overview = (await players()).players.find((p) => p.name === 'Beamer Saal')!;
+    expect(overview.link).toMatchObject({ leadRoom: true, lost: 0 });
+    expect(overview.link!.connections).toBeGreaterThanOrEqual(1);
+    await perf.locator('header').screenshot({ path: 'test-results/player-status-kopf.png' });
     await panel.screenshot({ path: 'test-results/player-fuehren.png' });
 
     // niemand führt → „Bereit“

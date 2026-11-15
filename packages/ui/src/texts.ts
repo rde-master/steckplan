@@ -2002,5 +2002,17 @@ export const texts = {
     lastSeen: (time: string) => `zuletzt ${time}`,
     outdated: 'veraltet',
     outdatedHint: (version: string) => `Dieser Player ist älter als die Steuersoftware (${version}) – bitte den Steckplan Player dort aktualisieren.`,
+    /** Verbindung des Textfensters (jede Sekunde gemessen) */
+    quality: { good: 'Verbindung gut', weak: 'Verbindung schwankt', bad: 'Verbindung unterbrochen', offline: 'nicht verbunden' } as Record<string, string>,
+    qualityShort: { good: '', weak: 'schwankt', bad: 'getrennt', offline: 'aus' } as Record<string, string>,
+    ms: (ms: number) => `${ms} ms`,
+    latency: 'Laufzeit (hin und zurück)',
+    linkDetail: (avg: number | undefined, max: number | undefined, lost: number) =>
+      [avg !== undefined ? `Ø ${avg} ms` : '', max !== undefined ? `max ${max} ms` : '', lost ? `${lost} ohne Antwort` : ''].filter(Boolean).join(' · '),
+    linkWindow: 'letzte 30 s',
+    silent: (sec: number) => `seit ${sec} s keine Antwort`,
+    notInLeadProject: 'Textfenster nicht mit diesem Projekt verbunden',
+    stale: 'Stand nicht abrufbar – ist diese Seite noch mit der Steuersoftware verbunden?',
+    badgeTitle: 'Player: Verbindung des Textfensters (jede Sekunde geprüft) – Klick öffnet die Einzelheiten',
   },
 } as const;

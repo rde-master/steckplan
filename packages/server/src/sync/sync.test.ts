@@ -149,6 +149,62 @@ describe('Live-Sync', () => {
     await waitFor(() => reader.state.lead === null);
   });
 
+  it('Vorstellung: reißt eine Verbindung ab (WLAN), bleibt die Stelle – bei der führenden Person bis zur Schonfrist, bei Folgenden bis zum Neuverbinden', async () => {
+    server = await startTestServer({ leadGraceMs: 400 });
+    if (!isManagedStore(server.store)) throw new Error();
+    const id = await server.store.create(createEmptyProject({ name: 'Live' }));
+    const s = server;
+    const regie = track(connect(s, id, await login(s, 'direction', 'Regina')));
+    const reader = track(connect(s, id, await login(s, 'read', 'Leo')));
+    await Promise.all([regie.whenSynced(), reader.whenSynced()]);
+    const cut = () => {
+      // Verbindung ohne Abschluss beenden (wie ein abgerissenes WLAN)
+      for (const c of s.rooms.peek(id)!.connections) if (c.id === regie.state.connectionId) c.socket.terminate();
+    };
+
+    regie.sendCue({ itemId: 'song', at: 10, playing: true });
+    await waitFor(() => reader.state.lead?.at !== undefined);
+    const first = reader.state.lead!.connectionId;
+    cut();
+    // der Client verbindet sich von selbst neu und bekommt die noch gültige Stelle
+    await waitFor(() => regie.state.status === 'synced' && regie.state.connectionId !== first);
+    expect(reader.state.lead).toMatchObject({ itemId: 'song', connectionId: first });
+    // weiterführen über die neue Verbindung
+    regie.sendCue({ itemId: 'song', at: 20, playing: true });
+    await waitFor(() => reader.state.lead?.connectionId === regie.state.connectionId);
+    await new Promise((r) => setTimeout(r, 500));
+    expect(reader.state.lead).not.toBeNull();
+
+    // reißt die Verbindung eines Folgenden ab (Textfenster im WLAN), behält er die Stelle, bis er wieder verbunden ist
+    const cutReader = () => {
+      for (const c of s.rooms.peek(id)!.connections) if (c.id === reader.state.connectionId) c.socket.terminate();
+    };
+    const before = reader.state.connectionId;
+    const seen: { status: string; lead: boolean; held?: boolean }[] = [];
+    const watch = setInterval(() => seen.push({ status: reader.state.status, lead: reader.state.lead !== null, held: reader.state.leadHeld }), 2);
+    cutReader();
+    await waitFor(() => reader.state.status === 'synced' && reader.state.connectionId !== before);
+    clearInterval(watch);
+    expect(seen.some((x) => x.status !== 'synced')).toBe(true);
+    expect(seen.every((x) => x.lead)).toBe(true);
+    expect(seen.some((x) => x.held)).toBe(true);
+    expect(reader.state).toMatchObject({ leadHeld: false, lead: { itemId: 'song' } });
+    // endet das Führen während der Unterbrechung, gilt nach dem Neuverbinden „niemand führt“
+    const again = reader.state.connectionId;
+    cutReader();
+    regie.sendCue(null);
+    await waitFor(() => reader.state.status === 'synced' && reader.state.connectionId !== again);
+    expect(reader.state.lead).toBeNull();
+    regie.sendCue({ itemId: 'song', at: 30, playing: true });
+    await waitFor(() => reader.state.lead?.connectionId === regie.state.connectionId);
+
+    // abgerissen und nicht weitergeführt → nach der Schonfrist niemand
+    cut();
+    await new Promise((r) => setTimeout(r, 150));
+    expect(reader.state.lead).not.toBeNull();
+    await waitFor(() => reader.state.lead === null, 2000);
+  });
+
   it('Art-Net: Timecode aus der führenden Stelle, 25 Pakete/s beim Abspielen, einmal beim Anhalten, aus ohne Einstellung', async () => {
     const sent: { host: string; frames: number; sec: number; min: number; hour: number }[] = [];
     server = await startTestServer({ artnet: { send: (p, host) => void sent.push({ host, frames: p[14]!, sec: p[15]!, min: p[16]!, hour: p[17]! }), close: () => undefined } });
