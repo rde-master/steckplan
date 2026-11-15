@@ -7,6 +7,8 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.49.0] - 2026-11-15
+
 ### Hinzugefügt
 
 - Player: Netzprüfung vor dem ersten Verbinden (Statusseite) und auf „Bereit“ – Netzwerkkabel oder WLAN, WLAN-Signal (ab 70 % gut, unter 50 % Problem), Frequenzband (2,4 GHz: Hinweis), Energiesparen des WLAN-Adapters (Windows), Akkubetrieb und Laufzeit zur Steuersoftware (10 Anfragen; Mittel, Höchstwert, ohne Antwort), je mit Tipp, was zu tun ist. Das Ergebnis steht auch im Führen-Bildschirm beim Player (⚠ in der Kopfzeile)
