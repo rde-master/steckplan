@@ -2,7 +2,7 @@
 // Folgt der Person, die in der Vorstellung führt; im selben Browser auch der eigenen Vorstellung.
 import { useEffect, useMemo, useState } from 'react';
 import { cueLevels, currentLineId, type CuePause, effectiveBackground, itemTimedLines, itemSections, lyricsRange, sectionBackground } from '@steckplan/core';
-import { LyricsBackgroundView } from '../components/regie/LyricsBackgroundView';
+import { BackgroundCrossfade, backgroundFadeMs } from '../components/regie/LyricsBackgroundView';
 import { LyricsDisplay, useCueSource, useLocalCue, type ReceivedCue } from '../components/regie/LyricsWindow';
 import { api } from '../lib/api';
 import { backgroundPreloadIds } from '../lib/backgroundPreload';
@@ -106,7 +106,8 @@ export function LyricsPage({ id, player }: { id: string; player?: PlayerEmbeddin
   const textLevel = message ? 1 : fade.text;
   // Player ohne Führen: Bild ohne Text bzw. schwarz (Einstellung)
   const backgroundLevel = idle ? (data.showSettings.lyricsIdle === 'black' ? 0 : 1) : fade.background;
-  const backgroundFade = idle ? IDLE_FADE_SEC : fade.fadeSec;
+  // ohne Führen auf Schwarz: in der Überblendung des Hintergrunds (wie jeder Bildwechsel)
+  const backgroundFade = idle ? backgroundFadeMs(background) / 1000 : fade.fadeSec;
   const shadow = data.showSettings.lyricsShadow !== false;
 
   // im Player: unsichtbare Fenster halten nur die Verbindung (Texte aktuell), zeigen aber nichts
@@ -114,15 +115,15 @@ export function LyricsPage({ id, player }: { id: string; player?: PlayerEmbeddin
   return (
     <div
       className={`dark fixed inset-0 overflow-hidden bg-slate-950 text-slate-100 select-none ${player ? 'steckplan-fade-in cursor-none bg-black' : 'cursor-pointer'}`}
+      // im Player erscheint das Bild in der eingestellten Überblendung
+      style={player ? { animationDuration: `${backgroundFadeMs(background)}ms` } : undefined}
       onClick={player ? undefined : toggleFullscreen}
       title={player ? undefined : t.fullscreenHint}
       data-testid="lyrics-page"
       data-view={shown}
     >
-      {/* eigener Hintergrund des Eintrags beginnt mit dem Eintrag neu (und blendet ein) */}
-      <div key={own ? `item-${item?.id}` : 'standard'} className="steckplan-fade-in absolute inset-0">
-        <LyricsBackgroundView projectId={id} media={data.media} background={background} own={own} sectionImage={sectionImage} level={backgroundLevel} fadeSec={backgroundFade} />
-      </div>
+      {/* eigener Hintergrund des Eintrags beginnt mit dem Eintrag neu; der Wechsel blendet in der eingestellten Überblendung */}
+      <BackgroundCrossfade projectId={id} media={data.media} scene={{ key: own ? `item-${item?.id}` : 'standard', background, own, sectionImage }} level={backgroundLevel} fadeSec={backgroundFade} />
       <div
         className="relative h-full transition-opacity ease-in-out motion-reduce:transition-none"
         style={{ opacity: textLevel, transitionDuration: `${fade.fadeSec}s`, ...(shadow ? { textShadow: TEXT_SHADOW } : {}) }}
@@ -164,7 +165,10 @@ export function LyricsPage({ id, player }: { id: string; player?: PlayerEmbeddin
                 highlight={data.showSettings.lyricsHighlight !== false}
                 translation={data.showSettings.lyricsTranslation === true}
                 title={showTitle ? title : ''}
-                lines={lines} currentLineId={current} roleNames={roleNames} roleColors={roleColors} {...lyricsRange(data.showSettings)} />
+                lines={lines} currentLineId={current} roleNames={roleNames} roleColors={roleColors} {...lyricsRange(data.showSettings)}
+                // zu lange aktuelle Zeile läuft in ihrer Zeit durch
+                source={hasTime ? clock : null}
+                {...(durationSec !== undefined ? { endSec: durationSec } : {})} />
             </div>
           )}
         </div>
@@ -174,8 +178,6 @@ export function LyricsPage({ id, player }: { id: string; player?: PlayerEmbeddin
   );
 }
 
-/** Ohne Führen (Player): so weich blendet das Bild ein bzw. auf Schwarz (Sekunden) */
-const IDLE_FADE_SEC = 1.5;
 /** Schatten hinter dem Text: lesbar auch auf hellen Bildern (wächst mit der Schrift) */
 const TEXT_SHADOW = '0 0.04em 0.12em rgb(0 0 0 / 0.85), 0 0 0.5em rgb(0 0 0 / 0.55)';
 

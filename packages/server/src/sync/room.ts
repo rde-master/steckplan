@@ -48,6 +48,9 @@ import {
   itemTempo,
   readLightEvents,
   readOscCommands,
+  readShow,
+  itemNumbers,
+  itemTimedLines,
   type OscLogEntry,
 } from '@steckplan/core';
 import type { Session } from '../auth/sessions';
@@ -204,13 +207,18 @@ export class Room {
   /** Daten für die OSC-Befehle der Regie (aus dem Dokument) */
   private oscData(): OscCommandData {
     const settings = this.doc.getMap('showSettings').get('oscOut') as { host?: string; port?: number } | undefined;
-    const items = this.doc.getMap<Y.Map<unknown>>('showItems');
     const scenes = this.doc.getMap<Y.Map<unknown>>('lightScenes');
+    const show = readShow(this.doc);
+    const numbers = itemNumbers(show.items);
     return {
       commands: readOscCommands(this.doc),
       events: readLightEvents(this.doc),
       target: settings?.host ? { host: settings.host, port: settings.port ?? 8000 } : undefined,
-      itemTitle: (id) => String(items.get(id)?.get('title') || '–'),
+      items: show.items.map((i) => ({ id: i.id, title: i.title || '–', ...(numbers.get(i.id) !== undefined ? { nr: numbers.get(i.id) } : {}), ...(i.durationSec !== undefined ? { durationSec: i.durationSec } : {}) })),
+      lines: (itemId) => {
+        const item = show.items.find((i) => i.id === itemId);
+        return item ? itemTimedLines(show.sections, item) : [];
+      },
       sceneName: (id) => String(scenes.get(id)?.get('name') || '–'),
     };
   }

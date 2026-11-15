@@ -44,11 +44,34 @@ test('Texte: Zeichen je Zeile, Hinweis bei zu langen Zeilen – stimmt mit dem A
 
   // im Textfenster (16:9) wird genau diese Zeile abgeschnitten, die kurze nicht
   const show = await openPerformance(page);
-  await show.getByTestId('performance').getByRole('radio', { name: 'Führen' }).click();
+  const perf = show.getByTestId('performance');
+  await perf.getByRole('radio', { name: 'Führen' }).click();
   const lyrics = await page.context().newPage();
   await lyrics.setViewportSize({ width: 1920, height: 1080 });
   await lyrics.goto(`/projekt/${id}/text`);
   const cut = (text: string) => lyrics.locator('span.truncate', { hasText: text }).first().evaluate((el) => el.scrollWidth > el.clientWidth);
-  await expect.poll(() => cut('Kurze Zeile')).toBe(false);
+  // aktuelle kurze Zeile passt (läuft nicht), die lange (noch nicht dran) ist mit „…“ abgeschnitten
+  await expect(lyrics.locator('[data-scroll-line]', { hasText: 'Kurze Zeile' })).toHaveAttribute('data-scroll', '');
   await expect.poll(() => cut('Diese Zeile')).toBe(true);
+
+  // ist die lange Zeile dran (ab 4 s, letzte Zeile mit Zeit → bis zum Ende bei 30 s), läuft sie je nach Zeit durch:
+  // 1 s steht der Anfang, dann läuft sie gleichmäßig, die letzte Sekunde steht das Ende
+  const long = lyrics.locator('[data-scroll-line]', { hasText: 'Diese Zeile' });
+  const progress = async () => Number(await long.getAttribute('data-scroll'));
+  const shift = () => long.locator('span').first().evaluate((el) => new DOMMatrixReadOnly(getComputedStyle(el).transform).m41);
+  await perf.getByLabel('Position').fill('4.2');
+  await expect.poll(progress).toBe(0);
+  await expect.poll(shift).toBe(0);
+  await perf.getByLabel('Position').fill('17');
+  await expect.poll(progress).toBeCloseTo(0.5, 1);
+  await expect.poll(shift).toBeLessThan(-20);
+  await lyrics.screenshot({ path: 'test-results/zeile-scrollt.png' });
+  await perf.getByLabel('Position').fill('29.5');
+  await expect.poll(progress).toBe(1);
+  // am Ende: das Ende der Zeile steht rechts im Fenster
+  const endVisible = await long.evaluate((el) => {
+    const inner = el.firstElementChild!.getBoundingClientRect();
+    return Math.abs(inner.right - el.getBoundingClientRect().right) < 2;
+  });
+  expect(endVisible).toBe(true);
 });

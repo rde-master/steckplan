@@ -7,6 +7,24 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [0.50.0] - 2026-11-15
+
+### Hinzugefügt
+
+- OSC über Lieder hinweg (Reiter OSC):
+  - „Jeder Eintrag“: Befehle beim Start bzw. Ende jedes Eintrags, z. B. die Liednummer an einen Videoserver (`/song {nr} "{titel}"`)
+  - „Bereiche“: von Lied A bis Lied C, Start-Befehle beim Betreten, Ende-Befehle beim Verlassen bzw. am Ende des letzten Eintrags – auch wenn mitten im Bereich angefangen oder gesprungen wird
+  - neuer Auslöser „Beim Ende des Eintrags“: wenn die Dauer erreicht ist bzw. beim Wechsel (einmal)
+- OSC im Stück: Befehle zu einem Zeitpunkt, beim Beginn einer Textzeile oder eines Abschnitts (beim Abspielen); OSC-Zeitpunkte erscheinen als blaue Marke im Zeitstrahl der Lichtszenen und lassen sich dort verschieben
+- OSC-Verlauf: ein Befehl kann einen Wert über eine Zeit verlaufen lassen (z. B. Dimmer 0 → 100 in 5 s, 25 Werte je Sekunde; ganze Zahlen oder Kommazahlen, von selbst oder eingestellt), Platzhalter `{wert}`
+- OSC-Platzhalter in den Argumenten: `{nr}` (Nummer des Eintrags), `{titel}`, `{wert}`
+- Textfenster und Player: Passt die aktuelle Zeile nicht in die Breite, läuft ihr Text während ihrer Zeit (bis zur nächsten Zeile bzw. bis zum Ende des Stücks) von links nach rechts durch, statt mit „…“ abgeschnitten zu bleiben – am Anfang und Ende steht er kurz (je bis 1 s), weiche Ränder zeigen, dass es weitergeht. Gilt auch für die Übersetzung; die übrigen Zeilen bleiben mit „…“ gekürzt
+
+### Geändert
+
+- Textfenster und Player: Jeder Bildwechsel nutzt die eingestellte „Überblendung“ des Hintergrunds – auch Abschnittsbilder (bisher fest 0,7 s), der Wechsel zu einem Eintrag mit eigenem Hintergrund, Pause und „ohne Führen“ (bisher harter Schnitt nach Schwarz, dann 0,8 s Einblenden; jetzt blendet der neue Hintergrund über den alten), Schwarz ohne Führen und das erste Erscheinen im Player. Maßgeblich ist die Überblendung des Hintergrunds, zu dem gewechselt wird
+- Hintergrund-Einstellungen: „Überblendung“ ist jetzt auch bei nur einem Bild einstellbar
+
 ## [0.49.0] - 2026-11-15
 
 ### Hinzugefügt

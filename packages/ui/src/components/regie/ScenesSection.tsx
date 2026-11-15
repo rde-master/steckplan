@@ -27,6 +27,8 @@ import {
   type TimedLine,
   itemLightEvents,
   updateLightEvent,
+  updateOscCommand,
+  formatOscCommand,
 } from '@steckplan/core';
 import type { ProjectData } from '../../lib/useProjectData';
 import { texts } from '../../texts';
@@ -262,8 +264,12 @@ export function ScenesSection({
           }}
           onMove={(changes) => doc.transact(() => changes.forEach((c) => updateScene(doc, c.id, { atSec: c.atSec }, origin)), origin)}
           editable={editable}
-          events={events}
-          onEventMove={(id, atSec) => updateLightEvent(doc, id, { atSec }, origin)}
+          events={[
+            ...events,
+            // OSC-Zeitpunkte (Reiter OSC → Im Stück) – verschiebbar wie Events
+            ...data.oscCommands.flatMap((c) => (c.itemId === item.id && c.trigger === 'time' && c.atSec !== undefined ? [{ id: c.id, atSec: c.atSec, note: `OSC ${c.label || formatOscCommand(c)}`, kind: 'osc' as const }] : [])),
+          ]}
+          onEventMove={(id, atSec, kind) => (kind === 'osc' ? updateOscCommand(doc, id, { atSec }, origin) : updateLightEvent(doc, id, { atSec }, origin))}
         />
       )}
       <LightEventsEditor doc={doc} origin={origin} itemId={item.id} events={events} audio={audio} editable={editable} />

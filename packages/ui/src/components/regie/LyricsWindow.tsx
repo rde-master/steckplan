@@ -2,8 +2,10 @@
 // Fünf Zeilen, zentriert: die vorige (ausgegraut), die aktuelle (hervorgehoben), die drei nächsten.
 // Die Stelle kommt von der Person, die in der Vorstellung führt (über den Server, mit Abspielposition),
 // im selben Browser auch ohne Führen direkt von der eigenen Vorstellung.
-import { useEffect, useLayoutEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { isBreakLine, type Cue, type TimedLine } from '@steckplan/core';
+import { lineWindow, scrollProgress } from '../../lib/lyricsScroll';
+import type { TimeSource } from '../../lib/playerTime';
 
 export function lyricsPath(projectId: string): string {
   return `/projekt/${encodeURIComponent(projectId)}/text`;
@@ -139,22 +141,106 @@ export const LYRICS_ACTIVE_COLOR = '#ffffff';
 export const LYRICS_ACTIVE_BG = '#0c4a6e';
 
 
+/** Zeitfenster und Uhr der aktuellen Zeile: passt sie nicht, läuft ihr Text in dieser Zeit durch */
+interface LineScroll {
+  source: TimeSource;
+  start: number;
+  end: number;
+}
+
+/** Ereignisse, nach denen die Uhr woanders steht */
+const CLOCK_EVENTS = ['seeked', 'timeupdate', 'pause', 'ratechange'];
+/** weicher Rand, wo der Text weitergeht */
+const EDGE = '4%';
+
+/**
+ * Eine Zeile Text: zu lang → „…“. Mit scroll (aktuelle Zeile mit Zeit) läuft zu langer Text stattdessen je nach Zeit
+ * von links nach rechts durch; ein weicher Rand zeigt, dass es weitergeht. Bewegt wird je Bild direkt im DOM.
+ */
+function ScrollLine({ children, style, className = '', scroll, testId }: { children: ReactNode; style: CSSProperties; className?: string; scroll?: LineScroll; testId?: string }) {
+  const outer = useRef<HTMLSpanElement>(null);
+  const inner = useRef<HTMLSpanElement>(null);
+  const source = scroll?.source;
+  const start = scroll?.start;
+  const end = scroll?.end;
+  useEffect(() => {
+    const o = outer.current;
+    const i = inner.current;
+    if (!o || !i || !source || start === undefined || end === undefined) return;
+    let frame = 0;
+    const apply = () => {
+      const overflow = i.offsetWidth - o.clientWidth;
+      if (overflow <= 1) {
+        i.style.transform = '';
+        o.style.maskImage = '';
+        o.dataset.scroll = '';
+        return;
+      }
+      const p = scrollProgress(source.currentTime, start, end);
+      i.style.transform = `translateX(${(-p * overflow).toFixed(1)}px)`;
+      // Rand weich, wo noch Text kommt bzw. schon war
+      const left = p > 0.001 ? `transparent, black ${EDGE}` : 'black';
+      const right = p < 0.999 ? `black calc(100% - ${EDGE}), transparent` : 'black';
+      o.style.maskImage = `linear-gradient(to right, ${left}, ${right})`;
+      o.dataset.scroll = p.toFixed(3);
+    };
+    const tick = () => {
+      apply();
+      frame = source.paused ? 0 : requestAnimationFrame(tick);
+    };
+    const play = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(tick);
+    };
+    apply();
+    if (!source.paused) play();
+    source.addEventListener('play', play);
+    for (const e of CLOCK_EVENTS) source.addEventListener(e, apply);
+    const resize = new ResizeObserver(apply);
+    resize.observe(o);
+    return () => {
+      cancelAnimationFrame(frame);
+      source.removeEventListener('play', play);
+      for (const e of CLOCK_EVENTS) source.removeEventListener(e, apply);
+      resize.disconnect();
+      i.style.transform = '';
+      o.style.maskImage = '';
+      delete o.dataset.scroll;
+    };
+  }, [source, start, end, children]);
+  // ohne Durchlaufen: abschneiden mit „…“; mit: Text in einem Stück, das verschoben wird
+  if (!scroll) {
+    return (
+      <span className={`block truncate ${className}`} style={style} data-testid={testId}>
+        {children}
+      </span>
+    );
+  }
+  return (
+    <span ref={outer} className={`block overflow-hidden whitespace-nowrap ${className}`} style={style} data-testid={testId} data-scroll-line="">
+      <span ref={inner} className="inline-block whitespace-nowrap will-change-transform">
+        {children}
+      </span>
+    </span>
+  );
+}
+
 /** Darstellung einer Zeile: Sprecher, Text (Regieanweisung in Klammern) und darunter auf Wunsch die Übersetzung */
-function LineContent({ line, speaker, speakerColor, translation, size, translationSize }: { line: TimedLine['line']; speaker: string | undefined; speakerColor: string | undefined; translation: boolean; size: string; translationSize: string }) {
+function LineContent({ line, speaker, speakerColor, translation, size, translationSize, scroll }: { line: TimedLine['line']; speaker: string | undefined; speakerColor: string | undefined; translation: boolean; size: string; translationSize: string; scroll?: LineScroll }) {
   return (
     <>
-      <span className="block truncate" style={{ fontSize: size }}>
+      <ScrollLine style={{ fontSize: size }} scroll={scroll}>
         {speaker && (
           <span className={`mr-[1vw] ${speakerColor ? '' : 'text-sky-300'}`} style={speakerColor ? { color: speakerColor } : undefined} data-testid="lyrics-speaker">
             {speaker}:
           </span>
         )}
         {(line.direction ? `(${line.text})` : line.text) || '\u00a0'}
-      </span>
+      </ScrollLine>
       {translation && line.translation && (
-        <span className="block truncate font-normal text-sky-200/90 italic" style={{ fontSize: translationSize }} data-testid="lyrics-translation">
+        <ScrollLine className="font-normal text-sky-200/90 italic" style={{ fontSize: translationSize }} scroll={scroll} testId="lyrics-translation">
           {line.translation}
-        </span>
+        </ScrollLine>
       )}
     </>
   );
@@ -178,6 +264,8 @@ export function LyricsDisplay({
   mode = 'lines',
   highlight = true,
   translation = false,
+  source = null,
+  endSec,
 }: {
   title: string;
   lines: TimedLine[];
@@ -197,8 +285,14 @@ export function LyricsDisplay({
   highlight?: boolean;
   /** Übersetzung unter den Zeilen */
   translation?: boolean;
+  /** Uhr der Stelle: zu lange aktuelle Zeile läuft in ihrer Zeit durch (ohne: „…“) */
+  source?: TimeSource | null;
+  /** Ende des Stücks (Sekunden) – so lange läuft die letzte Zeile */
+  endSec?: number;
 }) {
   const current = lines.findIndex((l) => l.line.id === currentLineId);
+  const span = source && current >= 0 ? lineWindow(lines, current, endSec) : undefined;
+  const scroll: LineScroll | undefined = source && span ? { source, ...span } : undefined;
   const withTranslation = translation && lines.some((l) => l.line.translation);
   const activeStyle = (isCurrent: boolean) => (isCurrent && highlight ? { color: activeColor, backgroundColor: activeBg === 'none' ? 'transparent' : `${activeBg}d9` } : {});
   return (
@@ -208,7 +302,11 @@ export function LyricsDisplay({
         {title}
       </div>
       <div className="relative min-h-0 flex-1 overflow-hidden">
-        {mode === 'block' ? <BlockView lines={lines} current={current} roleNames={roleNames} roleColors={roleColors} highlight={highlight} translation={withTranslation} activeStyle={activeStyle} /> : <LinesView lines={lines} current={current} roleNames={roleNames} roleColors={roleColors} before={before} after={after} highlight={highlight} translation={withTranslation} activeStyle={activeStyle} />}
+        {mode === 'block' ? (
+          <BlockView lines={lines} current={current} roleNames={roleNames} roleColors={roleColors} highlight={highlight} translation={withTranslation} activeStyle={activeStyle} scroll={scroll} />
+        ) : (
+          <LinesView lines={lines} current={current} roleNames={roleNames} roleColors={roleColors} before={before} after={after} highlight={highlight} translation={withTranslation} activeStyle={activeStyle} scroll={scroll} />
+        )}
       </div>
     </div>
   );
@@ -216,7 +314,7 @@ export function LyricsDisplay({
 
 type ActiveStyle = (isCurrent: boolean) => { color?: string; backgroundColor?: string };
 
-function LinesView({ lines, current, roleNames, roleColors, before, after, highlight, translation, activeStyle }: { lines: TimedLine[]; current: number; roleNames: Map<string, string>; roleColors: Map<string, string>; before: number; after: number; highlight: boolean; translation: boolean; activeStyle: ActiveStyle }) {
+function LinesView({ lines, current, roleNames, roleColors, before, after, highlight, translation, activeStyle, scroll }: { lines: TimedLine[]; current: number; roleNames: Map<string, string>; roleColors: Map<string, string>; before: number; after: number; highlight: boolean; translation: boolean; activeStyle: ActiveStyle; scroll?: LineScroll }) {
   const slots = before + 1 + after;
   // Höhe einer Zeile in vh: bis 15, zusammen höchstens 80
   const ROW_VH = Math.min(15, 80 / slots);
@@ -250,7 +348,7 @@ function LinesView({ lines, current, roleNames, roleColors, before, after, highl
                 data-highlight={(lit && highlight) || undefined}
                 className={`inline-block max-w-full rounded-xl px-[2vw] py-[0.3em] leading-tight transition-all duration-700 ease-out motion-reduce:transition-none [text-shadow:0_2px_10px_rgb(0_0_0/0.85)] ${look} ${l.line.direction ? 'italic' : ''}`}
               >
-                <LineContent line={l.line} speaker={speaker} speakerColor={l.line.roleId ? roleColors.get(l.line.roleId) : undefined} translation={translation} size={size} translationSize={translationSize} />
+                <LineContent line={l.line} speaker={speaker} speakerColor={l.line.roleId ? roleColors.get(l.line.roleId) : undefined} translation={translation} size={size} translationSize={translationSize} {...(isCurrent && scroll ? { scroll } : {})} />
               </span>
             </li>
           );
@@ -260,7 +358,7 @@ function LinesView({ lines, current, roleNames, roleColors, before, after, highl
   );
 }
 
-function BlockView({ lines, current, roleNames, roleColors, highlight, translation, activeStyle }: { lines: TimedLine[]; current: number; roleNames: Map<string, string>; roleColors: Map<string, string>; highlight: boolean; translation: boolean; activeStyle: ActiveStyle }) {
+function BlockView({ lines, current, roleNames, roleColors, highlight, translation, activeStyle, scroll }: { lines: TimedLine[]; current: number; roleNames: Map<string, string>; roleColors: Map<string, string>; highlight: boolean; translation: boolean; activeStyle: ActiveStyle; scroll?: LineScroll }) {
   // Abschnitte in Reihenfolge; sichtbar der der aktuellen Zeile (vor der ersten: der erste)
   const blocks: { sectionId: string; lines: { line: TimedLine; index: number }[] }[] = [];
   lines.forEach((l, index) => {
@@ -298,7 +396,7 @@ function BlockView({ lines, current, roleNames, roleColors, highlight, translati
                     data-highlight={(lit && highlight) || undefined}
                     className={`inline-block max-w-full rounded-xl px-[1.5vw] py-[0.15em] leading-tight transition-all duration-500 ease-out motion-reduce:transition-none [text-shadow:0_2px_10px_rgb(0_0_0/0.85)] ${lit && highlight ? 'font-semibold' : 'text-slate-100'} ${l.line.direction ? 'italic' : ''}`}
                   >
-                    <LineContent line={l.line} speaker={speaker} speakerColor={l.line.roleId ? roleColors.get(l.line.roleId) : undefined} translation={translation} size={size} translationSize={translationSize} />
+                    <LineContent line={l.line} speaker={speaker} speakerColor={l.line.roleId ? roleColors.get(l.line.roleId) : undefined} translation={translation} size={size} translationSize={translationSize} {...(isCurrent && scroll ? { scroll } : {})} />
                   </span>
                 </li>
               );

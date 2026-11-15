@@ -10,6 +10,7 @@ import { readRawProjectFromYDoc } from '../model/ydoc';
 import {
   CURRENT_SCHEMA_VERSION,
   MediaRefSchema,
+  OSC_ALL_ITEMS,
   type FixtureState,
   type LightGrid,
   type LightPlacement,
@@ -322,7 +323,15 @@ export function applyRegieImport(doc: Y.Doc, content: RegieContent, plan: RegieI
       put(doc, 'lightScenes', remap(scene.id), { ...scene, itemId: remap(scene.itemId), lineId: scene.lineId ? remap(scene.lineId) : undefined });
     }
     for (const event of content.lightEvents) put(doc, 'lightEvents', remap(event.id), { ...event, itemId: remap(event.itemId) });
-    for (const c of content.oscCommands) put(doc, 'oscCommands', remap(c.id), { ...c, itemId: remap(c.itemId), refId: c.refId ? remap(c.refId) : undefined });
+    // „jeder Eintrag“ bleibt so; Bereiche: beide Grenzen umschlüsseln
+    for (const c of content.oscCommands) {
+      put(doc, 'oscCommands', remap(c.id), {
+        ...c,
+        itemId: c.itemId === OSC_ALL_ITEMS ? c.itemId : remap(c.itemId),
+        refId: c.refId ? remap(c.refId) : undefined,
+        untilItemId: c.untilItemId ? remap(c.untilItemId) : undefined,
+      });
+    }
     for (const state of content.sceneStates) {
       const deviceId = plan.deviceMap.get(state.deviceId);
       if (!deviceId) continue;

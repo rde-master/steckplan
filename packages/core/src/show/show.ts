@@ -468,6 +468,7 @@ export function duplicateShowItem(doc: Y.Doc, id: string, origin: unknown): stri
     const { id: _id, kind, order: _order, ...rest } = item;
     copyId = addShowItem(doc, kind, origin, { ...rest, title: `${item.title} (Kopie)` }, id);
     const lineIds = new Map<string, string>();
+    const sectionIds = new Map<string, string>();
     for (const s of itemSections(sections, id)) {
       const lines = s.lines.map((l) => {
         const next = newId();
@@ -475,11 +476,12 @@ export function duplicateShowItem(doc: Y.Doc, id: string, origin: unknown): stri
         return { ...l, id: next };
       });
       const sectionCopy = addSection(doc, copyId, s.kind, s.label, origin, lines);
+      sectionIds.set(s.id, sectionCopy);
       copySectionBackground(doc, s, sectionCopy, origin);
     }
     const sceneIds = copyItemScenes(doc, id, copyId, lineIds);
     const eventIds = copyItemLightEvents(doc, id, copyId);
-    copyItemOscCommands(doc, id, copyId, new Map([...sceneIds, ...eventIds]));
+    copyItemOscCommands(doc, id, copyId, new Map([...sceneIds, ...eventIds, ...lineIds, ...sectionIds]));
     copyItemSoundScenes(doc, id, copyId, lineIds);
   }, origin);
   return copyId;
