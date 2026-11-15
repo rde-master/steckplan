@@ -60,6 +60,9 @@ import {
   sectionToText,
   setSectionText,
   showSchedule,
+  remainingShow,
+  plannedEndMinutes,
+  clockDiffMinutes,
   splitPastedText,
   updateShowItem,
   updateShowSettings,
@@ -119,6 +122,28 @@ describe('Regie: Zugang', () => {
     const later = capture(() => addShowItem(client, 'song', null));
     const fresh = doc();
     expect(updateTouchesOnly(fresh, later, DIRECTION_ROOTS)).toBe(false);
+  });
+});
+
+describe('Führen: voraussichtliches Ende', () => {
+  const item = (id: string, order: number, durationSec?: number) => ({ id, order, kind: 'song', title: id, personIds: [], ...(durationSec !== undefined ? { durationSec } : {}) }) as never;
+  const items = [item('b', 1, 300), item('a', 0, 200), item('c', 2), item('d', 3, 600)];
+
+  it('Rest des laufenden Eintrags und Dauer der folgenden; ohne Dauer gezählt', () => {
+    expect(remainingShow(items, 'a', 50)).toEqual({ remainingSec: 150 + 300 + 600, missingDurations: 1 });
+    // über die Dauer hinaus: der Eintrag zählt 0
+    expect(remainingShow(items, 'b', 999)).toEqual({ remainingSec: 600, missingDurations: 1 });
+    expect(remainingShow(items, 'd', 0)).toEqual({ remainingSec: 600, missingDurations: 0 });
+    // unbekannt: ab dem ersten
+    expect(remainingShow(items, undefined, 0).remainingSec).toBe(1100);
+  });
+
+  it('geplantes Ende aus Anfangszeit und Dauern; Abweichung auch über Mitternacht', () => {
+    expect(plannedEndMinutes(items, { startTime: '23:30' } as never)).toBeCloseTo(23 * 60 + 30 + 1100 / 60);
+    expect(plannedEndMinutes(items, {} as never)).toBeUndefined();
+    expect(clockDiffMinutes(22 * 60 + 15, 22 * 60 + 10)).toBe(5);
+    expect(clockDiffMinutes(5, 1435)).toBe(10);
+    expect(clockDiffMinutes(1435, 5)).toBe(-10);
   });
 });
 

@@ -3,7 +3,7 @@
 // und Player entfernen.
 import { Check, MonitorPlay, RefreshCw, Trash2, X } from 'lucide-react';
 import { useState } from 'react';
-import { formatBytes, isNewerVersion, playerLinkQuality, VERSION, type PlayerLinkQuality, type PlayerStatus } from '@steckplan/core';
+import { formatBytes, isNewerVersion, playerLinkQuality, VERSION, worstCheck, type NetCheck, type PlayerLinkQuality, type PlayerStatus } from '@steckplan/core';
 import { api, errorMessage } from '../../lib/api';
 import { usePlayersOverview } from '../../lib/players';
 import { texts } from '../../texts';
@@ -63,6 +63,32 @@ function LinkLine({ player }: { player: PlayerStatus }) {
         </span>
       )}
     </p>
+  );
+}
+
+/** Netzprüfung des Player-Rechners: alles in einer Zeile, Hinweise und Probleme einzeln (Tipp beim Draufzeigen) */
+function ChecksLines({ checks }: { checks: NetCheck[] | undefined }) {
+  if (!checks?.length) return null;
+  const worst = worstCheck(checks);
+  const color = { ok: 'text-emerald-300', warn: 'text-amber-300', bad: 'text-red-300' } as const;
+  const issues = checks.filter((c) => c.state !== 'ok');
+  return (
+    <div className="mt-0.5 pl-4 text-xs" data-testid="player-checks" data-state={worst}>
+      <p className="text-slate-500">
+        <span className={color[worst]}>{issues.length ? t.checksIssues(issues.length) : t.checksOk}</span>
+        {' · '}
+        {checks
+          .filter((c) => c.state === 'ok')
+          .map((c) => c.text)
+          .join(' · ')}
+      </p>
+      {issues.map((c) => (
+        <p key={c.id} className={`${color[c.state]} cursor-help`} title={c.tip} data-testid="player-check" data-state={c.state}>
+          {c.text}
+          {c.tip && <span className="ml-1 text-slate-500">ⓘ</span>}
+        </p>
+      ))}
+    </div>
   );
 }
 
@@ -166,6 +192,7 @@ export function PlayersPanel({ className = '' }: { className?: string }) {
                   )}
                 </p>
                 <LinkLine player={p} />
+                {p.online && <ChecksLines checks={r?.checks} />}
                 {p.online && r?.error && <p className="pl-4 text-xs text-red-400">{r.error}</p>}
               </li>
             );

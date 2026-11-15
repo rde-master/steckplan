@@ -54,8 +54,10 @@ import { setClickSettings, useClickSettings } from '../../lib/click';
 import { LeadTimeline } from './LeadTimeline';
 import { itemAudioSrc } from './Waveform';
 import { DeskCuePanel } from './DeskCuePanel';
+import { PauseControl, type PauseState } from './PauseControl';
 import { PlayersPanel } from './PlayersPanel';
 import { PlayerStatusBadge } from './PlayerStatusBadge';
+import { ShowClock } from './ShowClock';
 import { OscLeadPanel, readOscAuto, writeOscAuto } from './OscLeadPanel';
 import { LightEventCountdown } from './LightEvents';
 import type * as Y from 'yjs';
@@ -244,9 +246,11 @@ export function PerformanceView({
   const hideBackground = levels.background === 0;
   const setHideText = (hide: boolean) => lyricsLevels.setHidden('text', hide);
   const setHideBackground = (hide: boolean) => lyricsLevels.setHidden('background', hide);
-  const cueState = useRef({ mode, itemId, sceneId, audio, tc, sendCue, localCue, oscAuto, levels });
+  // Pause im Textfenster (Titel und Restzeit) – geht mit der Stelle an alle Textfenster
+  const [pause, setPause] = useState<PauseState | null>(null);
+  const cueState = useRef({ mode, itemId, sceneId, audio, tc, sendCue, localCue, oscAuto, levels, pause });
   useEffect(() => {
-    cueState.current = { mode, itemId, sceneId, audio, tc, sendCue, localCue, oscAuto, levels };
+    cueState.current = { mode, itemId, sceneId, audio, tc, sendCue, localCue, oscAuto, levels, pause };
   });
   useEffect(() => {
     const send = () => {
@@ -267,6 +271,8 @@ export function PerformanceView({
         ...(c.levels.background < 1 ? { backgroundLevel: c.levels.background } : {}),
         ...(c.levels.fadeSec !== LYRICS_FADE_SEC_DEFAULT ? { fadeSec: c.levels.fadeSec } : {}),
         ...(c.tc.playbackRate !== 1 ? { rate: c.tc.playbackRate } : {}),
+        // Restzeit ab jetzt (jedes Textfenster zählt ab dem Empfang selbst herunter)
+        ...(c.pause ? { pause: { ...(c.pause.title ? { title: c.pause.title } : {}), ...(c.pause.until !== undefined ? { leftSec: Math.max(0, (c.pause.until - performance.now()) / 1000) } : {}) } } : {}),
       };
       c.localCue(cue);
       if (c.mode === 'lead') c.sendCue(cue);
@@ -283,7 +289,7 @@ export function PerformanceView({
       window.clearInterval(timer);
     };
     // connectionId: nach dem Neuverbinden (z. B. WLAN) sofort wieder senden – der Server hält die Stelle nur kurz
-  }, [mode, itemId, sceneId, audio, tc, oscAuto, levels, sync.connectionId]);
+  }, [mode, itemId, sceneId, audio, tc, oscAuto, levels, pause, sync.connectionId]);
   // beim Verlassen nicht weiter führen
   const leading = useRef(false);
   useEffect(() => {
@@ -687,6 +693,11 @@ export function PerformanceView({
             </span>
           )}
         </div>
+        {pause && (
+          <span className="rounded bg-amber-500/20 px-2 py-0.5 text-xs font-semibold text-amber-200" role="status" data-testid="performance-pause">
+            {t.pauseActive}
+          </span>
+        )}
         {canLead && (
           <PlayerStatusBadge
             leadingHere={!!lead}
@@ -930,7 +941,9 @@ export function PerformanceView({
             <button type="button" onClick={() => setToolsHidden(true)} title={t.hideToolsTitle} className="flex shrink-0 items-center justify-end gap-1 self-end rounded-md px-2 py-1 text-xs text-slate-400 hover:bg-slate-800" data-testid="lead-side-hide">
               {t.hideTools} <ChevronsRight size={16} aria-hidden />
             </button>
-            <LyricsControl levels={levels} fadeSec={lyricsLevels.fadeSec} onHide={lyricsLevels.setHidden} onLevel={lyricsLevels.setLevel} onFade={lyricsLevels.setFadeSec} />
+            <LyricsControl levels={levels} fadeSec={lyricsLevels.fadeSec} onHide={lyricsLevels.setHidden} onLevel={lyricsLevels.setLevel} onFade={lyricsLevels.setFadeSec}>
+              <PauseControl pause={pause} onChange={setPause} />
+            </LyricsControl>
             {canLead && <PlayersPanel />}
             <DeskCuePanel cues={sync.deskCues} />
             <OscLeadPanel projectId={projectId} auto={oscAuto} onAuto={setOscAuto} manual={triggerCommands(data.oscCommands, item.id, 'manual')} log={sync.oscLog} />
@@ -1155,6 +1168,8 @@ export function PerformanceView({
           </div>
         )}
         </div>
+        {/* Führen: rechts neben dem Player Uhrzeit und voraussichtliches Ende */}
+        {leadLayout && <ShowClock items={items} itemId={item?.id} source={clock} settings={data.showSettings} />}
         {/* Timecode unten rechts: gelaufene Zeit des Punkts, läuft mit dem Transport (Führen: groß in der Mitte) */}
         {item && !leadLayout && (
           <div className="flex shrink-0 flex-col items-end gap-1">
@@ -1198,7 +1213,7 @@ function NavButton({ label, onClick, disabled, compact = false, children }: { la
 }
 
 /** Führen: Text und Hintergrund im Textfenster aus- bzw. einblenden (Knöpfe in der Blendzeit, Schieberegler direkt) */
-function LyricsControl({ levels, fadeSec, onHide, onLevel, onFade }: { levels: LyricsLevels; fadeSec: number; onHide: (layer: LyricsLayer, hide: boolean) => void; onLevel: (layer: LyricsLayer, value: number) => void; onFade: (sec: number) => void }) {
+function LyricsControl({ levels, fadeSec, onHide, onLevel, onFade, children }: { levels: LyricsLevels; fadeSec: number; onHide: (layer: LyricsLayer, hide: boolean) => void; onLevel: (layer: LyricsLayer, value: number) => void; onFade: (sec: number) => void; children?: ReactNode }) {
   const t = texts.regie.performance;
   const percent = (v: number) => `${Math.round(v * 100)} %`;
   const toggle = (layer: LyricsLayer, label: string, Icon: typeof Type, testId: string) => {
@@ -1232,6 +1247,7 @@ function LyricsControl({ levels, fadeSec, onHide, onLevel, onFade }: { levels: L
       <Slider label={t.lyricsText} value={levels.text} max={1} step={0.01} format={percent} onChange={(v) => onLevel('text', v)} testId="lyrics-level-text" />
       <Slider label={t.lyricsBackground} value={levels.background} max={1} step={0.01} format={percent} onChange={(v) => onLevel('background', v)} testId="lyrics-level-background" />
       <Slider label={t.lyricsFade} value={fadeSec} max={LYRICS_FADE_SEC_MAX} step={0.1} format={(v) => `${v.toFixed(1).replace('.', ',')} s`} onChange={onFade} testId="lyrics-fade" title={t.lyricsFadeHint} />
+      {children}
     </section>
   );
 }

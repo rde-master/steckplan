@@ -85,6 +85,37 @@ export function showSchedule(items: ShowItem[], settings: ShowSettings): { entri
   return { entries, totalSec: offset, missingDurations: missing };
 }
 
+/**
+ * Wie lange die Vorstellung voraussichtlich noch dauert: Rest des laufenden Eintrags (Dauer minus Position) und die
+ * Dauer aller folgenden. Einträge ohne Dauer zählen 0 (missingDurations sagt, wie viele das sind).
+ */
+export function remainingShow(items: ShowItem[], currentId: string | undefined, positionSec: number): { remainingSec: number; missingDurations: number } {
+  const sorted = [...items].sort(byOrder);
+  const index = Math.max(0, sorted.findIndex((i) => i.id === currentId));
+  let remaining = 0;
+  let missing = 0;
+  sorted.slice(index).forEach((item, n) => {
+    if (item.durationSec === undefined) {
+      missing++;
+      return;
+    }
+    remaining += n === 0 ? Math.max(0, item.durationSec - Math.max(0, positionSec)) : item.durationSec;
+  });
+  return { remainingSec: remaining, missingDurations: missing };
+}
+
+/** Geplantes Ende laut Anfangszeit und Dauern: Minuten seit Mitternacht (über 24 h hinaus möglich); ohne Anfangszeit undefined */
+export function plannedEndMinutes(items: ShowItem[], settings: ShowSettings): number | undefined {
+  const start = parseClock(settings.startTime);
+  return start === undefined ? undefined : start + showSchedule(items, settings).totalSec / 60;
+}
+
+/** Abweichung in Minuten zwischen zwei Uhrzeiten (Minuten seit Mitternacht), über Mitternacht hinweg: −720 … +720 */
+export function clockDiffMinutes(expected: number, planned: number): number {
+  const d = (((expected - planned) % 1440) + 1440) % 1440;
+  return d > 720 ? d - 1440 : d;
+}
+
 // ---------- Texte: Zeilen ↔ Textfeld ----------
 
 /** Regieanweisung: ganze Zeile in Klammern */

@@ -76,7 +76,7 @@ const ABNORMAL_CLOSE = 1006;
 /** Verzögerungen darunter gleicht der Server nicht aus */
 const MIN_LAG_SEC = 0.005;
 
-/** Abspielposition um sec Sekunden weiterrechnen (nur wenn sie läuft) */
+/** Abspielposition um sec Sekunden weiterrechnen (nur wenn sie läuft); die Restzeit einer Pause läuft immer */
 export function advanceLead(lead: LeadInfo, sec: number): LeadInfo {
   if (!(sec > 0)) return lead;
   const passed = sec * (lead.rate ?? 1);
@@ -84,6 +84,8 @@ export function advanceLead(lead: LeadInfo, sec: number): LeadInfo {
     ...lead,
     ...(lead.playing && lead.at !== undefined ? { at: lead.at + passed } : {}),
     ...(lead.tc?.playing ? { tc: { at: lead.tc.at + passed, playing: true } } : {}),
+    // Pause: die Restzeit läuft in Echtzeit
+    ...(lead.pause?.leftSec !== undefined ? { pause: { ...lead.pause, leftSec: Math.max(0, lead.pause.leftSec - sec) } } : {}),
   };
 }
 

@@ -70,7 +70,21 @@ export function LyricsSettings({ projectId, doc, origin, settings, media, onClos
             <input type="checkbox" checked={settings.lyricsTranslation === true} onChange={(e) => updateShowSettings(doc, { lyricsTranslation: e.target.checked || undefined }, origin)} />
             {t.translation}
           </label>
+          <label className="flex items-center gap-2" title={t.shadowHint}>
+            <input type="checkbox" checked={settings.lyricsShadow !== false} onChange={(e) => updateShowSettings(doc, { lyricsShadow: e.target.checked ? undefined : false }, origin)} />
+            {t.shadow}
+          </label>
         </div>
+        <div className="flex flex-wrap items-center gap-4 text-sm" role="radiogroup" aria-label={t.idle} data-testid="lyrics-idle">
+          <span className="font-medium">{t.idle}</span>
+          {(['background', 'black'] as const).map((m) => (
+            <label key={m} className="flex items-center gap-2">
+              <input type="radio" name="lyrics-idle" checked={(settings.lyricsIdle ?? 'background') === m} onChange={() => updateShowSettings(doc, { lyricsIdle: m === 'background' ? undefined : m }, origin)} />
+              {t.idleModes[m]}
+            </label>
+          ))}
+        </div>
+        <p className="text-xs text-slate-500">{t.idleHint}</p>
         {settings.lyricsHighlight !== false && (
         <div className="flex flex-wrap items-center gap-4 text-sm" data-testid="lyrics-colors">
           <span className="font-medium">{t.activeLine}</span>

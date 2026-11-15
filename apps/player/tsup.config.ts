@@ -2,7 +2,7 @@ import { defineConfig } from 'tsup';
 
 // Main- und Preload-Prozess werden mitsamt Abhängigkeiten gebündelt (kein node_modules im Paket).
 export default defineConfig({
-  entry: { main: 'src/main.ts', preload: 'src/preload.ts' },
+  entry: { main: 'src/main.ts', preload: 'src/preload.ts', resizer: 'src/resizer.ts' },
   format: ['cjs'],
   platform: 'node',
   target: 'node22',

@@ -61,5 +61,8 @@ describe('Laufzeit einer Live-Verbindung', () => {
     expect(advanceLead(lead, 0.1)).toMatchObject({ at: 10.2, tc: { at: 5.2, playing: true } });
     expect(advanceLead({ ...lead, playing: false, tc: { at: 5, playing: false } }, 0.1)).toMatchObject({ at: 10, tc: { at: 5 } });
     expect(advanceLead(lead, 0)).toBe(lead);
+    // Pause: Restzeit läuft in Echtzeit (auch angehalten), nie unter 0
+    expect(advanceLead({ ...lead, playing: false, rate: 2, pause: { leftSec: 10 } }, 3).pause).toEqual({ leftSec: 7 });
+    expect(advanceLead({ ...lead, pause: { title: 'P', leftSec: 1 } }, 3).pause).toEqual({ title: 'P', leftSec: 0 });
   });
 });

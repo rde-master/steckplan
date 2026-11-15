@@ -6,12 +6,12 @@
 // wird nachgesehen, ob die Steuersoftware unter einer anderen Adresse antwortet – nur dann wird die Seite neu geladen.
 import { join } from 'node:path';
 import { hostname } from 'node:os';
-import { app, BrowserWindow, ipcMain, Menu, powerSaveBlocker, protocol, session } from 'electron';
-import { checkForUpdate, PLAYER_COOKIE, PLAYER_HEARTBEAT_MS, VERSION, type PlayerCatalog, type PlayerHeartbeatReply, type PlayerReport, type UpdateInfo } from '@steckplan/core';
+import { app, BrowserWindow, ipcMain, Menu, powerMonitor, powerSaveBlocker, protocol, screen, session } from 'electron';
+import { checkForUpdate, evaluateNet, PLAYER_COOKIE, PLAYER_HEARTBEAT_MS, VERSION, type LatencySample, type NetCheck, type PlayerCatalog, type PlayerHeartbeatReply, type PlayerReport, type UpdateInfo } from '@steckplan/core';
 import { MediaCache, MediaUnavailableError } from './cache';
 import { ConfigStore } from './config';
 import { DiscoveryClient, parseAddress, type FoundServer } from './discovery';
-import { networkInfo, type NetworkInfo } from './network';
+import { networkInfo, wifiPowerSave, type NetworkInfo } from './network';
 
 const MEDIA_SCHEME = 'steckplan-media';
 protocol.registerSchemesAsPrivileged([{ scheme: MEDIA_SCHEME, privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true, bypassCSP: true, corsEnabled: true } }]);
@@ -40,10 +40,58 @@ type ViewState =
   | { screen: 'searching'; found: FoundServer[]; choose: boolean; error?: string }
   | { screen: 'connecting'; server: FoundServer }
   | { screen: 'pairing'; server: FoundServer; code: string }
-  | { screen: 'syncing'; server: FoundServer; phase: 'texts' | 'media'; done: number; total: number; bytesDone: number; bytesTotal: number; current?: string }
+  | { screen: 'syncing'; server: FoundServer; phase: 'texts' | 'media' | 'images'; done: number; total: number; bytesDone: number; bytesTotal: number; current?: string }
   | { screen: 'error'; message: string };
 
 class Cancelled extends Error {}
+
+/**
+ * Verkleinert Bilder in einem unsichtbaren Fenster (Bildfunktionen des Browsers: beachten die Drehung von Handyfotos,
+ * rechnen außerhalb des Hauptprozesses). Das Fenster gibt es nur während des Synchronisierens.
+ */
+class ImageResizer {
+  private win: BrowserWindow | null = null;
+  private seq = 0;
+  private readonly pending = new Map<number, (data: Uint8Array | null) => void>();
+
+  constructor() {
+    ipcMain.on('player:resized', (_e, id: unknown, data: unknown) => {
+      const done = typeof id === 'number' ? this.pending.get(id) : undefined;
+      if (!done) return;
+      this.pending.delete(id as number);
+      done(data instanceof Uint8Array ? data : null);
+    });
+  }
+
+  private async window(): Promise<BrowserWindow> {
+    if (this.win && !this.win.isDestroyed()) return this.win;
+    const win = new BrowserWindow({ show: false, width: 64, height: 64, webPreferences: { preload: join(__dirname, 'resizer.cjs'), contextIsolation: true, sandbox: false, backgroundThrottling: false } });
+    await win.loadFile(join(__dirname, 'resizer.html'));
+    this.win = win;
+    return win;
+  }
+
+  async resize(data: Buffer, mime: string, width: number, height: number): Promise<Uint8Array | null> {
+    const win = await this.window();
+    const id = ++this.seq;
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => {
+        this.pending.delete(id);
+        resolve(null);
+      }, 30_000);
+      this.pending.set(id, (result) => {
+        clearTimeout(timer);
+        resolve(result);
+      });
+      win.webContents.send('player:resize', { id, data, mime, width, height });
+    });
+  }
+
+  close(): void {
+    if (this.win && !this.win.isDestroyed()) this.win.destroy();
+    this.win = null;
+  }
+}
 
 const baseUrl = (s: Pick<FoundServer, 'host' | 'port'>) => `http://${s.host.includes(':') ? `[${s.host}]` : s.host}:${s.port}`;
 const isLoopback = (host: string) => host === '127.0.0.1' || host === '::1' || host === 'localhost';
@@ -66,6 +114,7 @@ class Player {
   private choose: ((server: FoundServer) => void) | null = null;
   private report: PlayerReport = { phase: 'syncing', version: VERSION, projects: 0, mediaDone: 0, mediaTotal: 0, bytesDone: 0, bytesTotal: 0 };
   private lastViewSent = 0;
+  private readonly resizer = new ImageResizer();
 
   constructor(
     private readonly win: BrowserWindow,
@@ -110,6 +159,16 @@ class Player {
 
   get pageShown(): boolean {
     return this.showingPage;
+  }
+
+  /** Netzprüfung fürs Lebenszeichen (Führen-Bildschirm) */
+  setChecks(checks: NetCheck[]): void {
+    this.report = { ...this.report, checks };
+  }
+
+  /** Wessen Laufzeit gemessen wird: verbunden, sonst gefunden, sonst zuletzt genutzt */
+  get latencyTarget(): { host: string; port: number } | null {
+    return this.server ?? [...this.found.values()][0] ?? this.config.config.lastServer ?? null;
   }
 
   // ---------- Ablauf ----------
@@ -318,6 +377,20 @@ class Player {
         }
       }
       progress();
+      // große Bilder auf Bildschirmgröße verkleinern (einmal je Bild und Bildschirm)
+      const target = this.screenSize();
+      try {
+        await this.cache.prepareScreens(
+          `${target.width}x${target.height}`,
+          (data, mime) => this.resizer.resize(data, mime, target.width, target.height),
+          (_file, n, total) => {
+            this.check(gen);
+            this.setView({ screen: 'syncing', server, phase: 'images', done: n, total, bytesDone, bytesTotal: plan.bytesTotal }, true);
+          },
+        );
+      } finally {
+        this.resizer.close();
+      }
       await this.cache.cleanup(catalog);
       const error = missing.size ? `${missing.size === 1 ? 'Nicht geladen' : `${missing.size} Dateien nicht geladen`}: ${[...missing].join(' ')}` : undefined;
       this.report = { ...this.report, phase: 'ready', mediaDone: done, bytesDone, syncedAt: new Date().toISOString(), error };
@@ -328,6 +401,14 @@ class Player {
     } finally {
       this.syncing = false;
     }
+  }
+
+  /** Bildschirm des Players in Pixeln (für die Bildschirmfassung der Bilder) */
+  private screenSize(): { width: number; height: number } {
+    const display = screen.getDisplayMatching(this.win.getBounds());
+    const width = Math.round(display.size.width * display.scaleFactor);
+    const height = Math.round(display.size.height * display.scaleFactor);
+    return width > 0 && height > 0 ? { width, height } : { width: 1920, height: 1080 };
   }
 
   /** „Neu synchronisieren“ aus dem Führen-Bildschirm (bzw. Strg+Umschalt+R) */
@@ -450,6 +531,24 @@ class Player {
   }
 }
 
+/** Laufzeit zur Steuersoftware: einige Anfragen hintereinander */
+async function measure(address: { host: string; port: number }, count = 10): Promise<LatencySample> {
+  const times: number[] = [];
+  for (let i = 0; i < count; i++) {
+    const started = performance.now();
+    const ok = await fetch(`${baseUrl(address)}/api/player/info`, { signal: AbortSignal.timeout(2000), cache: 'no-store' })
+      .then((r) => r.ok && r.arrayBuffer().then(() => true))
+      .catch(() => false);
+    if (ok) times.push(performance.now() - started);
+    await sleep(150);
+  }
+  return {
+    sent: count,
+    answered: times.length,
+    ...(times.length ? { avgMs: Math.round(times.reduce((a, b) => a + b, 0) / times.length), maxMs: Math.round(Math.max(...times)) } : {}),
+  };
+}
+
 /** Antwortet unter der Adresse eine Steckplan-Steuersoftware? */
 async function probe(address: { host: string; port: number }): Promise<FoundServer | null> {
   try {
@@ -509,6 +608,8 @@ if (!app.requestSingleInstanceLock()) {
       webPreferences: { preload: join(__dirname, 'preload.cjs'), contextIsolation: true, sandbox: false, backgroundThrottling: false },
     });
     win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+    // Fenster zu → Programm beenden (auch wenn gerade das unsichtbare Fenster zum Verkleinern offen ist)
+    win.on('closed', () => app.quit());
     const player = new Player(win, config, cache);
     // Anzeige abgestürzt bzw. Seite nicht geladen (Netz): nach kurzer Pause neu laden – nie eine Fehlerseite stehen lassen
     let reloadTimer: ReturnType<typeof setTimeout> | null = null;
@@ -541,17 +642,67 @@ if (!app.requestSingleInstanceLock()) {
     ipcMain.handle('player:manual', (_e, address: unknown) => (typeof address === 'string' ? player.manual(address) : undefined));
     ipcMain.handle('player:retry', () => player.start());
 
-    // Netzwerk (verbunden?, IP, WLAN) für Statusseite und „Bereit“ – alle 10 s, bei Änderung an die Seite
+    // Netzwerk (verbunden?, IP, WLAN, Signal, Band) für Statusseite und „Bereit“ – alle 10 s, bei Änderung an die Seite
     let network: NetworkInfo = { connected: false, addresses: [] };
+    // Netzprüfung: Netzwerk, Energiesparen des WLAN-Adapters, Akku, Laufzeit zur Steuersoftware
+    let power: { ac?: number; dc?: number } = {};
+    let latency: LatencySample | undefined;
+    let checks: NetCheck[] = [];
     ipcMain.handle('player:network', () => network);
+    ipcMain.handle('player:checks', () => checks);
+    const onBattery = () => {
+      try {
+        return powerMonitor.isOnBatteryPower();
+      } catch {
+        return false;
+      }
+    };
+    const updateChecks = () => {
+      const next = evaluateNet({ connected: network.connected, wired: network.wired === true, ...(network.wifi ? { wifi: network.wifi } : {}), signal: network.signal, bandGHz: network.bandGHz, powerSaveAc: power.ac, powerSaveDc: power.dc, battery: onBattery(), latency });
+      player.setChecks(next);
+      if (JSON.stringify(next) === JSON.stringify(checks)) return;
+      checks = next;
+      if (!win.isDestroyed()) win.webContents.send('player:checks', checks);
+    };
     const updateNetwork = async () => {
       const next = await networkInfo().catch(() => network);
-      if (JSON.stringify(next) === JSON.stringify(network)) return;
-      network = next;
-      if (!win.isDestroyed()) win.webContents.send('player:network', network);
+      if (JSON.stringify(next) !== JSON.stringify(network)) {
+        network = next;
+        if (!win.isDestroyed()) win.webContents.send('player:network', network);
+      }
+      updateChecks();
+    };
+    const updatePower = async () => {
+      power = await wifiPowerSave().catch(() => ({}));
+      updateChecks();
+    };
+    // Laufzeit: 10 Anfragen an die Steuersoftware; vor dem Textfenster alle 15 s, danach jede Minute (der Server misst
+    // während der Vorstellung selbst jede Sekunde)
+    let measuring = false;
+    const measureLatency = async () => {
+      const target = player.latencyTarget;
+      if (!target || measuring || !network.connected) return;
+      measuring = true;
+      try {
+        latency = await measure(target);
+        updateChecks();
+      } finally {
+        measuring = false;
+      }
     };
     await updateNetwork();
+    void updatePower();
     setInterval(() => void updateNetwork(), 10_000);
+    setInterval(() => void updatePower(), 60_000);
+    let lastMeasure = 0;
+    setInterval(() => {
+      const every = player.pageShown ? 60_000 : 15_000;
+      if (Date.now() - lastMeasure < every) return;
+      lastMeasure = Date.now();
+      void measureLatency();
+    }, 2000);
+    powerMonitor.on('on-battery', updateChecks);
+    powerMonitor.on('on-ac', updateChecks);
 
     // Hinweis auf eine neue Version: einmal beim Start bei GitHub nachsehen (nur das installierte Programm;
     // abschaltbar mit STECKPLAN_UPDATE_CHECK=aus, für Tests eine eigene Adresse). Ohne Netz passiert nichts.

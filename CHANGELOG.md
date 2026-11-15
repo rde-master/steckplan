@@ -9,6 +9,11 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Hinzugefügt
 
+- Player: Netzprüfung vor dem ersten Verbinden (Statusseite) und auf „Bereit“ – Netzwerkkabel oder WLAN, WLAN-Signal (ab 70 % gut, unter 50 % Problem), Frequenzband (2,4 GHz: Hinweis), Energiesparen des WLAN-Adapters (Windows), Akkubetrieb und Laufzeit zur Steuersoftware (10 Anfragen; Mittel, Höchstwert, ohne Antwort), je mit Tipp, was zu tun ist. Das Ergebnis steht auch im Führen-Bildschirm beim Player (⚠ in der Kopfzeile)
+- Führen: rechts neben dem Player die Uhrzeit (mit Sekunden) und das voraussichtliche Ende der Vorstellung (jetzt + Rest des laufenden Eintrags + Dauer der folgenden). Mit Anfangszeit im Ablauf auch das geplante Ende und die Abweichung („+5 min“ gelb, „−3 min“ grün); Einträge ohne Dauer werden genannt
+- Führen: Pause im Textfenster – Titel (z. B. „Kaffeepause“) groß, darunter „Es geht weiter in 14:59“, zählt auf allen Textfenstern selbst herunter, danach „Es geht gleich weiter“; „+5 min“ verlängert, auch ohne Zeit möglich. Titel und Minuten merkt sich das Gerät
+- Player: Große Bilder werden beim Synchronisieren auf Bildschirmgröße verkleinert (einmal je Bild und Bildschirm, mit richtiger Drehung von Handyfotos) – sie erscheinen schneller und belegen weniger Speicher
+- Textfenster: Schatten hinter dem Text (abschaltbar in den Regie-Einstellungen) – besser lesbar auf hellen Bildern
 - Führen: Stand jedes Players in der Kopfzeile – Punkt (grün gut, gelb schwankt, rot unterbrochen, grau aus), Name und Laufzeit in ms, jede Sekunde geprüft. Die Steuersoftware misst dafür jede Sekunde die Live-Verbindung des Textfensters (Ping); in den Einstellungen rechts dazu Mittel, Höchstwert und Pings ohne Antwort der letzten halben Minute. Ein Hinweis erscheint auch, wenn das Textfenster eines Players nicht mit dem geführten Projekt verbunden ist
 
 ### Geändert
@@ -16,6 +21,8 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 - Textfenster und Player bei schlechtem WLAN: Reißt die Verbindung kurz ab, bleibt das Textfenster stehen und läuft mit der Musik weiter, statt auf „Bereit“ zu springen und danach alles neu aufzubauen; nach dem Neuverbinden gilt wieder der Stand der Steuersoftware. Reißt die Verbindung der führenden Person ab, gilt ihre Stelle noch 15 s weiter; nach dem Neuverbinden führt sie von selbst weiter
 - Player: Bleiben die Lebenszeichen aus, bleibt das Textfenster sichtbar; der Player sucht im Hintergrund, ob die Steuersoftware unter einer anderen Adresse antwortet, und lädt nur dann neu (bisher nach 12 s Statusseite, neu synchronisieren und Oberfläche neu laden). Lebenszeichen jede Sekunde statt alle 3 s
 - Textfenster: Die Zeit läuft gleichmäßig – schwankt die Laufzeit der Stellen im WLAN, wird die Abweichung weich ausgeglichen, statt zu springen (die Zeile flackerte an Zeilenwechseln kurz zurück). Die Verzögerung der Verbindung (halbe gemessene Laufzeit) gleicht die Steuersoftware aus
+- Player vor Publikum: „Bereit“ mit Logo und Netzangaben nur noch vor dem ersten Führen; danach zeigt der Player ohne Führen das Hintergrundbild ohne Text bzw. schwarz (Einstellung „Player, wenn niemand führt“) – auch nach dem Neuladen. Strg+Umschalt+I am Player blendet die Angaben ein und aus
+- Textfenster: Weiche Übergänge – zwischen Einträgen, Pause und ohne Text wird erst aus-, dann eingeblendet; „Bereit“ blendet aus, ein neuer Hintergrund blendet ein
 - Textfenster: Hintergrundbilder werden vorab geladen und decodiert (aktuelles und nächste Abschnittsbilder, der Hintergrund, der Anfang des nächsten Eintrags); ein neues Abschnittsbild blendet erst über, wenn es bereitsteht – kein kurzes Schwarz und kein Aufploppen mehr
 
 ### Behoben
