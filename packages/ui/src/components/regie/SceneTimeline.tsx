@@ -110,9 +110,9 @@ export function SceneTimeline({
   onMove: (changes: { id: string; atSec: number }[]) => void;
   editable: boolean;
   tone: 'light' | 'sound';
-  /** Licht-Events: Marker über den Szenen (anklicken springt dorthin, ziehen verschiebt) */
-  events?: { id: string; atSec: number; note: string }[];
-  onEventMove?: (id: string, atSec: number) => void;
+  /** Licht-Events und OSC-Zeitpunkte (kind 'osc'): Marker über den Szenen (anklicken springt dorthin, ziehen verschiebt) */
+  events?: { id: string; atSec: number; note: string; kind?: 'osc' }[];
+  onEventMove?: (id: string, atSec: number, kind?: 'osc') => void;
 }) {
   const { duration } = usePlaybackState(music);
   const wave = useWaveformSettings();
@@ -270,10 +270,10 @@ export function SceneTimeline({
               return (
                 <span
                   key={ev.id}
-                  className={`absolute top-0.5 z-20 flex h-4 w-4 -translate-x-1/2 cursor-pointer items-center justify-center rounded-sm bg-amber-400 text-[10px] leading-none font-bold text-amber-950 ring-1 ring-amber-700/40 ${editable ? 'cursor-grab' : ''}`}
+                  className={`absolute top-0.5 z-20 flex h-4 w-4 -translate-x-1/2 cursor-pointer items-center justify-center rounded-sm text-[10px] leading-none font-bold ring-1 ${ev.kind === 'osc' ? 'bg-sky-400 text-sky-950 ring-sky-700/40' : 'bg-amber-400 text-amber-950 ring-amber-700/40'} ${editable ? 'cursor-grab' : ''}`}
                   style={{ left: `${pos(at)}%`, transform: 'translateX(-50%) rotate(45deg)' }}
                   title={`${formatSceneTime(at)} · ${ev.note || '–'}`}
-                  data-testid="scene-event-marker"
+                  data-testid={ev.kind === 'osc' ? 'scene-osc-marker' : 'scene-event-marker'}
                   data-at={at}
                   onPointerDown={(e) => {
                     e.stopPropagation();
@@ -289,13 +289,13 @@ export function SceneTimeline({
                   }}
                   onPointerUp={() => {
                     if (!eventDrag) return;
-                    if (eventDrag.moved && eventDrag.at !== eventDrag.orig) onEventMove?.(eventDrag.id, eventDrag.at);
+                    if (eventDrag.moved && eventDrag.at !== eventDrag.orig) onEventMove?.(eventDrag.id, eventDrag.at, ev.kind);
                     else if (!eventDrag.moved && music) seekAudio(music, ev.atSec);
                     setEventDrag(null);
                   }}
                   onPointerCancel={() => setEventDrag(null)}
                 >
-                  <span style={{ transform: 'rotate(-45deg)' }}>!</span>
+                  <span style={{ transform: 'rotate(-45deg)' }}>{ev.kind === 'osc' ? 'O' : '!'}</span>
                 </span>
               );
             })}
@@ -304,7 +304,7 @@ export function SceneTimeline({
         {/* Event-Linien durch die Szenen */}
         {events.map((ev) => {
           const at = eventDrag?.id === ev.id ? eventDrag.at : ev.atSec;
-          return at >= start && at <= end ? <div key={`l${ev.id}`} className="pointer-events-none absolute top-5 bottom-0 z-10 w-px border-l border-dashed border-amber-500" style={{ left: `${pos(at)}%` }} /> : null;
+          return at >= start && at <= end ? <div key={`l${ev.id}`} className={`pointer-events-none absolute top-5 bottom-0 z-10 w-px border-l border-dashed ${ev.kind === 'osc' ? 'border-sky-500' : 'border-amber-500'}`} style={{ left: `${pos(at)}%` }} /> : null;
         })}
         <div className="relative h-11">
           {timed.length === 0 && <p className="pointer-events-none absolute inset-0 flex items-center px-2 text-xs text-slate-500">{t.empty}</p>}

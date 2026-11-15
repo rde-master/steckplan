@@ -7,6 +7,16 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+### Hinzugefügt
+
+- OSC über Lieder hinweg (Reiter OSC):
+  - „Jeder Eintrag“: Befehle beim Start bzw. Ende jedes Eintrags, z. B. die Liednummer an einen Videoserver (`/song {nr} "{titel}"`)
+  - „Bereiche“: von Lied A bis Lied C, Start-Befehle beim Betreten, Ende-Befehle beim Verlassen bzw. am Ende des letzten Eintrags – auch wenn mitten im Bereich angefangen oder gesprungen wird
+  - neuer Auslöser „Beim Ende des Eintrags“: wenn die Dauer erreicht ist bzw. beim Wechsel (einmal)
+- OSC im Stück: Befehle zu einem Zeitpunkt, beim Beginn einer Textzeile oder eines Abschnitts (beim Abspielen); OSC-Zeitpunkte erscheinen als blaue Marke im Zeitstrahl der Lichtszenen und lassen sich dort verschieben
+- OSC-Verlauf: ein Befehl kann einen Wert über eine Zeit verlaufen lassen (z. B. Dimmer 0 → 100 in 5 s, 25 Werte je Sekunde; ganze Zahlen oder Kommazahlen, von selbst oder eingestellt), Platzhalter `{wert}`
+- OSC-Platzhalter in den Argumenten: `{nr}` (Nummer des Eintrags), `{titel}`, `{wert}`
+
 ### Geändert
 
 - Textfenster und Player: Jeder Bildwechsel nutzt die eingestellte „Überblendung“ des Hintergrunds – auch Abschnittsbilder (bisher fest 0,7 s), der Wechsel zu einem Eintrag mit eigenem Hintergrund, Pause und „ohne Führen“ (bisher harter Schnitt nach Schwarz, dann 0,8 s Einblenden; jetzt blendet der neue Hintergrund über den alten), Schwarz ohne Führen und das erste Erscheinen im Player. Maßgeblich ist die Überblendung des Hintergrunds, zu dem gewechselt wird

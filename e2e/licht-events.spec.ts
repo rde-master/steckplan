@@ -21,6 +21,8 @@ test('Lichtszenen: grüner Hinweis nach dem Einfügen; Licht-Events mit Notiz �
           { id: 's2', itemId: 'a', order: 1, name: 'Refrain', atSec: 20 },
         ],
         sceneStates: [{ id: 's1:PAR 1', sceneId: 's1', deviceId: 'PAR 1', intensity: 80 }],
+        // OSC-Zeitpunkt im Stück (Reiter OSC) – erscheint als eigene Marke
+        oscCommands: [{ id: 'o1', itemId: 'a', trigger: 'time', atSec: 30, order: 0, address: '/blinder' }],
       },
     })
   ).json();
@@ -72,6 +74,19 @@ test('Lichtszenen: grüner Hinweis nach dem Einfügen; Licht-Events mit Notiz �
   await row.getByLabel('Zeitpunkt').fill('0:08');
   await row.getByLabel('Zeitpunkt').press('Enter');
   await expect.poll(async () => (await events())[0]!.atSec).toBe(8);
+
+  // OSC-Zeitpunkt: eigene (blaue) Marke, ziehen verschiebt den Zeitpunkt des Befehls
+  const oscMarker = page.getByTestId('scene-timeline').getByTestId('scene-osc-marker');
+  await expect(oscMarker).toHaveAttribute('data-at', '30');
+  await expect(oscMarker).toHaveAttribute('title', /OSC \/blinder/);
+  const o = (await oscMarker.boundingBox())!;
+  await page.mouse.move(o.x + o.width / 2, o.y + o.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(o.x + o.width / 2 + pxPerSec, o.y + o.height / 2, { steps: 3 });
+  await page.mouse.move(o.x + o.width / 2 + 2 * pxPerSec, o.y + o.height / 2, { steps: 3 });
+  await page.mouse.up();
+  const oscAt = async () => ((await (await page.request.get(`/api/projects/${id}/download`)).json()) as { oscCommands: { atSec?: number }[] }).oscCommands[0]!.atSec;
+  await expect.poll(oscAt).toBeCloseTo(32, 0);
 
   // Vorstellung (Frei, Licht): Countdown bis zum Event
   const show = await openPerformance(page);

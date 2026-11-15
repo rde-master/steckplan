@@ -600,13 +600,28 @@ export const LightSceneSchema = z.object({
 export type LightScene = z.infer<typeof LightSceneSchema>;
 
 /** OSC-Befehl (seit 0.42): ausgelöst beim Start eines Ablaufeintrags, bei einer Lichtszene, bei einem Licht-Event oder von Hand */
-export const OSC_TRIGGERS = ['item', 'scene', 'event', 'manual'] as const;
+/**
+ * Auslöser eines OSC-Befehls: Start bzw. Ende des Eintrags, Zeitpunkt im Stück, Beginn einer Textzeile bzw. eines
+ * Abschnitts, Lichtszene, Licht-Event, Bereich über mehrere Einträge (Start/Ende) und von Hand (seit 0.50 die neuen)
+ */
+export const OSC_TRIGGERS = ['item', 'end', 'time', 'line', 'section', 'scene', 'event', 'range', 'manual'] as const;
+/** itemId für Befehle, die bei jedem Eintrag gelten (Start bzw. Ende) */
+export const OSC_ALL_ITEMS = '*';
+export const OSC_FADE_MAX_SEC = 600;
 export const OscCommandSchema = z.object({
   id,
+  /** Eintrag (bei trigger range: der erste des Bereichs); OSC_ALL_ITEMS = jeder Eintrag */
   itemId: id,
   trigger: z.enum(OSC_TRIGGERS),
-  /** Szene bzw. Event (bei trigger scene/event) */
+  /** Szene, Event, Textzeile bzw. Abschnitt (trigger scene/event/line/section); Kennung des Bereichs (range) */
   refId: id.optional(),
+  /** Zeitpunkt im Stück in Sekunden (trigger time) */
+  atSec: z.number().nonnegative().optional(),
+  /** Bereich: letzter Eintrag und ob der Befehl beim Betreten (start) oder Verlassen (end) gilt */
+  untilItemId: id.optional(),
+  phase: z.enum(['start', 'end']).optional(),
+  /** Wert verlaufen lassen: von → bis in sec Sekunden (Platzhalter {wert} in den Argumenten, sonst angehängt); float: Kommazahlen (fehlt: von selbst) */
+  fade: z.object({ from: z.number(), to: z.number(), sec: z.number().positive().max(OSC_FADE_MAX_SEC), float: z.boolean().optional() }).optional(),
   order: z.number().default(0),
   /** Beschriftung (v. a. für die Knöpfe der manuellen Befehle) */
   label: z.string().max(200).optional(),
