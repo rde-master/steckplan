@@ -1,7 +1,7 @@
 // Verwaltung aller geöffneten Projekte (Räume) und Annahme von WebSocket-Verbindungen.
 import type { FastifyRequest } from 'fastify';
 import type { WebSocket } from 'ws';
-import { CloseCode, type DeskCue, type PlayerLink, type RemoteCommand } from '@steckplan/core';
+import { CloseCode, type DeskCue, type Ma3Reply, type PlayerLink, type RemoteCommand } from '@steckplan/core';
 import type { Session, SessionStore } from '../auth/sessions';
 import { ProjectNotFoundError, type ProjectStore } from '../storage/types';
 import type { VersionStore } from '../storage/version-store';
@@ -148,6 +148,11 @@ export class RoomManager {
       }
     }
     return { connections, leadRoom, ...(shown ?? { lost: 0, samples: 0, silentMs: 0 }) };
+  }
+
+  /** grandMA3: Antwort des Pults an alle geöffneten Projekte (zugeordnet wird über die gefragte Sequenz) */
+  ma3Reply(reply: Ma3Reply): void {
+    for (const room of this.rooms.values()) room.ma3Reply(reply);
   }
 
   /** Lichtpult-Cues an alle geöffneten Projekte */

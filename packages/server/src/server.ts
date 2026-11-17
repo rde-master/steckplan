@@ -170,6 +170,7 @@ export async function createServer(options: ServerOptions): Promise<SteckplanSer
       warn: (msg) => app.log.warn(msg),
     },
     (text) => void deskCues.push(text),
+    (reply) => rooms.ma3Reply(reply),
   );
   await osc.apply(oscSettings.settings);
 

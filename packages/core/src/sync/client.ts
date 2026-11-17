@@ -5,6 +5,7 @@ import * as encoding from 'lib0/encoding';
 import * as decoding from 'lib0/decoding';
 import * as syncProtocol from 'y-protocols/sync';
 import { CloseCode, decodeInfo, encodeCue, MESSAGE_INFO, MESSAGE_SYNC, type Cue, type DeskCue, type LeadInfo, type OscLogEntry, type PresenceUser, type RemoteCommand, type ServerInfo } from './protocol';
+import type { Ma3CueState } from '../show/ma3';
 import type { Access } from '../model/access';
 
 export interface SocketLike {
@@ -52,6 +53,8 @@ export interface SyncClientState {
   deskCues: DeskCue[];
   /** zuletzt gesendete OSC-Befehle der Regie */
   oscLog: OscLogEntry[];
+  /** grandMA3: zuletzt abgefragter Cue */
+  ma3Cue: Ma3CueState | null;
 }
 
 export interface SyncClientOptions {
@@ -92,6 +95,7 @@ export class SyncClient {
     lead: null,
     deskCues: [],
     oscLog: [],
+    ma3Cue: null,
   };
 
   constructor(options: SyncClientOptions) {
@@ -241,6 +245,9 @@ export class SyncClient {
         break;
       case 'oscLog':
         this.setState({ oscLog: info.entries });
+        break;
+      case 'ma3Cue':
+        this.setState({ ma3Cue: info.state });
         break;
     }
   }

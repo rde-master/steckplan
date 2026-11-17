@@ -133,18 +133,15 @@ test('Player: sucht die Steuersoftware, Code im Führen-Bildschirm zulassen, lä
     expect(scaled.width / scaled.height).toBeCloseTo(4 / 3, 2);
     expect(scaled.bytes).toBeLessThan(foto.length);
     expect(Math.max(scaled.width / scaled.screen.width, scaled.height / scaled.screen.height)).toBeGreaterThanOrEqual(0.99);
-    // Stand jede Sekunde: Kopfzeile (Punkt, Name, Laufzeit) und Einstellungen (Laufzeit, Mittel, Höchstwert)
-    const badge = perf.getByTestId('player-badge-item').filter({ hasText: 'Beamer Saal' });
-    await expect(badge).toHaveAttribute('data-quality', 'good', { timeout: 10_000 });
-    await expect(badge.getByTestId('player-badge-ms')).toHaveText(/^\d+ ms$/);
+    // Stand jede Sekunde in den Einstellungen rechts (Laufzeit, Mittel, Höchstwert); die Kopfzeile zeigt keinen Player-Stand
+    await expect(perf.getByTestId('player-badge')).toHaveCount(0);
     const link = row.getByTestId('player-link');
-    await expect(link).toHaveAttribute('data-quality', 'good');
+    await expect(link).toHaveAttribute('data-quality', 'good', { timeout: 10_000 });
     await expect(link.getByTestId('player-latency')).toHaveText(/^\d+ ms$/);
     await expect(link).toContainText(/Ø \d+ ms · max \d+ ms/);
     const overview = (await players()).players.find((p) => p.name === 'Beamer Saal')!;
     expect(overview.link).toMatchObject({ leadRoom: true, lost: 0 });
     expect(overview.link!.connections).toBeGreaterThanOrEqual(1);
-    await perf.locator('header').screenshot({ path: 'test-results/player-status-kopf.png' });
     await panel.screenshot({ path: 'test-results/player-fuehren.png' });
 
     // niemand führt (mehr): das Publikum sieht nur das Bild, kein „Bereit“
