@@ -271,6 +271,19 @@ export function registerProjectRoutes(app: FastifyInstance, rooms: RoomManager, 
     return { sent };
   });
 
+  // grandMA3: laufenden Cue der Sequenz einer Lichtszene abfragen (ohne sceneId: die geführte Szene)
+  app.post<{ Params: { id: string }; Body: { sceneId?: unknown } | undefined }>('/api/projects/:id/ma3-query', async (request, reply) => {
+    if (!requireSession(request, reply, 'editShow')) return reply;
+    const room = await messageRoom(request.params.id, reply);
+    if (!room) return reply;
+    const sceneId = request.body?.sceneId;
+    if (sceneId !== undefined && typeof sceneId !== 'string') return reply.code(400).send({ error: 'Ungültige Angaben.' });
+    const state = room.queryMa3(sceneId);
+    if (typeof state === 'string') return reply.code(409).send({ error: state });
+    if (state.status === 'error') return reply.code(409).send({ error: `Nicht gesendet: ${state.error ?? ''}`, state });
+    return { state };
+  });
+
   app.post<{ Params: { id: string }; Body: { personId?: unknown; action?: unknown } }>('/api/projects/:id/handover', async (request, reply) => {
     const session = requireSession(request, reply, 'helperSignup');
     if (!session) return reply;

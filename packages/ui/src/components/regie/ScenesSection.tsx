@@ -29,6 +29,8 @@ import {
   updateLightEvent,
   updateOscCommand,
   formatOscCommand,
+  isMa3Sequence,
+  MA3_SEQUENCE_MAX,
 } from '@steckplan/core';
 import type { ProjectData } from '../../lib/useProjectData';
 import { texts } from '../../texts';
@@ -385,6 +387,24 @@ export function ScenesSection({
                     </select>
                   </label>
                 )}
+                <label className="flex items-center gap-1.5 text-xs" title={t.ma3SequenceTitle}>
+                  {t.ma3Sequence}
+                  <input
+                    type="number"
+                    min={1}
+                    max={MA3_SEQUENCE_MAX}
+                    aria-label={t.ma3Sequence}
+                    className="w-24 rounded-md border border-slate-300 bg-white px-2 py-1 text-sm tabular-nums dark:border-slate-600 dark:bg-slate-800"
+                    value={scene.ma3Sequence ?? ''}
+                    disabled={!editable}
+                    onChange={(e) => {
+                      const n = Number(e.target.value);
+                      if (e.target.value === '') updateScene(doc, scene.id, { ma3Sequence: undefined }, origin);
+                      else if (isMa3Sequence(n)) updateScene(doc, scene.id, { ma3Sequence: n }, origin);
+                    }}
+                    data-testid="scene-ma3-sequence"
+                  />
+                </label>
               </div>
               <input
                 aria-label={t.notes}

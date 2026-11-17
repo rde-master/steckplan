@@ -6,3 +6,4 @@ export * from './transfer';
 export * from './beat';
 export * from './events';
 export * from './osc-commands';
+export * from './ma3';

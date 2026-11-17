@@ -9,6 +9,7 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Hinzugefügt
 
+- grandMA3: jede Lichtszene kann eine Sequenznummer haben (Lichtszenen → „grandMA3-Sequenz“). Beim Führen fragt der Server bei jedem Wechsel der Lichtszene beim Pult ab, welcher Cue in dieser Sequenz läuft, und zeigt ihn rechts an (Cue-Nummer und Name, „Abfragen“ fragt erneut). Die Abfrage schickt eine Zeile Lua per OSC an /cmd, das Pult antwortet per SendOSC mit /steckplan/ma3 – auf dem Pult muss nichts installiert werden. Einrichten in den Regie-Einstellungen unter „grandMA3: laufenden Cue abfragen“
 - Führen: Hinweis auf einen neuen Textabschnitt in den durchlaufenden Zeilen – an der Zeile, mit der er beginnt, steht sein Name (z. B. „Refrain“); kommt der Abschnitt erst, ist der Hinweis gelb hervorgehoben
 
 ### Geändert

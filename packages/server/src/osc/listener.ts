@@ -1,7 +1,7 @@
 // OSC-Empfang (UDP): Einstellungen (an/aus, Port) in einer Datei, Empfänger, der Befehle an die Vorstellungen gibt.
 import dgram from 'node:dgram';
 import { readFile } from 'node:fs/promises';
-import type { RemoteCommand } from '@steckplan/core';
+import { MA3_REPLY_ADDRESS, parseMa3Reply, type Ma3Reply, type RemoteCommand } from '@steckplan/core';
 import { writeFileAtomic } from '../storage/fs-utils';
 import { oscToCommand, oscToDeskCue, parseOsc } from './osc';
 
@@ -59,6 +59,8 @@ export class OscListener {
     private readonly log: { info: (msg: string) => void; warn: (msg: string) => void },
     /** Lichtpult-Cue als Text (/steckplan/cue) */
     private readonly onDeskCue?: (text: string) => void,
+    /** grandMA3: Antwort auf die Cue-Abfrage (/steckplan/ma3) */
+    private readonly onMa3Reply?: (reply: Ma3Reply) => void,
   ) {}
 
   get status(): OscStatus {
@@ -105,6 +107,14 @@ export class OscListener {
       return; // kein gültiges OSC
     }
     for (const message of messages) {
+      if (message.address === MA3_REPLY_ADDRESS) {
+        const reply = parseMa3Reply(message.args);
+        if (reply) {
+          this.state = { ...this.state, last: { address: message.address, at: new Date().toISOString() } };
+          this.onMa3Reply?.(reply);
+        }
+        continue;
+      }
       const cue = oscToDeskCue(message);
       if (cue !== null) {
         this.state = { ...this.state, last: { address: message.address, at: new Date().toISOString() } };

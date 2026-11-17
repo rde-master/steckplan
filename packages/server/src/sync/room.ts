@@ -52,6 +52,10 @@ import {
   itemNumbers,
   itemTimedLines,
   type OscLogEntry,
+  isMa3Sequence,
+  ma3QueryConfig,
+  type Ma3CueState,
+  type Ma3Reply,
 } from '@steckplan/core';
 import type { Session } from '../auth/sessions';
 import type { LibraryChange, LibraryStore } from '../library/library-store';
@@ -62,6 +66,7 @@ import { VERSION_INTERVAL_MS, type VersionInfo, type VersionStore } from '../sto
 import { ArtNetTimecode, type ArtNetConfig, type TimecodeSender } from './artnet';
 import { BpmSender, oscBpmConfig, type OscOut } from '../osc/bpm-out';
 import { OscCommandRunner, type OscCommandData } from '../osc/commands-out';
+import { Ma3Query } from '../osc/ma3';
 import { LinkMonitor } from './link';
 
 export interface Connection {
@@ -197,12 +202,45 @@ export class Room {
     this.timecode = new ArtNetTimecode(deps.artnet);
     this.bpmSender = new BpmSender(deps.oscOut);
     this.oscRunner = new OscCommandRunner(deps.oscOut, (entries) => this.broadcast(encodeInfo({ type: 'oscLog', entries })));
+    this.ma3 = new Ma3Query(deps.oscOut, (state) => this.broadcast(encodeInfo({ type: 'ma3Cue', state })));
     this.doc.getMap('showSettings').observe(this.handleShowSettings);
   }
 
   private readonly timecode: ArtNetTimecode;
   private readonly bpmSender: BpmSender;
   private readonly oscRunner: OscCommandRunner;
+  private readonly ma3: Ma3Query;
+
+  /** grandMA3: Sequenz einer Lichtszene (undefined = keine bzw. Szene gibt es nicht) */
+  private ma3Sequence(sceneId: string | undefined): number | undefined {
+    const scene = sceneId ? this.doc.getMap<Y.Map<unknown>>('lightScenes').get(sceneId) : undefined;
+    const sequence = scene instanceof Y.Map ? scene.get('ma3Sequence') : undefined;
+    return isMa3Sequence(sequence) ? sequence : undefined;
+  }
+
+  private updateMa3(): void {
+    const sceneId = this.lead?.sceneId;
+    this.ma3.update(sceneId, this.ma3Sequence(sceneId), ma3QueryConfig(this.doc.getMap('showSettings').get('ma3Query')), this.lead !== null);
+  }
+
+  /**
+   * grandMA3 jetzt fragen: Sequenz der angegebenen bzw. der geführten Lichtszene. Fehler als Text (Szene ohne Sequenz,
+   * Abfrage aus); sonst der neue Stand (bis zur Antwort „waiting“)
+   */
+  queryMa3(sceneId: string | undefined): Ma3CueState | string {
+    const config = ma3QueryConfig(this.doc.getMap('showSettings').get('ma3Query'));
+    if (!config.enabled) return 'Die Abfrage ist aus – in den Regie-Einstellungen unter „grandMA3“ einschalten.';
+    const id = sceneId ?? this.lead?.sceneId;
+    if (!id) return 'Keine Lichtszene gewählt.';
+    const sequence = this.ma3Sequence(id);
+    if (sequence === undefined) return 'Diese Lichtszene hat keine grandMA3-Sequenz.';
+    return this.ma3.ask(sequence, id, config);
+  }
+
+  /** Antwort des Pults (an alle Räume; passt nur, wo nach dieser Sequenz gefragt wurde) */
+  ma3Reply(reply: Ma3Reply): void {
+    this.ma3.reply(reply);
+  }
 
   /** Daten für die OSC-Befehle der Regie (aus dem Dokument) */
   private oscData(): OscCommandData {
@@ -518,6 +556,7 @@ export class Room {
     const cues = this.deps.deskCues?.() ?? [];
     if (cues.length) this.send(connection, encodeInfo({ type: 'deskCues', cues }));
     if (this.oscRunner.entries.length) this.send(connection, encodeInfo({ type: 'oscLog', entries: this.oscRunner.entries }));
+    if (this.ma3.current) this.send(connection, encodeInfo({ type: 'ma3Cue', state: this.ma3.current }));
   }
 
   /** Lichtpult-Cues an alle Verbindungen */
@@ -598,6 +637,7 @@ export class Room {
     this.timecode.update(lead, this.leadAt, this.artnetConfig());
     this.sendBpm();
     this.oscRunner.update(lead, this.leadAt, this.oscData());
+    this.updateMa3();
   }
 
   /** Für Nachzügler: läuft die Wiedergabe, die Abspielposition bis jetzt weiterrechnen */
@@ -819,6 +859,7 @@ export class Room {
     this.activity.stop();
     this.timecode.stop();
     this.oscRunner.stop();
+    this.ma3.close();
     this.doc.getMap('showSettings').unobserve(this.handleShowSettings);
     await this.flush();
     this.closed = true;

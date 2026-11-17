@@ -1,7 +1,7 @@
 // Regie-Einstellungen: Restzeit im Player (rot/blinkend ab …), Textfenster (Zeilen, Hintergrundbild aus dem Medienspeicher).
 import { useState } from 'react';
 import type * as Y from 'yjs';
-import { bpmCommand, isArtNetHost, OSC_BPM_DEFAULTS, LYRICS_MAX_AFTER, LYRICS_MAX_BEFORE, lyricsRange, REMAIN_MAX_BLINK, REMAIN_MAX_WARN, remainRange, updateShowSettings, type MediaRef, type ShowSettings } from '@steckplan/core';
+import { bpmCommand, isArtNetHost, MA3_QUERY_DEFAULTS, ma3QueryCommand, OSC_BPM_DEFAULTS, LYRICS_MAX_AFTER, LYRICS_MAX_BEFORE, lyricsRange, REMAIN_MAX_BLINK, REMAIN_MAX_WARN, remainRange, updateShowSettings, type MediaRef, type ShowSettings } from '@steckplan/core';
 import { api, errorMessage } from '../../lib/api';
 import { texts } from '../../texts';
 import { Button, Modal } from '../ui';
@@ -35,6 +35,7 @@ export function LyricsSettings({ projectId, doc, origin, settings, media, onClos
         <p className="text-xs text-slate-500">{t.remainHint}</p>
         <ArtNetSettings doc={doc} origin={origin} settings={settings} inputClass={selectClass} />
         <OscBpmSettings projectId={projectId} doc={doc} origin={origin} settings={settings} inputClass={selectClass} />
+        <Ma3QuerySettings doc={doc} origin={origin} settings={settings} inputClass={selectClass} />
         <p className="text-sm">
           <a
             href="/osc"
@@ -267,6 +268,39 @@ function OscBpmSettings({ projectId, doc, origin, settings, inputClass }: { proj
           </span>
         )}
       </div>
+    </div>
+  );
+}
+
+/** grandMA3: laufenden Cue der Sequenz einer Lichtszene abfragen – ein/aus, Pult (Ziel, Port, Adresse), OSC-Zeile */
+function Ma3QuerySettings({ doc, origin, settings, inputClass }: { doc: Y.Doc; origin: object; settings: ShowSettings; inputClass: string }) {
+  const ma3 = { ...MA3_QUERY_DEFAULTS, ...settings.ma3Query };
+  const set = (patch: Partial<typeof ma3>) => updateShowSettings(doc, { ma3Query: { ...ma3, ...patch } }, origin);
+  return (
+    <div className="space-y-2 border-t border-slate-200 pt-3 dark:border-slate-700" data-testid="ma3-settings">
+      <h3 className="text-sm font-semibold">{t.ma3}</h3>
+      <label className="flex items-center gap-2 text-sm">
+        <input type="checkbox" checked={ma3.enabled} onChange={(e) => set({ enabled: e.target.checked })} data-testid="ma3-enabled" />
+        {t.ma3Enabled}
+      </label>
+      <div className="flex flex-wrap items-center gap-2 text-sm">
+        <span>{t.oscBpmHost}</span>
+        <DraftInput value={ma3.host} valid={isArtNetHost} onCommit={(host) => set({ host })} className={`${inputClass} w-40 font-mono`} label={`grandMA3 ${t.oscBpmHost}`} testId="ma3-host" />
+        <span>{t.oscBpmPort}</span>
+        <DraftInput value={String(ma3.port)} valid={(v) => /^\d{1,5}$/.test(v.trim()) && Number(v) >= 1 && Number(v) <= 65535} onCommit={(v) => set({ port: Number(v) })} className={`${inputClass} w-24 font-mono`} label={`grandMA3 ${t.oscBpmPort}`} testId="ma3-port" />
+      </div>
+      <div className="flex flex-wrap items-center gap-2 text-sm">
+        <span>{t.oscBpmAddress}</span>
+        <DraftInput value={ma3.address} valid={(v) => /^\/\S+$/.test(v.trim())} onCommit={(address) => set({ address })} className={`${inputClass} w-28 font-mono`} label={`grandMA3 ${t.oscBpmAddress}`} testId="ma3-address" />
+        <span>{t.ma3Line}</span>
+        <DraftInput value={String(ma3.oscLine)} valid={(v) => /^\d{1,3}$/.test(v.trim()) && Number(v) >= 1} onCommit={(v) => set({ oscLine: Number(v) })} className={`${inputClass} w-16 font-mono`} label={t.ma3Line} testId="ma3-line" />
+      </div>
+      <p className="text-xs text-slate-500">{t.ma3Hint}</p>
+      <p className="text-xs text-slate-500">{t.ma3Setup(ma3.oscLine)}</p>
+      <p className="text-xs text-slate-500">{t.ma3Example(ma3.address)}</p>
+      <code className="block rounded bg-slate-100 p-2 text-[11px] break-all text-slate-700 dark:bg-slate-800 dark:text-slate-300" data-testid="ma3-example">
+        {ma3QueryCommand(1, ma3.oscLine)}
+      </code>
     </div>
   );
 }

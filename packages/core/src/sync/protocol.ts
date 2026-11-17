@@ -3,6 +3,7 @@
 import * as encoding from 'lib0/encoding';
 import * as decoding from 'lib0/decoding';
 import type { Access } from '../model/access';
+import type { Ma3CueState } from '../show/ma3';
 
 export const MESSAGE_SYNC = 0;
 export const MESSAGE_AWARENESS = 1;
@@ -139,7 +140,9 @@ export type ServerInfo =
   /** Lichtpult: zuletzt gelaufene Cues (neueste zuerst) */
   | { type: 'deskCues'; cues: DeskCue[] }
   /** zuletzt gesendete OSC-Befehle der Regie (neueste zuerst) */
-  | { type: 'oscLog'; entries: OscLogEntry[] };
+  | { type: 'oscLog'; entries: OscLogEntry[] }
+  /** grandMA3: zuletzt abgefragter Cue (Sequenz der geführten Lichtszene) */
+  | { type: 'ma3Cue'; state: Ma3CueState | null };
 
 /** gesendeter (oder fehlgeschlagener) OSC-Befehl */
 export interface OscLogEntry {
