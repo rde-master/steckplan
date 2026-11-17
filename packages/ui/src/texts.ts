@@ -606,6 +606,7 @@ export const texts = {
       remote: (action: string, value?: number) =>
         `Fernsteuerung: ${({ play: 'Start', pause: 'Pause', toggle: 'Start/Pause', stop: 'Stopp', forward: 'vor', back: 'zurück', seek: 'springen', item: 'Punkt', next: 'nächster Punkt', prev: 'voriger Punkt', sceneNext: 'nächste Szene', scenePrev: 'vorige Szene', lineNext: 'Textzeile weiter', linePrev: 'Textzeile zurück', tcForward: 'Timecode vor', tcBack: 'Timecode zurück', tap: 'Tap' } as Record<string, string>)[action] ?? action}${value !== undefined ? ` ${String(value).replace('.', ',')}` : ''}`,
       nextUp: 'Als Nächstes:',
+      newSection: (label: string) => `Neuer Abschnitt: ${label}`,
       tap: 'Tap',
       timeline: 'Zeitstrahl',
       deskTitle: 'Lichtpult – letzter Cue',

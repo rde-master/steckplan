@@ -7,6 +7,10 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+### Hinzugefügt
+
+- Führen: Hinweis auf einen neuen Textabschnitt in den durchlaufenden Zeilen – an der Zeile, mit der er beginnt, steht sein Name (z. B. „Refrain“); kommt der Abschnitt erst, ist der Hinweis gelb hervorgehoben
+
 ### Geändert
 
 - Führen: der Player-Stand steht nicht mehr doppelt in der Kopfzeile, sondern nur noch in den Einstellungen rechts
