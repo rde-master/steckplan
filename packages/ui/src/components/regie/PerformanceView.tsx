@@ -56,7 +56,6 @@ import { itemAudioSrc } from './Waveform';
 import { DeskCuePanel } from './DeskCuePanel';
 import { PauseControl, type PauseState } from './PauseControl';
 import { PlayersPanel } from './PlayersPanel';
-import { PlayerStatusBadge } from './PlayerStatusBadge';
 import { ShowClock } from './ShowClock';
 import { OscLeadPanel, readOscAuto, writeOscAuto } from './OscLeadPanel';
 import { LightEventCountdown } from './LightEvents';
@@ -698,14 +697,6 @@ export function PerformanceView({
             {t.pauseActive}
           </span>
         )}
-        {canLead && (
-          <PlayerStatusBadge
-            leadingHere={!!lead}
-            onOpen={() => {
-              if (leadLayout) setToolsHidden(false);
-            }}
-          />
-        )}
         {midiSupported() && (
           <Button variant="ghost" className="px-2 text-sm" title={texts.regie.midi.title} onClick={() => setMidiOpen(true)} data-testid="apc40-open">
             <span className={`h-2 w-2 rounded-full ${midi.status === 'connected' ? 'bg-emerald-500' : 'bg-slate-500'}`} aria-hidden />
@@ -836,13 +827,27 @@ export function PerformanceView({
               (currentIndex < 0 ? [0] : [currentIndex - 1, currentIndex, currentIndex + 1])
                 .filter((i) => i >= 0 && i < lines.length)
                 .map((i) => {
-                  const { line } = lines[i]!;
+                  const { line, sectionId, sectionLabel } = lines[i]!;
                   const isCurrent = i === currentIndex;
+                  // Hinweis auf einen neuen Textabschnitt: an der Zeile, mit der er beginnt; kommt er erst, hervorgehoben
+                  const section = (i === 0 || lines[i - 1]!.sectionId !== sectionId) && sectionLabel ? sectionLabel : null;
+                  const upcoming = i > currentIndex;
                   return (
                     <div key={line.id} data-current={isCurrent || undefined} data-testid="lead-line">
                       <div className="mb-0.5 ml-[4.5rem] h-1 overflow-hidden rounded-full">{progressBar(i)}</div>
                       <div className="flex items-baseline gap-2">
                         <LineTime source={clock} atSec={line.atSec} countdown={counts(i)} small />
+                        {section && (
+                          <span
+                            className={`max-w-[10rem] shrink-0 truncate rounded px-1.5 py-0.5 text-xs font-semibold tracking-wide uppercase ${upcoming ? 'bg-amber-500/20 text-amber-200 ring-1 ring-amber-500/60' : 'bg-slate-800 text-slate-400'}`}
+                            title={t.newSection(section)}
+                            data-testid="lead-section-mark"
+                            data-upcoming={upcoming || undefined}
+                          >
+                            {upcoming && <span aria-hidden>▸ </span>}
+                            {section}
+                          </span>
+                        )}
                         <p className={`min-w-0 flex-1 truncate rounded px-2 py-0.5 ${isCurrent ? 'bg-sky-900 text-lg font-semibold text-white' : 'text-base text-slate-400'} ${line.direction ? 'italic' : ''}`}>
                           {line.direction ? `(${line.text})` : isBreakLine(line) ? <BreakMark /> : line.text}
                         </p>

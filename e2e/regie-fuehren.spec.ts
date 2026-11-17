@@ -14,7 +14,10 @@ test('Führen-Ansicht: ohne Licht/Ton, Text klein (vorige/aktuelle/nächste), Ze
         layers: [{ id: 'l1', name: 'Bühne', order: 0 }],
         show: {
           items: [{ id: 'a', order: 0, kind: 'song', title: 'Marsch', number: 1, durationSec: 20, bpm: 120, timeSignature: '4/4' }],
-          sections: [{ id: 's', itemId: 'a', order: 0, kind: 'verse', label: 'Strophe', lines: [line('z1', 'Eins', 0.2), line('z2', 'Zwei', 1), line('z3', 'Drei', 1.8), line('z4', 'Vier', 2.6), line('z5', 'Fünf', 6)] }],
+          sections: [
+            { id: 's', itemId: 'a', order: 0, kind: 'verse', label: 'Strophe', lines: [line('z1', 'Eins', 0.2), line('z2', 'Zwei', 1)] },
+            { id: 's2', itemId: 'a', order: 1, kind: 'chorus', label: 'Refrain', lines: [line('z3', 'Drei', 1.8), line('z4', 'Vier', 2.6), line('z5', 'Fünf', 6)] },
+          ],
         },
         lightScenes: [
           { id: 'ls', itemId: 'a', order: 0, name: 'Hell', atSec: 0 },
@@ -63,6 +66,8 @@ test('Führen-Ansicht: ohne Licht/Ton, Text klein (vorige/aktuelle/nächste), Ze
   await expect(lead.getByTestId('lead-text')).toContainText('Eins');
   await expect(lead.getByTestId('lead-text')).toContainText('Drei');
   await expect(lead.getByTestId('lead-text')).not.toContainText('Fünf');
+  // neuer Textabschnitt: Hinweis an der Zeile, mit der er beginnt (Strophe an „Eins“, Refrain an „Drei“)
+  await expect(lead.getByTestId('lead-section-mark').filter({ hasText: 'Refrain' })).toBeVisible();
   await expect(lead.getByTestId('line-progress-current')).toBeVisible();
   await expect(lead.getByTestId('line-progress-next')).toBeVisible();
   expect(await position()).toBeGreaterThan(position0 + 0.02);

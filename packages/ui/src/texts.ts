@@ -606,6 +606,7 @@ export const texts = {
       remote: (action: string, value?: number) =>
         `Fernsteuerung: ${({ play: 'Start', pause: 'Pause', toggle: 'Start/Pause', stop: 'Stopp', forward: 'vor', back: 'zurück', seek: 'springen', item: 'Punkt', next: 'nächster Punkt', prev: 'voriger Punkt', sceneNext: 'nächste Szene', scenePrev: 'vorige Szene', lineNext: 'Textzeile weiter', linePrev: 'Textzeile zurück', tcForward: 'Timecode vor', tcBack: 'Timecode zurück', tap: 'Tap' } as Record<string, string>)[action] ?? action}${value !== undefined ? ` ${String(value).replace('.', ',')}` : ''}`,
       nextUp: 'Als Nächstes:',
+      newSection: (label: string) => `Neuer Abschnitt: ${label}`,
       tap: 'Tap',
       timeline: 'Zeitstrahl',
       deskTitle: 'Lichtpult – letzter Cue',
@@ -2077,9 +2078,6 @@ export const texts = {
       [avg !== undefined ? `Ø ${avg} ms` : '', max !== undefined ? `max ${max} ms` : '', lost ? `${lost} ohne Antwort` : ''].filter(Boolean).join(' · '),
     linkWindow: 'letzte 30 s',
     silent: (sec: number) => `seit ${sec} s keine Antwort`,
-    notInLeadProject: 'Textfenster nicht mit diesem Projekt verbunden',
-    stale: 'Stand nicht abrufbar – ist diese Seite noch mit der Steuersoftware verbunden?',
-    badgeTitle: 'Player: Verbindung des Textfensters (jede Sekunde geprüft) – Klick öffnet die Einzelheiten',
     checksOk: 'Netz in Ordnung',
     checksIssues: (n: number) => `${n} ${n === 1 ? 'Hinweis' : 'Hinweise'} zum Netz`,
   },
