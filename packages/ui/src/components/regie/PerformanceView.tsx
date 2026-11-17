@@ -56,7 +56,6 @@ import { itemAudioSrc } from './Waveform';
 import { DeskCuePanel } from './DeskCuePanel';
 import { PauseControl, type PauseState } from './PauseControl';
 import { PlayersPanel } from './PlayersPanel';
-import { PlayerStatusBadge } from './PlayerStatusBadge';
 import { ShowClock } from './ShowClock';
 import { OscLeadPanel, readOscAuto, writeOscAuto } from './OscLeadPanel';
 import { LightEventCountdown } from './LightEvents';
@@ -697,14 +696,6 @@ export function PerformanceView({
           <span className="rounded bg-amber-500/20 px-2 py-0.5 text-xs font-semibold text-amber-200" role="status" data-testid="performance-pause">
             {t.pauseActive}
           </span>
-        )}
-        {canLead && (
-          <PlayerStatusBadge
-            leadingHere={!!lead}
-            onOpen={() => {
-              if (leadLayout) setToolsHidden(false);
-            }}
-          />
         )}
         {midiSupported() && (
           <Button variant="ghost" className="px-2 text-sm" title={texts.regie.midi.title} onClick={() => setMidiOpen(true)} data-testid="apc40-open">

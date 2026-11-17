@@ -7,6 +7,10 @@ und dieses Projekt verwendet [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+### Geändert
+
+- Führen: der Player-Stand steht nicht mehr doppelt in der Kopfzeile, sondern nur noch in den Einstellungen rechts
+
 ## [0.50.0] - 2026-11-15
 
 ### Hinzugefügt
