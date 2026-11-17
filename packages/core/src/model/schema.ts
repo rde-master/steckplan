@@ -596,6 +596,8 @@ export const LightSceneSchema = z.object({
   notes: z.string().optional(),
   atSec: z.number().nonnegative().optional(),
   lineId: id.optional(),
+  /** grandMA3: Sequenz dieser Szene (seit 0.51) – im Führen wird abgefragt, welcher Cue darin läuft */
+  ma3Sequence: z.number().int().min(1).max(99999).optional(),
 });
 export type LightScene = z.infer<typeof LightSceneSchema>;
 
@@ -811,6 +813,17 @@ export const ShowSettingsSchema = z.object({
       address: z.string().default('/cmd'),
       /** Text mit Platzhalter {bpm} */
       command: z.string().default('Master 3.1 At BPM {bpm}'),
+    })
+    .optional(),
+  /** grandMA3: laufenden Cue der Sequenz einer Lichtszene abfragen (seit 0.51; Lua über /cmd, Antwort per SendOSC) */
+  ma3Query: z
+    .object({
+      enabled: z.boolean().default(false),
+      host: z.string().default(''),
+      port: z.number().int().min(1).max(65535).default(8000),
+      address: z.string().default('/cmd'),
+      /** OSC-Zeile im Pult, über die es antwortet */
+      oscLine: z.number().int().min(1).max(999).default(1),
     })
     .optional(),
 });

@@ -1,5 +1,5 @@
 // Zugriff auf die REST-Schnittstelle des Servers.
-import type { Access, ChangeLogEntry, DeskCue, OscLogEntry, PlayerCatalog, PlayersOverview, HealthInfo, Conflict, Library, MasterEntry, MasterKind, Project, Resolution, Template } from '@steckplan/core';
+import type { Access, ChangeLogEntry, DeskCue, Ma3CueState, OscLogEntry, PlayerCatalog, PlayersOverview, HealthInfo, Conflict, Library, MasterEntry, MasterKind, Project, Resolution, Template } from '@steckplan/core';
 
 /** Im Steckplan Player gesetzt (Preload): Schema für Medien aus dem Zwischenspeicher */
 export function playerMediaScheme(): string | undefined {
@@ -139,6 +139,7 @@ export const api = {
   getDeskCues: () => request<{ cues: DeskCue[] }>('GET', '/api/desk-cues'),
   sendOscCommand: (projectId: string, commandId: string) => request<{ entry: OscLogEntry }>('POST', `/api/projects/${encodeURIComponent(projectId)}/osc-commands/${encodeURIComponent(commandId)}`),
   sendOscBpm: (projectId: string) => request<{ sent: string }>('POST', `/api/projects/${encodeURIComponent(projectId)}/osc-bpm`),
+  queryMa3: (projectId: string, sceneId?: string) => request<{ state: Ma3CueState }>('POST', `/api/projects/${encodeURIComponent(projectId)}/ma3-query`, sceneId ? { sceneId } : {}),
   sendDeskCue: (text: string) => request<{ cues: DeskCue[] }>('POST', '/api/desk-cues', { text }),
   remote: (action: string, value?: number) => request<{ rooms: number }>('POST', '/api/remote', value !== undefined ? { action, value } : { action }),
   setOsc: (patch: Partial<OscSettings>) => request<{ settings: OscSettings; status: OscStatus }>('PUT', '/api/settings/osc', patch),

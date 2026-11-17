@@ -54,6 +54,7 @@ import { setClickSettings, useClickSettings } from '../../lib/click';
 import { LeadTimeline } from './LeadTimeline';
 import { itemAudioSrc } from './Waveform';
 import { DeskCuePanel } from './DeskCuePanel';
+import { Ma3CuePanel } from './Ma3CuePanel';
 import { PauseControl, type PauseState } from './PauseControl';
 import { PlayersPanel } from './PlayersPanel';
 import { ShowClock } from './ShowClock';
@@ -950,6 +951,7 @@ export function PerformanceView({
               <PauseControl pause={pause} onChange={setPause} />
             </LyricsControl>
             {canLead && <PlayersPanel />}
+            {data.showSettings.ma3Query?.enabled && <Ma3CuePanel projectId={projectId} scene={scene} state={sync.ma3Cue} canQuery={canLead} />}
             <DeskCuePanel cues={sync.deskCues} />
             <OscLeadPanel projectId={projectId} auto={oscAuto} onAuto={setOscAuto} manual={triggerCommands(data.oscCommands, item.id, 'manual')} log={sync.oscLog} />
           </aside>
